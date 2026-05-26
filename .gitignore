@@ -24,3 +24,15 @@ logs
 !.env.example
 
 /app/generated/prisma
+
+
+# Dossiers et fichiers temporaire
+/tmp
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+/backups
+*.backup
+*.old
