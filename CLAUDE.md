@@ -23,6 +23,13 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 
 ---
 
+## Conventions IA et Code
+- Toute la logique serveur vit dans server/utils et server/api.
+- Les utilitaires dans server/utils sont des fonctions pures exportees.
+- Le format de sortie de Claude est toujours du JSON brut, sans markdown.
+
+---
+
 ## Etat Actuel du Projet
 **Phase** : Cadrage produit + initialisation technique
 **Derniere session** : 2026-05-26
