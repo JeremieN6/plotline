@@ -12,48 +12,62 @@ enum Plan {
   AGENCY
 }
 
+enum ContentPlatform {
+  INSTAGRAM
+  TIKTOK
+  BOTH
+}
+
+enum ContentFormat {
+  FEED
+  STORY
+  REEL
+}
+
+enum ContentStatus {
+  PENDING
+  VALIDATED
+  PUBLISHED
+  REJECTED
+}
+
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  plan      Plan      @default(SOLO)
-  createdAt DateTime  @default(now())
-  personas  Persona[]
+  id           String        @id @default(cuid())
+  email        String        @unique
+  plan         Plan          @default(SOLO)
+  createdAt    DateTime      @default(now())
+  influencers  Influencer[]
 }
 
-model Persona {
-  id              String   @id @default(cuid())
-  userId          String
-  name            String
-  niche           String
-  narrativeStyle  String
-  tones           String[]
-  pillars         Json
-  narrativeMemory Json
-  createdAt       DateTime @default(now())
+model Influencer {
+  id                   String             @id @default(cuid())
+  userId               String
+  name                 String
+  niche                String
+  style                String
+  faceRefPath          String?
+  bodyRefPath          String?
+  instagramAccountId   String?
+  instagramAccessToken  String?
+  tiktokEnabled        Boolean            @default(false)
+  calendarStep         Int                @default(1)
+  createdAt            DateTime           @default(now())
 
-  user    User    @relation(fields: [userId], references: [id])
-  batches Batch[]
+  user                 User               @relation(fields: [userId], references: [id])
+  generatedContents    GeneratedContent[]
 }
 
-model Batch {
-  id             String   @id @default(cuid())
-  personaId      String
-  arcType        String
-  arcDescription String
-  createdAt      DateTime @default(now())
+model GeneratedContent {
+  id            String         @id @default(cuid())
+  influencerId  String
+  imageUrl      String
+  caption       String
+  platform      ContentPlatform @default(INSTAGRAM)
+  format        ContentFormat
+  status        ContentStatus   @default(PENDING)
+  scheduledAt   DateTime?
+  publishedAt   DateTime?
+  createdAt     DateTime       @default(now())
 
-  persona Persona @relation(fields: [personaId], references: [id])
-  posts   Post[]
-}
-
-model Post {
-  id           String @id @default(cuid())
-  batchId      String
-  arcPosition  Int
-  pillar       String
-  arcTypeLocal String
-  format       String
-  body         String
-
-  batch Batch @relation(fields: [batchId], references: [id])
+  influencer    Influencer     @relation(fields: [influencerId], references: [id])
 }
