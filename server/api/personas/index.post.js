@@ -20,6 +20,18 @@ module.exports = defineEventHandler(async (event) => {
       totalPostsGenerated: 0
     };
 
+    // In dev, the UI uses a fixed userId. Ensure the FK target exists.
+    const emailLocalPart = String(body.userId).replace(/[^a-zA-Z0-9._-]/g, '-');
+    await prisma.user.upsert({
+      where: { id: body.userId },
+      update: {},
+      create: {
+        id: body.userId,
+        email: `${emailLocalPart}@local.plotline.test`,
+        plan: 'SOLO'
+      }
+    });
+
     const persona = await prisma.persona.create({
       data: {
         userId: body.userId,

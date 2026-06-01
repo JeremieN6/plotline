@@ -85,6 +85,7 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 const step = ref(1)
 const totalSteps = 4
+const userId = 'test-user-123'
 
 const form = reactive({
   niche: '',
@@ -152,6 +153,7 @@ async function submit() {
   loading.value = true
   error.value = ''
   const payload = {
+    userId,
     niche: form.niche,
     name: form.name,
     tones: form.tones,
@@ -264,13 +266,13 @@ async function submit() {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--muted);
+  color: #666666;
   font-weight: 600;
 }
 
 .step-bubble.active .circle {
   background: var(--accent);
-  color: #fff;
+  color: #FFFFFF;
   border-color: var(--accent);
   box-shadow: 0 6px 14px rgba(232,135,58,0.18);
 }
@@ -326,7 +328,7 @@ async function submit() {
 
 .chip.selected {
   background: var(--accent);
-  color: white;
+  color: #FFFFFF;
   border-color: var(--accent);
 }
 
@@ -381,12 +383,22 @@ async function submit() {
 
 .btn.primary {
   background: var(--accent);
-  color: #fff;
+  color: #FFFFFF;
   border-color: var(--accent);
 }
 
-.btn:disabled {
-  opacity: 0.6;
+.btn.secondary:disabled {
+  background: #F5F5F5;
+  color: #666666;
+  border-color: #E0E0E0;
+  cursor: not-allowed;
+}
+
+.btn.primary:disabled {
+  background: #E8873A;
+  color: #FFFFFF;
+  border-color: #E8873A;
+  opacity: 0.65;
   cursor: not-allowed;
 }
 

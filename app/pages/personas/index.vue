@@ -84,7 +84,7 @@ function goGenerate(id) {
   router.push(`/personas/${id}/generate`)
 }
 function goPosts(id) {
-  router.push(`/personas/${id}/posts`)
+  router.push(`/personas/${id}/generate`)
 }
 </script>
 
