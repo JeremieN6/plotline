@@ -2,8 +2,8 @@
   <div class="page">
     <div class="container">
       <div class="header-row">
-        <h1 class="title">Mes personas</h1>
-        <button class="btn primary" @click="goNew">Nouveau persona</button>
+        <h1 class="title">Mes influenceuses</h1>
+        <button class="btn primary" @click="goNew">Nouvelle influenceuse</button>
       </div>
 
       <div v-if="loading" class="grid">
@@ -15,26 +15,25 @@
         </div>
       </div>
 
-      <div v-else-if="!personas.length" class="empty">
-        <p class="empty-text">Tu n'as pas encore de persona</p>
-        <button class="btn primary" @click="goNew">Créer mon premier persona</button>
+      <div v-else-if="!influencers.length" class="empty">
+        <p class="empty-text">Tu n'as pas encore d'influenceuse</p>
+        <button class="btn primary" @click="goNew">Créer ma première influenceuse</button>
       </div>
 
       <div v-else class="grid">
-        <div v-for="p in personas" :key="p.id" class="card persona-card">
+        <div v-for="influencer in influencers" :key="influencer.id" class="card influencer-card">
           <div class="card-body">
             <div class="card-top">
-              <h3 class="persona-title">{{ p.name }}</h3>
-              <span v-if="p.niche" class="badge">{{ p.niche }}</span>
+              <h3 class="influencer-title">{{ influencer.name }}</h3>
+              <span v-if="influencer.niche" class="badge">{{ influencer.niche }}</span>
             </div>
 
-            <p class="muted narrative">{{ p.narrativeStyle || p.style || '—' }}</p>
-            <p class="muted">Posts générés : <strong>{{ countPosts(p) }}</strong></p>
+            <p class="muted narrative">{{ influencer.style || '—' }}</p>
+            <p class="muted">Face ref : <strong>{{ influencer.faceRefPath ? 'Oui' : 'Non' }}</strong></p>
           </div>
 
           <div class="card-actions">
-            <button class="btn primary small" @click="goGenerate(p.id)">Générer un batch</button>
-            <button class="btn secondary small outline" @click="goPosts(p.id)">Voir les posts</button>
+            <button class="btn primary small" @click="goGenerate(influencer.id)">Générer une image</button>
           </div>
         </div>
       </div>
@@ -47,44 +46,35 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
-// TODO: remplacer par l'utilisateur connecté
-const userId = 'test-user-123'
+const userId = 'user-test'
 
-const personas = ref([])
+const influencers = ref([])
 const loading = ref(true)
 const error = ref(null)
 
-function countPosts(p) {
-  return (p && p.narrativeMemory && typeof p.narrativeMemory.totalPostsGenerated === 'number')
-    ? p.narrativeMemory.totalPostsGenerated
-    : 0
-}
-
 onMounted(async () => {
   try {
-    const { data, error: fetchError } = await useFetch(`/api/personas?userId=${userId}`)
+    const { data, error: fetchError } = await useFetch(`/api/influencers?userId=${userId}`)
     if (fetchError?.value) {
       error.value = fetchError.value
-      personas.value = []
+      influencers.value = []
     } else {
-      personas.value = data?.value ?? []
+      influencers.value = data?.value ?? []
     }
   } catch (e) {
     error.value = e
-    personas.value = []
+    influencers.value = []
   } finally {
     loading.value = false
   }
 })
 
 function goNew() {
-  router.push('/personas/new')
+  router.push('/influencers/new')
 }
+
 function goGenerate(id) {
-  router.push(`/personas/${id}/generate`)
-}
-function goPosts(id) {
-  router.push(`/personas/${id}/generate`)
+  router.push(`/influencers/${id}/generate`)
 }
 </script>
 
@@ -153,7 +143,7 @@ function goPosts(id) {
   min-height: 160px;
 }
 
-.persona-card .card-body {
+.influencer-card .card-body {
   padding-bottom: 12px;
 }
 
@@ -164,7 +154,7 @@ function goPosts(id) {
   gap: 12px;
 }
 
-.persona-title {
+.influencer-title {
   margin: 0;
   font-size: 18px;
   font-weight: 700;
@@ -206,11 +196,16 @@ function goPosts(id) {
   font-size: 14px;
 }
 
-.btn.small { padding: 8px 12px; font-size: 13px }
+.btn.small {
+  padding: 8px 12px;
+  font-size: 13px;
+}
 
-.btn.secondary { background: #fff; color: var(--text) }
-.btn.primary { background: var(--accent); color: #fff; border-color: var(--accent) }
-.btn.outline { background: transparent; border: 1px solid var(--border) }
+.btn.primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
 
 .empty {
   display:flex;
@@ -221,22 +216,60 @@ function goPosts(id) {
   text-align: center;
 }
 
-.empty-text { font-size: 16px; color: var(--muted); margin: 0 0 8px }
+.empty-text {
+  font-size: 16px;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
 
-/* Skeleton */
-.skeleton-card { position: relative; overflow: hidden; min-height: 160px }
-.skeleton-title { height: 18px; width: 50%; background: #eee; border-radius: 6px; margin-bottom: 10px }
-.skeleton-line { height: 12px; width: 90%; background: #eee; border-radius: 6px; margin-bottom: 8px }
-.skeleton-line.short { width: 60% }
-.skeleton-actions { height: 36px; width: 70%; background: #eee; border-radius: 8px; margin-top: 12px }
+.skeleton-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 160px;
+}
+
+.skeleton-title {
+  height: 18px;
+  width: 50%;
+  background: #eee;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+.skeleton-line {
+  height: 12px;
+  width: 90%;
+  background: #eee;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.skeleton-line.short {
+  width: 60%;
+}
+
+.skeleton-actions {
+  height: 36px;
+  width: 70%;
+  background: #eee;
+  border-radius: 8px;
+  margin-top: 12px;
+}
+
 .skeleton-card::after {
   content: '';
   position: absolute;
-  top: 0; left: -150px; height: 100%; width: 150px;
+  top: 0;
+  left: -150px;
+  height: 100%;
+  width: 150px;
   background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
   animation: shimmer 1.2s infinite;
 }
 
-@keyframes shimmer { 100% { transform: translateX(300px) } }
-
+@keyframes shimmer {
+  100% {
+    transform: translateX(300px);
+  }
+}
 </style>

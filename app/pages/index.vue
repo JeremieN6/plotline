@@ -8,7 +8,7 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 onMounted(() => {
-  router.replace('/personas')
+  router.replace('/influencers')
 })
 </script>
 
