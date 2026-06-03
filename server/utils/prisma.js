@@ -1,11 +1,11 @@
 // server/utils/prisma.js
 // Singleton PrismaClient pour éviter les connexions multiples en dev (Nuxt hot reload)
 // Adapté pour Prisma v7 : il faut fournir un `adapter` ou `accelerateUrl`.
-const { PrismaClient } = require('@prisma/client');
+import { PrismaClient } from '@prisma/client';
 // Use Prisma's official Postgres adapter implementation
-const { PrismaPg } = require('@prisma/adapter-pg');
-const fs = require('fs');
-const path = require('path');
+import { PrismaPg } from '@prisma/adapter-pg';
+import fs from 'node:fs';
+import path from 'node:path';
 
 function loadEnvFile(filePath) {
   if (!fs.existsSync(filePath)) return;
@@ -41,10 +41,11 @@ let prisma;
 if (process.env.NODE_ENV === 'production') {
   prisma = new PrismaClient({ adapter });
 } else {
-  if (!global._prisma) {
-    global._prisma = new PrismaClient({ adapter });
+  if (!globalThis._prisma) {
+    globalThis._prisma = new PrismaClient({ adapter });
   }
-  prisma = global._prisma;
+  prisma = globalThis._prisma;
 }
 
-module.exports = { prisma };
+export { prisma };
+export default { prisma };

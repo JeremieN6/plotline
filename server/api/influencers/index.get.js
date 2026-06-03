@@ -1,7 +1,21 @@
-const { prisma } = require('../../utils/prisma');
+let prismaClient;
+
+async function getPrisma() {
+  if (prismaClient) return prismaClient;
+
+  const module = await import('../../utils/prisma.js');
+  prismaClient = module?.prisma || module?.default?.prisma;
+
+  if (!prismaClient) {
+    throw new Error('Unable to resolve prisma client from server/utils/prisma.js');
+  }
+
+  return prismaClient;
+}
 
 module.exports = defineEventHandler(async (event) => {
   try {
+    const prisma = await getPrisma();
     const userId = getQuery(event).userId;
     if (!userId) {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'Paramètre userId requis' }));

@@ -1,7 +1,22 @@
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { readMultipartFormData } = require('h3');
-const { prisma } = require('../../utils/prisma');
+
+let prismaClient;
+
+async function getPrisma() {
+  if (prismaClient) return prismaClient;
+
+  const module = await import('../../utils/prisma.js');
+  prismaClient = module?.prisma || module?.default?.prisma;
+
+  if (!prismaClient) {
+    throw new Error('Unable to resolve prisma client from server/utils/prisma.js');
+  }
+
+  return prismaClient;
+}
 
 function resolveExtension(filename = '', type = '') {
   const lowerName = filename.toLowerCase();
@@ -9,8 +24,13 @@ function resolveExtension(filename = '', type = '') {
   return 'jpg';
 }
 
+function sanitizeId(rawId = '') {
+  return String(rawId).replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
 module.exports = defineEventHandler(async (event) => {
   try {
+    const prisma = await getPrisma();
     const formData = await readMultipartFormData(event);
     const filePart = formData?.find((part) => part.name === 'file');
     const influencerIdPart = formData?.find((part) => part.name === 'influencerId');
@@ -37,23 +57,24 @@ module.exports = defineEventHandler(async (event) => {
       }
     }
 
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'face-refs');
+    const uploadDir = path.join(os.tmpdir(), 'plotline', 'uploads', 'face-refs');
     fs.mkdirSync(uploadDir, { recursive: true });
 
     const extension = resolveExtension(filePart.filename, filePart.type);
-    const filePath = path.join(uploadDir, `${influencerId}-face.${extension}`);
+    const safeInfluencerId = sanitizeId(influencerId);
+    const filePath = path.join(uploadDir, `${safeInfluencerId}-face.${extension}`);
     fs.writeFileSync(filePath, Buffer.from(filePart.data));
 
-    const publicPath = `/uploads/face-refs/${influencerId}-face.${extension}`;
+    const storedPath = filePath;
 
     if (!isTemporary) {
       await prisma.influencer.update({
         where: { id: influencerId },
-        data: { faceRefPath: publicPath }
+        data: { faceRefPath: storedPath }
       });
     }
 
-    return { path: publicPath };
+    return { path: storedPath };
   } catch (err) {
     return sendError(event, createError({ statusCode: 500, statusMessage: 'Erreur serveur', data: err }));
   }
