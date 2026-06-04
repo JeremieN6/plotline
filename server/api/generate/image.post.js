@@ -1,15 +1,4 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { GoogleGenAI } from '@google/genai';
-import { Anthropic } from '@anthropic-ai/sdk';
-
-import { buildGenerationPrompt } from '../../utils/buildGenerationPrompt.js';
-import { injectBody } from '../../utils/injectBody.js';
-import {
-  HASHTAG_BLOCKS,
-  PROMPT_CAPTION_CONTEXTUALIZED,
-  PROMPT_JSON_TO_IMAGE,
-} from '../../utils/promptTemplates.js';
+import { queue } from '../../utils/queue.js';
 
 let prismaClient;
 
@@ -26,44 +15,19 @@ async function getPrisma() {
   return prismaClient;
 }
 
-function mimeFromExt(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext === '.png') return 'image/png';
-  if (ext === '.webp') return 'image/webp';
-  if (ext === '.gif') return 'image/gif';
-  return 'image/jpeg';
-}
+function derivePlatformAndFormat(calendarStep) {
+  const step = Number(calendarStep) || 1;
+  const index = ((step - 1) % 3 + 3) % 3;
 
-function extFromMime(mimeType) {
-  if (mimeType === 'image/png') return 'png';
-  if (mimeType === 'image/webp') return 'webp';
-  if (mimeType === 'image/gif') return 'gif';
-  return 'jpg';
-}
-
-function resolvePublicPath(filePathOrPublicUrl) {
-  if (!filePathOrPublicUrl) return null;
-  // Absolute path (Windows C:\... or Unix /tmp/...)
-  if (path.isAbsolute(filePathOrPublicUrl)) {
-    return filePathOrPublicUrl;
+  if (index === 1) {
+    return { platform: 'INSTAGRAM', format: 'STORY' };
   }
-  // Web-relative path served from public/
-  if (filePathOrPublicUrl.startsWith('/')) {
-    return path.join(process.cwd(), 'public', filePathOrPublicUrl.replace(/^\/+/, ''));
-  }
-  return path.resolve(process.cwd(), filePathOrPublicUrl);
-}
 
-function formatSceneDescription(concept) {
-  return [
-    concept.location && `Location: ${concept.location}`,
-    concept.outfit && `Outfit: ${concept.outfit}`,
-    concept.pose && `Pose: ${concept.pose}`,
-    concept.mood && `Mood: ${concept.mood}`,
-    concept.lighting && `Lighting: ${concept.lighting}`,
-  ]
-    .filter(Boolean)
-    .join(' | ');
+  if (index === 2) {
+    return { platform: 'TIKTOK', format: 'REEL' };
+  }
+
+  return { platform: 'INSTAGRAM', format: 'FEED' };
 }
 
 export default defineEventHandler(async (event) => {
@@ -88,6 +52,7 @@ export default defineEventHandler(async (event) => {
         id: true,
         name: true,
         faceRefPath: true,
+        calendarStep: true,
       },
     });
 
@@ -95,119 +60,38 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 404, statusMessage: 'Influencer not found' }));
     }
 
-    if (!influencer.faceRefPath) {
-      return sendError(
-        event,
-        createError({
-          statusCode: 400,
-          statusMessage: 'Influencer face reference is missing. Upload a face ref first.',
-        }),
-      );
-    }
-
-    const faceRefAbsolutePath = resolvePublicPath(influencer.faceRefPath);
-    const faceRefBuffer = await fs.readFile(faceRefAbsolutePath);
-    const faceRefMime = mimeFromExt(faceRefAbsolutePath);
-    const faceRefBase64 = faceRefBuffer.toString('base64');
-
-    const concept = { location, outfit, pose, mood, lighting };
-    const sceneJsonText = buildGenerationPrompt(concept, 'feed', '4:5');
-    const sceneJson = injectBody(JSON.parse(sceneJsonText));
-
-    const prompt = PROMPT_JSON_TO_IMAGE.replace('{scene_json}', JSON.stringify(sceneJson, null, 2));
-
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (!geminiKey || geminiKey.trim() === '...' || geminiKey.trim() === '') {
-      return sendError(
-        event,
-        createError({ statusCode: 503, statusMessage: 'GEMINI_API_KEY non configurée dans .env' }),
-      );
-    }
-
-    const genai = new GoogleGenAI({ apiKey: geminiKey });
-    const imageResponse = await genai.models.generateContent({
-      model: 'gemini-2.0-flash-preview-image-generation',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            { text: prompt },
-            {
-              inlineData: {
-                mimeType: faceRefMime,
-                data: faceRefBase64,
-              },
-            },
-          ],
-        },
-      ],
-      config: {
-        responseModalities: ['IMAGE', 'TEXT'],
-      },
-    });
-
-    const parts = imageResponse?.candidates?.[0]?.content?.parts ?? [];
-    const imagePart = parts.find((part) => part?.inlineData?.data);
-    if (!imagePart) {
-      return sendError(
-        event,
-        createError({ statusCode: 502, statusMessage: 'Gemini did not return an image payload' }),
-      );
-    }
-
-    const generatedDir = path.join(process.cwd(), 'public', 'uploads', 'generated');
-    await fs.mkdir(generatedDir, { recursive: true });
-
-    const imageMime = imagePart.inlineData.mimeType || 'image/jpeg';
-    const extension = extFromMime(imageMime);
-    const filename = `generated_${Date.now()}.${extension}`;
-    const generatedPath = path.join(generatedDir, filename);
-
-    await fs.writeFile(generatedPath, Buffer.from(imagePart.inlineData.data, 'base64'));
-
-    const imageUrl = `/uploads/generated/${filename}`;
-
-    const anthropicApiKey = process.env.ANTHROPIC_API_KEY || process.env.anthropicApiKey;
-    let caption = '';
-    const resolvedTagCategory = String(tagCategory || 'lifestyle').trim().toLowerCase();
-    const hashtagBlock = HASHTAG_BLOCKS[resolvedTagCategory] || HASHTAG_BLOCKS.lifestyle || '';
-
-    if (anthropicApiKey) {
-      const anthropic = new Anthropic({ apiKey: anthropicApiKey });
-      const captionPrompt = PROMPT_CAPTION_CONTEXTUALIZED.replace('{influencer_name}', influencer.name)
-        .replace('{content_type}', 'feed')
-        .replace('{scene_description}', formatSceneDescription(concept));
-
-      const captionResponse = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 300,
-        messages: [{ role: 'user', content: captionPrompt }],
-      });
-
-      const textPart = captionResponse.content?.find((part) => part.type === 'text');
-      caption = (textPart?.text || '').trim();
-    }
-
-    if (hashtagBlock) {
-      caption = caption ? `${caption}\n\n${hashtagBlock}` : hashtagBlock;
-    }
+    const { platform, format } = derivePlatformAndFormat(influencer.calendarStep);
 
     const generatedContent = await prisma.generatedContent.create({
       data: {
         influencerId: influencer.id,
-        imageUrl,
-        caption,
-        platform: 'INSTAGRAM',
-        format: 'FEED',
+        platform,
+        format,
+        status: 'PROCESSING',
       },
     });
 
+    const job = await queue.add(
+      'generate-image',
+      {
+        influencerId,
+        location,
+        outfit,
+        pose,
+        mood,
+        lighting,
+        tagCategory,
+        contentId: generatedContent.id,
+      },
+      {
+        removeOnComplete: 100,
+        removeOnFail: 100,
+      },
+    );
+
     return {
-      id: generatedContent.id,
-      influencerId: influencer.id,
-      imageUrl,
-      caption,
-      scene: sceneJson,
+      jobId: String(job.id),
+      contentId: generatedContent.id,
     };
   } catch (err) {
     return sendError(

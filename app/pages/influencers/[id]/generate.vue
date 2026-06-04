@@ -101,7 +101,7 @@
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v8z" />
             </svg>
-            <p>Génération en cours... (~30s)</p>
+            <p>Génération en cours...</p>
           </div>
 
           <div v-else class="flex flex-col gap-4">
@@ -148,7 +148,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
@@ -162,6 +162,7 @@ const deleting = ref(false)
 const errorMsg = ref('')
 const copyMsg = ref('')
 const generated = ref(null)
+let pollingTimer = null
 
 const contentTypes = [
   { value: 'feed', label: 'Feed', icon: '🖼️', description: 'Photo générée avec Gemini', disabled: false, soon: false },
@@ -284,6 +285,60 @@ function selectOption(groupKey, option) {
   selections[groupKey] = option
 }
 
+function stopPolling() {
+  if (pollingTimer) {
+    clearInterval(pollingTimer)
+    pollingTimer = null
+  }
+}
+
+async function hydrateGeneratedContent(contentId) {
+  const content = await $fetch(`/api/content/${contentId}`)
+  generated.value = {
+    id: content.id,
+    imageUrl: content.imageUrl,
+    caption: content.caption,
+    status: content.status,
+    errorMessage: content.errorMessage,
+  }
+}
+
+async function checkJobStatus(jobId, contentId) {
+  const state = await $fetch(`/api/jobs/${jobId}`)
+
+  if (state.status === 'completed') {
+    stopPolling()
+    await hydrateGeneratedContent(contentId)
+    generating.value = false
+    return
+  }
+
+  if (state.status === 'failed') {
+    stopPolling()
+    generating.value = false
+    const failedContent = await $fetch(`/api/content/${contentId}`)
+    errorMsg.value = failedContent?.errorMessage || state.errorMessage || 'Generation echouee'
+  }
+}
+
+function startPolling(jobId, contentId) {
+  stopPolling()
+
+  checkJobStatus(jobId, contentId).catch((err) => {
+    stopPolling()
+    generating.value = false
+    errorMsg.value = err?.data?.statusMessage || err?.message || String(err)
+  })
+
+  pollingTimer = setInterval(() => {
+    checkJobStatus(jobId, contentId).catch((err) => {
+      stopPolling()
+      generating.value = false
+      errorMsg.value = err?.data?.statusMessage || err?.message || String(err)
+    })
+  }, 3000)
+}
+
 async function generateImage() {
   if (!canGenerate.value) {
     return
@@ -308,15 +363,9 @@ async function generateImage() {
       },
     })
 
-    generated.value = {
-      id: response.id,
-      imageUrl: response.imageUrl,
-      caption: response.caption,
-    }
+    startPolling(response.jobId, response.contentId)
   } catch (err) {
     errorMsg.value = err?.data?.statusMessage || err?.message || String(err)
-  } finally {
-    generating.value = false
   }
 }
 
@@ -383,4 +432,8 @@ async function deleteContent() {
     deleting.value = false
   }
 }
+
+onBeforeUnmount(() => {
+  stopPolling()
+})
 </script>

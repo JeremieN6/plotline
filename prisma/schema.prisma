@@ -25,10 +25,12 @@ enum ContentFormat {
 }
 
 enum ContentStatus {
+  PROCESSING
   PENDING
   VALIDATED
   PUBLISHED
   REJECTED
+  FAILED
 }
 
 model User {
@@ -60,8 +62,9 @@ model Influencer {
 model GeneratedContent {
   id            String         @id @default(cuid())
   influencerId  String
-  imageUrl      String
-  caption       String
+  imageUrl      String?
+  caption       String?
+  errorMessage  String?
   platform      ContentPlatform @default(INSTAGRAM)
   format        ContentFormat
   status        ContentStatus   @default(PENDING)

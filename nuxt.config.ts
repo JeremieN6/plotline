@@ -35,6 +35,7 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     geminiApiKey: process.env.GEMINI_API_KEY,
-    anthropicApiKey: process.env.ANTHROPIC_API_KEY
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+    redisUrl: process.env.REDIS_URL
   }
 })
