@@ -1,5 +1,28 @@
 let prismaClient;
 
+function isTransientDbError(err) {
+  const code = err?.code;
+  return code === 'ETIMEDOUT' || code === 'P1001' || code === 'P1002';
+}
+
+function createOfflineInfluencer({ userId, name, niche, style }) {
+  return {
+    id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    userId,
+    name,
+    niche,
+    style,
+    faceRefPath: null,
+    bodyRefPath: null,
+    instagramAccountId: null,
+    instagramAccessToken: null,
+    tiktokEnabled: false,
+    calendarStep: 1,
+    createdAt: new Date().toISOString(),
+    offline: true,
+  };
+}
+
 async function getPrisma() {
   if (prismaClient) return prismaClient;
 
@@ -27,24 +50,48 @@ module.exports = defineEventHandler(async (event) => {
 
     const userId = String(body.userId).trim();
     const userEmail = `${userId}@plotline.local`;
+    const store = useStorage('data');
+    const storeKey = `influencers:${userId}`;
 
-    await prisma.user.upsert({
-      where: { id: userId },
-      update: {},
-      create: {
-        id: userId,
-        email: userEmail
+    let influencer;
+
+    try {
+      await prisma.user.upsert({
+        where: { id: userId },
+        update: {},
+        create: {
+          id: userId,
+          email: userEmail
+        }
+      });
+
+      influencer = await prisma.influencer.create({
+        data: {
+          userId,
+          name: body.name,
+          niche: body.niche,
+          style: body.style
+        }
+      });
+    } catch (err) {
+      if (!isTransientDbError(err)) {
+        throw err;
       }
-    });
 
-    const influencer = await prisma.influencer.create({
-      data: {
+      influencer = createOfflineInfluencer({
         userId,
         name: body.name,
         niche: body.niche,
-        style: body.style
-      }
-    });
+        style: body.style,
+      });
+    }
+
+    const cached = await store.getItem(storeKey);
+    const nextCached = Array.isArray(cached)
+      ? [influencer, ...cached.filter((item) => item?.id !== influencer.id)]
+      : [influencer];
+    await store.setItem(storeKey, nextCached);
+    await store.setItem(`influencer:${influencer.id}`, influencer);
 
     return influencer;
   } catch (err) {

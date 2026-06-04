@@ -42,6 +42,11 @@ function extFromMime(mimeType) {
 
 function resolvePublicPath(filePathOrPublicUrl) {
   if (!filePathOrPublicUrl) return null;
+  // Absolute path (Windows C:\... or Unix /tmp/...)
+  if (path.isAbsolute(filePathOrPublicUrl)) {
+    return filePathOrPublicUrl;
+  }
+  // Web-relative path served from public/
   if (filePathOrPublicUrl.startsWith('/')) {
     return path.join(process.cwd(), 'public', filePathOrPublicUrl.replace(/^\/+/, ''));
   }
@@ -110,11 +115,15 @@ export default defineEventHandler(async (event) => {
 
     const prompt = PROMPT_JSON_TO_IMAGE.replace('{scene_json}', JSON.stringify(sceneJson, null, 2));
 
-    if (!process.env.GEMINI_API_KEY) {
-      return sendError(event, createError({ statusCode: 500, statusMessage: 'Missing GEMINI_API_KEY' }));
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!geminiKey || geminiKey.trim() === '...' || geminiKey.trim() === '') {
+      return sendError(
+        event,
+        createError({ statusCode: 503, statusMessage: 'GEMINI_API_KEY non configurée dans .env' }),
+      );
     }
 
-    const genai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const genai = new GoogleGenAI({ apiKey: geminiKey });
     const imageResponse = await genai.models.generateContent({
       model: 'gemini-2.0-flash-preview-image-generation',
       contents: [
@@ -199,7 +208,12 @@ export default defineEventHandler(async (event) => {
       createError({
         statusCode: 500,
         statusMessage: 'Image generation failed',
-        data: err,
+        data: {
+          name: err?.name,
+          code: err?.code,
+          message: err?.message,
+          status: err?.status,
+        },
       }),
     );
   }

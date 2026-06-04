@@ -1,9 +1,8 @@
 // server/utils/prisma.js
-// Singleton PrismaClient pour éviter les connexions multiples en dev (Nuxt hot reload)
-// Adapté pour Prisma v7 : il faut fournir un `adapter` ou `accelerateUrl`.
+// Utilise @prisma/adapter-neon qui passe par WebSockets (port 443).
+// Compatible avec les réseaux d'entreprise qui bloquent le port 5432.
 import { PrismaClient } from '@prisma/client';
-// Use Prisma's official Postgres adapter implementation
-import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaNeon } from '@prisma/adapter-neon';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -31,18 +30,21 @@ loadEnvFile(path.resolve(cwd, '.env.local'));
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
-  throw new Error('Missing DATABASE_URL environment variable. Set it in your env or .env file.');
+  throw new Error('Missing DATABASE_URL environment variable. Set it in .env.local');
 }
 
-const adapter = new PrismaPg({ connectionString: databaseUrl });
+function createPrisma() {
+  const adapter = new PrismaNeon({ connectionString: databaseUrl });
+  return new PrismaClient({ adapter });
+}
 
 let prisma;
 
 if (process.env.NODE_ENV === 'production') {
-  prisma = new PrismaClient({ adapter });
+  prisma = createPrisma();
 } else {
   if (!globalThis._prisma) {
-    globalThis._prisma = new PrismaClient({ adapter });
+    globalThis._prisma = createPrisma();
   }
   prisma = globalThis._prisma;
 }

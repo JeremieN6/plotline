@@ -1,5 +1,10 @@
 let prismaClient;
 
+function isTransientDbError(err) {
+  const code = err?.code;
+  return code === 'ETIMEDOUT' || code === 'P1001' || code === 'P1002';
+}
+
 async function getPrisma() {
   if (prismaClient) return prismaClient;
 
@@ -16,31 +21,47 @@ async function getPrisma() {
 module.exports = defineEventHandler(async (event) => {
   try {
     const prisma = await getPrisma();
+    const store = useStorage('data');
     const id = event.context?.params?.id;
     if (!id) {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'Paramètre id requis' }));
     }
 
-    const influencer = await prisma.influencer.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        userId: true,
-        name: true,
-        niche: true,
-        style: true,
-        faceRefPath: true,
-        bodyRefPath: true,
-        instagramAccountId: true,
-        tiktokEnabled: true,
-        calendarStep: true,
-        createdAt: true
+    let influencer;
+
+    try {
+      influencer = await prisma.influencer.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          userId: true,
+          name: true,
+          niche: true,
+          style: true,
+          faceRefPath: true,
+          bodyRefPath: true,
+          instagramAccountId: true,
+          tiktokEnabled: true,
+          calendarStep: true,
+          createdAt: true
+        }
+      });
+    } catch (err) {
+      if (!isTransientDbError(err)) {
+        throw err;
       }
-    });
+      influencer = await store.getItem(`influencer:${id}`);
+    }
 
     if (!influencer) {
+      const storedInfluencer = await store.getItem(`influencer:${id}`);
+      if (storedInfluencer) {
+        return storedInfluencer;
+      }
       return sendError(event, createError({ statusCode: 404, statusMessage: 'Influencer non trouvé' }));
     }
+
+    await store.setItem(`influencer:${id}`, influencer);
 
     return influencer;
   } catch (err) {

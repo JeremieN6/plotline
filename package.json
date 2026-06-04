@@ -12,6 +12,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.98.0",
     "@google/genai": "^2.7.0",
+    "@prisma/adapter-neon": "^7.8.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "bullmq": "^5.77.3",
@@ -19,5 +20,9 @@
     "nuxt": "^4.4.6",
     "prisma": "^7.8.0",
     "vue": "^3.5.34"
+  },
+  "devDependencies": {
+    "@nuxtjs/tailwindcss": "^6.14.0",
+    "tailwindcss": "^3.4.19"
   }
 }

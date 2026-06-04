@@ -1,5 +1,30 @@
 let prismaClient;
 
+function isTransientDbError(err) {
+  const code = err?.code;
+  return code === 'ETIMEDOUT' || code === 'P1001' || code === 'P1002';
+}
+
+async function updateStoredInfluencerFaceRef(id, faceRefPath) {
+  const store = useStorage('data');
+  const existing = await store.getItem(`influencer:${id}`);
+  if (!existing) return null;
+
+  const updated = { ...existing, faceRefPath };
+  await store.setItem(`influencer:${id}`, updated);
+
+  if (updated.userId) {
+    const listKey = `influencers:${updated.userId}`;
+    const cached = await store.getItem(listKey);
+    if (Array.isArray(cached)) {
+      const nextCached = cached.map((item) => (item?.id === id ? updated : item));
+      await store.setItem(listKey, nextCached);
+    }
+  }
+
+  return updated;
+}
+
 async function getPrisma() {
   if (prismaClient) return prismaClient;
 
@@ -14,11 +39,14 @@ async function getPrisma() {
 }
 
 module.exports = defineEventHandler(async (event) => {
+  let id;
+  let faceRefPath;
+
   try {
     const prisma = await getPrisma();
-    const id = event.context?.params?.id;
+    id = event.context?.params?.id;
     const body = await readBody(event);
-    const faceRefPath = body?.faceRefPath;
+    faceRefPath = body?.faceRefPath;
 
     if (!id) {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'Paramètre id requis' }));
@@ -28,13 +56,31 @@ module.exports = defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'faceRefPath requis' }));
     }
 
+    if (String(id).startsWith('local-')) {
+      const updatedStored = await updateStoredInfluencerFaceRef(id, faceRefPath);
+      if (!updatedStored) {
+        return sendError(event, createError({ statusCode: 404, statusMessage: 'Influencer non trouvé' }));
+      }
+      return updatedStored;
+    }
+
     const influencer = await prisma.influencer.update({
       where: { id },
       data: { faceRefPath }
     });
 
+    const store = useStorage('data');
+    await store.setItem(`influencer:${id}`, influencer);
+
     return influencer;
   } catch (err) {
+    if (isTransientDbError(err)) {
+      const updatedStored = await updateStoredInfluencerFaceRef(id, faceRefPath);
+      if (updatedStored) {
+        return updatedStored;
+      }
+    }
+
     if (err?.code === 'P2025') {
       return sendError(event, createError({ statusCode: 404, statusMessage: 'Influencer non trouvé' }));
     }

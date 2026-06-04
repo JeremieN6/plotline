@@ -1,54 +1,86 @@
 <template>
-  <div class="page">
-    <div class="container">
-      <aside class="panel config">
-        <h2 class="section-title">Direction créative</h2>
+  <div class="min-h-screen bg-[#FAFAF8] p-6 font-sans">
+    <div class="max-w-6xl mx-auto">
 
-        <div class="group" v-for="group in optionGroups" :key="group.key">
-          <p class="group-title">{{ group.label }}</p>
-          <div class="visual-radios">
-            <button
-              v-for="option in group.options"
-              :key="option"
-              type="button"
-              class="radio-pill"
-              :class="{ selected: selections[group.key] === option }"
-              @click="selectOption(group.key, option)"
-            >
-              {{ option }}
-            </button>
-          </div>
-        </div>
+      <!-- Barre influenceuse -->
+      <div v-if="influencer" class="flex items-center gap-3 bg-white border border-[#E5E3DF] rounded-xl px-4 py-3 mb-4 text-sm">
+        <span class="text-gray-500">Influenceuse :</span>
+        <strong class="text-gray-900">{{ influencer.name }}</strong>
+        <span class="bg-orange-50 text-[#E8873A] px-2.5 py-0.5 rounded-full text-xs font-bold">{{ influencer.niche }}</span>
+        <span
+          class="ml-auto text-xs font-semibold"
+          :class="influencer.faceRefPath ? 'text-green-600' : 'text-red-600'"
+        >
+          {{ influencer.faceRefPath ? 'Face ref OK' : '⚠ Aucune face ref' }}
+        </span>
+      </div>
 
-        <button class="btn generate" :disabled="generating" @click="generateImage">
-          <span v-if="generating" class="generation-label"><span class="spinner"></span> Génération...</span>
-          <span v-else>Générer</span>
-        </button>
+      <!-- Layout 2 colonnes -->
+      <div class="flex gap-5 items-start flex-col lg:flex-row">
 
-        <p v-if="errorMsg" class="error">{{ errorMsg }}</p>
-      </aside>
+        <!-- Panel config -->
+        <aside class="bg-white border border-[#E5E3DF] rounded-xl p-5 shadow-sm w-full lg:w-5/12">
+          <h2 class="text-base font-bold text-gray-900 mb-4">Direction créative</h2>
 
-      <main class="panel results">
-        <div v-if="!generated && !generating" class="empty-state">
-          Lance une génération pour voir l'image et la caption ici.
-        </div>
-
-        <div v-else-if="generating" class="loading-state">
-          <span class="spinner large"></span>
-          <p>Création de l'image en cours...</p>
-        </div>
-
-        <div v-else class="generated">
-          <img :src="generated.imageUrl" alt="Image générée" class="generated-image" />
-
-          <div class="caption-box">
-            <p class="caption">{{ generated.caption || 'Aucune caption générée.' }}</p>
-            <button class="btn secondary small" @click="copyCaption">Copier</button>
+          <div v-for="group in optionGroups" :key="group.key" class="mb-4">
+            <p class="text-sm font-bold text-gray-800 mb-2">{{ group.label }}</p>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="option in group.options"
+                :key="option"
+                type="button"
+                class="border rounded-full px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors"
+                :class="selections[group.key] === option
+                  ? 'bg-[#E8873A] border-[#E8873A] text-white'
+                  : 'bg-white border-[#E5E3DF] text-gray-700 hover:border-[#E8873A]'"
+                @click="selectOption(group.key, option)"
+              >
+                {{ option }}
+              </button>
+            </div>
           </div>
 
-          <p v-if="copyMsg" class="copy-msg">{{ copyMsg }}</p>
-        </div>
-      </main>
+          <button
+            class="mt-2 w-full py-2.5 bg-[#E8873A] text-white font-bold text-sm rounded-lg hover:bg-[#d4762f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="generating"
+            @click="generateImage"
+          >
+            <span v-if="generating" class="inline-flex items-center gap-2">
+              <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+              Génération...
+            </span>
+            <span v-else>Générer</span>
+          </button>
+
+          <p v-if="errorMsg" class="text-sm text-red-600 mt-3">{{ errorMsg }}</p>
+        </aside>
+
+        <!-- Panel résultats -->
+        <main class="bg-white border border-[#E5E3DF] rounded-xl p-5 shadow-sm w-full lg:w-7/12 min-h-[600px] flex flex-col">
+          <div v-if="!generated && !generating" class="flex-1 flex items-center justify-center text-gray-400 text-center">
+            Lance une génération pour voir l'image et la caption ici.
+          </div>
+
+          <div v-else-if="generating" class="flex-1 flex flex-col items-center justify-center gap-3 text-gray-500">
+            <svg class="w-8 h-8 animate-spin text-[#E8873A]" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+            <p>Création de l'image en cours...</p>
+          </div>
+
+          <div v-else class="flex flex-col gap-4">
+            <img :src="generated.imageUrl" alt="Image générée" class="w-full rounded-xl border border-[#E5E3DF]" />
+            <div class="border border-[#E5E3DF] rounded-xl p-4 flex flex-col gap-3">
+              <p class="text-sm text-gray-800 whitespace-pre-wrap m-0">{{ generated.caption || 'Aucune caption générée.' }}</p>
+              <button
+                class="self-start px-3 py-1.5 bg-white border border-[#E5E3DF] text-gray-800 text-xs font-semibold rounded-lg hover:bg-gray-50 transition-colors"
+                @click="copyCaption"
+              >
+                Copier
+              </button>
+            </div>
+            <p v-if="copyMsg" class="text-xs text-green-700 font-medium">{{ copyMsg }}</p>
+          </div>
+        </main>
+      </div>
     </div>
   </div>
 </template>
@@ -58,6 +90,8 @@ import { reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
+
+const { data: influencer } = await useFetch(`/api/influencers/${route.params.id}`)
 const generating = ref(false)
 const errorMsg = ref('')
 const copyMsg = ref('')
@@ -178,218 +212,3 @@ async function copyCaption() {
   }
 }
 </script>
-
-<style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-
-:root {
-  --bg: #FAFAF8;
-  --card: #FFFFFF;
-  --text: #111111;
-  --muted: #666666;
-  --accent: #E8873A;
-  --border: #E5E3DF;
-  --radius: 12px;
-}
-
-.page {
-  min-height: 100vh;
-  background: var(--bg);
-  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  color: var(--text);
-  padding: 24px;
-  box-sizing: border-box;
-}
-
-.container {
-  display: flex;
-  gap: 20px;
-  align-items: flex-start;
-}
-
-.panel {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.04);
-}
-
-.config {
-  width: 42%;
-  box-sizing: border-box;
-}
-
-.results {
-  width: 58%;
-  box-sizing: border-box;
-  min-height: 640px;
-}
-
-.section-title {
-  margin-top: 0;
-  margin-bottom: 14px;
-}
-
-.group {
-  margin-bottom: 16px;
-}
-
-.group-title {
-  margin: 0 0 8px;
-  font-weight: 700;
-}
-
-.visual-radios {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.radio-pill {
-  border: 1px solid var(--border);
-  background: #fff;
-  border-radius: 999px;
-  padding: 7px 12px;
-  font-size: 13px;
-  color: var(--text);
-  cursor: pointer;
-}
-
-.radio-pill.selected {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-.btn {
-  padding: 10px 16px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: transparent;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.btn.generate {
-  margin-top: 10px;
-  width: 100%;
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
-
-.btn.secondary {
-  background: #fff;
-  color: var(--text);
-}
-
-.btn.small {
-  padding: 8px 12px;
-}
-
-.btn:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
-
-.generation-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255,255,255,0.55);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin 0.9s linear infinite;
-}
-
-.spinner.large {
-  width: 28px;
-  height: 28px;
-  border: 3px solid rgba(232,135,58,0.28);
-  border-top-color: var(--accent);
-}
-
-.error {
-  margin-top: 10px;
-  color: #b00020;
-}
-
-.empty-state {
-  min-height: 580px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--muted);
-  text-align: center;
-}
-
-.loading-state {
-  min-height: 580px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  color: var(--muted);
-}
-
-.generated-image {
-  width: 100%;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  margin-bottom: 12px;
-}
-
-.caption-box {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.caption {
-  margin: 0;
-  white-space: pre-wrap;
-}
-
-.copy-msg {
-  margin-top: 8px;
-  color: #2f7d32;
-  font-size: 13px;
-}
-
-@media (max-width: 980px) {
-  .container {
-    flex-direction: column;
-  }
-
-  .config,
-  .results {
-    width: 100%;
-  }
-
-  .results {
-    min-height: auto;
-  }
-
-  .empty-state,
-  .loading-state {
-    min-height: 280px;
-  }
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-</style>
