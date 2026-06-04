@@ -6,6 +6,7 @@ import { Anthropic } from '@anthropic-ai/sdk';
 import { buildGenerationPrompt } from '../../utils/buildGenerationPrompt.js';
 import { injectBody } from '../../utils/injectBody.js';
 import {
+  HASHTAG_BLOCKS,
   PROMPT_CAPTION_CONTEXTUALIZED,
   PROMPT_JSON_TO_IMAGE,
 } from '../../utils/promptTemplates.js';
@@ -69,7 +70,7 @@ export default defineEventHandler(async (event) => {
   try {
     const prisma = await getPrisma();
     const body = await readBody(event);
-    const { influencerId, location, outfit, pose, mood, lighting } = body || {};
+    const { influencerId, location, outfit, pose, mood, lighting, tagCategory } = body || {};
 
     if (!influencerId || !location || !outfit || !pose || !mood || !lighting) {
       return sendError(
@@ -168,6 +169,8 @@ export default defineEventHandler(async (event) => {
 
     const anthropicApiKey = process.env.ANTHROPIC_API_KEY || process.env.anthropicApiKey;
     let caption = '';
+    const resolvedTagCategory = String(tagCategory || 'lifestyle').trim().toLowerCase();
+    const hashtagBlock = HASHTAG_BLOCKS[resolvedTagCategory] || HASHTAG_BLOCKS.lifestyle || '';
 
     if (anthropicApiKey) {
       const anthropic = new Anthropic({ apiKey: anthropicApiKey });
@@ -183,6 +186,10 @@ export default defineEventHandler(async (event) => {
 
       const textPart = captionResponse.content?.find((part) => part.type === 'text');
       caption = (textPart?.text || '').trim();
+    }
+
+    if (hashtagBlock) {
+      caption = caption ? `${caption}\n\n${hashtagBlock}` : hashtagBlock;
     }
 
     const generatedContent = await prisma.generatedContent.create({

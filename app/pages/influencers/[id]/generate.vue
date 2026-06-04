@@ -1,83 +1,145 @@
 <template>
   <div class="min-h-screen bg-[#FAFAF8] p-6 font-sans">
-    <div class="max-w-6xl mx-auto">
-
-      <!-- Barre influenceuse -->
-      <div v-if="influencer" class="flex items-center gap-3 bg-white border border-[#E5E3DF] rounded-xl px-4 py-3 mb-4 text-sm">
+    <div class="mx-auto max-w-6xl">
+      <div
+        v-if="influencer"
+        class="mb-4 flex items-center gap-3 rounded-xl border border-[#E5E3DF] bg-white px-4 py-3 text-sm"
+      >
         <span class="text-gray-500">Influenceuse :</span>
         <strong class="text-gray-900">{{ influencer.name }}</strong>
-        <span class="bg-orange-50 text-[#E8873A] px-2.5 py-0.5 rounded-full text-xs font-bold">{{ influencer.niche }}</span>
-        <span
-          class="ml-auto text-xs font-semibold"
-          :class="influencer.faceRefPath ? 'text-green-600' : 'text-red-600'"
-        >
-          {{ influencer.faceRefPath ? 'Face ref OK' : '⚠ Aucune face ref' }}
-        </span>
+        <span class="rounded-full bg-orange-50 px-2.5 py-0.5 text-xs font-bold text-[#E8873A]">{{ influencer.niche }}</span>
       </div>
 
-      <!-- Layout 2 colonnes -->
-      <div class="flex gap-5 items-start flex-col lg:flex-row">
-
-        <!-- Panel config -->
-        <aside class="bg-white border border-[#E5E3DF] rounded-xl p-5 shadow-sm w-full lg:w-5/12">
-          <h2 class="text-base font-bold text-gray-900 mb-4">Direction créative</h2>
-
-          <div v-for="group in optionGroups" :key="group.key" class="mb-4">
-            <p class="text-sm font-bold text-gray-800 mb-2">{{ group.label }}</p>
-            <div class="flex flex-wrap gap-2">
+      <div class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <aside class="rounded-xl border border-[#E5E3DF] bg-white p-5 shadow-sm">
+          <section>
+            <h2 class="mb-3 text-base font-bold text-gray-900">Type de contenu</h2>
+            <div class="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
               <button
-                v-for="option in group.options"
-                :key="option"
+                v-for="type in contentTypes"
+                :key="type.value"
                 type="button"
-                class="border rounded-full px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors"
-                :class="selections[group.key] === option
-                  ? 'bg-[#E8873A] border-[#E8873A] text-white'
-                  : 'bg-white border-[#E5E3DF] text-gray-700 hover:border-[#E8873A]'"
-                @click="selectOption(group.key, option)"
+                class="relative rounded-xl border p-3 text-left transition-colors"
+                :class="typeCardClass(type)"
+                :disabled="type.disabled"
+                @click="selectedContentType = type.value"
               >
-                {{ option }}
+                <span
+                  v-if="type.soon"
+                  class="absolute right-2 top-2 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-600"
+                >
+                  Bientôt
+                </span>
+                <p class="m-0 text-sm font-bold">{{ type.icon }} {{ type.label }}</p>
+                <p class="mt-1 text-xs text-gray-500">{{ type.description }}</p>
               </button>
             </div>
-          </div>
+          </section>
+
+          <section class="mt-6">
+            <h2 class="mb-3 text-base font-bold text-gray-900">Categorie</h2>
+            <div class="flex flex-wrap gap-2.5">
+              <button
+                v-for="category in tagCategories"
+                :key="category"
+                type="button"
+                class="rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
+                :class="selectedTagCategory === category
+                  ? 'border-[#E8873A] bg-[#E8873A] text-white'
+                  : 'border-[#E5E3DF] bg-white text-gray-700 hover:border-[#E8873A]'"
+                @click="selectedTagCategory = category"
+              >
+                {{ category }}
+              </button>
+            </div>
+            <p class="mt-2 text-xs text-gray-500">
+              Détermine le pool de hashtags utilisé dans la caption et l'ambiance générale.
+            </p>
+          </section>
+
+          <section class="mt-6">
+            <h2 class="mb-3 text-base font-bold text-gray-900">Direction creative</h2>
+
+            <div v-for="group in optionGroups" :key="group.key" class="mb-4 last:mb-0">
+              <p class="mb-2 text-sm font-semibold text-gray-800">{{ group.label }}</p>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  v-for="option in group.options"
+                  :key="option"
+                  type="button"
+                  class="rounded-full border px-3 py-1.5 text-xs font-medium transition-colors"
+                  :class="selections[group.key] === option
+                    ? 'border-[#E8873A] bg-[#E8873A] text-white'
+                    : 'border-[#E5E3DF] bg-white text-gray-700 hover:border-[#E8873A]'"
+                  @click="selectOption(group.key, option)"
+                >
+                  {{ option }}
+                </button>
+              </div>
+            </div>
+          </section>
 
           <button
-            class="mt-2 w-full py-2.5 bg-[#E8873A] text-white font-bold text-sm rounded-lg hover:bg-[#d4762f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            :disabled="generating"
+            type="button"
+            class="mt-6 w-full rounded-lg bg-[#E8873A] py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#d4762f] disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="!canGenerate"
             @click="generateImage"
           >
-            <span v-if="generating" class="inline-flex items-center gap-2">
-              <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-              Génération...
-            </span>
-            <span v-else>Générer</span>
+            Generer
           </button>
 
-          <p v-if="errorMsg" class="text-sm text-red-600 mt-3">{{ errorMsg }}</p>
+          <p v-if="errorMsg" class="mt-3 text-sm text-red-600">{{ errorMsg }}</p>
         </aside>
 
-        <!-- Panel résultats -->
-        <main class="bg-white border border-[#E5E3DF] rounded-xl p-5 shadow-sm w-full lg:w-7/12 min-h-[600px] flex flex-col">
-          <div v-if="!generated && !generating" class="flex-1 flex items-center justify-center text-gray-400 text-center">
-            Lance une génération pour voir l'image et la caption ici.
+        <main class="min-h-[640px] rounded-xl border border-[#E5E3DF] bg-white p-5 shadow-sm">
+          <div v-if="!generated && !generating" class="flex min-h-[560px] items-center justify-center text-center text-gray-400">
+            Lance une génération pour voir le résultat ici.
           </div>
 
-          <div v-else-if="generating" class="flex-1 flex flex-col items-center justify-center gap-3 text-gray-500">
-            <svg class="w-8 h-8 animate-spin text-[#E8873A]" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-            <p>Création de l'image en cours...</p>
+          <div v-else-if="generating" class="flex min-h-[560px] flex-col items-center justify-center gap-3 text-gray-500">
+            <svg class="h-8 w-8 animate-spin text-[#E8873A]" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v8z" />
+            </svg>
+            <p>Génération en cours... (~30s)</p>
           </div>
 
           <div v-else class="flex flex-col gap-4">
-            <img :src="generated.imageUrl" alt="Image générée" class="w-full rounded-xl border border-[#E5E3DF]" />
-            <div class="border border-[#E5E3DF] rounded-xl p-4 flex flex-col gap-3">
-              <p class="text-sm text-gray-800 whitespace-pre-wrap m-0">{{ generated.caption || 'Aucune caption générée.' }}</p>
+            <img :src="generated.imageUrl" alt="Image generee" class="w-full rounded-xl border border-[#E5E3DF]" />
+
+            <div class="rounded-xl border border-[#E5E3DF] p-4">
+              <div class="flex items-start justify-between gap-4">
+                <p class="m-0 whitespace-pre-wrap text-sm text-gray-800">{{ generated.caption || 'Aucune caption generee.' }}</p>
+                <button
+                  type="button"
+                  class="shrink-0 rounded-lg border border-[#E5E3DF] bg-white px-3 py-1.5 text-xs font-semibold text-gray-800 transition-colors hover:bg-gray-50"
+                  @click="copyCaption"
+                >
+                  Copier
+                </button>
+              </div>
+            </div>
+
+            <p v-if="copyMsg" class="text-xs font-medium text-green-700">{{ copyMsg }}</p>
+
+            <div class="flex flex-wrap gap-2.5">
               <button
-                class="self-start px-3 py-1.5 bg-white border border-[#E5E3DF] text-gray-800 text-xs font-semibold rounded-lg hover:bg-gray-50 transition-colors"
-                @click="copyCaption"
+                type="button"
+                class="rounded-lg bg-[#E8873A] px-3 py-2 text-sm font-bold text-white transition-colors hover:bg-[#d4762f] disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="validating || deleting"
+                @click="validateContent"
               >
-                Copier
+                {{ validating ? 'Validation...' : 'Valider et mettre en attente' }}
+              </button>
+              <button
+                type="button"
+                class="rounded-lg border border-[#E5E3DF] bg-white px-3 py-2 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="validating || deleting"
+                @click="deleteContent"
+              >
+                {{ deleting ? 'Suppression...' : 'Supprimer' }}
               </button>
             </div>
-            <p v-if="copyMsg" class="text-xs text-green-700 font-medium">{{ copyMsg }}</p>
           </div>
         </main>
       </div>
@@ -86,16 +148,30 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
+const { pushToast } = useUiFeedback()
 
 const { data: influencer } = await useFetch(`/api/influencers/${route.params.id}`)
+
 const generating = ref(false)
+const validating = ref(false)
+const deleting = ref(false)
 const errorMsg = ref('')
 const copyMsg = ref('')
 const generated = ref(null)
+
+const contentTypes = [
+  { value: 'feed', label: 'Feed', icon: '🖼️', description: 'Photo générée avec Gemini', disabled: false, soon: false },
+  { value: 'reel', label: 'Reel', icon: '🎬', description: 'Vidéo avec Motion Control', disabled: true, soon: true },
+  { value: 'story', label: 'Story', icon: '📱', description: "Vidéo d'ambiance faceless", disabled: true, soon: true },
+]
+
+const selectedContentType = ref('feed')
+const tagCategories = ['lifestyle', 'beach', 'outfit']
+const selectedTagCategory = ref('lifestyle')
 
 const optionGroups = [
   {
@@ -109,6 +185,11 @@ const optionGroups = [
       'hotel room morning',
       'bathroom vanity',
       'rooftop city view',
+      'forest path golden hour',
+      'kitchen counter',
+      'balcony with city skyline',
+      'linen sofa living room',
+      'outdoor terrace white stone',
     ],
   },
   {
@@ -118,9 +199,13 @@ const optionGroups = [
       'white crop top + high waist jeans',
       'black bikini',
       'beige linen dress',
-      'sport bra + leggings',
+      'oversized grey hoodie',
       'satin slip dress nude',
+      'sport bra + leggings',
+      'blazer only no shirt',
       'floral summer dress',
+      'white button-down shirt half open',
+      'long cardigan + cycling shorts',
     ],
   },
   {
@@ -129,9 +214,14 @@ const optionGroups = [
     options: [
       'mirror selfie arm raised',
       'over shoulder looking back',
-      'leaning against wall',
       'sitting legs crossed candid',
       'standing profile arms relaxed',
+      'lying on bed reading',
+      'walking looking down',
+      'leaning against wall',
+      'head tilted soft smile',
+      'sitting on floor hugging knees',
+      'standing in doorway backlit',
     ],
   },
   {
@@ -142,7 +232,11 @@ const optionGroups = [
       'sultry soft look',
       'candid laugh eyes closed',
       'serene gaze distance',
+      'confident direct eye contact',
+      'contemplative looking away',
       'warm natural smile',
+      'relaxed eyes half-closed',
+      'focused reading or scrolling',
     ],
   },
   {
@@ -154,28 +248,51 @@ const optionGroups = [
       'bright natural window light',
       'warm sunset side light',
       'cool morning light',
+      'candlelight intimate',
+      'overcast outdoor soft',
+      'harsh midday sun editorial',
     ],
   },
 ]
 
 const selections = reactive({
-  location: optionGroups[0].options[0],
-  outfit: optionGroups[1].options[0],
-  pose: optionGroups[2].options[0],
-  mood: optionGroups[3].options[0],
-  lighting: optionGroups[4].options[0],
+  location: '',
+  outfit: '',
+  pose: '',
+  mood: '',
+  lighting: '',
 })
+
+const canGenerate = computed(() => {
+  const allDirectionsSelected = optionGroups.every((group) => Boolean(selections[group.key]))
+  return allDirectionsSelected && !generating.value && selectedContentType.value === 'feed'
+})
+
+function typeCardClass(type) {
+  if (type.disabled) {
+    return 'cursor-not-allowed border-[#E5E3DF] bg-gray-50 text-gray-500 opacity-50'
+  }
+
+  if (selectedContentType.value === type.value) {
+    return 'border-[#E8873A] bg-orange-50 text-gray-900'
+  }
+
+  return 'border-[#E5E3DF] bg-white text-gray-800 hover:border-[#E8873A]'
+}
 
 function selectOption(groupKey, option) {
   selections[groupKey] = option
 }
 
 async function generateImage() {
-  if (generating.value) return
+  if (!canGenerate.value) {
+    return
+  }
 
   generating.value = true
   errorMsg.value = ''
   copyMsg.value = ''
+  generated.value = null
 
   try {
     const response = await $fetch('/api/generate/image', {
@@ -187,10 +304,12 @@ async function generateImage() {
         pose: selections.pose,
         mood: selections.mood,
         lighting: selections.lighting,
+        tagCategory: selectedTagCategory.value,
       },
     })
 
     generated.value = {
+      id: response.id,
       imageUrl: response.imageUrl,
       caption: response.caption,
     }
@@ -202,13 +321,66 @@ async function generateImage() {
 }
 
 async function copyCaption() {
-  if (!generated.value?.caption) return
+  if (!generated.value?.caption) {
+    return
+  }
 
   try {
     await navigator.clipboard.writeText(generated.value.caption)
-    copyMsg.value = 'Caption copiée.'
-  } catch (err) {
+    copyMsg.value = 'Caption copiere.'
+  } catch {
     copyMsg.value = 'Copie impossible.'
+  }
+}
+
+async function validateContent() {
+  if (!generated.value?.id || validating.value || deleting.value) {
+    return
+  }
+
+  validating.value = true
+  errorMsg.value = ''
+
+  try {
+    await $fetch(`/api/content/${generated.value.id}/validate`, {
+      method: 'PATCH',
+    })
+
+    pushToast({
+      title: 'Contenu valide',
+      message: 'Le contenu est maintenant en attente de publication.',
+      tone: 'success',
+    })
+  } catch (err) {
+    errorMsg.value = err?.data?.statusMessage || err?.message || String(err)
+  } finally {
+    validating.value = false
+  }
+}
+
+async function deleteContent() {
+  if (!generated.value?.id || validating.value || deleting.value) {
+    return
+  }
+
+  deleting.value = true
+  errorMsg.value = ''
+
+  try {
+    await $fetch(`/api/content/${generated.value.id}`, {
+      method: 'DELETE',
+    })
+
+    generated.value = null
+    pushToast({
+      title: 'Contenu supprime',
+      message: 'Le resultat genere a ete retire.',
+      tone: 'success',
+    })
+  } catch (err) {
+    errorMsg.value = err?.data?.statusMessage || err?.message || String(err)
+  } finally {
+    deleting.value = false
   }
 }
 </script>

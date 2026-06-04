@@ -117,17 +117,17 @@ Tone guidance based on content type:
 
 Return ONLY the caption text, no quotes, no explanation.`;
 
-export const HASHTAG_BLOCK_SKINCARE =
-  '#skincare #glowup #selfcare #morningroutine #clearskin #skincareaddict #wellness #beautytips #lifestyle #naturalskin';
+export const HASHTAG_BLOCK_LIFESTYLE =
+  '#lifestyle #dailyvibes #selfcare #softlife #routine #citylife #cozystyle #aesthetic #mood #dailylife';
 
-export const HASHTAG_BLOCK_FITNESS =
-  '#fitness #workout #fitlife #gym #motivation #healthylifestyle #fitnessgoals #bodypositive #training #activewear';
+export const HASHTAG_BLOCK_BEACH =
+  '#beachvibes #sunsetlover #oceanbreeze #summermood #saltlife #goldenhour #coastalliving #seaside #vacationmode #beachday';
 
-export const HASHTAG_BLOCK_TRAVEL =
-  '#travel #wanderlust #explore #adventure #travelgram #instatravel #passionpassport #travellife #aroundtheworld #travelblogger';
+export const HASHTAG_BLOCK_OUTFIT =
+  '#outfitinspo #ootd #streetstyle #fashionmood #styleinspo #lookbook #minimalstyle #wardrobe #fashiondaily #styleedit';
 
 export const HASHTAG_BLOCKS = {
-  skincare: HASHTAG_BLOCK_SKINCARE,
-  fitness: HASHTAG_BLOCK_FITNESS,
-  travel: HASHTAG_BLOCK_TRAVEL,
+  lifestyle: HASHTAG_BLOCK_LIFESTYLE,
+  beach: HASHTAG_BLOCK_BEACH,
+  outfit: HASHTAG_BLOCK_OUTFIT,
 };
