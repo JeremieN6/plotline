@@ -32,8 +32,18 @@
           <input v-model="form.name" class="w-full px-3 py-2.5 border border-[#E5E3DF] rounded-lg text-sm focus:outline-none focus:border-[#E8873A]" placeholder="ex : Luna" />
         </div>
         <div>
-          <label class="block text-sm font-semibold text-gray-800 mb-1.5">Niche</label>
+          <label class="block text-sm font-semibold text-gray-800 mb-1.5">Niches</label>
           <input v-model="form.niche" class="w-full px-3 py-2.5 border border-[#E5E3DF] rounded-lg text-sm focus:outline-none focus:border-[#E8873A]" placeholder="ex : lifestyle, fitness, travel" />
+          <p class="mt-2 text-xs text-gray-500">Tu peux renseigner plusieurs niches séparées par des virgules.</p>
+          <div v-if="nicheItems.length" class="mt-3 flex flex-wrap gap-2">
+            <span
+              v-for="item in nicheItems"
+              :key="item"
+              class="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-bold text-[#E8873A]"
+            >
+              {{ item }}
+            </span>
+          </div>
         </div>
         <div>
           <label class="block text-sm font-semibold text-gray-800 mb-1.5">Style</label>
@@ -156,6 +166,7 @@ const subtitles = [
 
 const stepTitle = computed(() => titles[step.value - 1])
 const stepSubtitle = computed(() => subtitles[step.value - 1])
+const nicheItems = computed(() => splitNiches(form.niche))
 
 const filledWidth = computed(() => {
   const pct = ((step.value - 1) / (totalSteps - 1)) * 100
@@ -164,7 +175,7 @@ const filledWidth = computed(() => {
 
 const canNext = computed(() => {
   if (step.value === 1) {
-    return Boolean(form.name.trim() && form.niche.trim() && form.style.trim())
+    return Boolean(form.name.trim() && nicheItems.value.length && form.style.trim())
   }
   if (step.value === 2) {
     return Boolean(selectedFile.value || faceRefPath.value)

@@ -63,10 +63,19 @@
             <div class="flex items-start justify-between gap-3 mb-2">
               <h3 class="text-lg font-bold text-gray-900 m-0">{{ influencer.name }}</h3>
               <span
-                v-if="influencer.niche"
+                v-if="getNicheSummary(influencer.niche)"
                 class="bg-orange-50 text-[#E8873A] px-2.5 py-1 rounded-full font-bold text-xs shrink-0"
               >
-                {{ influencer.niche }}
+                {{ getNicheSummary(influencer.niche) }}
+              </span>
+            </div>
+            <div v-if="getNicheList(influencer.niche).length" class="mb-3 flex flex-wrap gap-2">
+              <span
+                v-for="item in getNicheList(influencer.niche)"
+                :key="`${influencer.id}-${item}`"
+                class="rounded-full bg-[#F5F2ED] px-2.5 py-1 text-xs font-semibold text-gray-700"
+              >
+                {{ item }}
               </span>
             </div>
             <p class="text-gray-500 text-sm mb-1">{{ influencer.style || '—' }}</p>
@@ -75,12 +84,25 @@
             </p>
           </div>
 
-          <div class="flex gap-3 mt-3">
+          <div class="flex gap-3 mt-3 flex-wrap">
             <button
               class="px-3 py-2 bg-[#E8873A] text-white font-bold text-sm rounded-lg hover:bg-[#d4762f] transition-colors"
               @click="goGenerate(influencer.id)"
             >
               Générer une image
+            </button>
+                        <button
+              class="px-3 py-2 bg-white border border-[#E5E3DF] text-gray-700 font-bold text-sm rounded-lg hover:bg-gray-50 transition-colors"
+              @click="goEdit(influencer.id)"
+            >
+              Modifier
+            </button>
+            <button
+              class="px-3 py-2 bg-white border border-[#E5E3DF] text-gray-700 font-bold text-sm rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              :disabled="deletingIds.includes(influencer.id)"
+              @click="removeInfluencer(influencer.id)"
+            >
+              {{ deletingIds.includes(influencer.id) ? 'Suppression...' : 'Supprimer' }}
             </button>
           </div>
         </div>
@@ -95,6 +117,8 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const userId = 'user-test'
+const deletingIds = ref([])
+const { requestConfirmation, pushToast } = useUiFeedback()
 
 const {
   data,
@@ -107,11 +131,65 @@ const {
 })
 const influencers = computed(() => data.value ?? [])
 
+function getNicheList(value) {
+  return splitNiches(value)
+}
+
+function getNicheSummary(value) {
+  return summarizeNiches(value)
+}
+
 function goNew() {
   router.push('/influencers/new')
 }
 
+function goEdit(id) {
+  router.push(`/influencers/${id}/edit`)
+}
+
 function goGenerate(id) {
   router.push(`/influencers/${id}/generate`)
+}
+
+async function removeInfluencer(id) {
+  if (deletingIds.value.includes(id)) {
+    return
+  }
+
+  const confirmed = await requestConfirmation({
+    title: 'Supprimer cette influenceuse ?',
+    message: 'Cette action retire aussi ses contenus générés liés.',
+    confirmLabel: 'Supprimer',
+    cancelLabel: 'Annuler',
+    tone: 'danger',
+  })
+
+  if (!confirmed) {
+    return
+  }
+
+  deletingIds.value = [...deletingIds.value, id]
+
+  try {
+    await $fetch(`/api/influencers/${id}`, {
+      method: 'DELETE',
+    })
+    await refresh()
+    pushToast({
+      title: 'Influenceuse supprimée',
+      message: 'La liste a été mise à jour.',
+      tone: 'success',
+    })
+  } catch (err) {
+    console.error('Failed to delete influencer', err)
+    pushToast({
+      title: 'Suppression impossible',
+      message: "La suppression a échoué.",
+      tone: 'error',
+      duration: 4500,
+    })
+  } finally {
+    deletingIds.value = deletingIds.value.filter((currentId) => currentId !== id)
+  }
 }
 </script>

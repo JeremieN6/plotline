@@ -3,5 +3,7 @@
     <!-- <NuxtRouteAnnouncer /> -->
     <!-- <NuxtWelcome /> -->
     <NuxtPage />
+    <UiConfirmDialog />
+    <UiToastStack />
   </div>
 </template>

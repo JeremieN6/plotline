@@ -1,4 +1,5 @@
 let prismaClient;
+let nicheUtils;
 
 function isTransientDbError(err) {
   const code = err?.code;
@@ -36,6 +37,12 @@ async function getPrisma() {
   return prismaClient;
 }
 
+async function getNicheUtils() {
+  if (nicheUtils) return nicheUtils;
+  nicheUtils = await import('../../utils/niche.js');
+  return nicheUtils;
+}
+
 module.exports = defineEventHandler(async (event) => {
   try {
     const prisma = await getPrisma();
@@ -50,8 +57,14 @@ module.exports = defineEventHandler(async (event) => {
 
     const userId = String(body.userId).trim();
     const userEmail = `${userId}@plotline.local`;
+    const { normalizeNicheValue } = await getNicheUtils();
+    const normalizedNiche = normalizeNicheValue(body.niche);
     const store = useStorage('data');
     const storeKey = `influencers:${userId}`;
+
+    if (!normalizedNiche) {
+      return sendError(event, createError({ statusCode: 400, statusMessage: 'Champ manquant: niche' }));
+    }
 
     let influencer;
 
@@ -69,7 +82,7 @@ module.exports = defineEventHandler(async (event) => {
         data: {
           userId,
           name: body.name,
-          niche: body.niche,
+          niche: normalizedNiche,
           style: body.style
         }
       });
@@ -81,7 +94,7 @@ module.exports = defineEventHandler(async (event) => {
       influencer = createOfflineInfluencer({
         userId,
         name: body.name,
-        niche: body.niche,
+        niche: normalizedNiche,
         style: body.style,
       });
     }
