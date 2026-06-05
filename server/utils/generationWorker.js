@@ -174,7 +174,7 @@ export function startGenerationWorker() {
             },
           ],
           config: {
-            responseModalities: ['IMAGE', 'TEXT'],
+            responseModalities: ['TEXT', 'IMAGE'],
           },
         });
 
