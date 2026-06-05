@@ -86,6 +86,12 @@
 
           <div class="flex gap-3 mt-3 flex-wrap">
             <button
+              class="px-3 py-2 bg-white border border-[#E5E3DF] text-gray-700 font-bold text-sm rounded-lg hover:bg-gray-50 transition-colors"
+              @click="goDetail(influencer.id)"
+            >
+              Ouvrir
+            </button>
+            <button
               class="px-3 py-2 bg-[#E8873A] text-white font-bold text-sm rounded-lg hover:bg-[#d4762f] transition-colors"
               @click="goGenerate(influencer.id)"
             >
@@ -145,6 +151,10 @@ function goNew() {
 
 function goEdit(id) {
   router.push(`/influencers/${id}/edit`)
+}
+
+function goDetail(id) {
+  router.push(`/influencers/${id}`)
 }
 
 function goGenerate(id) {

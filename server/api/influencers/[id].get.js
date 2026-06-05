@@ -46,6 +46,7 @@ module.exports = defineEventHandler(async (event) => {
           faceRefPath: true,
           bodyRefPath: true,
           instagramAccountId: true,
+          instagramAccessToken: true,
           tiktokEnabled: true,
           calendarStep: true,
           createdAt: true
