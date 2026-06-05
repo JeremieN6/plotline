@@ -1,5 +1,9 @@
 let prismaClient;
 
+async function getMediaStorage() {
+  return import('../../utils/mediaStorage.js');
+}
+
 function isTransientDbError(err) {
   const code = err?.code;
   return code === 'ETIMEDOUT' || code === 'P1001' || code === 'P1002';
@@ -21,6 +25,7 @@ async function getPrisma() {
 module.exports = defineEventHandler(async (event) => {
   try {
     const prisma = await getPrisma();
+    const { toMediaUrl } = await getMediaStorage();
     const store = useStorage('data');
     const id = event.context?.params?.id;
     if (!id) {
@@ -63,7 +68,12 @@ module.exports = defineEventHandler(async (event) => {
 
     await store.setItem(`influencer:${id}`, influencer);
 
-    return influencer;
+    const faceRefFilename = influencer?.faceRefPath?.split(/[\\/]/).pop();
+
+    return {
+      ...influencer,
+      faceRefUrl: faceRefFilename ? toMediaUrl('face-refs', faceRefFilename) : null,
+    };
   } catch (err) {
     return sendError(event, createError({ statusCode: 500, statusMessage: 'Erreur serveur', data: err }));
   }

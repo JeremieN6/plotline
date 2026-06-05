@@ -25,6 +25,7 @@ logs
 
 /app/generated/prisma
 /public/uploads/
+/storage/uploads/
 
 
 # Dossiers et fichiers temporaire

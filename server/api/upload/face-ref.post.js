@@ -1,5 +1,4 @@
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 const { readMultipartFormData } = require('h3');
 
@@ -28,9 +27,14 @@ function sanitizeId(rawId = '') {
   return String(rawId).replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
+async function getMediaStorage() {
+  return import('../../utils/mediaStorage.js');
+}
+
 module.exports = defineEventHandler(async (event) => {
   try {
     const prisma = await getPrisma();
+    const { getFaceRefsDir, toMediaUrl } = await getMediaStorage();
     const formData = await readMultipartFormData(event);
     const filePart = formData?.find((part) => part.name === 'file');
     const influencerIdPart = formData?.find((part) => part.name === 'influencerId');
@@ -57,15 +61,16 @@ module.exports = defineEventHandler(async (event) => {
       }
     }
 
-    const uploadDir = path.join(os.tmpdir(), 'plotline', 'uploads', 'face-refs');
-    fs.mkdirSync(uploadDir, { recursive: true });
+    const uploadDir = getFaceRefsDir();
 
     const extension = resolveExtension(filePart.filename, filePart.type);
     const safeInfluencerId = sanitizeId(influencerId);
-    const filePath = path.join(uploadDir, `${safeInfluencerId}-face.${extension}`);
+    const filename = `${safeInfluencerId}-face.${extension}`;
+    const filePath = path.join(uploadDir, filename);
     fs.writeFileSync(filePath, Buffer.from(filePart.data));
 
     const storedPath = filePath;
+    const mediaUrl = toMediaUrl('face-refs', filename);
 
     if (!isTemporary) {
       await prisma.influencer.update({
@@ -74,7 +79,7 @@ module.exports = defineEventHandler(async (event) => {
       });
     }
 
-    return { path: storedPath };
+    return { path: storedPath, url: mediaUrl };
   } catch (err) {
     return sendError(event, createError({ statusCode: 500, statusMessage: 'Erreur serveur', data: err }));
   }

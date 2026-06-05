@@ -1,4 +1,10 @@
+const path = require('node:path');
+
 let prismaClient;
+
+async function getMediaStorage() {
+  return import('../../../utils/mediaStorage.js');
+}
 
 function isTransientDbError(err) {
   const code = err?.code;
@@ -54,6 +60,13 @@ module.exports = defineEventHandler(async (event) => {
 
     if (!faceRefPath || typeof faceRefPath !== 'string') {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'faceRefPath requis' }));
+    }
+
+    const { getStorageRoot } = await getMediaStorage();
+    const storageRoot = getStorageRoot();
+    const relativeFromStorage = path.relative(storageRoot, faceRefPath);
+    if (relativeFromStorage.startsWith('..') || path.isAbsolute(relativeFromStorage)) {
+      return sendError(event, createError({ statusCode: 400, statusMessage: 'faceRefPath invalide' }));
     }
 
     if (String(id).startsWith('local-')) {

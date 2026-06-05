@@ -96,6 +96,9 @@
           <div v-if="previewUrl" class="mt-4 overflow-hidden rounded-xl border border-[#E5E3DF]">
             <img :src="previewUrl" alt="Aperçu de la face ref" class="block max-h-72 w-full object-cover" />
           </div>
+          <div v-else-if="currentFaceRefUrl" class="mt-4 overflow-hidden rounded-xl border border-[#E5E3DF]">
+            <img :src="currentFaceRefUrl" alt="Face ref actuelle" class="block max-h-72 w-full object-cover" />
+          </div>
 
           <p v-if="fileError" class="mt-3 text-sm text-red-600">{{ fileError }}</p>
           <p v-if="uploadError" class="mt-3 text-sm text-red-600">{{ uploadError }}</p>
@@ -144,6 +147,7 @@ const isDragging = ref(false)
 const selectedFile = ref(null)
 const previewUrl = ref('')
 const currentFaceRefPath = ref('')
+const currentFaceRefUrl = ref('')
 const fileInputRef = ref(null)
 
 const form = reactive({
@@ -159,6 +163,7 @@ const { data, pending, error, refresh } = await useFetch(`/api/influencers/${id}
 const influencer = computed(() => data.value ?? null)
 const nicheItems = computed(() => splitNiches(form.niche))
 const currentFaceRefName = computed(() => currentFaceRefPath.value.split(/[\\/]/).pop() || '')
+const currentFaceRefFilename = computed(() => currentFaceRefPath.value.split(/[\\/]/).pop() || '')
 const canSubmit = computed(() => Boolean(form.name.trim() && nicheItems.value.length && form.style.trim()))
 
 watch(
@@ -172,6 +177,7 @@ watch(
     form.niche = value.niche || ''
     form.style = value.style || ''
     currentFaceRefPath.value = value.faceRefPath || ''
+    currentFaceRefUrl.value = value.faceRefUrl || (currentFaceRefFilename.value ? `/api/media/face-refs/${encodeURIComponent(currentFaceRefFilename.value)}` : '')
   },
   { immediate: true },
 )
@@ -244,6 +250,7 @@ async function uploadFaceRefIfNeeded() {
 
   const payload = await response.json()
   currentFaceRefPath.value = payload?.path || currentFaceRefPath.value
+  currentFaceRefUrl.value = payload?.url || currentFaceRefUrl.value
   selectedFile.value = null
 }
 

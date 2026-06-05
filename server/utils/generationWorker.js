@@ -8,6 +8,7 @@ import { Worker } from 'bullmq';
 
 import { buildGenerationPrompt } from './buildGenerationPrompt.js';
 import { injectBody } from './injectBody.js';
+import { getGeneratedDir, toMediaUrl } from './mediaStorage.js';
 import {
   HASHTAG_BLOCKS,
   PROMPT_CAPTION_CONTEXTUALIZED,
@@ -43,15 +44,6 @@ function extFromMime(mimeType) {
   if (mimeType === 'image/webp') return 'webp';
   if (mimeType === 'image/gif') return 'gif';
   return 'jpg';
-}
-
-function resolvePublicPath(filePathOrPublicUrl) {
-  if (!filePathOrPublicUrl) return null;
-  if (path.isAbsolute(filePathOrPublicUrl)) return filePathOrPublicUrl;
-  if (filePathOrPublicUrl.startsWith('/')) {
-    return path.join(process.cwd(), 'public', filePathOrPublicUrl.replace(/^\/+/, ''));
-  }
-  return path.resolve(process.cwd(), filePathOrPublicUrl);
 }
 
 function formatSceneDescription(concept) {
@@ -147,7 +139,7 @@ export function startGenerationWorker() {
           throw new Error('Influencer face reference is missing. Upload a face ref first.');
         }
 
-        const faceRefAbsolutePath = resolvePublicPath(influencer.faceRefPath);
+        const faceRefAbsolutePath = influencer.faceRefPath;
         const faceRefBuffer = await fs.readFile(faceRefAbsolutePath);
         const faceRefMime = mimeFromExt(faceRefAbsolutePath);
         const faceRefBase64 = faceRefBuffer.toString('base64');
@@ -194,8 +186,7 @@ export function startGenerationWorker() {
 
         await job.updateProgress(65);
 
-        const generatedDir = path.join(process.cwd(), 'public', 'uploads', 'generated');
-        await fs.mkdir(generatedDir, { recursive: true });
+        const generatedDir = getGeneratedDir();
 
         const imageMime = imagePart.inlineData.mimeType || 'image/jpeg';
         const extension = extFromMime(imageMime);
@@ -203,7 +194,7 @@ export function startGenerationWorker() {
         const generatedPath = path.join(generatedDir, filename);
 
         await fs.writeFile(generatedPath, Buffer.from(imagePart.inlineData.data, 'base64'));
-        const imageUrl = `/uploads/generated/${filename}`;
+        const imageUrl = toMediaUrl('generated', filename);
 
         const anthropicApiKey = process.env.ANTHROPIC_API_KEY || process.env.anthropicApiKey;
         let caption = '';

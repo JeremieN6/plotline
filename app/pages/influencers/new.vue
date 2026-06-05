@@ -76,8 +76,8 @@
           </button>
         </div>
 
-        <div v-if="previewUrl" class="border border-[#E5E3DF] rounded-xl overflow-hidden">
-          <img :src="previewUrl" alt="Aperçu image de référence" class="block w-full max-h-72 object-cover" />
+        <div v-if="faceRefUrl || previewUrl" class="border border-[#E5E3DF] rounded-xl overflow-hidden">
+          <img :src="faceRefUrl || previewUrl" alt="Aperçu image de référence" class="block w-full max-h-72 object-cover" />
         </div>
         <p v-if="fileError" class="text-sm text-red-600">{{ fileError }}</p>
         <p v-if="uploadError" class="text-sm text-red-600">{{ uploadError }}</p>
@@ -148,6 +148,7 @@ const isDragging = ref(false)
 const previewUrl = ref('')
 const selectedFile = ref(null)
 const faceRefPath = ref('')
+const faceRefUrl = ref('')
 const tempInfluencerId = ref(`temp-${Date.now()}`)
 const fileInputRef = ref(null)
 
@@ -247,6 +248,7 @@ async function uploadFaceRefIfNeeded() {
 
     const data = await response.json()
     faceRefPath.value = data?.path || ''
+    faceRefUrl.value = data?.url || ''
 
     if (!faceRefPath.value) {
       throw new Error('Le serveur n a pas retourné de chemin de fichier')
