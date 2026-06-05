@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import IORedis from 'ioredis';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Modality } from '@google/genai';
 import { Anthropic } from '@anthropic-ai/sdk';
 import { Worker } from 'bullmq';
 
@@ -158,7 +158,7 @@ export function startGenerationWorker() {
 
         const genai = new GoogleGenAI({ apiKey: geminiKey });
         const imageResponse = await genai.models.generateContent({
-          model: 'gemini-2.0-flash',
+          model: 'gemini-3-pro-image-preview',
           contents: [
             {
               role: 'user',
@@ -174,26 +174,44 @@ export function startGenerationWorker() {
             },
           ],
           config: {
-            responseModalities: ['TEXT', 'IMAGE'],
+            responseModalities: [Modality.TEXT, Modality.IMAGE],
           },
         });
 
-        const parts = imageResponse?.candidates?.[0]?.content?.parts ?? [];
-        const imagePart = parts.find((part) => part?.inlineData?.data);
-        if (!imagePart) {
-          throw new Error('Gemini did not return an image payload');
+        const candidate = imageResponse?.candidates?.[0];
+        const parts = candidate?.content?.parts ?? [];
+
+        if (parts.length === 0) {
+          const finishReason = candidate?.finishReason;
+          const safetyRatings = JSON.stringify(candidate?.safetyRatings ?? []);
+          throw new Error(
+            `Gemini returned no parts. finishReason=${finishReason} safetyRatings=${safetyRatings} rawKeys=${Object.keys(imageResponse ?? {}).join(',')}`,
+          );
         }
+
+        const imagePart = parts.find(
+          (part) => part?.inlineData?.data || part?.inline_data?.data,
+        );
+
+        if (!imagePart) {
+          const partsSummary = parts
+            .map((p, i) => `[${i}] keys=${Object.keys(p ?? {}).join(',')} text=${p?.text ? p.text.slice(0, 80) : ''}`)
+            .join(' | ');
+          throw new Error(`Gemini did not return an image part. Parts: ${partsSummary}`);
+        }
+
+        const inlineData = imagePart.inlineData ?? imagePart.inline_data;
 
         await job.updateProgress(65);
 
         const generatedDir = getGeneratedDir();
 
-        const imageMime = imagePart.inlineData.mimeType || 'image/jpeg';
+        const imageMime = inlineData.mimeType || 'image/jpeg';
         const extension = extFromMime(imageMime);
         const filename = `generated_${Date.now()}.${extension}`;
         const generatedPath = path.join(generatedDir, filename);
 
-        await fs.writeFile(generatedPath, Buffer.from(imagePart.inlineData.data, 'base64'));
+        await fs.writeFile(generatedPath, Buffer.from(inlineData.data, 'base64'));
         const imageUrl = toMediaUrl('generated', filename);
 
         const anthropicApiKey = process.env.ANTHROPIC_API_KEY || process.env.anthropicApiKey;
