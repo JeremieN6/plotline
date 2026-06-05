@@ -363,9 +363,15 @@ async function generateImage() {
       },
     })
 
-    startPolling(response.jobId, response.contentId)
+    if (response?.jobId) {
+      startPolling(response.jobId, response.contentId)
+    } else {
+      await hydrateGeneratedContent(response.contentId)
+      generating.value = false
+    }
   } catch (err) {
     errorMsg.value = err?.data?.statusMessage || err?.message || String(err)
+    generating.value = false
   }
 }
 

@@ -1,4 +1,4 @@
-import { queue } from '../../utils/queue.js';
+import { processGenerationJob } from '../../utils/generationWorker.js';
 
 let prismaClient;
 
@@ -28,6 +28,11 @@ function derivePlatformAndFormat(calendarStep) {
   }
 
   return { platform: 'INSTAGRAM', format: 'FEED' };
+}
+
+function shouldUseQueue() {
+  const rawValue = String(process.env.USE_QUEUE || '').trim().toLowerCase();
+  return rawValue === 'true' || rawValue === '1' || rawValue === 'yes';
 }
 
 export default defineEventHandler(async (event) => {
@@ -71,18 +76,30 @@ export default defineEventHandler(async (event) => {
       },
     });
 
+    const jobPayload = {
+      influencerId,
+      location,
+      outfit,
+      pose,
+      mood,
+      lighting,
+      tagCategory,
+      contentId: generatedContent.id,
+    };
+
+    if (!shouldUseQueue()) {
+      await processGenerationJob(jobPayload);
+      return {
+        jobId: null,
+        contentId: generatedContent.id,
+        status: 'completed',
+      };
+    }
+
+    const { queue } = await import('../../utils/queue.js');
     const job = await queue.add(
       'generate-image',
-      {
-        influencerId,
-        location,
-        outfit,
-        pose,
-        mood,
-        lighting,
-        tagCategory,
-        contentId: generatedContent.id,
-      },
+      jobPayload,
       {
         removeOnComplete: 100,
         removeOnFail: 100,
@@ -92,6 +109,7 @@ export default defineEventHandler(async (event) => {
     return {
       jobId: String(job.id),
       contentId: generatedContent.id,
+      status: 'processing',
     };
   } catch (err) {
     return sendError(
