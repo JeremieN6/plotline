@@ -245,6 +245,20 @@ export default defineEventHandler(async (event) => {
     };
 
     if (!shouldUseQueue()) {
+      if (String(workflowType || '').trim().toLowerCase() === 'pinterest') {
+        await prisma.generatedContent.update({
+          where: { id: generatedContent.id },
+          data: { status: 'FAILED' },
+        });
+        return sendError(
+          event,
+          createError({
+            statusCode: 501,
+            statusMessage: 'Pinterest scraping not implemented yet',
+          }),
+        );
+      }
+
       await processGenerationJob(jobPayload);
       return {
         jobId: null,
