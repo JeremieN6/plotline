@@ -15,6 +15,8 @@ function createOfflineInfluencer({ userId, name, niche, style }) {
     style,
     faceRefPath: null,
     bodyRefPath: null,
+    bodyPrompt: null,
+    identityProfile: 'default',
     instagramAccountId: null,
     instagramAccessToken: null,
     tiktokEnabled: false,
@@ -83,7 +85,8 @@ module.exports = defineEventHandler(async (event) => {
           userId,
           name: body.name,
           niche: normalizedNiche,
-          style: body.style
+          style: body.style,
+          bodyPrompt: typeof body?.bodyPrompt === 'string' ? body.bodyPrompt.trim() || null : null,
         }
       });
     } catch (err) {

@@ -49,6 +49,8 @@ model Influencer {
   style                String
   faceRefPath          String?
   bodyRefPath          String?
+  bodyPrompt           String?
+  identityProfile      String             @default("default")
   instagramAccountId   String?
   instagramAccessToken  String?
   tiktokEnabled        Boolean            @default(false)

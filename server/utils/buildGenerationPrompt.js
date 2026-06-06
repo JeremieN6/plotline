@@ -1,4 +1,4 @@
-import { MADISON_JSON_TEMPLATE } from './promptTemplates.js';
+import { SCENE_JSON_TEMPLATE } from './promptTemplates.js';
 
 export const OUTFIT_MAP = {
   'white crop top + high waist jeans': {
@@ -186,15 +186,6 @@ export const MOOD_MAP = {
   'focused reading or scrolling': 'focused, eyes looking downward, absorbed in thought',
 };
 
-const HAIR_STYLES = [
-  'loose beach waves',
-  'messy bun',
-  'straight and down',
-  'high ponytail',
-  'low casual bun',
-  'half-up half-down waves',
-];
-
 const ACCESSORIES = [
   'Small gold necklace',
   'Silver hoop earrings',
@@ -244,7 +235,6 @@ export function buildGenerationPrompt(concept, format = 'feed', ratio) {
     '{top_description}': outfit.top_description,
     '{bottom_description}': outfit.bottom_description,
     '{accessories}': randomItem(ACCESSORIES),
-    '{hair_style}': randomItem(HAIR_STYLES),
     '{expression}': expression,
     '{pose_description}': pose.pose_description,
     '{location}': String(safeConcept.location ?? ''),
@@ -258,7 +248,7 @@ export function buildGenerationPrompt(concept, format = 'feed', ratio) {
     '{aspect_ratio}': aspectRatio,
   };
 
-  let template = JSON.stringify(JSON.parse(JSON.stringify(MADISON_JSON_TEMPLATE)));
+  let template = JSON.stringify(JSON.parse(JSON.stringify(SCENE_JSON_TEMPLATE)));
   for (const [key, value] of Object.entries(replacements)) {
     template = template.split(key).join(String(value));
   }

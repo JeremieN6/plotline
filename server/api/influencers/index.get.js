@@ -5,6 +5,75 @@ function isTransientDbError(err) {
   return code === 'ETIMEDOUT' || code === 'P1001' || code === 'P1002';
 }
 
+function isMissingColumnError(err) {
+  if (err?.code === 'P2022') return true;
+  const message = String(err?.message || '').toLowerCase();
+  return message.includes('column') && message.includes('does not exist');
+}
+
+function isUnknownFieldSelectError(err) {
+  const message = String(err?.message || '').toLowerCase();
+  return message.includes('unknown field') && message.includes('for select statement on model');
+}
+
+function normalizeInfluencer(influencer) {
+  return {
+    ...influencer,
+    bodyPrompt: typeof influencer?.bodyPrompt === 'string' ? influencer.bodyPrompt : null,
+    identityProfile: String(influencer?.identityProfile || 'default'),
+  };
+}
+
+async function findInfluencersCompatible(prisma, userId) {
+  try {
+    const rows = await prisma.influencer.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        userId: true,
+        name: true,
+        niche: true,
+        style: true,
+        faceRefPath: true,
+        bodyRefPath: true,
+        bodyPrompt: true,
+        identityProfile: true,
+        instagramAccountId: true,
+        tiktokEnabled: true,
+        calendarStep: true,
+        createdAt: true,
+      },
+    });
+
+    return rows.map(normalizeInfluencer);
+  } catch (err) {
+    if (!isMissingColumnError(err) && !isUnknownFieldSelectError(err)) {
+      throw err;
+    }
+
+    const legacyRows = await prisma.influencer.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        userId: true,
+        name: true,
+        niche: true,
+        style: true,
+        faceRefPath: true,
+        bodyRefPath: true,
+        instagramAccountId: true,
+        tiktokEnabled: true,
+        calendarStep: true,
+        createdAt: true,
+      },
+    });
+
+    return legacyRows.map(normalizeInfluencer);
+  }
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -37,23 +106,7 @@ module.exports = defineEventHandler(async (event) => {
 
     for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
-        influencers = await prisma.influencer.findMany({
-          where: { userId },
-          orderBy: { createdAt: 'desc' },
-          select: {
-            id: true,
-            userId: true,
-            name: true,
-            niche: true,
-            style: true,
-            faceRefPath: true,
-            bodyRefPath: true,
-            instagramAccountId: true,
-            tiktokEnabled: true,
-            calendarStep: true,
-            createdAt: true
-          }
-        });
+        influencers = await findInfluencersCompatible(prisma, userId);
         break;
       } catch (err) {
         lastError = err;

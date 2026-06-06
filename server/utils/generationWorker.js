@@ -9,6 +9,8 @@ import { Worker } from 'bullmq';
 import { buildGenerationPrompt } from './buildGenerationPrompt.js';
 import { isAbsoluteHttpUrl, isBlobStorageEnabled, uploadPublicMediaBuffer } from './blobStorage.js';
 import { imageToJson } from './imageToJson.js';
+import { describeBodyFromImageSource } from './bodyReference.js';
+import { validatePersonAndUpperBody } from './imageValidation.js';
 import { injectBody } from './injectBody.js';
 import { getGeneratedDir, toMediaUrl } from './mediaStorage.js';
 import { scrapePinterestImage } from './pinterestScraper.js';
@@ -158,7 +160,9 @@ async function resolveFaceRefAbsolutePath(faceRefPath) {
 
   const basename = path.basename(rawPath);
   candidates.push(path.join(process.cwd(), 'public', 'uploads', 'face-refs', basename));
+  candidates.push(path.join(process.cwd(), 'public', 'uploads', 'body-refs', basename));
   candidates.push(path.join(process.cwd(), 'storage', 'uploads', 'face-refs', basename));
+  candidates.push(path.join(process.cwd(), 'storage', 'uploads', 'body-refs', basename));
 
   for (const candidatePath of candidates) {
     if (await fileExists(candidatePath)) {
@@ -200,6 +204,74 @@ async function readImageSourceBuffer(imageSource) {
     mimeType: mimeFromExt(absolutePath),
     origin: absolutePath,
   };
+}
+
+async function resolveBodyPromptFromInfluencer(influencer) {
+  const explicitBodyPrompt = String(influencer?.bodyPrompt || '').trim();
+  if (explicitBodyPrompt) {
+    return explicitBodyPrompt;
+  }
+
+  const bodyRefPath = String(influencer?.bodyRefPath || '').trim();
+  if (!bodyRefPath) {
+    return '';
+  }
+
+  try {
+    const inferred = await describeBodyFromImageSource(bodyRefPath, resolveFaceRefAbsolutePath);
+    return String(inferred || '').trim();
+  } catch {
+    return '';
+  }
+}
+
+function isMissingColumnError(err) {
+  if (err?.code === 'P2022') return true;
+  const message = String(err?.message || '').toLowerCase();
+  return message.includes('column') && message.includes('does not exist');
+}
+
+function isUnknownFieldSelectError(err) {
+  const message = String(err?.message || '').toLowerCase();
+  return message.includes('unknown field') && message.includes('for select statement on model');
+}
+
+async function findInfluencerForGeneration(prisma, influencerId) {
+  try {
+    return await prisma.influencer.findUnique({
+      where: { id: influencerId },
+      select: {
+        id: true,
+        name: true,
+        faceRefPath: true,
+        bodyRefPath: true,
+        bodyPrompt: true,
+        identityProfile: true,
+      },
+    });
+  } catch (err) {
+    if (!isMissingColumnError(err) && !isUnknownFieldSelectError(err)) {
+      throw err;
+    }
+
+    const legacy = await prisma.influencer.findUnique({
+      where: { id: influencerId },
+      select: {
+        id: true,
+        name: true,
+        faceRefPath: true,
+        bodyRefPath: true,
+        identityProfile: true,
+      },
+    });
+
+    if (!legacy) return legacy;
+    return {
+      ...legacy,
+      bodyPrompt: null,
+      identityProfile: String(legacy.identityProfile || 'default'),
+    };
+  }
 }
 
 async function markFailed(contentId, errorMessage) {
@@ -263,14 +335,7 @@ export async function processGenerationJob(jobData, options = {}) {
   try {
     await updateProgress(10);
 
-    const influencer = await prisma.influencer.findUnique({
-      where: { id: influencerId },
-      select: {
-        id: true,
-        name: true,
-        faceRefPath: true,
-      },
-    });
+    const influencer = await findInfluencerForGeneration(prisma, influencerId);
 
     if (!influencer) {
       throw new Error('Influencer not found');
@@ -286,56 +351,63 @@ export async function processGenerationJob(jobData, options = {}) {
     const faceRefBase64 = faceRefBuffer.toString('base64');
 
     const { format, ratio, contentType: normalizedContentType } = resolveFormatAndRatio(contentType);
+    const bodyPrompt = await resolveBodyPromptFromInfluencer(influencer);
 
     const normalizedWorkflow = String(workflowType || '').trim().toLowerCase();
     let prompt;
     let geminiParts;
     let sceneDescriptionConcept;
+    let scrapedImagePath;
 
     if (normalizedWorkflow === 'pinterest') {
-      const scrapedImagePath = await scrapePinterestImage(keyword);
+      scrapedImagePath = await scrapePinterestImage(keyword);
 
       if (!scrapedImagePath) {
         throw new Error(`No Pinterest image found for query: ${keyword}`);
       }
 
-      const sceneJson = await imageToJson(scrapedImagePath);
-      const enrichedSceneJson = injectBody(sceneJson);
+      try {
+        const sceneJson = await imageToJson(scrapedImagePath);
+        const enrichedSceneJson = injectBody(sceneJson, {
+          identityProfile: influencer.identityProfile,
+          influencerName: influencer.name,
+          bodyPrompt,
+        });
 
-      prompt = PROMPT_JSON_TO_PRO_IMAGE.replace('{scene_json}', JSON.stringify(enrichedSceneJson, null, 2));
+        prompt = PROMPT_JSON_TO_PRO_IMAGE.replace('{scene_json}', JSON.stringify(enrichedSceneJson, null, 2));
 
-      const scrapedBuffer = await fs.readFile(scrapedImagePath);
-      const scrapedBase64 = scrapedBuffer.toString('base64');
-      const scrapedMime = mimeFromExt(scrapedImagePath);
-
-      geminiParts = [
-        {
-          inlineData: {
-            mimeType: scrapedMime,
-            data: scrapedBase64,
+        // The Pinterest source image is used ONLY for scene JSON extraction (imageToJson above).
+        // It must NOT be sent to Gemini during image generation — doing so causes Gemini to
+        // reproduce the source instead of generating a new image from the face ref.
+        geminiParts = [
+          {
+            inlineData: {
+              mimeType: faceRefMime,
+              data: faceRefBase64,
+            },
           },
-        },
-        {
-          inlineData: {
-            mimeType: faceRefMime,
-            data: faceRefBase64,
-          },
-        },
-      ];
+        ];
 
-      sceneDescriptionConcept = {
-        location: enrichedSceneJson?.scene?.location || location,
-        outfit: enrichedSceneJson?.subject?.wardrobe?.top || outfit,
-        pose: enrichedSceneJson?.subject?.pose || pose,
-        mood: enrichedSceneJson?.mood || mood,
-        lighting: enrichedSceneJson?.scene?.lighting?.type || lighting,
-      };
+        sceneDescriptionConcept = {
+          location: enrichedSceneJson?.scene?.location || location,
+          outfit: enrichedSceneJson?.subject?.wardrobe?.top || outfit,
+          pose: enrichedSceneJson?.subject?.pose || pose,
+          mood: enrichedSceneJson?.mood || mood,
+          lighting: enrichedSceneJson?.scene?.lighting?.type || lighting,
+        };
+      } finally {
+        await fs.unlink(scrapedImagePath).catch(() => {});
+      }
     } else {
       const concept = { location, outfit, pose, mood, lighting };
       sceneDescriptionConcept = concept;
 
       const sceneJsonText = buildGenerationPrompt(concept, normalizedContentType, ratio);
-      const sceneJson = injectBody(JSON.parse(sceneJsonText));
+      const sceneJson = injectBody(JSON.parse(sceneJsonText), {
+        identityProfile: influencer.identityProfile,
+        influencerName: influencer.name,
+        bodyPrompt,
+      });
       prompt = PROMPT_JSON_TO_IMAGE.replace('{scene_json}', JSON.stringify(sceneJson, null, 2));
 
       geminiParts = [
@@ -349,13 +421,31 @@ export async function processGenerationJob(jobData, options = {}) {
     }
 
     await updateProgress(30);
-    const inlineData = await generateImageFromGemini(prompt, geminiParts);
+
+    let inlineData;
+    let imageMime = 'image/jpeg';
+    let generatedBuffer = null;
+    let validation = { pass: false, reason: '' };
+
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      inlineData = await generateImageFromGemini(prompt, geminiParts);
+      imageMime = inlineData.mimeType || 'image/jpeg';
+      generatedBuffer = Buffer.from(inlineData.data, 'base64');
+
+      validation = await validatePersonAndUpperBody(generatedBuffer, imageMime);
+      if (validation.pass) {
+        break;
+      }
+
+      if (attempt === 3) {
+        throw new Error(
+          `Generated image failed validation (person_count=1 and upper body visible required). Reason: ${validation.reason || 'unknown'}`,
+        );
+      }
+    }
 
     await updateProgress(65);
-
-    const imageMime = inlineData.mimeType || 'image/jpeg';
     const extension = extFromMime(imageMime);
-    const generatedBuffer = Buffer.from(inlineData.data, 'base64');
 
     let imageUrl = '';
 

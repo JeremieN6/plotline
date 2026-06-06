@@ -63,6 +63,22 @@ module.exports = defineEventHandler(async (event) => {
       style: String(body?.style || '').trim(),
     };
 
+    if (typeof body?.identityProfile === 'string' && body.identityProfile.trim()) {
+      const normalizedProfile = String(body.identityProfile).trim().toLowerCase();
+      const allowedProfiles = new Set(['default', 'madison']);
+
+      if (!allowedProfiles.has(normalizedProfile)) {
+        return sendError(event, createError({ statusCode: 400, statusMessage: 'identityProfile invalide' }));
+      }
+
+      payload.identityProfile = normalizedProfile;
+    }
+
+    if (typeof body?.bodyPrompt === 'string') {
+      const normalizedBodyPrompt = body.bodyPrompt.trim();
+      payload.bodyPrompt = normalizedBodyPrompt ? normalizedBodyPrompt : null;
+    }
+
     if (!payload.name || !payload.niche || !payload.style) {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'name, niche et style requis' }));
     }

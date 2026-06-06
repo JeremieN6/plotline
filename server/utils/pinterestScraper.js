@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
 import { chromium } from 'playwright';
@@ -24,7 +25,7 @@ function isValidPinterestCandidate(url) {
 }
 
 async function saveImageBuffer(buffer) {
-  const tempDir = path.join(process.cwd(), 'storage', 'temp');
+  const tempDir = path.join(os.tmpdir(), 'plotline', 'pinterest');
   await fs.mkdir(tempDir, { recursive: true });
 
   const outputPath = path.join(tempDir, `pinterest_${Date.now()}.jpg`);
