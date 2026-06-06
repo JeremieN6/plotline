@@ -7,6 +7,8 @@
     "dev": "nuxt dev --port 3000",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
+    "migrate:generated:blob:dry": "node scripts/migrate-generated-to-blob.cjs --dry-run",
+    "migrate:generated:blob": "node scripts/migrate-generated-to-blob.cjs",
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
@@ -15,9 +17,11 @@
     "@prisma/adapter-neon": "^7.8.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@vercel/blob": "^2.4.0",
     "bullmq": "^5.78.0",
     "ioredis": "^5.11.1",
     "nuxt": "^4.4.6",
+    "playwright": "^1.60.0",
     "prisma": "^7.8.0",
     "vue": "^3.5.34"
   },

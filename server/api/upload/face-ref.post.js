@@ -11,6 +11,8 @@ function resolveExtension(filename = '', type = '') {
 
 module.exports = defineEventHandler(async (event) => {
   try {
+    const { isBlobStorageEnabled, uploadPublicMediaBuffer } = await import('../../utils/blobStorage.js');
+
     const formData = await readMultipartFormData(event);
     const filePart = formData?.find((part) => part.name === 'file');
     const influencerIdPart = formData?.find((part) => part.name === 'influencerId');
@@ -37,14 +39,29 @@ module.exports = defineEventHandler(async (event) => {
       }
     }
 
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'face-refs');
-    fs.mkdirSync(uploadDir, { recursive: true });
-
     const extension = resolveExtension(filePart.filename, filePart.type);
-    const filePath = path.join(uploadDir, `${influencerId}-face.${extension}`);
-    fs.writeFileSync(filePath, Buffer.from(filePart.data));
+    const fileBuffer = Buffer.from(filePart.data);
 
-    const publicPath = `/uploads/face-refs/${influencerId}-face.${extension}`;
+    let publicPath = '';
+
+    if (isBlobStorageEnabled()) {
+      const uploaded = await uploadPublicMediaBuffer(
+        `face-refs/${influencerId}`,
+        extension,
+        fileBuffer,
+        filePart.type,
+      );
+      publicPath = uploaded.url;
+    } else {
+      const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'face-refs');
+      fs.mkdirSync(uploadDir, { recursive: true });
+
+      const filename = `${influencerId}-face.${extension}`;
+      const filePath = path.join(uploadDir, filename);
+      fs.writeFileSync(filePath, fileBuffer);
+
+      publicPath = `/uploads/face-refs/${filename}`;
+    }
 
     if (!isTemporary) {
       await prisma.influencer.update({
@@ -53,7 +70,7 @@ module.exports = defineEventHandler(async (event) => {
       });
     }
 
-    return { path: publicPath };
+    return { path: publicPath, url: publicPath };
   } catch (err) {
     return sendError(event, createError({ statusCode: 500, statusMessage: 'Erreur serveur', data: err }));
   }

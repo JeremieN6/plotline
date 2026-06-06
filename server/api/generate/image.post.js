@@ -193,12 +193,35 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    if (!influencerId || !location || !outfit || !pose || !mood || !lighting) {
+    const normalizedWorkflowType = String(workflowType || '').trim().toLowerCase();
+    const isPinterestWorkflow = normalizedWorkflowType === 'pinterest';
+
+    if (!influencerId) {
       return sendError(
         event,
         createError({
           statusCode: 400,
-          statusMessage: 'Missing required fields: influencerId, location, outfit, pose, mood, lighting',
+          statusMessage: 'Missing required field: influencerId',
+        }),
+      );
+    }
+
+    if (isPinterestWorkflow && !String(keyword || '').trim()) {
+      return sendError(
+        event,
+        createError({
+          statusCode: 400,
+          statusMessage: 'Missing required field for pinterest workflow: keyword',
+        }),
+      );
+    }
+
+    if (!isPinterestWorkflow && (!location || !outfit || !pose || !mood || !lighting)) {
+      return sendError(
+        event,
+        createError({
+          statusCode: 400,
+          statusMessage: 'Missing required fields: location, outfit, pose, mood, lighting',
         }),
       );
     }
@@ -245,20 +268,6 @@ export default defineEventHandler(async (event) => {
     };
 
     if (!shouldUseQueue()) {
-      if (String(workflowType || '').trim().toLowerCase() === 'pinterest') {
-        await prisma.generatedContent.update({
-          where: { id: generatedContent.id },
-          data: { status: 'FAILED' },
-        });
-        return sendError(
-          event,
-          createError({
-            statusCode: 501,
-            statusMessage: 'Pinterest scraping not implemented yet',
-          }),
-        );
-      }
-
       await processGenerationJob(jobPayload);
       return {
         jobId: null,
@@ -283,6 +292,25 @@ export default defineEventHandler(async (event) => {
       status: 'processing',
     };
   } catch (err) {
+    const message = err?.message || ''
+    const isMissingFaceRef = message.includes('Face reference file not found')
+      || message.includes('Influencer face reference is missing')
+
+    if (isMissingFaceRef) {
+      return sendError(
+        event,
+        createError({
+          statusCode: 409,
+          statusMessage: 'Face reference introuvable sur ce poste. Re-uploadez la face ref.',
+          data: {
+            name: err?.name,
+            code: err?.code,
+            message: err?.message,
+          },
+        }),
+      )
+    }
+
     return sendError(
       event,
       createError({

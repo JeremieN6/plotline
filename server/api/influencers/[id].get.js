@@ -4,6 +4,10 @@ async function getMediaStorage() {
   return import('../../utils/mediaStorage.js');
 }
 
+function isAbsoluteHttpUrl(value) {
+  return /^https?:\/\//i.test(String(value || '').trim());
+}
+
 function isTransientDbError(err) {
   const code = err?.code;
   return code === 'ETIMEDOUT' || code === 'P1001' || code === 'P1002';
@@ -69,11 +73,17 @@ module.exports = defineEventHandler(async (event) => {
 
     await store.setItem(`influencer:${id}`, influencer);
 
-    const faceRefFilename = influencer?.faceRefPath?.split(/[\\/]/).pop();
+    const faceRefPath = String(influencer?.faceRefPath || '').trim();
+    const faceRefFilename = faceRefPath.split(/[\\/]/).pop();
+    const faceRefUrl = !faceRefPath
+      ? null
+      : isAbsoluteHttpUrl(faceRefPath)
+        ? faceRefPath
+        : toMediaUrl('face-refs', faceRefFilename);
 
     return {
       ...influencer,
-      faceRefUrl: faceRefFilename ? toMediaUrl('face-refs', faceRefFilename) : null,
+      faceRefUrl,
     };
   } catch (err) {
     return sendError(event, createError({ statusCode: 500, statusMessage: 'Erreur serveur', data: err }));

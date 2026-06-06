@@ -1,5 +1,19 @@
 let prismaClient;
 
+function isAbsoluteHttpUrl(value) {
+  return /^https?:\/\//i.test(String(value || '').trim());
+}
+
+function resolvePublicImageUrl(imageUrl, baseUrl) {
+  const raw = String(imageUrl || '').trim();
+  const normalizedBase = String(baseUrl || '').replace(/\/$/, '');
+
+  if (!raw) return '';
+  if (isAbsoluteHttpUrl(raw)) return raw;
+  if (raw.startsWith('/')) return `${normalizedBase}${raw}`;
+  return `${normalizedBase}/api/media/${raw}`;
+}
+
 async function getPrisma() {
   if (prismaClient) return prismaClient;
 
@@ -59,7 +73,7 @@ export default defineEventHandler(async (event) => {
     }
 
     const baseUrl = runtimeConfig.baseUrl || process.env.BASE_URL || 'http://localhost:3000';
-    const publicImageUrl = `${baseUrl}/api/media/${content.imageUrl}`;
+    const publicImageUrl = resolvePublicImageUrl(content.imageUrl, baseUrl);
 
     const createResponse = await $fetch(`https://graph.facebook.com/v21.0/${instagramAccountId}/media`, {
       method: 'POST',

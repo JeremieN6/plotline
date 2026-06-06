@@ -25,6 +25,42 @@ Scene JSON:
 {scene_json}
 `;
 
+export const PROMPT_IMAGE_TO_JSON = `Analyze the attached Pinterest image and return ONLY valid JSON.
+
+Output requirements:
+- Return raw JSON only (no markdown, no comments).
+- Keep it concise but specific.
+- Use this exact schema:
+{
+  "subject": {
+    "wardrobe": {
+      "top": "string",
+      "bottom": "string",
+      "accessories": "string"
+    },
+    "pose": "string"
+  },
+  "scene": {
+    "location": "string",
+    "background": "string",
+    "lighting": {
+      "type": "string",
+      "quality": "string",
+      "shadows": "string"
+    }
+  },
+  "camera": {
+    "type": "string",
+    "lens": "string",
+    "angle": "string",
+    "composition": "string",
+    "style": "string"
+  },
+  "mood": "string"
+}
+
+If a detail is unclear, infer a plausible value from the image and keep it realistic.`;
+
 // Kept as a dedicated export for compatibility with older naming used in Python flows.
 export const PROMPT_JSON_TO_PRO_IMAGE = PROMPT_JSON_TO_IMAGE;
 

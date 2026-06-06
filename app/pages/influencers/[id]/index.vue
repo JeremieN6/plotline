@@ -103,13 +103,20 @@
               </div>
             </template>
 
-            <template v-else-if="item.imageUrl">
+            <template v-else-if="item.imageUrl && !item._imageMissing">
               <img
                 :src="item.imageUrl"
                 :alt="`Contenu ${item.format}`"
                 class="h-full w-full cursor-pointer object-cover transition-transform hover:scale-105"
                 @click="openModal(item.imageUrl)"
+                @error="markImageMissing(item)"
               />
+            </template>
+
+            <template v-else-if="item._imageMissing">
+              <div class="flex h-full items-center justify-center p-4">
+                <p class="text-center text-sm text-amber-700">Image indisponible sur ce poste.</p>
+              </div>
             </template>
 
             <template v-else>
@@ -287,7 +294,12 @@ function normalizeItem(item) {
     ...item,
     _loading: false,
     _copied: false,
+    _imageMissing: false,
   })
+}
+
+function markImageMissing(item) {
+  item._imageMissing = true
 }
 
 async function loadContent(tab = activeTab.value) {

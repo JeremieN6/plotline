@@ -97,7 +97,16 @@
             <img :src="previewUrl" alt="Aperçu de la face ref" class="block max-h-72 w-full object-cover" />
           </div>
           <div v-else-if="currentFaceRefUrl" class="mt-4 overflow-hidden rounded-xl border border-[#E5E3DF]">
-            <img :src="currentFaceRefUrl" alt="Face ref actuelle" class="block max-h-72 w-full object-cover" />
+            <img
+              v-if="!currentFaceRefMissing"
+              :src="currentFaceRefUrl"
+              alt="Face ref actuelle"
+              class="block max-h-72 w-full object-cover"
+              @error="onCurrentFaceRefError"
+            />
+            <div v-else class="p-4 text-sm text-amber-700 bg-amber-50">
+              Cette image de reference n'est pas disponible sur ce poste. Uploadez une nouvelle face ref pour continuer.
+            </div>
           </div>
 
           <p v-if="fileError" class="mt-3 text-sm text-red-600">{{ fileError }}</p>
@@ -148,6 +157,7 @@ const selectedFile = ref(null)
 const previewUrl = ref('')
 const currentFaceRefPath = ref('')
 const currentFaceRefUrl = ref('')
+const currentFaceRefMissing = ref(false)
 const fileInputRef = ref(null)
 
 const form = reactive({
@@ -178,6 +188,7 @@ watch(
     form.style = value.style || ''
     currentFaceRefPath.value = value.faceRefPath || ''
     currentFaceRefUrl.value = value.faceRefUrl || (currentFaceRefFilename.value ? `/api/media/face-refs/${encodeURIComponent(currentFaceRefFilename.value)}` : '')
+    currentFaceRefMissing.value = false
   },
   { immediate: true },
 )
@@ -204,6 +215,10 @@ function updatePreview(file) {
     URL.revokeObjectURL(previewUrl.value)
   }
   previewUrl.value = URL.createObjectURL(file)
+}
+
+function onCurrentFaceRefError() {
+  currentFaceRefMissing.value = true
 }
 
 function setFile(file) {
@@ -250,7 +265,8 @@ async function uploadFaceRefIfNeeded() {
 
   const payload = await response.json()
   currentFaceRefPath.value = payload?.path || currentFaceRefPath.value
-  currentFaceRefUrl.value = payload?.url || currentFaceRefUrl.value
+  currentFaceRefUrl.value = payload?.url || (currentFaceRefFilename.value ? `/api/media/face-refs/${encodeURIComponent(currentFaceRefFilename.value)}` : currentFaceRefUrl.value)
+  currentFaceRefMissing.value = false
   selectedFile.value = null
 }
 

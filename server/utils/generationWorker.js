@@ -7,12 +7,16 @@ import { Anthropic } from '@anthropic-ai/sdk';
 import { Worker } from 'bullmq';
 
 import { buildGenerationPrompt } from './buildGenerationPrompt.js';
+import { isAbsoluteHttpUrl, isBlobStorageEnabled, uploadPublicMediaBuffer } from './blobStorage.js';
+import { imageToJson } from './imageToJson.js';
 import { injectBody } from './injectBody.js';
 import { getGeneratedDir, toMediaUrl } from './mediaStorage.js';
+import { scrapePinterestImage } from './pinterestScraper.js';
 import {
   HASHTAG_BLOCKS,
   PROMPT_CAPTION_CONTEXTUALIZED,
   PROMPT_JSON_TO_IMAGE,
+  PROMPT_JSON_TO_PRO_IMAGE,
 } from './promptTemplates.js';
 
 let prismaClient;
@@ -46,6 +50,19 @@ function extFromMime(mimeType) {
   return 'jpg';
 }
 
+function normalizeContentTypeFromHeader(value) {
+  return String(value || '').split(';')[0].trim().toLowerCase();
+}
+
+async function fileExists(filePath) {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function formatSceneDescription(concept) {
   return [
     concept.location && `Location: ${concept.location}`,
@@ -56,6 +73,133 @@ function formatSceneDescription(concept) {
   ]
     .filter(Boolean)
     .join(' | ');
+}
+
+function resolveFormatAndRatio(contentType) {
+  const normalized = String(contentType || '').trim().toLowerCase();
+
+  if (normalized === 'reel') {
+    return { format: 'REEL', ratio: '9:16', contentType: 'reel' };
+  }
+
+  if (normalized === 'story') {
+    return { format: 'STORY', ratio: '9:16', contentType: 'story' };
+  }
+
+  return { format: 'FEED', ratio: '4:5', contentType: 'feed' };
+}
+
+function extractInlineDataFromResponse(imageResponse) {
+  const candidate = imageResponse?.candidates?.[0];
+  const parts = candidate?.content?.parts ?? [];
+
+  if (parts.length === 0) {
+    const finishReason = candidate?.finishReason;
+    const safetyRatings = JSON.stringify(candidate?.safetyRatings ?? []);
+    throw new Error(
+      `Gemini returned no parts. finishReason=${finishReason} safetyRatings=${safetyRatings} rawKeys=${Object.keys(imageResponse ?? {}).join(',')}`,
+    );
+  }
+
+  const imagePart = parts.find(
+    (part) => part?.inlineData?.data || part?.inline_data?.data,
+  );
+
+  if (!imagePart) {
+    const partsSummary = parts
+      .map((part, index) => `[${index}] keys=${Object.keys(part ?? {}).join(',')} text=${part?.text ? part.text.slice(0, 80) : ''}`)
+      .join(' | ');
+    throw new Error(`Gemini did not return an image part. Parts: ${partsSummary}`);
+  }
+
+  return imagePart.inlineData ?? imagePart.inline_data;
+}
+
+async function generateImageFromGemini(prompt, extraParts = []) {
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey || geminiKey.trim() === '...' || geminiKey.trim() === '') {
+    throw new Error('GEMINI_API_KEY non configuree dans .env');
+  }
+
+  const genai = new GoogleGenAI({ apiKey: geminiKey });
+  const imageResponse = await genai.models.generateContent({
+    model: 'gemini-3-pro-image-preview',
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: prompt }, ...extraParts],
+      },
+    ],
+    config: {
+      responseModalities: [Modality.TEXT, Modality.IMAGE],
+    },
+  });
+
+  return extractInlineDataFromResponse(imageResponse);
+}
+
+async function resolveFaceRefAbsolutePath(faceRefPath) {
+  const rawPath = String(faceRefPath || '').trim();
+  if (!rawPath) {
+    throw new Error('Influencer face reference is missing. Upload a face ref first.');
+  }
+
+  const candidates = [];
+
+  if (path.isAbsolute(rawPath)) {
+    candidates.push(rawPath);
+  }
+
+  if (rawPath.startsWith('/uploads/')) {
+    candidates.push(path.join(process.cwd(), 'public', rawPath.replace(/^\/+/, '')));
+  }
+
+  candidates.push(path.join(process.cwd(), rawPath.replace(/^\/+/, '')));
+
+  const basename = path.basename(rawPath);
+  candidates.push(path.join(process.cwd(), 'public', 'uploads', 'face-refs', basename));
+  candidates.push(path.join(process.cwd(), 'storage', 'uploads', 'face-refs', basename));
+
+  for (const candidatePath of candidates) {
+    if (await fileExists(candidatePath)) {
+      return candidatePath;
+    }
+  }
+
+  throw new Error(`Face reference file not found: ${rawPath}`);
+}
+
+async function readImageSourceBuffer(imageSource) {
+  const source = String(imageSource || '').trim();
+  if (!source) {
+    throw new Error('Image source is missing');
+  }
+
+  if (isAbsoluteHttpUrl(source)) {
+    const response = await fetch(source);
+    if (!response.ok) {
+      throw new Error(`Unable to download image source: ${source}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const mimeType = normalizeContentTypeFromHeader(response.headers.get('content-type')) || 'image/jpeg';
+
+    return {
+      buffer,
+      mimeType,
+      origin: source,
+    };
+  }
+
+  const absolutePath = await resolveFaceRefAbsolutePath(source);
+  const buffer = await fs.readFile(absolutePath);
+
+  return {
+    buffer,
+    mimeType: mimeFromExt(absolutePath),
+    origin: absolutePath,
+  };
 }
 
 async function markFailed(contentId, errorMessage) {
@@ -108,6 +252,9 @@ export async function processGenerationJob(jobData, options = {}) {
     lighting,
     tagCategory,
     contentId,
+      workflowType,
+      contentType,
+      keyword,
   } = jobData || {};
   const updateProgress = typeof options.updateProgress === 'function'
     ? options.updateProgress
@@ -133,80 +280,95 @@ export async function processGenerationJob(jobData, options = {}) {
       throw new Error('Influencer face reference is missing. Upload a face ref first.');
     }
 
-    const faceRefAbsolutePath = influencer.faceRefPath;
-    const faceRefBuffer = await fs.readFile(faceRefAbsolutePath);
-    const faceRefMime = mimeFromExt(faceRefAbsolutePath);
+    const faceRefAsset = await readImageSourceBuffer(influencer.faceRefPath);
+    const faceRefBuffer = faceRefAsset.buffer;
+    const faceRefMime = faceRefAsset.mimeType;
     const faceRefBase64 = faceRefBuffer.toString('base64');
 
-    const concept = { location, outfit, pose, mood, lighting };
-    const sceneJsonText = buildGenerationPrompt(concept, 'feed', '4:5');
-    const sceneJson = injectBody(JSON.parse(sceneJsonText));
-    const prompt = PROMPT_JSON_TO_IMAGE.replace('{scene_json}', JSON.stringify(sceneJson, null, 2));
+    const { format, ratio, contentType: normalizedContentType } = resolveFormatAndRatio(contentType);
 
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (!geminiKey || geminiKey.trim() === '...' || geminiKey.trim() === '') {
-      throw new Error('GEMINI_API_KEY non configuree dans .env');
+    const normalizedWorkflow = String(workflowType || '').trim().toLowerCase();
+    let prompt;
+    let geminiParts;
+    let sceneDescriptionConcept;
+
+    if (normalizedWorkflow === 'pinterest') {
+      const scrapedImagePath = await scrapePinterestImage(keyword);
+
+      if (!scrapedImagePath) {
+        throw new Error(`No Pinterest image found for query: ${keyword}`);
+      }
+
+      const sceneJson = await imageToJson(scrapedImagePath);
+      const enrichedSceneJson = injectBody(sceneJson);
+
+      prompt = PROMPT_JSON_TO_PRO_IMAGE.replace('{scene_json}', JSON.stringify(enrichedSceneJson, null, 2));
+
+      const scrapedBuffer = await fs.readFile(scrapedImagePath);
+      const scrapedBase64 = scrapedBuffer.toString('base64');
+      const scrapedMime = mimeFromExt(scrapedImagePath);
+
+      geminiParts = [
+        {
+          inlineData: {
+            mimeType: scrapedMime,
+            data: scrapedBase64,
+          },
+        },
+        {
+          inlineData: {
+            mimeType: faceRefMime,
+            data: faceRefBase64,
+          },
+        },
+      ];
+
+      sceneDescriptionConcept = {
+        location: enrichedSceneJson?.scene?.location || location,
+        outfit: enrichedSceneJson?.subject?.wardrobe?.top || outfit,
+        pose: enrichedSceneJson?.subject?.pose || pose,
+        mood: enrichedSceneJson?.mood || mood,
+        lighting: enrichedSceneJson?.scene?.lighting?.type || lighting,
+      };
+    } else {
+      const concept = { location, outfit, pose, mood, lighting };
+      sceneDescriptionConcept = concept;
+
+      const sceneJsonText = buildGenerationPrompt(concept, normalizedContentType, ratio);
+      const sceneJson = injectBody(JSON.parse(sceneJsonText));
+      prompt = PROMPT_JSON_TO_IMAGE.replace('{scene_json}', JSON.stringify(sceneJson, null, 2));
+
+      geminiParts = [
+        {
+          inlineData: {
+            mimeType: faceRefMime,
+            data: faceRefBase64,
+          },
+        },
+      ];
     }
 
     await updateProgress(30);
-
-    const genai = new GoogleGenAI({ apiKey: geminiKey });
-    const imageResponse = await genai.models.generateContent({
-      model: 'gemini-3-pro-image-preview',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            { text: prompt },
-            {
-              inlineData: {
-                mimeType: faceRefMime,
-                data: faceRefBase64,
-              },
-            },
-          ],
-        },
-      ],
-      config: {
-        responseModalities: [Modality.TEXT, Modality.IMAGE],
-      },
-    });
-
-    const candidate = imageResponse?.candidates?.[0];
-    const parts = candidate?.content?.parts ?? [];
-
-    if (parts.length === 0) {
-      const finishReason = candidate?.finishReason;
-      const safetyRatings = JSON.stringify(candidate?.safetyRatings ?? []);
-      throw new Error(
-        `Gemini returned no parts. finishReason=${finishReason} safetyRatings=${safetyRatings} rawKeys=${Object.keys(imageResponse ?? {}).join(',')}`,
-      );
-    }
-
-    const imagePart = parts.find(
-      (part) => part?.inlineData?.data || part?.inline_data?.data,
-    );
-
-    if (!imagePart) {
-      const partsSummary = parts
-        .map((p, i) => `[${i}] keys=${Object.keys(p ?? {}).join(',')} text=${p?.text ? p.text.slice(0, 80) : ''}`)
-        .join(' | ');
-      throw new Error(`Gemini did not return an image part. Parts: ${partsSummary}`);
-    }
-
-    const inlineData = imagePart.inlineData ?? imagePart.inline_data;
+    const inlineData = await generateImageFromGemini(prompt, geminiParts);
 
     await updateProgress(65);
 
-    const generatedDir = getGeneratedDir();
-
     const imageMime = inlineData.mimeType || 'image/jpeg';
     const extension = extFromMime(imageMime);
-    const filename = `generated_${Date.now()}.${extension}`;
-    const generatedPath = path.join(generatedDir, filename);
+    const generatedBuffer = Buffer.from(inlineData.data, 'base64');
 
-    await fs.writeFile(generatedPath, Buffer.from(inlineData.data, 'base64'));
-    const imageUrl = toMediaUrl('generated', filename);
+    let imageUrl = '';
+
+    if (isBlobStorageEnabled()) {
+      const uploaded = await uploadPublicMediaBuffer('generated', extension, generatedBuffer, imageMime);
+      imageUrl = uploaded.url;
+    } else {
+      const generatedDir = getGeneratedDir();
+      const filename = `generated_${Date.now()}.${extension}`;
+      const generatedPath = path.join(generatedDir, filename);
+      await fs.writeFile(generatedPath, generatedBuffer);
+      imageUrl = toMediaUrl('generated', filename);
+    }
 
     const anthropicApiKey = process.env.ANTHROPIC_API_KEY || process.env.anthropicApiKey;
     let caption = '';
@@ -216,8 +378,8 @@ export async function processGenerationJob(jobData, options = {}) {
     if (anthropicApiKey) {
       const anthropic = new Anthropic({ apiKey: anthropicApiKey });
       const captionPrompt = PROMPT_CAPTION_CONTEXTUALIZED.replace('{influencer_name}', influencer.name)
-        .replace('{content_type}', 'feed')
-        .replace('{scene_description}', formatSceneDescription(concept));
+        .replace('{content_type}', normalizedContentType)
+        .replace('{scene_description}', formatSceneDescription(sceneDescriptionConcept));
 
       const captionResponse = await anthropic.messages.create({
         model: 'claude-sonnet-4-20250514',
@@ -239,6 +401,7 @@ export async function processGenerationJob(jobData, options = {}) {
       where: { id: contentId },
       data: {
         status: 'PENDING',
+        format,
         imageUrl,
         caption,
         errorMessage: null,
