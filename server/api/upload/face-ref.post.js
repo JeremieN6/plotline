@@ -1,21 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { readMultipartFormData } = require('h3');
-
-let prismaClient;
-
-async function getPrisma() {
-  if (prismaClient) return prismaClient;
-
-  const module = await import('../../utils/prisma.js');
-  prismaClient = module?.prisma || module?.default?.prisma;
-
-  if (!prismaClient) {
-    throw new Error('Unable to resolve prisma client from server/utils/prisma.js');
-  }
-
-  return prismaClient;
-}
+const { prisma } = require('../../utils/prisma');
 
 function resolveExtension(filename = '', type = '') {
   const lowerName = filename.toLowerCase();
@@ -23,18 +9,8 @@ function resolveExtension(filename = '', type = '') {
   return 'jpg';
 }
 
-function sanitizeId(rawId = '') {
-  return String(rawId).replace(/[^a-zA-Z0-9_-]/g, '_');
-}
-
-async function getMediaStorage() {
-  return import('../../utils/mediaStorage.js');
-}
-
 module.exports = defineEventHandler(async (event) => {
   try {
-    const prisma = await getPrisma();
-    const { getFaceRefsDir, toMediaUrl } = await getMediaStorage();
     const formData = await readMultipartFormData(event);
     const filePart = formData?.find((part) => part.name === 'file');
     const influencerIdPart = formData?.find((part) => part.name === 'influencerId');
@@ -61,25 +37,23 @@ module.exports = defineEventHandler(async (event) => {
       }
     }
 
-    const uploadDir = getFaceRefsDir();
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'face-refs');
+    fs.mkdirSync(uploadDir, { recursive: true });
 
     const extension = resolveExtension(filePart.filename, filePart.type);
-    const safeInfluencerId = sanitizeId(influencerId);
-    const filename = `${safeInfluencerId}-face.${extension}`;
-    const filePath = path.join(uploadDir, filename);
+    const filePath = path.join(uploadDir, `${influencerId}-face.${extension}`);
     fs.writeFileSync(filePath, Buffer.from(filePart.data));
 
-    const storedPath = filePath;
-    const mediaUrl = toMediaUrl('face-refs', filename);
+    const publicPath = `/uploads/face-refs/${influencerId}-face.${extension}`;
 
     if (!isTemporary) {
       await prisma.influencer.update({
         where: { id: influencerId },
-        data: { faceRefPath: storedPath }
+        data: { faceRefPath: publicPath }
       });
     }
 
-    return { path: storedPath, url: mediaUrl };
+    return { path: publicPath };
   } catch (err) {
     return sendError(event, createError({ statusCode: 500, statusMessage: 'Erreur serveur', data: err }));
   }

@@ -5,10 +5,7 @@
 ---
 
 ## En cours
-- [x] Reecrire app/pages/influencers/[id]/generate.vue (layout 40/60 + 3 sections + etats resultat)
-- [x] Envoyer tagCategory a POST /api/generate/image et appliquer pool hashtags cote serveur
-- [x] Ajouter PATCH /api/content/[id]/validate et DELETE /api/content/[id]
-- [ ] Verification manuelle UI (etats: vide, loading, succes, erreur)
+- [ ] ...
 
 ## Fait
 - [x] Initialisation MCP memoire + structure projet

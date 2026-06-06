@@ -1,115 +1,83 @@
 <template>
-  <div class="min-h-screen bg-[#FAFAF8] flex items-center justify-center p-8">
-    <div class="bg-white border border-[#E5E3DF] rounded-xl w-full max-w-2xl p-6 shadow-sm">
-
-      <!-- Progress bar -->
-      <div class="relative h-10 mb-5">
-        <div class="absolute left-5 right-5 top-4 h-2 bg-[#E5E3DF] rounded-full"></div>
-        <div
-          class="absolute left-5 top-4 h-2 rounded-full transition-all duration-300"
-          style="background: linear-gradient(90deg, #E8873A, #f6a16a)"
-          :style="{ width: `calc(${filledWidth} - 40px)` }"
-        ></div>
-        <div class="relative flex justify-between px-5 z-10">
-          <div v-for="n in totalSteps" :key="n" class="flex items-center justify-center w-7 h-7">
-            <span
-              class="w-7 h-7 rounded-full inline-flex items-center justify-center text-sm font-semibold border transition-colors"
-              :class="step === n
-                ? 'bg-[#E8873A] text-white border-[#E8873A] shadow-md'
-                : 'bg-white text-gray-500 border-[#E5E3DF]'"
-            >{{ n }}</span>
+  <div class="page">
+    <div class="card">
+      <div class="progress-wrap">
+        <div class="progress-track"></div>
+        <div class="progress-fill" :style="{ width: filledWidth }"></div>
+        <div class="steps">
+          <div v-for="n in totalSteps" :key="n" class="step-bubble" :class="{ active: step === n }">
+            <span class="circle">{{ n }}</span>
           </div>
         </div>
       </div>
 
-      <h2 class="text-xl font-semibold text-gray-900 mt-1 mb-1">{{ stepTitle }}</h2>
-      <p class="text-sm text-gray-500 mb-5">{{ stepSubtitle }}</p>
+      <h2 class="title">{{ stepTitle }}</h2>
+      <p class="subtitle">{{ stepSubtitle }}</p>
 
-      <!-- Step 1 : identité -->
-      <div v-if="step === 1" class="flex flex-col gap-3">
-        <div>
-          <label class="block text-sm font-semibold text-gray-800 mb-1.5">Nom</label>
-          <input v-model="form.name" class="w-full px-3 py-2.5 border border-[#E5E3DF] rounded-lg text-sm focus:outline-none focus:border-[#E8873A]" placeholder="ex : Luna" />
+      <div class="content">
+        <div v-if="step === 1" class="step-content">
+          <label class="field-label">Nom</label>
+          <input v-model="form.name" class="input" placeholder="ex : Luna" />
+
+          <label class="field-label">Niche</label>
+          <input v-model="form.niche" class="input" placeholder="ex : lifestyle, fitness, travel" />
+
+          <label class="field-label">Style</label>
+          <input v-model="form.style" class="input" placeholder="ex : californian blonde, parisian chic" />
         </div>
-        <div>
-          <label class="block text-sm font-semibold text-gray-800 mb-1.5">Niches</label>
-          <input v-model="form.niche" class="w-full px-3 py-2.5 border border-[#E5E3DF] rounded-lg text-sm focus:outline-none focus:border-[#E8873A]" placeholder="ex : lifestyle, fitness, travel" />
-          <p class="mt-2 text-xs text-gray-500">Tu peux renseigner plusieurs niches séparées par des virgules.</p>
-          <div v-if="nicheItems.length" class="mt-3 flex flex-wrap gap-2">
-            <span
-              v-for="item in nicheItems"
-              :key="item"
-              class="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-bold text-[#E8873A]"
-            >
-              {{ item }}
-            </span>
+
+        <div v-if="step === 2" class="step-content">
+          <label class="field-label">Image de référence (JPG/PNG)</label>
+          <div
+            class="dropzone"
+            :class="{ dragging: isDragging, invalid: fileError }"
+            @dragenter.prevent="isDragging = true"
+            @dragover.prevent="isDragging = true"
+            @dragleave.prevent="isDragging = false"
+            @drop.prevent="onDrop"
+          >
+            <input
+              ref="fileInputRef"
+              type="file"
+              accept="image/jpeg,image/png,.jpg,.jpeg,.png"
+              class="hidden-input"
+              @change="onFileSelect"
+            />
+
+            <div class="drop-content">
+              <p class="drop-title">Dépose ton image ici</p>
+              <p class="drop-subtitle">ou</p>
+              <button type="button" class="btn secondary" @click="openFilePicker">Choisir un fichier</button>
+            </div>
           </div>
+
+          <div v-if="previewUrl" class="preview-wrap">
+            <img :src="previewUrl" alt="Aperçu image de référence" class="preview" />
+          </div>
+
+          <div v-if="fileError" class="error">{{ fileError }}</div>
+          <div v-if="uploadError" class="error">{{ uploadError }}</div>
+          <div v-if="faceRefPath" class="success">Image envoyée avec succès.</div>
         </div>
-        <div>
-          <label class="block text-sm font-semibold text-gray-800 mb-1.5">Style</label>
-          <input v-model="form.style" class="w-full px-3 py-2.5 border border-[#E5E3DF] rounded-lg text-sm focus:outline-none focus:border-[#E8873A]" placeholder="ex : californian blonde, parisian chic" />
+
+        <div v-if="step === 3" class="step-content">
+          <div class="recap">
+            <div class="recap-row"><strong>Nom :</strong> <span>{{ form.name }}</span></div>
+            <div class="recap-row"><strong>Niche :</strong> <span>{{ form.niche }}</span></div>
+            <div class="recap-row"><strong>Style :</strong> <span>{{ form.style }}</span></div>
+            <div class="recap-row"><strong>Image de référence :</strong> <span>{{ faceRefPath ? 'Oui' : 'Non' }}</span></div>
+          </div>
+          <div v-if="error" class="error">{{ error }}</div>
         </div>
       </div>
 
-      <!-- Step 2 : image de référence -->
-      <div v-if="step === 2" class="flex flex-col gap-3">
-        <label class="block text-sm font-semibold text-gray-800 mb-1">Image de référence (JPG/PNG)</label>
-        <div
-          class="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors"
-          :class="isDragging ? 'border-[#E8873A] bg-orange-50' : fileError ? 'border-red-400' : 'border-[#E5E3DF] bg-white'"
-          @dragenter.prevent="isDragging = true"
-          @dragover.prevent="isDragging = true"
-          @dragleave.prevent="isDragging = false"
-          @drop.prevent="onDrop"
-        >
-          <input
-            ref="fileInputRef"
-            type="file"
-            accept="image/jpeg,image/png,.jpg,.jpeg,.png"
-            class="hidden"
-            @change="onFileSelect"
-          />
-          <p class="font-bold text-gray-800 mb-2">Dépose ton image ici</p>
-          <p class="text-sm text-gray-500 mb-3">ou</p>
-          <button type="button" class="px-4 py-2 bg-white border border-[#E5E3DF] text-gray-800 font-semibold text-sm rounded-lg hover:bg-gray-50 transition-colors" @click="openFilePicker">
-            Choisir un fichier
-          </button>
-        </div>
-
-        <div v-if="faceRefUrl || previewUrl" class="border border-[#E5E3DF] rounded-xl overflow-hidden">
-          <img :src="faceRefUrl || previewUrl" alt="Aperçu image de référence" class="block w-full max-h-72 object-cover" />
-        </div>
-        <p v-if="fileError" class="text-sm text-red-600">{{ fileError }}</p>
-        <p v-if="uploadError" class="text-sm text-red-600">{{ uploadError }}</p>
-        <p v-if="faceRefPath" class="text-sm text-green-700 font-medium">Image envoyée avec succès.</p>
-      </div>
-
-      <!-- Step 3 : confirmation -->
-      <div v-if="step === 3">
-        <div class="bg-gray-50 border border-[#E5E3DF] rounded-lg p-4 flex flex-col gap-2 text-sm text-gray-800">
-          <div><strong>Nom :</strong> {{ form.name }}</div>
-          <div><strong>Niche :</strong> {{ form.niche }}</div>
-          <div><strong>Style :</strong> {{ form.style }}</div>
-          <div><strong>Image de référence :</strong> {{ faceRefPath ? 'Oui' : 'Non' }}</div>
-        </div>
-        <p v-if="error" class="text-sm text-red-600 mt-3">{{ error }}</p>
-      </div>
-
-      <!-- Actions -->
-      <div class="flex justify-between gap-3 mt-6">
-        <button
-          type="button"
-          class="px-4 py-2.5 bg-white border border-[#E5E3DF] text-gray-800 font-semibold text-sm rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          :disabled="step === 1 || loading"
-          @click="prevStep"
-        >
-          Précédent
-        </button>
+      <div class="actions">
+        <button type="button" class="btn secondary" :disabled="step === 1 || loading" @click="prevStep">Précédent</button>
 
         <button
           v-if="step < totalSteps"
           type="button"
-          class="px-4 py-2.5 bg-[#E8873A] text-white font-semibold text-sm rounded-lg hover:bg-[#d4762f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          class="btn primary"
           :disabled="loading || !canNext"
           @click="nextStep"
         >
@@ -117,13 +85,7 @@
           <span v-else>Suivant</span>
         </button>
 
-        <button
-          v-else
-          type="button"
-          class="px-4 py-2.5 bg-[#E8873A] text-white font-semibold text-sm rounded-lg hover:bg-[#d4762f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          :disabled="loading"
-          @click="submit"
-        >
+        <button v-else type="button" class="btn primary" :disabled="loading" @click="submit">
           <span v-if="loading">Création...</span>
           <span v-else>Créer mon influenceuse</span>
         </button>
@@ -148,7 +110,6 @@ const isDragging = ref(false)
 const previewUrl = ref('')
 const selectedFile = ref(null)
 const faceRefPath = ref('')
-const faceRefUrl = ref('')
 const tempInfluencerId = ref(`temp-${Date.now()}`)
 const fileInputRef = ref(null)
 
@@ -167,7 +128,6 @@ const subtitles = [
 
 const stepTitle = computed(() => titles[step.value - 1])
 const stepSubtitle = computed(() => subtitles[step.value - 1])
-const nicheItems = computed(() => splitNiches(form.niche))
 
 const filledWidth = computed(() => {
   const pct = ((step.value - 1) / (totalSteps - 1)) * 100
@@ -176,7 +136,7 @@ const filledWidth = computed(() => {
 
 const canNext = computed(() => {
   if (step.value === 1) {
-    return Boolean(form.name.trim() && nicheItems.value.length && form.style.trim())
+    return Boolean(form.name.trim() && form.niche.trim() && form.style.trim())
   }
   if (step.value === 2) {
     return Boolean(selectedFile.value || faceRefPath.value)
@@ -248,7 +208,6 @@ async function uploadFaceRefIfNeeded() {
 
     const data = await response.json()
     faceRefPath.value = data?.path || ''
-    faceRefUrl.value = data?.url || ''
 
     if (!faceRefPath.value) {
       throw new Error('Le serveur n a pas retourné de chemin de fichier')
@@ -320,3 +279,248 @@ onBeforeUnmount(() => {
   }
 })
 </script>
+
+<style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+:root {
+  --bg: #FAFAF8;
+  --card: #FFFFFF;
+  --text: #111111;
+  --muted: #666666;
+  --accent: #E8873A;
+  --border: #E5E3DF;
+  --radius: 12px;
+}
+
+.page {
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  color: var(--text);
+  padding: 32px;
+  box-sizing: border-box;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 680px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+}
+
+.progress-wrap {
+  position: relative;
+  height: 40px;
+  margin-bottom: 18px;
+}
+
+.progress-track {
+  position: absolute;
+  left: 20px;
+  right: 20px;
+  top: 16px;
+  height: 8px;
+  background: var(--border);
+  border-radius: 999px;
+}
+
+.progress-fill {
+  position: absolute;
+  left: 20px;
+  top: 16px;
+  height: 8px;
+  background: linear-gradient(90deg, var(--accent), #f6a16a);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.steps {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 20px;
+  z-index: 2;
+}
+
+.step-bubble {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+
+.circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #666666;
+  font-weight: 600;
+}
+
+.step-bubble.active .circle {
+  background: var(--accent);
+  color: #FFFFFF;
+  border-color: var(--accent);
+  box-shadow: 0 6px 14px rgba(232,135,58,0.18);
+}
+
+.title {
+  margin: 6px 0 4px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.subtitle {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.field-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  margin-bottom: 12px;
+  box-sizing: border-box;
+  font-size: 14px;
+}
+
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 22px;
+  text-align: center;
+  background: #fff;
+  margin-bottom: 14px;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.dropzone.dragging {
+  border-color: var(--accent);
+  background: #fff8f3;
+}
+
+.dropzone.invalid {
+  border-color: #d84c4c;
+}
+
+.drop-title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.drop-subtitle {
+  margin: 8px 0;
+  color: var(--muted);
+}
+
+.hidden-input {
+  display: none;
+}
+
+.preview-wrap {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.preview {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  object-fit: cover;
+}
+
+.recap {
+  background: #FBFBFB;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.recap-row {
+  margin-bottom: 8px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.btn {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.btn.secondary {
+  background: #fff;
+  color: var(--text);
+}
+
+.btn.primary {
+  background: var(--accent);
+  color: #FFFFFF;
+  border-color: var(--accent);
+}
+
+.btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.error {
+  color: #b00020;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.success {
+  color: #2f7d32;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+@media (max-width: 720px) {
+  .page {
+    padding: 16px;
+  }
+
+  .card {
+    padding: 16px;
+  }
+}
+</style>
