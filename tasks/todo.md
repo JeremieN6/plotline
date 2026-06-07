@@ -10,6 +10,10 @@
 - [x] Ajouter upload body ref par influenceuse
 - [x] Injecter bodyPrompt/bodyRef dans le pipeline de generation
 - [x] Ajouter validation image: person detection + upper-body validation avec retry
+- [x] Porter le workflow Reel Pinterest + Kling Motion Control en Nuxt
+- [x] Ajouter les utilitaires video ffmpeg (frame extractor + Kling client)
+- [x] Valider le pipeline Reel en build local
+- [x] Durcir les fetch Kling/tmpfiles contre les resets reseau
 - [ ] Valider en execution reelle avec un run de generation
 
 ## Fait

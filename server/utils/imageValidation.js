@@ -1,5 +1,12 @@
 import { GoogleGenAI } from '@google/genai';
 
+import {
+  PROMPT_BODY_PROPORTIONS_DETECTION,
+  PROMPT_FACE_VISIBILITY_DETECTION,
+  PROMPT_PERSON_DETECTION,
+  PROMPT_UPPER_BODY_DETECTION,
+} from './promptTemplates.js';
+
 function getGemini() {
   const key = process.env.GEMINI_API_KEY;
   if (!key || key.trim() === '' || key.trim() === '...') {
@@ -14,6 +21,58 @@ function cleanJson(rawText) {
     .replace(/^\s*```(?:json)?\s*/i, '')
     .replace(/\s*```\s*$/i, '')
     .trim();
+}
+
+function cleanText(rawText) {
+  return String(rawText || '').trim().toUpperCase();
+}
+
+async function askYesNoQuestion(imageBuffer, mimeType, prompt) {
+  const genai = getGemini();
+  const response = await genai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          { text: prompt },
+          {
+            inlineData: {
+              mimeType,
+              data: imageBuffer.toString('base64'),
+            },
+          },
+        ],
+      },
+    ],
+  });
+
+  const answer = cleanText(response?.text || '');
+  return answer.startsWith('YES');
+}
+
+export function extractMimeTypeFromPath(filePath = '') {
+  const normalized = String(filePath || '').trim().toLowerCase();
+  if (normalized.endsWith('.png')) return 'image/png';
+  if (normalized.endsWith('.webp')) return 'image/webp';
+  if (normalized.endsWith('.gif')) return 'image/gif';
+  return 'image/jpeg';
+}
+
+export async function detectPersonInImage(imageBuffer, mimeType = 'image/jpeg') {
+  return askYesNoQuestion(imageBuffer, mimeType, PROMPT_PERSON_DETECTION);
+}
+
+export async function detectUpperBodyVisible(imageBuffer, mimeType = 'image/jpeg') {
+  return askYesNoQuestion(imageBuffer, mimeType, PROMPT_UPPER_BODY_DETECTION);
+}
+
+export async function detectFaceVisible(imageBuffer, mimeType = 'image/jpeg') {
+  return askYesNoQuestion(imageBuffer, mimeType, PROMPT_FACE_VISIBILITY_DETECTION);
+}
+
+export async function validateBodyProportions(imageBuffer, mimeType = 'image/jpeg') {
+  return askYesNoQuestion(imageBuffer, mimeType, PROMPT_BODY_PROPORTIONS_DETECTION);
 }
 
 export async function validatePersonAndUpperBody(imageBuffer, mimeType = 'image/jpeg') {

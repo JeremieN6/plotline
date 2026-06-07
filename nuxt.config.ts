@@ -36,6 +36,9 @@ export default defineNuxtConfig({
   runtimeConfig: {
     geminiApiKey: process.env.GEMINI_API_KEY,
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+    klingApiKey: process.env.KLINGAI_ACCESS_KEY || process.env.KLING_API_KEY,
+    klingApiSecret: process.env.KLINGAI_SECRET_KEY || process.env.KLING_API_SECRET,
+    klingModel: process.env.KLINGAI_MODEL || process.env.KLING_MODEL,
     redisUrl: process.env.REDIS_URL,
     baseUrl: process.env.BASE_URL,
   }

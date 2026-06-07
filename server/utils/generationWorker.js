@@ -8,10 +8,19 @@ import { Worker } from 'bullmq';
 
 import { buildGenerationPrompt } from './buildGenerationPrompt.js';
 import { isAbsoluteHttpUrl, isBlobStorageEnabled, uploadPublicMediaBuffer } from './blobStorage.js';
+import { checkMinDuration, extractBestFrame } from './frameExtractor.js';
 import { imageToJson } from './imageToJson.js';
 import { describeBodyFromImageSource } from './bodyReference.js';
-import { validatePersonAndUpperBody } from './imageValidation.js';
+import {
+  detectFaceVisible,
+  detectPersonInImage,
+  detectUpperBodyVisible,
+  extractMimeTypeFromPath,
+  validateBodyProportions,
+  validatePersonAndUpperBody,
+} from './imageValidation.js';
 import { injectBody } from './injectBody.js';
+import { generateVideoMotionControl } from './klingGenerator.js';
 import { getGeneratedDir, toMediaUrl } from './mediaStorage.js';
 import { scrapePinterestImage } from './pinterestScraper.js';
 import { scrapePinterestVideo } from './pinterestVideoScraper.js';
@@ -76,6 +85,248 @@ function formatSceneDescription(concept) {
   ]
     .filter(Boolean)
     .join(' | ');
+}
+
+function buildMotionPrompt(sceneJson) {
+  const location = sceneJson?.global_context?.scene_description
+    || sceneJson?.scene?.location
+    || sceneJson?.location
+    || 'an aesthetic lifestyle scene';
+  const ambiance = sceneJson?.global_context?.weather_atmosphere
+    || sceneJson?.mood
+    || sceneJson?.atmosphere
+    || 'natural relaxed energy';
+  const movement = sceneJson?.subject?.pose?.gesture
+    || sceneJson?.subject?.pose
+    || 'subtle natural movement';
+
+  return `${location}, ${ambiance}, ${movement}.`;
+}
+
+async function readBinaryAsset(assetPath) {
+  const absolutePath = path.resolve(String(assetPath || ''));
+  return {
+    buffer: await fs.readFile(absolutePath),
+    mimeType: extractMimeTypeFromPath(absolutePath),
+  };
+}
+
+async function generateCaption({ anthropicApiKey, influencerName, contentType, sceneDescription, fallbackCaption }) {
+  if (!anthropicApiKey) {
+    return fallbackCaption;
+  }
+
+  try {
+    const anthropic = new Anthropic({ apiKey: anthropicApiKey });
+    const captionPrompt = PROMPT_CAPTION_CONTEXTUALIZED.replace('{influencer_name}', influencerName)
+      .replace('{content_type}', contentType)
+      .replace('{scene_description}', sceneDescription);
+
+    const captionResponse = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 300,
+      messages: [{ role: 'user', content: captionPrompt }],
+    });
+
+    const textPart = captionResponse.content?.find((part) => part.type === 'text');
+    return (textPart?.text || '').trim() || fallbackCaption;
+  } catch {
+    return fallbackCaption;
+  }
+}
+
+async function persistGeneratedVideo(localVideoPath) {
+  const generatedDir = getGeneratedDir();
+  const extension = path.extname(localVideoPath) || '.mp4';
+  const filename = `video_${Date.now()}${extension}`;
+  const generatedPath = path.join(generatedDir, filename);
+  await fs.copyFile(localVideoPath, generatedPath);
+  return {
+    imageUrl: toMediaUrl('generated', filename),
+    localPath: generatedPath,
+  };
+}
+
+async function persistContentRecord(prisma, contentId, data) {
+  await prisma.generatedContent.update({
+    where: { id: contentId },
+    data,
+  });
+}
+
+async function finalizeStoryVideo({ prisma, contentId, influencer, anthropicApiKey, sourceVideoPath, keyword, sceneDescription }) {
+  const persistedVideo = await persistGeneratedVideo(sourceVideoPath);
+  const fallbackCaption = `Ambiance du jour autour de ${String(keyword || '').trim() || 'cette vibe'} ✨\n\n#story #instagram #vibes`;
+  const caption = await generateCaption({
+    anthropicApiKey,
+    influencerName: influencer.name,
+    contentType: 'story',
+    sceneDescription: sceneDescription || `Video ambiance inspired by ${String(keyword || '').trim() || 'today'}`,
+    fallbackCaption,
+  });
+
+  await persistContentRecord(prisma, contentId, {
+    status: 'PENDING',
+    format: 'STORY',
+    imageUrl: persistedVideo.imageUrl,
+    caption,
+    errorMessage: null,
+  });
+
+  return persistedVideo;
+}
+
+async function runReelWorkflow({
+  prisma,
+  contentId,
+  influencer,
+  anthropicApiKey,
+  bodyPrompt,
+  keyword,
+  tagCategory,
+  faceRefMime,
+  faceRefBase64,
+}) {
+  const MAX_REEL_SCRAPE_ATTEMPTS = 3;
+  let sourceVideoPath = '';
+  let framePath = '';
+  let fallbackStoryVideoPath = '';
+
+  try {
+    let selectedDuration = 0;
+
+    for (let attempt = 1; attempt <= MAX_REEL_SCRAPE_ATTEMPTS; attempt += 1) {
+      sourceVideoPath = await scrapePinterestVideo(keyword);
+      if (!sourceVideoPath) {
+        continue;
+      }
+
+      fallbackStoryVideoPath = sourceVideoPath;
+
+      const duration = await checkMinDuration(sourceVideoPath);
+      if (duration < 3) {
+        await fs.unlink(sourceVideoPath).catch(() => {});
+        sourceVideoPath = '';
+        continue;
+      }
+
+      framePath = await extractBestFrame(sourceVideoPath);
+      const frameAsset = await readBinaryAsset(framePath);
+
+      const hasPerson = await detectPersonInImage(frameAsset.buffer, frameAsset.mimeType);
+      const hasFace = await detectFaceVisible(frameAsset.buffer, frameAsset.mimeType);
+      const hasUpperBody = await detectUpperBodyVisible(frameAsset.buffer, frameAsset.mimeType);
+
+      if (hasPerson && hasFace && hasUpperBody) {
+        selectedDuration = duration;
+        break;
+      }
+
+      await fs.unlink(framePath).catch(() => {});
+      framePath = '';
+      await fs.unlink(sourceVideoPath).catch(() => {});
+      sourceVideoPath = '';
+    }
+
+    if (!sourceVideoPath || !framePath) {
+      if (!fallbackStoryVideoPath) {
+        throw new Error(`No Pinterest video found for query: ${keyword}`);
+      }
+
+      const persisted = await finalizeStoryVideo({
+        prisma,
+        contentId,
+        influencer,
+        anthropicApiKey,
+        sourceVideoPath: fallbackStoryVideoPath,
+        keyword,
+        sceneDescription: `Atmospheric Pinterest story around ${String(keyword || '').trim() || 'this vibe'}`,
+      });
+      return { contentId, imageUrl: persisted.imageUrl };
+    }
+
+    const sceneJson = injectBody(await imageToJson(framePath), {
+      identityProfile: influencer.identityProfile,
+      influencerName: influencer.name,
+      bodyPrompt,
+    });
+
+    const prompt = PROMPT_JSON_TO_PRO_IMAGE.replace('{scene_json}', JSON.stringify(sceneJson, null, 2));
+    const geminiParts = [
+      {
+        inlineData: {
+          mimeType: faceRefMime,
+          data: faceRefBase64,
+        },
+      },
+    ];
+
+    let madisonInlineData = await generateImageFromGemini(prompt, geminiParts);
+    let madisonMime = madisonInlineData.mimeType || 'image/jpeg';
+    let madisonBuffer = Buffer.from(madisonInlineData.data, 'base64');
+    let proportionsOk = await validateBodyProportions(madisonBuffer, madisonMime);
+
+    if (!proportionsOk) {
+      madisonInlineData = await generateImageFromGemini(prompt, geminiParts);
+      madisonMime = madisonInlineData.mimeType || 'image/jpeg';
+      madisonBuffer = Buffer.from(madisonInlineData.data, 'base64');
+      proportionsOk = await validateBodyProportions(madisonBuffer, madisonMime);
+    }
+
+    const madisonExtension = extFromMime(madisonMime);
+    const madisonFilename = `reel_character_${Date.now()}.${madisonExtension}`;
+    const madisonImagePath = path.join(getGeneratedDir(), madisonFilename);
+    await fs.writeFile(madisonImagePath, madisonBuffer);
+
+    const motionPrompt = buildMotionPrompt(sceneJson);
+    const reelVideoPath = await generateVideoMotionControl(madisonImagePath, sourceVideoPath, motionPrompt);
+    const persistedVideo = await persistGeneratedVideo(reelVideoPath);
+
+    const resolvedTagCategory = String(tagCategory || 'lifestyle').trim().toLowerCase();
+    const hashtagBlock = HASHTAG_BLOCKS[resolvedTagCategory] || HASHTAG_BLOCKS.lifestyle || '';
+    let caption = await generateCaption({
+      anthropicApiKey,
+      influencerName: influencer.name,
+      contentType: 'reel',
+      sceneDescription: formatSceneDescription({
+        location: sceneJson?.global_context?.scene_description || sceneJson?.scene?.location || keyword,
+        outfit: sceneJson?.subject?.clothing?.outfit_description || sceneJson?.subject?.wardrobe?.top || '',
+        pose: sceneJson?.subject?.pose?.gesture || sceneJson?.subject?.pose || '',
+        mood: sceneJson?.global_context?.weather_atmosphere || '',
+        lighting: sceneJson?.global_context?.lighting?.quality || sceneJson?.scene?.lighting?.type || '',
+      }),
+      fallbackCaption: `Serving a new motion moment around ${String(keyword || '').trim() || 'this scene'}.`,
+    });
+
+    if (hashtagBlock) {
+      caption = `${caption}\n\n${hashtagBlock}`;
+    }
+
+    await persistContentRecord(prisma, contentId, {
+      status: 'PENDING',
+      format: 'REEL',
+      imageUrl: persistedVideo.imageUrl,
+      caption,
+      errorMessage: null,
+    });
+
+    return {
+      contentId,
+      imageUrl: persistedVideo.imageUrl,
+      duration: selectedDuration,
+      proportionsOk,
+    };
+  } finally {
+    if (framePath) {
+      await fs.unlink(framePath).catch(() => {});
+    }
+    if (sourceVideoPath) {
+      await fs.unlink(sourceVideoPath).catch(() => {});
+    }
+    if (fallbackStoryVideoPath && fallbackStoryVideoPath !== sourceVideoPath) {
+      await fs.unlink(fallbackStoryVideoPath).catch(() => {});
+    }
+  }
 }
 
 function resolveFormatAndRatio(contentType) {
@@ -417,6 +668,21 @@ export async function processGenerationJob(jobData, options = {}) {
     const faceRefBuffer = faceRefAsset.buffer;
     const faceRefMime = faceRefAsset.mimeType;
     const faceRefBase64 = faceRefBuffer.toString('base64');
+
+    if (normalizedContentType === 'reel') {
+      await updateProgress(20);
+      return await runReelWorkflow({
+        prisma,
+        contentId,
+        influencer,
+        anthropicApiKey,
+        bodyPrompt,
+        keyword,
+        tagCategory,
+        faceRefMime,
+        faceRefBase64,
+      });
+    }
 
     const normalizedWorkflow = String(workflowType || '').trim().toLowerCase();
     let prompt;

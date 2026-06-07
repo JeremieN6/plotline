@@ -49,6 +49,36 @@ aspect_ratio must be one of: 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9
 // Kept as a dedicated export for compatibility with older naming used in Python flows.
 export const PROMPT_JSON_TO_PRO_IMAGE = PROMPT_JSON_TO_IMAGE;
 
+export const PROMPT_PERSON_DETECTION = `Does this image contain a human person who is:
+- Clearly visible (not a silhouette, not from very far away)
+- Facing the camera, in 3/4 front view, or at most in profile
+- With the face at least partially visible
+
+Answer only with YES or NO. No explanation.`;
+
+export const PROMPT_UPPER_BODY_DETECTION = `Does this image show a person whose COMPLETE UPPER BODY is clearly visible?
+
+Requirements:
+- Both shoulders must be visible
+- The torso (chest and abdomen area) must be visible, not cropped
+- The person must be visible from at least waist height upward
+- The upper body must not be cropped at the neck or chest level
+- A close-up of only the face or head does not count
+
+Answer only with YES or NO. No explanation.`;
+
+export const PROMPT_FACE_VISIBILITY_DETECTION = `Does this image show at least one person with a clearly visible face?
+
+Rules:
+- The face must be clearly visible (not hidden, not blurred, not too far).
+- Back view only does NOT count.
+- Heavy occlusion (hand, hair, object, mask) does NOT count.
+- Tiny faces in the distant background do NOT count.
+
+Answer only with YES or NO. No explanation.`;
+
+export const PROMPT_BODY_PROPORTIONS_DETECTION = 'Does this woman have an hourglass figure with full bust and narrow waist? YES or NO';
+
 export const SCENE_JSON_TEMPLATE = {
   subject: {
     wardrobe: {

@@ -296,6 +296,14 @@ export default defineEventHandler(async (event) => {
     const message = err?.message || ''
     const isMissingFaceRef = message.includes('Face reference file not found')
       || message.includes('Influencer face reference is missing')
+    const networkCode = String(err?.code || '').toUpperCase()
+    const networkMessage = String(message || '').toUpperCase()
+    const isNetworkReset = networkCode === 'ECONNRESET'
+      || networkCode === 'ETIMEDOUT'
+      || networkCode === 'ECONNREFUSED'
+      || networkCode === 'ENOTFOUND'
+      || networkMessage.includes('ECONNRESET')
+      || networkMessage.includes('UND_ERR_CONNECT_TIMEOUT')
 
     if (isMissingFaceRef) {
       return sendError(
@@ -307,6 +315,22 @@ export default defineEventHandler(async (event) => {
             name: err?.name,
             code: err?.code,
             message: err?.message,
+          },
+        }),
+      )
+    }
+
+    if (isNetworkReset) {
+      return sendError(
+        event,
+        createError({
+          statusCode: 503,
+          statusMessage: 'Network error during external API call (possible firewall/proxy restriction)',
+          data: {
+            name: err?.name,
+            code: err?.code,
+            message: err?.message,
+            status: err?.status,
           },
         }),
       )
