@@ -104,13 +104,28 @@
             </template>
 
             <template v-else-if="item.imageUrl && !item._imageMissing">
-              <img
-                :src="item.imageUrl"
-                :alt="`Contenu ${item.format}`"
-                class="h-full w-full cursor-pointer object-cover transition-transform hover:scale-105"
-                @click="openModal(item.imageUrl)"
-                @error="markImageMissing(item)"
-              />
+              <button
+                type="button"
+                class="h-full w-full"
+                @click="openModal(item)"
+              >
+                <video
+                  v-if="isVideoMedia(item)"
+                  :src="item.imageUrl"
+                  :alt="`Contenu ${item.format}`"
+                  class="h-full w-full object-cover transition-transform hover:scale-105"
+                  muted
+                  playsinline
+                  preload="metadata"
+                ></video>
+                <img
+                  v-else
+                  :src="item.imageUrl"
+                  :alt="`Contenu ${item.format}`"
+                  class="h-full w-full object-cover transition-transform hover:scale-105"
+                  @error="markImageMissing(item)"
+                />
+              </button>
             </template>
 
             <template v-else-if="item._imageMissing">
@@ -194,9 +209,17 @@
     </div>
 
     <Teleport to="body">
-      <div v-if="modalImage" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" @click.self="modalImage = null">
-        <button type="button" class="absolute right-4 top-4 rounded-full bg-white/20 p-2 text-white hover:bg-white/30" @click="modalImage = null">✕</button>
-        <img :src="modalImage" class="max-h-full max-w-full rounded-xl object-contain shadow-2xl" alt="Aperçu" />
+      <div v-if="modalMedia" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" @click.self="modalMedia = null">
+        <button type="button" class="absolute right-4 top-4 rounded-full bg-white/20 p-2 text-white hover:bg-white/30" @click="modalMedia = null">✕</button>
+        <video
+          v-if="modalMediaIsVideo"
+          :src="modalMedia"
+          class="max-h-full max-w-full rounded-xl object-contain shadow-2xl"
+          controls
+          autoplay
+          playsinline
+        ></video>
+        <img v-else :src="modalMedia" class="max-h-full max-w-full rounded-xl object-contain shadow-2xl" alt="Aperçu" />
       </div>
     </Teleport>
 
@@ -263,7 +286,8 @@ const tabs = [
 ]
 
 const activeTab = ref('PENDING')
-const modalImage = ref(null)
+const modalMedia = ref(null)
+const modalMediaIsVideo = ref(false)
 const instagramModalOpen = ref(false)
 const savingInstagram = ref(false)
 const loadingContent = ref(false)
@@ -302,6 +326,12 @@ function markImageMissing(item) {
   item._imageMissing = true
 }
 
+function isVideoMedia(item) {
+  const format = String(item?.format || '').trim().toUpperCase()
+  const imageUrl = String(item?.imageUrl || '').trim().toLowerCase()
+  return format === 'STORY' || format === 'REEL' || imageUrl.endsWith('.mp4')
+}
+
 async function loadContent(tab = activeTab.value) {
   loadingContent.value = true
   try {
@@ -330,7 +360,8 @@ async function switchTab(tab) {
 await loadContent('PENDING')
 
 function openModal(url) {
-  modalImage.value = url
+  modalMedia.value = typeof url === 'string' ? url : url?.imageUrl || null
+  modalMediaIsVideo.value = typeof url === 'object' ? isVideoMedia(url) : String(url || '').toLowerCase().endsWith('.mp4')
 }
 
 function openInstagramModal() {

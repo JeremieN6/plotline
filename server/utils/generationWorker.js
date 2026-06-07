@@ -14,6 +14,7 @@ import { validatePersonAndUpperBody } from './imageValidation.js';
 import { injectBody } from './injectBody.js';
 import { getGeneratedDir, toMediaUrl } from './mediaStorage.js';
 import { scrapePinterestImage } from './pinterestScraper.js';
+import { scrapePinterestVideo } from './pinterestVideoScraper.js';
 import {
   HASHTAG_BLOCKS,
   PROMPT_CAPTION_CONTEXTUALIZED,
@@ -341,6 +342,73 @@ export async function processGenerationJob(jobData, options = {}) {
       throw new Error('Influencer not found');
     }
 
+    const { format, ratio, contentType: normalizedContentType } = resolveFormatAndRatio(contentType);
+    const bodyPrompt = await resolveBodyPromptFromInfluencer(influencer);
+    const anthropicApiKey = process.env.ANTHROPIC_API_KEY || process.env.anthropicApiKey;
+
+    if (normalizedContentType === 'story') {
+      const storyVideoSource = await scrapePinterestVideo(keyword);
+
+      if (!storyVideoSource) {
+        throw new Error(`No Pinterest video found for query: ${keyword}`);
+      }
+
+      try {
+        const generatedDir = getGeneratedDir();
+        const filename = `video_${Date.now()}.mp4`;
+        const generatedPath = path.join(generatedDir, filename);
+        await fs.copyFile(storyVideoSource, generatedPath);
+
+        const fallbackCaption = `Ambiance du jour autour de ${String(keyword || '').trim() || 'cette vibe'} ✨\n\n#story #instagram #vibes`;
+        let caption = fallbackCaption;
+
+        if (anthropicApiKey) {
+          try {
+            const anthropic = new Anthropic({ apiKey: anthropicApiKey });
+            const captionPrompt = `Tu es le social media manager de ${influencer.name}. Écris une caption Instagram courte (1-2 lignes max + 3 hashtags) pour une story vidéo d'ambiance. Keyword : ${String(keyword || '').trim()}. Retourne uniquement la caption.`;
+
+            const captionResponse = await anthropic.messages.create({
+              model: 'claude-sonnet-4-20250514',
+              max_tokens: 150,
+              messages: [{ role: 'user', content: captionPrompt }],
+            });
+
+            const textPart = captionResponse.content?.find((part) => part.type === 'text');
+            const generatedCaption = (textPart?.text || '').trim();
+            if (generatedCaption) {
+              caption = generatedCaption;
+            }
+          } catch {
+            // Keep the deterministic fallback caption.
+          }
+        }
+
+        const imageUrl = toMediaUrl('generated', filename);
+
+        await updateProgress(65);
+
+        await prisma.generatedContent.update({
+          where: { id: contentId },
+          data: {
+            status: 'PENDING',
+            format: 'STORY',
+            imageUrl,
+            caption,
+            errorMessage: null,
+          },
+        });
+
+        await updateProgress(100);
+
+        return {
+          contentId,
+          imageUrl,
+        };
+      } finally {
+        await fs.unlink(storyVideoSource).catch(() => {});
+      }
+    }
+
     if (!influencer.faceRefPath) {
       throw new Error('Influencer face reference is missing. Upload a face ref first.');
     }
@@ -349,9 +417,6 @@ export async function processGenerationJob(jobData, options = {}) {
     const faceRefBuffer = faceRefAsset.buffer;
     const faceRefMime = faceRefAsset.mimeType;
     const faceRefBase64 = faceRefBuffer.toString('base64');
-
-    const { format, ratio, contentType: normalizedContentType } = resolveFormatAndRatio(contentType);
-    const bodyPrompt = await resolveBodyPromptFromInfluencer(influencer);
 
     const normalizedWorkflow = String(workflowType || '').trim().toLowerCase();
     let prompt;
@@ -460,7 +525,6 @@ export async function processGenerationJob(jobData, options = {}) {
       imageUrl = toMediaUrl('generated', filename);
     }
 
-    const anthropicApiKey = process.env.ANTHROPIC_API_KEY || process.env.anthropicApiKey;
     let caption = '';
     const resolvedTagCategory = String(tagCategory || 'lifestyle').trim().toLowerCase();
     const hashtagBlock = HASHTAG_BLOCKS[resolvedTagCategory] || HASHTAG_BLOCKS.lifestyle || '';

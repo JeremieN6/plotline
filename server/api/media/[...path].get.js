@@ -14,6 +14,9 @@ function getContentType(filePath) {
   if (extension === '.gif') {
     return 'image/gif';
   }
+  if (extension === '.mp4') {
+    return 'video/mp4';
+  }
   return 'image/jpeg';
 }
 

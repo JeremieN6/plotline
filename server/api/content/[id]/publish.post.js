@@ -27,6 +27,37 @@ async function getPrisma() {
   return prismaClient;
 }
 
+function isVideoContent(format) {
+  const normalized = String(format || '').trim().toUpperCase();
+  return normalized === 'STORY' || normalized === 'REEL';
+}
+
+async function waitForInstagramContainerReady({ instagramAccountId, containerId, accessToken }) {
+  for (let attempt = 1; attempt <= 20; attempt += 1) {
+    const containerStatus = await $fetch(`https://graph.facebook.com/v21.0/${instagramAccountId}/${containerId}`, {
+      method: 'GET',
+      query: {
+        fields: 'status_code',
+        access_token: accessToken,
+      },
+    });
+
+    if (containerStatus?.status_code === 'FINISHED') {
+      return containerStatus;
+    }
+
+    if (containerStatus?.status_code === 'ERROR') {
+      throw new Error('Instagram video container failed to process');
+    }
+
+    if (attempt < 20) {
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+    }
+  }
+
+  throw new Error('Instagram video container did not finish processing in time');
+}
+
 export default defineEventHandler(async (event) => {
   try {
     const id = event.context?.params?.id;
@@ -74,14 +105,23 @@ export default defineEventHandler(async (event) => {
 
     const baseUrl = runtimeConfig.baseUrl || process.env.BASE_URL || 'http://localhost:3000';
     const publicImageUrl = resolvePublicImageUrl(content.imageUrl, baseUrl);
+    const useVideoContainer = isVideoContent(content.format);
+    const createPayload = useVideoContainer
+      ? {
+          media_type: 'REELS',
+          video_url: publicImageUrl,
+          caption: content.caption || '',
+          access_token: instagramAccessToken,
+        }
+      : {
+          image_url: publicImageUrl,
+          caption: content.caption || '',
+          access_token: instagramAccessToken,
+        };
 
     const createResponse = await $fetch(`https://graph.facebook.com/v21.0/${instagramAccountId}/media`, {
       method: 'POST',
-      body: new URLSearchParams({
-        image_url: publicImageUrl,
-        caption: content.caption || '',
-        access_token: instagramAccessToken,
-      }),
+      body: new URLSearchParams(createPayload),
       headers: {
         'content-type': 'application/x-www-form-urlencoded',
       },
@@ -90,6 +130,14 @@ export default defineEventHandler(async (event) => {
     const creationId = createResponse?.creation_id || createResponse?.id;
     if (!creationId) {
       return sendError(event, createError({ statusCode: 500, statusMessage: 'Impossible de créer le container Instagram' }));
+    }
+
+    if (useVideoContainer) {
+      await waitForInstagramContainerReady({
+        instagramAccountId,
+        containerId: creationId,
+        accessToken: instagramAccessToken,
+      });
     }
 
     const publishResponse = await $fetch(`https://graph.facebook.com/v21.0/${instagramAccountId}/media_publish`, {

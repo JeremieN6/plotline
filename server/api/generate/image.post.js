@@ -165,6 +165,7 @@ export default defineEventHandler(async (event) => {
       source,
       keyword,
     } = body || {};
+    const normalizedContentType = String(contentType || '').trim().toLowerCase();
 
     let {
       location,
@@ -240,7 +241,7 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 404, statusMessage: 'Influencer not found' }));
     }
 
-    const explicitContentFormat = derivePlatformAndFormatFromContentType(contentType);
+    const explicitContentFormat = derivePlatformAndFormatFromContentType(normalizedContentType);
     const { platform, format } = explicitContentFormat || derivePlatformAndFormat(influencer.calendarStep);
 
     const generatedContent = await prisma.generatedContent.create({
