@@ -10,6 +10,15 @@ const USER_AGENTS = [
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
 ];
 
+const NAVIGATION_TIMEOUT_MS = 45000;
+
+async function safeGoto(page, url) {
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: NAVIGATION_TIMEOUT_MS });
+
+  // Pinterest often keeps background requests alive for a long time.
+  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+}
+
 function randomUserAgent() {
   return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)] || USER_AGENTS[0];
 }
@@ -47,7 +56,7 @@ export async function scrapePinterestImage(query) {
     const page = await context.newPage();
 
     const url = `https://www.pinterest.com/search/pins/?q=${encodeURIComponent(keyword)}`;
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+    await safeGoto(page, url);
 
     try {
       await page.click('button[id*="cookie"]', { timeout: 3000 });

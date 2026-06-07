@@ -296,6 +296,12 @@ export default defineEventHandler(async (event) => {
     const message = err?.message || ''
     const isMissingFaceRef = message.includes('Face reference file not found')
       || message.includes('Influencer face reference is missing')
+    const isPinterestSourceMissing = message.includes('No Pinterest video found for query:')
+      || message.includes('No Pinterest image found for query:')
+    const isPinterestTimeout = message.includes('page.goto: Timeout')
+      || message.includes('navigating to "https://www.pinterest.com')
+    const isTempFileGone = (err?.code === 'ENOENT' || message.includes('ENOENT'))
+      && (message.includes('storage\\temp') || message.includes('storage/temp'))
     const networkCode = String(err?.code || '').toUpperCase()
     const networkMessage = String(message || '').toUpperCase()
     const isNetworkReset = networkCode === 'ECONNRESET'
@@ -331,6 +337,53 @@ export default defineEventHandler(async (event) => {
             code: err?.code,
             message: err?.message,
             status: err?.status,
+          },
+        }),
+      )
+    }
+
+    if (isPinterestSourceMissing) {
+      return sendError(
+        event,
+        createError({
+          statusCode: 422,
+          statusMessage: 'No Pinterest media found for this keyword. Try another keyword.',
+          data: {
+            name: err?.name,
+            code: err?.code,
+            message: err?.message,
+            status: err?.status,
+          },
+        }),
+      )
+    }
+
+    if (isPinterestTimeout) {
+      return sendError(
+        event,
+        createError({
+          statusCode: 504,
+          statusMessage: 'Pinterest request timed out. Retry in a few seconds.',
+          data: {
+            name: err?.name,
+            code: err?.code,
+            message: err?.message,
+            status: err?.status,
+          },
+        }),
+      )
+    }
+
+    if (isTempFileGone) {
+      return sendError(
+        event,
+        createError({
+          statusCode: 503,
+          statusMessage: 'Source video introuvable (fichier temporaire supprimé). Relancez la génération.',
+          data: {
+            name: err?.name,
+            code: err?.code,
+            message: err?.message,
           },
         }),
       )

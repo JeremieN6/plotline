@@ -136,8 +136,19 @@ async function generateCaption({ anthropicApiKey, influencerName, contentType, s
 }
 
 async function persistGeneratedVideo(localVideoPath) {
-  const generatedDir = getGeneratedDir();
   const extension = path.extname(localVideoPath) || '.mp4';
+  const normalizedExtension = extension.replace(/^\./, '') || 'mp4';
+
+  if (isBlobStorageEnabled()) {
+    const buffer = await fs.readFile(localVideoPath);
+    const uploaded = await uploadPublicMediaBuffer('generated', normalizedExtension, buffer, 'video/mp4');
+    return {
+      imageUrl: uploaded.url,
+      localPath: null,
+    };
+  }
+
+  const generatedDir = getGeneratedDir();
   const filename = `video_${Date.now()}${extension}`;
   const generatedPath = path.join(generatedDir, filename);
   await fs.copyFile(localVideoPath, generatedPath);
@@ -201,13 +212,26 @@ async function runReelWorkflow({
         continue;
       }
 
-      fallbackStoryVideoPath = sourceVideoPath;
+      let duration;
+      try {
+        duration = await checkMinDuration(sourceVideoPath);
+      } catch (videoRejectionError) {
+        // checkMinDuration throws for boomerangs and short-shot videos.
+        await fs.unlink(sourceVideoPath).catch(() => {});
+        sourceVideoPath = '';
+        continue;
+      }
 
-      const duration = await checkMinDuration(sourceVideoPath);
       if (duration < 3) {
         await fs.unlink(sourceVideoPath).catch(() => {});
         sourceVideoPath = '';
         continue;
+      }
+
+      // Only keep the first video that passed the duration check as fallback.
+      // Don't overwrite with a later video — the earlier one may already be deleted.
+      if (!fallbackStoryVideoPath) {
+        fallbackStoryVideoPath = sourceVideoPath;
       }
 
       framePath = await extractBestFrame(sourceVideoPath);
@@ -224,7 +248,10 @@ async function runReelWorkflow({
 
       await fs.unlink(framePath).catch(() => {});
       framePath = '';
-      await fs.unlink(sourceVideoPath).catch(() => {});
+      // Only delete sourceVideoPath if it is not the fallback we are keeping for story mode.
+      if (sourceVideoPath !== fallbackStoryVideoPath) {
+        await fs.unlink(sourceVideoPath).catch(() => {});
+      }
       sourceVideoPath = '';
     }
 
@@ -261,16 +288,20 @@ async function runReelWorkflow({
       },
     ];
 
+    // Generate character image and validate: exactly 1 person + upper body visible.
+    // validatePersonAndUpperBody returns { pass, personCount, upperBodyVisible, reason }.
+    // Up to 3 attempts — proceed with best result if all fail.
+    const MAX_CHARACTER_ATTEMPTS = 3;
     let madisonInlineData = await generateImageFromGemini(prompt, geminiParts);
     let madisonMime = madisonInlineData.mimeType || 'image/jpeg';
     let madisonBuffer = Buffer.from(madisonInlineData.data, 'base64');
-    let proportionsOk = await validateBodyProportions(madisonBuffer, madisonMime);
+    let characterValidation = await validatePersonAndUpperBody(madisonBuffer, madisonMime);
 
-    if (!proportionsOk) {
+    for (let attempt = 2; attempt <= MAX_CHARACTER_ATTEMPTS && !characterValidation.pass; attempt += 1) {
       madisonInlineData = await generateImageFromGemini(prompt, geminiParts);
       madisonMime = madisonInlineData.mimeType || 'image/jpeg';
       madisonBuffer = Buffer.from(madisonInlineData.data, 'base64');
-      proportionsOk = await validateBodyProportions(madisonBuffer, madisonMime);
+      characterValidation = await validatePersonAndUpperBody(madisonBuffer, madisonMime);
     }
 
     const madisonExtension = extFromMime(madisonMime);
@@ -513,7 +544,6 @@ async function findInfluencerForGeneration(prisma, influencerId) {
         name: true,
         faceRefPath: true,
         bodyRefPath: true,
-        identityProfile: true,
       },
     });
 
@@ -521,7 +551,7 @@ async function findInfluencerForGeneration(prisma, influencerId) {
     return {
       ...legacy,
       bodyPrompt: null,
-      identityProfile: String(legacy.identityProfile || 'default'),
+      identityProfile: 'default',
     };
   }
 }
@@ -605,55 +635,23 @@ export async function processGenerationJob(jobData, options = {}) {
       }
 
       try {
-        const generatedDir = getGeneratedDir();
-        const filename = `video_${Date.now()}.mp4`;
-        const generatedPath = path.join(generatedDir, filename);
-        await fs.copyFile(storyVideoSource, generatedPath);
-
-        const fallbackCaption = `Ambiance du jour autour de ${String(keyword || '').trim() || 'cette vibe'} ✨\n\n#story #instagram #vibes`;
-        let caption = fallbackCaption;
-
-        if (anthropicApiKey) {
-          try {
-            const anthropic = new Anthropic({ apiKey: anthropicApiKey });
-            const captionPrompt = `Tu es le social media manager de ${influencer.name}. Écris une caption Instagram courte (1-2 lignes max + 3 hashtags) pour une story vidéo d'ambiance. Keyword : ${String(keyword || '').trim()}. Retourne uniquement la caption.`;
-
-            const captionResponse = await anthropic.messages.create({
-              model: 'claude-sonnet-4-20250514',
-              max_tokens: 150,
-              messages: [{ role: 'user', content: captionPrompt }],
-            });
-
-            const textPart = captionResponse.content?.find((part) => part.type === 'text');
-            const generatedCaption = (textPart?.text || '').trim();
-            if (generatedCaption) {
-              caption = generatedCaption;
-            }
-          } catch {
-            // Keep the deterministic fallback caption.
-          }
-        }
-
-        const imageUrl = toMediaUrl('generated', filename);
+        const persisted = await finalizeStoryVideo({
+          prisma,
+          contentId,
+          influencer,
+          anthropicApiKey,
+          sourceVideoPath: storyVideoSource,
+          keyword,
+          sceneDescription: `Video ambiance inspired by ${String(keyword || '').trim() || 'today'}`,
+        });
 
         await updateProgress(65);
-
-        await prisma.generatedContent.update({
-          where: { id: contentId },
-          data: {
-            status: 'PENDING',
-            format: 'STORY',
-            imageUrl,
-            caption,
-            errorMessage: null,
-          },
-        });
 
         await updateProgress(100);
 
         return {
           contentId,
-          imageUrl,
+          imageUrl: persisted.imageUrl,
         };
       } finally {
         await fs.unlink(storyVideoSource).catch(() => {});

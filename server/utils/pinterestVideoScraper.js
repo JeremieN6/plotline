@@ -9,6 +9,15 @@ const USER_AGENTS = [
   'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
 ];
 
+const NAVIGATION_TIMEOUT_MS = 45000;
+
+async function safeGoto(page, url) {
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: NAVIGATION_TIMEOUT_MS });
+
+  // Pinterest keeps long-lived requests open, so networkidle may never settle.
+  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+}
+
 function randomUserAgent() {
   return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)] || USER_AGENTS[0];
 }
@@ -236,7 +245,7 @@ export async function scrapePinterestVideo(query) {
     const page = await context.newPage();
 
     const searchUrl = `https://www.pinterest.com/search/videos/?q=${encodeURIComponent(keyword)}`;
-    await page.goto(searchUrl, { waitUntil: 'networkidle', timeout: 30000 });
+    await safeGoto(page, searchUrl);
 
     try {
       await page.getByRole('button', { name: /accept|agree|tout accepter|accepter|reject|refuser/i }).first().click({ timeout: 3000 });
@@ -279,7 +288,7 @@ export async function scrapePinterestVideo(query) {
       const pinUrl = `https://www.pinterest.com${href}`;
 
       try {
-        await page.goto(pinUrl, { waitUntil: 'networkidle', timeout: 30000 });
+        await safeGoto(page, pinUrl);
         await page.waitForTimeout(2500);
 
         const candidateUrls = await page.evaluate(() => {
