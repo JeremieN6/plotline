@@ -6,6 +6,7 @@ import ffmpeg from 'fluent-ffmpeg';
 import ffmpegPath from 'ffmpeg-static';
 import ffprobe from 'ffprobe-static';
 
+import { isBlobStorageEnabled, uploadPublicMediaBuffer } from './blobStorage.js';
 import { getGeneratedDir, toMediaUrl } from './mediaStorage.js';
 
 ffmpeg.setFfmpegPath(ffmpegPath);
@@ -240,12 +241,30 @@ async function uploadVideoToTmpFiles(videoPath) {
     .replace('/dl/dl/', '/dl/');
 }
 
+async function uploadVideoToBlob(videoPath) {
+  if (!isBlobStorageEnabled()) {
+    return '';
+  }
+
+  const fileBuffer = await fs.readFile(videoPath);
+  const uploaded = await uploadPublicMediaBuffer('generated', 'mp4', fileBuffer, 'video/mp4');
+  return String(uploaded?.url || '').trim();
+}
+
 async function resolveTransportPayloads(imagePath, videoPath) {
   const { baseUrl } = getKlingConfig();
   if (isPublicHttpBaseUrl(baseUrl)) {
     return {
       imagePayload: await exposeLocalFileViaBaseUrl(imagePath, 'kling-image'),
       videoPayload: await exposeLocalFileViaBaseUrl(videoPath, 'kling-video'),
+    };
+  }
+
+  const blobVideoUrl = await uploadVideoToBlob(videoPath).catch(() => '');
+  if (blobVideoUrl) {
+    return {
+      imagePayload: await imageToBase64(imagePath),
+      videoPayload: blobVideoUrl,
     };
   }
 

@@ -277,7 +277,8 @@ export default defineEventHandler(async (event) => {
       };
     }
 
-    const { queue } = await import('../../utils/queue.js');
+    const { getGenerationQueue } = await import('../../utils/queue.js');
+    const queue = getGenerationQueue();
     const job = await queue.add(
       'generate-image',
       jobPayload,

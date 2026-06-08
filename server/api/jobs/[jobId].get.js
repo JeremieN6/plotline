@@ -1,4 +1,7 @@
-import { queue } from '../../utils/queue.js';
+function shouldUseQueue() {
+  const rawValue = String(process.env.USE_QUEUE || '').trim().toLowerCase();
+  return rawValue === 'true' || rawValue === '1' || rawValue === 'yes';
+}
 
 function mapJobStatus(state) {
   if (state === 'completed') return 'completed';
@@ -8,11 +11,23 @@ function mapJobStatus(state) {
 
 export default defineEventHandler(async (event) => {
   try {
+    if (!shouldUseQueue()) {
+      return sendError(
+        event,
+        createError({
+          statusCode: 400,
+          statusMessage: 'USE_QUEUE est desactive, aucun job BullMQ a consulter',
+        }),
+      );
+    }
+
     const jobId = event.context?.params?.jobId;
     if (!jobId) {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'Parametre jobId requis' }));
     }
 
+    const { getGenerationQueue } = await import('../../utils/queue.js');
+    const queue = getGenerationQueue();
     const job = await queue.getJob(jobId);
     if (!job) {
       return sendError(event, createError({ statusCode: 404, statusMessage: 'Job introuvable' }));

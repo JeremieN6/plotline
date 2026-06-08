@@ -39,5 +39,3 @@ export function getGenerationQueue() {
 
   return generationQueue;
 }
-
-export const queue = getGenerationQueue();
