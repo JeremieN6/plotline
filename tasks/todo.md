@@ -5,6 +5,8 @@
 ---
 
 ## En cours
+- [x] Durcir le scraper Pinterest image contre les pins sans visage
+- [x] Verifier la validation Gemini du scraper sur le flux Node
 - [x] Basculer la logique body sur fallback global + override par influenceuse
 - [x] Ajouter body prompt editable par influenceuse
 - [x] Ajouter upload body ref par influenceuse

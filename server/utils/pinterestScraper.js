@@ -4,6 +4,8 @@ import path from 'node:path';
 
 import { chromium } from 'playwright';
 
+import { detectFaceVisible, detectPersonInImage } from './imageValidation.js';
+
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
@@ -31,6 +33,22 @@ function isValidPinterestCandidate(url) {
   if (!url || url.length < 50) return false;
   if (url.includes('/60x60/') || url.includes('/75x75/')) return false;
   return true;
+}
+
+function getImageMimeType(response, imageUrl) {
+  const headerMimeType = String(response?.headers?.get('content-type') || '')
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
+  if (headerMimeType.startsWith('image/')) {
+    return headerMimeType;
+  }
+
+  const normalizedUrl = String(imageUrl || '').toLowerCase();
+  if (normalizedUrl.includes('.png')) return 'image/png';
+  if (normalizedUrl.includes('.webp')) return 'image/webp';
+  if (normalizedUrl.includes('.gif')) return 'image/gif';
+  return 'image/jpeg';
 }
 
 async function saveImageBuffer(buffer) {
@@ -98,6 +116,17 @@ export async function scrapePinterestImage(query) {
         const buffer = Buffer.from(arrayBuffer);
 
         if (buffer.length <= 20 * 1024) {
+          continue;
+        }
+
+        const mimeType = getImageMimeType(response, imageUrl);
+        const hasPerson = await detectPersonInImage(buffer, mimeType);
+        if (!hasPerson) {
+          continue;
+        }
+
+        const hasFace = await detectFaceVisible(buffer, mimeType);
+        if (!hasFace) {
           continue;
         }
 

@@ -421,6 +421,14 @@ class ImageSafetyError extends Error {
   }
 }
 
+class GeminiNoPartsError extends Error {
+  constructor(message, options = {}) {
+    super(message);
+    this.name = 'GeminiNoPartsError';
+    this.finishReason = String(options.finishReason || '');
+  }
+}
+
 const SAFETY_REPLACEMENTS = [
   ['Extremely large, very full breasts causing cleavage', 'Full, prominent bust'],
   ['significantly enlarged breasts', 'full bust'],
@@ -453,6 +461,21 @@ function sanitizePromptForSafety(prompt) {
   return sanitized;
 }
 
+function isRetryableNoPartsFinishReason(finishReason) {
+  const normalized = String(finishReason || '').trim().toUpperCase();
+  return normalized.includes('IMAGE_OTHER');
+}
+
+async function retryWithSanitizedPrompt(prompt, extraParts, error, reasonLabel) {
+  const sanitizedPrompt = sanitizePromptForSafety(prompt);
+  if (sanitizedPrompt === prompt) {
+    throw error;
+  }
+
+  console.warn(`[generation-worker] ${reasonLabel}, retrying with sanitized prompt.`);
+  return await generateImageFromGemini(sanitizedPrompt, extraParts);
+}
+
 function extractInlineDataFromResponse(imageResponse) {
   const candidate = imageResponse?.candidates?.[0];
   const parts = candidate?.content?.parts ?? [];
@@ -467,8 +490,9 @@ function extractInlineDataFromResponse(imageResponse) {
       );
     }
 
-    throw new Error(
+    throw new GeminiNoPartsError(
       `Gemini returned no parts. finishReason=${finishReason} safetyRatings=${safetyRatings} rawKeys=${Object.keys(imageResponse ?? {}).join(',')}`,
+      { finishReason },
     );
   }
 
@@ -513,17 +537,29 @@ async function generateImageFromGeminiWithSafetyFallback(prompt, extraParts = []
   try {
     return await generateImageFromGemini(prompt, extraParts);
   } catch (error) {
-    if (!(error instanceof ImageSafetyError)) {
+    if (error instanceof ImageSafetyError) {
+      return await retryWithSanitizedPrompt(prompt, extraParts, error, 'IMAGE_SAFETY detected');
+    }
+
+    if (!(error instanceof GeminiNoPartsError) || !isRetryableNoPartsFinishReason(error.finishReason)) {
       throw error;
     }
 
-    const sanitizedPrompt = sanitizePromptForSafety(prompt);
-    if (sanitizedPrompt === prompt) {
-      throw error;
-    }
+    console.warn(`[generation-worker] ${error.finishReason || 'IMAGE_NO_PARTS'} detected, retrying image generation once.`);
 
-    console.warn('[generation-worker] IMAGE_SAFETY detected, retrying with sanitized prompt.');
-    return await generateImageFromGemini(sanitizedPrompt, extraParts);
+    try {
+      return await generateImageFromGemini(prompt, extraParts);
+    } catch (retryError) {
+      if (retryError instanceof ImageSafetyError) {
+        return await retryWithSanitizedPrompt(prompt, extraParts, retryError, 'IMAGE_SAFETY detected after no-parts retry');
+      }
+
+      if (retryError instanceof GeminiNoPartsError && isRetryableNoPartsFinishReason(retryError.finishReason)) {
+        return await retryWithSanitizedPrompt(prompt, extraParts, retryError, `${retryError.finishReason || 'IMAGE_NO_PARTS'} persisted`);
+      }
+
+      throw retryError;
+    }
   }
 }
 

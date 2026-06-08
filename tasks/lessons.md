@@ -19,6 +19,18 @@
 
 <!-- Les entrees seront ajoutees ici au fil du temps -->
 
+### 2026-06-08 Gemini image preview renvoie IMAGE_OTHER sans parts
+**Probleme** : La generation d'image pouvait echouer avec `Gemini returned no parts` et `finishReason=IMAGE_OTHER`, meme sans blocage safety explicite.
+**Cause racine** : Le pipeline ne gerait qu'un fallback sur `IMAGE_SAFETY`; tout retour zero-part `IMAGE_OTHER` etait traite comme une erreur fatale immediate.
+**Solution** : Introduire un type d'erreur dedie pour les reponses sans image, refaire une tentative sur `IMAGE_OTHER`, puis appliquer le prompt sanitize si le no-parts persiste.
+**Regle** : Pour Gemini image preview, tout retour zero-part retryable doit avoir un retry cible avant de remonter une erreur fatale.
+
+### 2026-06-08 Scraper Pinterest image sans filtre visage
+**Probleme** : Le flux image Pinterest pouvait selectionner une image source sans visage visible, ce qui degradait la generation en aval.
+**Cause racine** : `scrapePinterestImage` validait seulement le telechargement et la taille du buffer, sans appeler les verifications Gemini deja presentes dans le projet.
+**Solution** : Brancher `detectPersonInImage` puis `detectFaceVisible` directement dans le scraper avant de conserver une image Pinterest.
+**Regle** : Toute image source Pinterest doit passer une validation explicite personne + visage visible avant d'entrer dans le pipeline.
+
 ### 2026-06-08 Blocage Gemini IMAGE_SAFETY sur generation image
 **Probleme** : La generation Pinterest feed echouait avec `finishReason=IMAGE_SAFETY` et remontait un 500 generique, ce qui ralentissait le diagnostic.
 **Cause racine** : Le pipeline traitait `Gemini returned no parts` comme erreur technique sans fallback de sanitisation ni statut metier explicite.
