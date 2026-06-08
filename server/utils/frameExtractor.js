@@ -105,7 +105,7 @@ async function detectSceneCuts(absolutePath) {
         '-vsync', '0',
         '-f', 'null',
       ])
-      .output('/dev/null')
+      .output(process.platform === 'win32' ? 'nul' : '/dev/null')
       .on('stderr', (line) => {
         const match = String(line || '').match(/pts_time:(\d+(?:\.\d+)?)/);
         if (match) {

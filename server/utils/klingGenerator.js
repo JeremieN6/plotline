@@ -352,9 +352,36 @@ export async function generateVideoMotionControl(imagePath, videoPath, motionPro
   const absoluteImagePath = path.resolve(String(imagePath || ''));
   const absoluteVideoPath = path.resolve(String(videoPath || ''));
 
-  const preparedVideoPath = await prepareSourceVideo(absoluteVideoPath);
-  const { imagePayload, videoPayload } = await resolveTransportPayloads(absoluteImagePath, preparedVideoPath);
-  const taskId = await submitMotionControlTask({ imagePayload, videoPayload, motionPrompt });
-  const generatedVideoUrl = await pollMotionControlTask(taskId);
-  return downloadGeneratedVideo(generatedVideoUrl);
+  // Track all intermediate files created during preparation so we can clean them
+  // up regardless of success or failure (they are only needed to build the request).
+  const intermediates = [];
+
+  try {
+    let preparedPath = await ensureH264Mp4(absoluteVideoPath);
+    intermediates.push(preparedPath);
+
+    const metadata = await getVideoMetadata(preparedPath);
+    if (metadata.duration > MAX_VIDEO_DURATION_SECONDS) {
+      const trimmed = await trimVideoForMotionControl(preparedPath);
+      intermediates.push(trimmed);
+      preparedPath = trimmed;
+    }
+
+    const resolvedPath = await ensureKlingResolution(preparedPath);
+    if (resolvedPath !== preparedPath) {
+      intermediates.push(resolvedPath);
+      preparedPath = resolvedPath;
+    } else {
+      preparedPath = resolvedPath;
+    }
+
+    const { imagePayload, videoPayload } = await resolveTransportPayloads(absoluteImagePath, preparedPath);
+    const taskId = await submitMotionControlTask({ imagePayload, videoPayload, motionPrompt });
+    const generatedVideoUrl = await pollMotionControlTask(taskId);
+    return await downloadGeneratedVideo(generatedVideoUrl);
+  } finally {
+    for (const intermediate of intermediates) {
+      await fs.unlink(intermediate).catch(() => {});
+    }
+  }
 }

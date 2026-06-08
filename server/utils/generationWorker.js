@@ -177,7 +177,7 @@ async function finalizeStoryVideo({ prisma, contentId, influencer, anthropicApiK
   });
 
   await persistContentRecord(prisma, contentId, {
-    status: 'PENDING',
+    status: 'VALIDATED',
     format: 'STORY',
     imageUrl: persistedVideo.imageUrl,
     caption,
@@ -202,6 +202,8 @@ async function runReelWorkflow({
   let sourceVideoPath = '';
   let framePath = '';
   let fallbackStoryVideoPath = '';
+  let madisonImagePath = '';
+  let reelVideoPath = '';
 
   try {
     let selectedDuration = 0;
@@ -306,11 +308,11 @@ async function runReelWorkflow({
 
     const madisonExtension = extFromMime(madisonMime);
     const madisonFilename = `reel_character_${Date.now()}.${madisonExtension}`;
-    const madisonImagePath = path.join(getGeneratedDir(), madisonFilename);
+    madisonImagePath = path.join(getGeneratedDir(), madisonFilename);
     await fs.writeFile(madisonImagePath, madisonBuffer);
 
     const motionPrompt = buildMotionPrompt(sceneJson);
-    const reelVideoPath = await generateVideoMotionControl(madisonImagePath, sourceVideoPath, motionPrompt);
+    reelVideoPath = await generateVideoMotionControl(madisonImagePath, sourceVideoPath, motionPrompt);
     const persistedVideo = await persistGeneratedVideo(reelVideoPath);
 
     const resolvedTagCategory = String(tagCategory || 'lifestyle').trim().toLowerCase();
@@ -334,7 +336,7 @@ async function runReelWorkflow({
     }
 
     await persistContentRecord(prisma, contentId, {
-      status: 'PENDING',
+      status: 'VALIDATED',
       format: 'REEL',
       imageUrl: persistedVideo.imageUrl,
       caption,
@@ -345,7 +347,6 @@ async function runReelWorkflow({
       contentId,
       imageUrl: persistedVideo.imageUrl,
       duration: selectedDuration,
-      proportionsOk,
     };
   } finally {
     if (framePath) {
@@ -356,6 +357,9 @@ async function runReelWorkflow({
     }
     if (fallbackStoryVideoPath && fallbackStoryVideoPath !== sourceVideoPath) {
       await fs.unlink(fallbackStoryVideoPath).catch(() => {});
+    }
+    if (reelVideoPath) {
+      await fs.unlink(reelVideoPath).catch(() => {});
     }
   }
 }
@@ -818,7 +822,7 @@ export async function processGenerationJob(jobData, options = {}) {
     await prisma.generatedContent.update({
       where: { id: contentId },
       data: {
-        status: 'PENDING',
+        status: 'VALIDATED',
         format,
         imageUrl,
         caption,

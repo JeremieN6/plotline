@@ -66,16 +66,9 @@
 
       <div v-else-if="!loadingContent && displayedContents.length === 0" class="flex flex-col items-center gap-3 py-20 text-center">
         <p class="text-base text-gray-500">
-          <template v-if="activeTab === 'PENDING'">Aucun contenu en attente — lance une génération.</template>
+          <template v-if="activeTab === 'VALIDATED'">Aucun contenu validé pour l'instant.</template>
           <template v-else>Aucun contenu publié pour l'instant.</template>
         </p>
-        <button
-          v-if="activeTab === 'PENDING'"
-          class="rounded-lg bg-[#E8873A] px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-[#d4762f]"
-          @click="router.push(`/influencers/${route.params.id}/generate`)"
-        >
-          Lancer une génération
-        </button>
       </div>
 
       <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -85,7 +78,7 @@
           class="overflow-hidden rounded-xl border shadow-sm transition-shadow hover:shadow-md"
           :class="item.status === 'FAILED'
             ? 'border-red-200 bg-red-50'
-            : item.status === 'VALIDATED' && activeTab === 'PENDING'
+            : item.status === 'VALIDATED' && activeTab === 'VALIDATED'
               ? 'border-blue-200 bg-blue-50/40'
               : 'border-[#E5E3DF] bg-white'"
         >
@@ -143,7 +136,7 @@
             <div class="mb-3 flex flex-wrap items-center gap-2">
               <span class="rounded-full border border-[#E5E3DF] px-2.5 py-0.5 text-xs font-bold uppercase text-gray-700">{{ item.format }}</span>
               <span class="rounded-full border border-[#E5E3DF] px-2.5 py-0.5 text-xs font-semibold text-gray-600">{{ item.platform }}</span>
-              <span v-if="item.status === 'VALIDATED' && activeTab === 'PENDING'" class="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700">Prêt à publier</span>
+              <span v-if="item.status === 'VALIDATED' && activeTab === 'VALIDATED'" class="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-blue-700">Prêt à publier</span>
               <span v-if="item.status === 'PUBLISHED'" class="rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-bold text-green-700">Publié</span>
             </div>
 
@@ -163,7 +156,7 @@
               <template v-else>Généré {{ timeAgo(item.createdAt) }}</template>
             </p>
 
-            <div v-if="activeTab === 'PENDING' && item.status === 'VALIDATED'" class="flex gap-2">
+            <div v-if="activeTab === 'VALIDATED'" class="flex gap-2">
               <button
                 type="button"
                 class="flex-1 rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-xs font-bold text-blue-700 transition-colors hover:bg-blue-100 disabled:opacity-50"
@@ -174,26 +167,7 @@
               </button>
             </div>
 
-            <div v-if="activeTab === 'PENDING' && item.status !== 'PROCESSING' && item.status !== 'FAILED' && item.status !== 'VALIDATED'" class="flex gap-2">
-              <button
-                type="button"
-                class="flex-1 rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-xs font-bold text-green-700 transition-colors hover:bg-green-100 disabled:opacity-50"
-                :disabled="item._loading"
-                @click="validate(item)"
-              >
-                ✓ Valider
-              </button>
-              <button
-                type="button"
-                class="flex-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
-                :disabled="item._loading"
-                @click="remove(item)"
-              >
-                ✗ Supprimer
-              </button>
-            </div>
-
-            <div v-if="activeTab === 'PENDING' && item.status === 'FAILED'" class="flex gap-2">
+            <div v-if="activeTab === 'VALIDATED'" class="flex gap-2">
               <button
                 type="button"
                 class="flex-1 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
@@ -281,11 +255,11 @@ const router = useRouter()
 const { pushToast } = useUiFeedback()
 
 const tabs = [
-  { label: 'En attente', value: 'PENDING' },
+  { label: 'Validés', value: 'VALIDATED' },
   { label: 'Publié', value: 'PUBLISHED' },
 ]
 
-const activeTab = ref('PENDING')
+const activeTab = ref('VALIDATED')
 const modalMedia = ref(null)
 const modalMediaIsVideo = ref(false)
 const instagramModalOpen = ref(false)
@@ -293,12 +267,12 @@ const savingInstagram = ref(false)
 const loadingContent = ref(false)
 
 const contentByTab = reactive({
-  PENDING: [],
+  VALIDATED: [],
   PUBLISHED: [],
 })
 
 const loadedTabs = reactive({
-  PENDING: false,
+  VALIDATED: false,
   PUBLISHED: false,
 })
 
@@ -335,7 +309,7 @@ function isVideoMedia(item) {
 async function loadContent(tab = activeTab.value) {
   loadingContent.value = true
   try {
-    const statusQuery = tab === 'PENDING' ? 'PENDING,VALIDATED' : tab
+    const statusQuery = tab === 'VALIDATED' ? 'PENDING,VALIDATED' : tab
     const data = await $fetch(`/api/influencers/${route.params.id}/content?statuses=${statusQuery}`)
     contentByTab[tab] = (data.contents || []).map((item) => normalizeItem(item))
     loadedTabs[tab] = true
@@ -357,7 +331,7 @@ async function switchTab(tab) {
   await ensureTabLoaded(tab)
 }
 
-await loadContent('PENDING')
+await loadContent('VALIDATED')
 
 function openModal(url) {
   modalMedia.value = typeof url === 'string' ? url : url?.imageUrl || null
@@ -430,8 +404,8 @@ async function remove(item) {
   item._loading = true
   try {
     await $fetch(`/api/content/${item.id}`, { method: 'DELETE' })
-    const index = contentByTab.PENDING.findIndex((content) => content.id === item.id)
-    if (index !== -1) contentByTab.PENDING.splice(index, 1)
+    const index = contentByTab.VALIDATED.findIndex((content) => content.id === item.id)
+    if (index !== -1) contentByTab.VALIDATED.splice(index, 1)
   } catch {
     item._loading = false
   }
@@ -441,8 +415,8 @@ async function publish(item) {
   item._loading = true
   try {
     const response = await $fetch(`/api/content/${item.id}/publish`, { method: 'POST' })
-    const pendingIndex = contentByTab.PENDING.findIndex((content) => content.id === item.id)
-    if (pendingIndex !== -1) contentByTab.PENDING.splice(pendingIndex, 1)
+    const validatedIndex = contentByTab.VALIDATED.findIndex((content) => content.id === item.id)
+    if (validatedIndex !== -1) contentByTab.VALIDATED.splice(validatedIndex, 1)
 
     const publishedContent = normalizeItem(
       response.content || {
