@@ -19,6 +19,18 @@
 
 <!-- Les entrees seront ajoutees ici au fil du temps -->
 
+### 2026-06-08 Blocage Gemini IMAGE_SAFETY sur generation image
+**Probleme** : La generation Pinterest feed echouait avec `finishReason=IMAGE_SAFETY` et remontait un 500 generique, ce qui ralentissait le diagnostic.
+**Cause racine** : Le pipeline traitait `Gemini returned no parts` comme erreur technique sans fallback de sanitisation ni statut metier explicite.
+**Solution** : Ajouter une detection `IMAGE_SAFETY`, appliquer une sanitisation de prompt puis retenter automatiquement, et renvoyer `422` avec message explicite si le blocage persiste.
+**Regle** : Tout refus safety modele doit avoir un fallback controle + un statut metier explicite (pas un 500 generique).
+
+### 2026-06-08 Cohérence cheveux issue de la face ref
+**Probleme** : La coupe de cheveux derivait parfois de l'image de reference et sortait plus longue que la reference visuelle.
+**Cause racine** : La face ref alimentait Gemini, mais la longueur/coupe des cheveux n'etait pas isolee comme attribut d'identite persistant.
+**Solution** : Extraire automatiquement un hair prompt depuis la face ref avec Gemini vision, le stocker avec un verrou editable, puis l'injecter dans le prompt de generation.
+**Regle** : Quand un attribut visuel doit rester coherent entre generations, il faut le deriver depuis la reference visuelle puis le persister comme contrainte explicite avec un mode lock/unlock.
+
 ### 2026-06-08 Vue contenus en mode validated-only
 **Probleme** : La page liste affichait des statuts de brouillon / erreur / traitement, alors que le comportement attendu etait de ne montrer que les contenus valides, comme avant.
 **Cause racine** : La vue avait ete elargie trop loin en reactualisant les statuts visibles, au lieu de corriger uniquement le statut de sortie de la generation reussie.

@@ -11,6 +11,7 @@ import { isAbsoluteHttpUrl, isBlobStorageEnabled, uploadPublicMediaBuffer } from
 import { checkMinDuration, extractBestFrame } from './frameExtractor.js';
 import { imageToJson } from './imageToJson.js';
 import { describeBodyFromImageSource } from './bodyReference.js';
+import { describeHairFromImageSource } from './hairReference.js';
 import {
   detectFaceVisible,
   detectPersonInImage,
@@ -103,6 +104,35 @@ function buildMotionPrompt(sceneJson) {
   return `${location}, ${ambiance}, ${movement}.`;
 }
 
+async function resolveHairPromptFromInfluencer(influencer) {
+  const hairLocked = influencer?.hairLocked !== false;
+  const hairPrompt = String(influencer?.hairPrompt || '').trim();
+  const hairAutoPrompt = String(influencer?.hairAutoPrompt || '').trim();
+
+  if (!hairLocked && hairPrompt) {
+    return hairPrompt;
+  }
+
+  if (hairLocked && hairAutoPrompt) {
+    return hairAutoPrompt;
+  }
+
+  if (hairLocked && hairPrompt) {
+    return hairPrompt;
+  }
+
+  const faceRefPath = String(influencer?.faceRefPath || '').trim();
+  if (!faceRefPath) {
+    return '';
+  }
+
+  try {
+    return String(await describeHairFromImageSource(faceRefPath, resolveFaceRefAbsolutePath) || '').trim();
+  } catch {
+    return '';
+  }
+}
+
 async function readBinaryAsset(assetPath) {
   const absolutePath = path.resolve(String(assetPath || ''));
   return {
@@ -193,6 +223,9 @@ async function runReelWorkflow({
   influencer,
   anthropicApiKey,
   bodyPrompt,
+  hairPrompt,
+  hairAutoPrompt,
+  hairLocked,
   keyword,
   tagCategory,
   faceRefMime,
@@ -278,6 +311,9 @@ async function runReelWorkflow({
       identityProfile: influencer.identityProfile,
       influencerName: influencer.name,
       bodyPrompt,
+      hairPrompt,
+      hairAutoPrompt,
+      hairLocked,
     });
 
     const prompt = PROMPT_JSON_TO_PRO_IMAGE.replace('{scene_json}', JSON.stringify(sceneJson, null, 2));
@@ -294,13 +330,13 @@ async function runReelWorkflow({
     // validatePersonAndUpperBody returns { pass, personCount, upperBodyVisible, reason }.
     // Up to 3 attempts — proceed with best result if all fail.
     const MAX_CHARACTER_ATTEMPTS = 3;
-    let madisonInlineData = await generateImageFromGemini(prompt, geminiParts);
+    let madisonInlineData = await generateImageFromGeminiWithSafetyFallback(prompt, geminiParts);
     let madisonMime = madisonInlineData.mimeType || 'image/jpeg';
     let madisonBuffer = Buffer.from(madisonInlineData.data, 'base64');
     let characterValidation = await validatePersonAndUpperBody(madisonBuffer, madisonMime);
 
     for (let attempt = 2; attempt <= MAX_CHARACTER_ATTEMPTS && !characterValidation.pass; attempt += 1) {
-      madisonInlineData = await generateImageFromGemini(prompt, geminiParts);
+      madisonInlineData = await generateImageFromGeminiWithSafetyFallback(prompt, geminiParts);
       madisonMime = madisonInlineData.mimeType || 'image/jpeg';
       madisonBuffer = Buffer.from(madisonInlineData.data, 'base64');
       characterValidation = await validatePersonAndUpperBody(madisonBuffer, madisonMime);
@@ -378,6 +414,45 @@ function resolveFormatAndRatio(contentType) {
   return { format: 'FEED', ratio: '4:5', contentType: 'feed' };
 }
 
+class ImageSafetyError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'ImageSafetyError';
+  }
+}
+
+const SAFETY_REPLACEMENTS = [
+  ['Extremely large, very full breasts causing cleavage', 'Full, prominent bust'],
+  ['significantly enlarged breasts', 'full bust'],
+  ['very full breasts', 'full bust'],
+  ['visible cleavage', 'natural neckline'],
+  ['Voluptuous hourglass figure with significantly enlarged breasts', 'Hourglass figure with full bust'],
+  ['NON-NEGOTIABLE', 'important'],
+  ['stretching the top garment', 'filling the top garment'],
+  ['prominent glutes', 'balanced lower silhouette'],
+  ['Pronounced hourglass', 'balanced silhouette'],
+  ['full bust', 'natural upper silhouette'],
+  ['Hourglass figure with full bust', 'balanced silhouette'],
+];
+
+function sanitizePromptForSafety(prompt) {
+  let sanitized = String(prompt || '');
+
+  for (const [from, to] of SAFETY_REPLACEMENTS) {
+    sanitized = sanitized.split(from).join(to);
+  }
+
+  sanitized = sanitized
+    .replace(/significantly enlarged breasts[^.\n]*/gi, 'full bust')
+    .replace(/extremely large[^.\n]*breasts[^.\n]*/gi, 'full bust')
+    .replace(/causing cleavage[^.\n]*/gi, 'filling the garment')
+    .replace(/\b(?:glutes?|butt|breasts?|cleavage|busty|buxom)\b/gi, 'silhouette')
+    .replace(/\b(?:voluptuous|hourglass|curvy)\b/gi, 'balanced')
+    .replace(/\b(?:extremely|very|significantly|prominent|huge|enlarged)\b/gi, 'natural');
+
+  return sanitized;
+}
+
 function extractInlineDataFromResponse(imageResponse) {
   const candidate = imageResponse?.candidates?.[0];
   const parts = candidate?.content?.parts ?? [];
@@ -385,6 +460,13 @@ function extractInlineDataFromResponse(imageResponse) {
   if (parts.length === 0) {
     const finishReason = candidate?.finishReason;
     const safetyRatings = JSON.stringify(candidate?.safetyRatings ?? []);
+
+    if (String(finishReason || '').toUpperCase().includes('IMAGE_SAFETY')) {
+      throw new ImageSafetyError(
+        `Gemini blocked generation for IMAGE_SAFETY. finishReason=${finishReason} safetyRatings=${safetyRatings}`,
+      );
+    }
+
     throw new Error(
       `Gemini returned no parts. finishReason=${finishReason} safetyRatings=${safetyRatings} rawKeys=${Object.keys(imageResponse ?? {}).join(',')}`,
     );
@@ -425,6 +507,24 @@ async function generateImageFromGemini(prompt, extraParts = []) {
   });
 
   return extractInlineDataFromResponse(imageResponse);
+}
+
+async function generateImageFromGeminiWithSafetyFallback(prompt, extraParts = []) {
+  try {
+    return await generateImageFromGemini(prompt, extraParts);
+  } catch (error) {
+    if (!(error instanceof ImageSafetyError)) {
+      throw error;
+    }
+
+    const sanitizedPrompt = sanitizePromptForSafety(prompt);
+    if (sanitizedPrompt === prompt) {
+      throw error;
+    }
+
+    console.warn('[generation-worker] IMAGE_SAFETY detected, retrying with sanitized prompt.');
+    return await generateImageFromGemini(sanitizedPrompt, extraParts);
+  }
 }
 
 async function resolveFaceRefAbsolutePath(faceRefPath) {
@@ -533,6 +633,9 @@ async function findInfluencerForGeneration(prisma, influencerId) {
         faceRefPath: true,
         bodyRefPath: true,
         bodyPrompt: true,
+        hairPrompt: true,
+        hairAutoPrompt: true,
+        hairLocked: true,
         identityProfile: true,
       },
     });
@@ -555,6 +658,9 @@ async function findInfluencerForGeneration(prisma, influencerId) {
     return {
       ...legacy,
       bodyPrompt: null,
+      hairPrompt: null,
+      hairAutoPrompt: null,
+      hairLocked: true,
       identityProfile: 'default',
     };
   }
@@ -629,6 +735,9 @@ export async function processGenerationJob(jobData, options = {}) {
 
     const { format, ratio, contentType: normalizedContentType } = resolveFormatAndRatio(contentType);
     const bodyPrompt = await resolveBodyPromptFromInfluencer(influencer);
+    const hairPrompt = await resolveHairPromptFromInfluencer(influencer);
+    const hairLocked = influencer?.hairLocked !== false;
+    const hairAutoPrompt = String(influencer?.hairAutoPrompt || '').trim() || hairPrompt;
     const anthropicApiKey = process.env.ANTHROPIC_API_KEY || process.env.anthropicApiKey;
 
     if (normalizedContentType === 'story') {
@@ -679,6 +788,9 @@ export async function processGenerationJob(jobData, options = {}) {
         influencer,
         anthropicApiKey,
         bodyPrompt,
+        hairPrompt,
+        hairAutoPrompt,
+        hairLocked,
         keyword,
         tagCategory,
         faceRefMime,
@@ -705,6 +817,9 @@ export async function processGenerationJob(jobData, options = {}) {
           identityProfile: influencer.identityProfile,
           influencerName: influencer.name,
           bodyPrompt,
+          hairPrompt,
+          hairAutoPrompt,
+          hairLocked,
         });
 
         prompt = PROMPT_JSON_TO_PRO_IMAGE.replace('{scene_json}', JSON.stringify(enrichedSceneJson, null, 2));
@@ -740,6 +855,9 @@ export async function processGenerationJob(jobData, options = {}) {
         identityProfile: influencer.identityProfile,
         influencerName: influencer.name,
         bodyPrompt,
+        hairPrompt,
+        hairAutoPrompt,
+        hairLocked,
       });
       prompt = PROMPT_JSON_TO_IMAGE.replace('{scene_json}', JSON.stringify(sceneJson, null, 2));
 
@@ -761,7 +879,7 @@ export async function processGenerationJob(jobData, options = {}) {
     let validation = { pass: false, reason: '' };
 
     for (let attempt = 1; attempt <= 3; attempt += 1) {
-      inlineData = await generateImageFromGemini(prompt, geminiParts);
+      inlineData = await generateImageFromGeminiWithSafetyFallback(prompt, geminiParts);
       imageMime = inlineData.mimeType || 'image/jpeg';
       generatedBuffer = Buffer.from(inlineData.data, 'base64');
 

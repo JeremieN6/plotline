@@ -178,6 +178,42 @@
           <p v-if="bodyUploadError" class="mt-3 text-sm text-red-600">{{ bodyUploadError }}</p>
         </div>
 
+        <div class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <h2 class="text-base font-bold text-gray-900">Hair lock</h2>
+              <p class="mt-1 text-sm text-gray-500">Gemini propose automatiquement la coupe/couleur depuis la face ref. Le verrou garde cette valeur, le déverrouillage permet de la modifier.</p>
+            </div>
+            <button
+              type="button"
+              class="rounded-full border px-3 py-1 text-xs font-bold transition-colors"
+              :class="form.hairLocked ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'"
+              @click="toggleHairLock"
+            >
+              {{ form.hairLocked ? 'Verrouillé' : 'Déverrouillé' }}
+            </button>
+          </div>
+
+          <div class="mt-4 rounded-xl border border-[#E5E3DF] bg-white p-4">
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Analyse auto</p>
+            <p class="mt-2 text-sm text-gray-700">
+              {{ form.hairAutoPrompt || 'Aucune analyse disponible pour le moment.' }}
+            </p>
+          </div>
+
+          <label class="mt-4 mb-1.5 block text-sm font-semibold text-gray-800">Hair prompt utilisé en génération</label>
+          <textarea
+            v-model="form.hairPrompt"
+            rows="3"
+            :disabled="form.hairLocked"
+            class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50"
+            placeholder="Ex: Cheveux au-dessus des epaules, raie legerement laterale, texture lisse naturelle"
+          ></textarea>
+          <p class="mt-2 text-xs text-gray-500">
+            Quand le verrou est actif, la génération suit l’analyse auto. Déverrouille pour éditer manuellement sans perdre la valeur auto.
+          </p>
+        </div>
+
         <p v-if="submitError" class="text-sm text-red-600">{{ submitError }}</p>
 
         <div class="flex flex-wrap justify-end gap-3">
@@ -239,6 +275,9 @@ const form = reactive({
   niche: '',
   style: '',
   bodyPrompt: '',
+  hairPrompt: '',
+  hairAutoPrompt: '',
+  hairLocked: true,
 })
 
 const { data, pending, error, refresh } = await useFetch(`/api/influencers/${id}`, {
@@ -264,6 +303,9 @@ watch(
     form.niche = value.niche || ''
     form.style = value.style || ''
     form.bodyPrompt = value.bodyPrompt || ''
+    form.hairPrompt = value.hairPrompt || ''
+    form.hairAutoPrompt = value.hairAutoPrompt || value.hairPrompt || ''
+    form.hairLocked = typeof value.hairLocked === 'boolean' ? value.hairLocked : true
     currentFaceRefPath.value = value.faceRefPath || ''
     currentFaceRefUrl.value = value.faceRefUrl || (currentFaceRefFilename.value ? `/api/media/face-refs/${encodeURIComponent(currentFaceRefFilename.value)}` : '')
     currentFaceRefMissing.value = false
@@ -308,6 +350,13 @@ function onCurrentFaceRefError() {
 
 function onCurrentBodyRefError() {
   currentBodyRefMissing.value = true
+}
+
+function toggleHairLock() {
+  form.hairLocked = !form.hairLocked
+  if (!form.hairLocked && !form.hairPrompt.trim()) {
+    form.hairPrompt = form.hairAutoPrompt || ''
+  }
 }
 
 function setFile(file) {
@@ -429,6 +478,8 @@ async function submit() {
         niche: form.niche,
         style: form.style.trim(),
         bodyPrompt: form.bodyPrompt,
+        hairPrompt: form.hairPrompt,
+        hairLocked: form.hairLocked,
       },
     })
 

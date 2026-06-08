@@ -6,6 +6,15 @@ function isTransientDbError(err) {
   return code === 'ETIMEDOUT' || code === 'P1001' || code === 'P1002';
 }
 
+function isPrismaSchemaDriftError(err) {
+  const message = String(err?.message || '').toLowerCase();
+  return err?.code === 'P2022'
+    || (message.includes('column') && message.includes('does not exist'))
+    || message.includes('unknown arg')
+    || message.includes('unknown argument')
+    || message.includes('unknown field');
+}
+
 async function getPrisma() {
   if (prismaClient) return prismaClient;
 
@@ -79,6 +88,15 @@ module.exports = defineEventHandler(async (event) => {
       payload.bodyPrompt = normalizedBodyPrompt ? normalizedBodyPrompt : null;
     }
 
+    if (typeof body?.hairPrompt === 'string') {
+      const normalizedHairPrompt = body.hairPrompt.trim();
+      payload.hairPrompt = normalizedHairPrompt ? normalizedHairPrompt : null;
+    }
+
+    if (typeof body?.hairLocked === 'boolean') {
+      payload.hairLocked = body.hairLocked;
+    }
+
     if (!payload.name || !payload.niche || !payload.style) {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'name, niche et style requis' }));
     }
@@ -102,6 +120,20 @@ module.exports = defineEventHandler(async (event) => {
       await updateStoredInfluencer(id, influencer);
       return influencer;
     } catch (err) {
+      if (isPrismaSchemaDriftError(err) && ('hairPrompt' in payload || 'hairLocked' in payload)) {
+        const legacyPayload = { ...payload };
+        delete legacyPayload.hairPrompt;
+        delete legacyPayload.hairLocked;
+
+        const influencer = await prisma.influencer.update({
+          where: { id },
+          data: legacyPayload,
+        });
+
+        await updateStoredInfluencer(id, influencer);
+        return influencer;
+      }
+
       if (isTransientDbError(err)) {
         const updatedStored = await updateStoredInfluencer(id, payload);
         if (updatedStored) {
@@ -116,11 +148,18 @@ module.exports = defineEventHandler(async (event) => {
       throw err;
     }
   } catch (err) {
+    console.error('[influencer:patch] failure', {
+      name: err?.name,
+      code: err?.code,
+      message: err?.message,
+      stack: err?.stack,
+    });
+
     return sendError(
       event,
       createError({
         statusCode: 500,
-        statusMessage: 'Erreur serveur',
+        statusMessage: `Erreur serveur: ${err?.message || 'erreur inconnue'}`,
         data: {
           name: err?.name,
           code: err?.code,

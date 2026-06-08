@@ -89,6 +89,19 @@ export function injectBody(sceneJson, options = {}) {
     delete enriched.subject.face;
   }
 
+  const hairPrompt = String(options.hairPrompt || '').trim();
+  const hairAutoPrompt = String(options.hairAutoPrompt || '').trim();
+  const hairLocked = options.hairLocked !== false;
+
+  if (hairPrompt || hairAutoPrompt) {
+    enriched.subject.hair = {
+      description: hairLocked ? (hairAutoPrompt || hairPrompt) : (hairPrompt || hairAutoPrompt),
+      custom_instruction: hairLocked ? '' : hairPrompt,
+      auto_instruction: hairAutoPrompt || hairPrompt,
+      locked: hairLocked,
+    };
+  }
+
   return enriched;
 }
 

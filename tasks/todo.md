@@ -10,6 +10,8 @@
 - [x] Ajouter upload body ref par influenceuse
 - [x] Injecter bodyPrompt/bodyRef dans le pipeline de generation
 - [x] Ajouter validation image: person detection + upper-body validation avec retry
+- [x] Ajouter analyse auto des cheveux depuis la face ref
+- [x] Ajouter lock/unlock des cheveux par influenceuse
 - [x] Porter le workflow Reel Pinterest + Kling Motion Control en Nuxt
 - [x] Ajouter les utilitaires video ffmpeg (frame extractor + Kling client)
 - [x] Valider le pipeline Reel en build local

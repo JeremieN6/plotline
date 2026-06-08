@@ -1,7 +1,18 @@
+const path = require('node:path');
 const { prisma } = require('../../../utils/prisma');
+
+function isPrismaSchemaDriftError(err) {
+  const message = String(err?.message || '').toLowerCase();
+  return err?.code === 'P2022'
+    || (message.includes('column') && message.includes('does not exist'))
+    || message.includes('unknown arg')
+    || message.includes('unknown argument')
+    || message.includes('unknown field');
+}
 
 module.exports = defineEventHandler(async (event) => {
   try {
+    const { describeHairFromImageSource } = await import('../../../utils/hairReference.js');
     const id = event.context?.params?.id;
     const body = await readBody(event);
     const faceRefPath = body?.faceRefPath;
@@ -14,17 +25,90 @@ module.exports = defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'faceRefPath requis' }));
     }
 
-    const influencer = await prisma.influencer.update({
-      where: { id },
-      data: { faceRefPath },
-      select: {
-        id: true,
-        faceRefPath: true,
+    let currentInfluencer = null;
+    try {
+      currentInfluencer = await prisma.influencer.findUnique({
+        where: { id },
+        select: {
+          hairPrompt: true,
+          hairAutoPrompt: true,
+          hairLocked: true,
+        },
+      });
+    } catch {
+      currentInfluencer = null;
+    }
+
+    const resolveLocalPath = (value) => {
+      const rawPath = String(value || '').trim();
+      if (path.isAbsolute(rawPath)) return rawPath;
+      if (rawPath.startsWith('/uploads/')) {
+        return path.join(process.cwd(), 'public', rawPath.replace(/^\/+/, ''));
       }
-    });
+      return path.resolve(process.cwd(), rawPath.replace(/^\/+/, ''));
+    };
+
+    let hairPayload = {};
+    try {
+      const hairPrompt = await describeHairFromImageSource(faceRefPath, resolveLocalPath);
+      if (hairPrompt) {
+        hairPayload = {
+          hairAutoPrompt: hairPrompt,
+          hairPrompt: currentInfluencer?.hairLocked === false && String(currentInfluencer?.hairPrompt || '').trim()
+            ? currentInfluencer.hairPrompt
+            : hairPrompt,
+          hairLocked: typeof currentInfluencer?.hairLocked === 'boolean' ? currentInfluencer.hairLocked : true,
+        };
+      }
+    } catch {
+      hairPayload = {};
+    }
+
+    let influencer;
+    try {
+      influencer = await prisma.influencer.update({
+        where: { id },
+        data: { faceRefPath, ...hairPayload },
+        select: {
+          id: true,
+          faceRefPath: true,
+          hairPrompt: true,
+          hairAutoPrompt: true,
+          hairLocked: true,
+        }
+      });
+    } catch (err) {
+      if (!isPrismaSchemaDriftError(err)) {
+        throw err;
+      }
+
+      influencer = await prisma.influencer.update({
+        where: { id },
+        data: { faceRefPath },
+        select: {
+          id: true,
+          faceRefPath: true,
+        }
+      });
+    }
 
     return influencer;
   } catch (err) {
-    return sendError(event, createError({ statusCode: 500, statusMessage: 'Erreur serveur', data: err }));
+    console.error('[influencer:face-ref-patch] failure', {
+      name: err?.name,
+      code: err?.code,
+      message: err?.message,
+      stack: err?.stack,
+    });
+
+    return sendError(event, createError({
+      statusCode: 500,
+      statusMessage: `Erreur patch face ref: ${err?.message || 'erreur inconnue'}`,
+      data: {
+        name: err?.name,
+        code: err?.code,
+        message: err?.message,
+      },
+    }));
   }
 });

@@ -154,7 +154,21 @@ function shouldUseQueue() {
   return rawValue === 'true' || rawValue === '1' || rawValue === 'yes';
 }
 
+function logGenerationError(err, context = {}) {
+  const payload = {
+    name: err?.name,
+    code: err?.code,
+    message: err?.message,
+    status: err?.status,
+    stack: err?.stack,
+    context,
+  };
+
+  console.error('[generate:image] failure', JSON.stringify(payload, null, 2));
+}
+
 export default defineEventHandler(async (event) => {
+  let errorContext = {};
   try {
     const prisma = await getPrisma();
     const body = await readBody(event);
@@ -165,6 +179,13 @@ export default defineEventHandler(async (event) => {
       source,
       keyword,
     } = body || {};
+    errorContext = {
+      influencerId,
+      workflowType,
+      contentType,
+      source,
+      keyword,
+    };
     const normalizedContentType = String(contentType || '').trim().toLowerCase();
 
     let {
@@ -294,6 +315,8 @@ export default defineEventHandler(async (event) => {
       status: 'processing',
     };
   } catch (err) {
+    logGenerationError(err, errorContext);
+
     const message = err?.message || ''
     const isMissingFaceRef = message.includes('Face reference file not found')
       || message.includes('Influencer face reference is missing')
@@ -301,6 +324,8 @@ export default defineEventHandler(async (event) => {
       || message.includes('No Pinterest image found for query:')
     const isPinterestTimeout = message.includes('page.goto: Timeout')
       || message.includes('navigating to "https://www.pinterest.com')
+    const isImageSafety = message.includes('IMAGE_SAFETY')
+      || message.includes('Gemini blocked generation for IMAGE_SAFETY')
     const isTempFileGone = (err?.code === 'ENOENT' || message.includes('ENOENT'))
       && (message.includes('storage\\temp') || message.includes('storage/temp'))
     const networkCode = String(err?.code || '').toUpperCase()
@@ -375,6 +400,22 @@ export default defineEventHandler(async (event) => {
       )
     }
 
+    if (isImageSafety) {
+      return sendError(
+        event,
+        createError({
+          statusCode: 422,
+          statusMessage: 'Generation bloquee par la policy image safety de Gemini. Essaie un keyword moins suggestif ou ajuste la tenue/contexte.',
+          data: {
+            name: err?.name,
+            code: err?.code,
+            message: err?.message,
+            status: err?.status,
+          },
+        }),
+      )
+    }
+
     if (isTempFileGone) {
       return sendError(
         event,
@@ -394,7 +435,7 @@ export default defineEventHandler(async (event) => {
       event,
       createError({
         statusCode: 500,
-        statusMessage: 'Image generation failed',
+        statusMessage: `Image generation failed: ${message || 'unexpected error'}`,
         data: {
           name: err?.name,
           code: err?.code,

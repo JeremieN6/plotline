@@ -9,9 +9,19 @@ function resolveExtension(filename = '', type = '') {
   return 'jpg';
 }
 
+function isPrismaSchemaDriftError(err) {
+  const message = String(err?.message || '').toLowerCase();
+  return err?.code === 'P2022'
+    || (message.includes('column') && message.includes('does not exist'))
+    || message.includes('unknown arg')
+    || message.includes('unknown argument')
+    || message.includes('unknown field');
+}
+
 module.exports = defineEventHandler(async (event) => {
   try {
     const { isBlobStorageEnabled, uploadPublicMediaBuffer } = await import('../../utils/blobStorage.js');
+    const { describeHairFromImageSource } = await import('../../utils/hairReference.js');
 
     const formData = await readMultipartFormData(event);
     const filePart = formData?.find((part) => part.name === 'file');
@@ -44,6 +54,8 @@ module.exports = defineEventHandler(async (event) => {
 
     let publicPath = '';
 
+    let localFilePath = '';
+
     if (isBlobStorageEnabled()) {
       const uploaded = await uploadPublicMediaBuffer(
         `face-refs/${influencerId}`,
@@ -57,21 +69,90 @@ module.exports = defineEventHandler(async (event) => {
       fs.mkdirSync(uploadDir, { recursive: true });
 
       const filename = `${influencerId}-face.${extension}`;
-      const filePath = path.join(uploadDir, filename);
-      fs.writeFileSync(filePath, fileBuffer);
+      localFilePath = path.join(uploadDir, filename);
+      fs.writeFileSync(localFilePath, fileBuffer);
 
       publicPath = `/uploads/face-refs/${filename}`;
     }
 
     if (!isTemporary) {
-      await prisma.influencer.update({
-        where: { id: influencerId },
-        data: { faceRefPath: publicPath }
-      });
+      let currentInfluencer = null;
+      try {
+        currentInfluencer = await prisma.influencer.findUnique({
+          where: { id: influencerId },
+          select: {
+            hairPrompt: true,
+            hairAutoPrompt: true,
+            hairLocked: true,
+          },
+        });
+      } catch {
+        currentInfluencer = null;
+      }
+
+      let hairPayload = {};
+      try {
+        const resolveLocalPath = (value) => {
+          const rawPath = String(value || '').trim();
+          if (path.isAbsolute(rawPath)) return rawPath;
+          if (rawPath.startsWith('/uploads/')) {
+            return path.join(process.cwd(), 'public', rawPath.replace(/^\/+/, ''));
+          }
+          return path.resolve(process.cwd(), rawPath.replace(/^\/+/, ''));
+        };
+
+        const hairAnalysisSource = isBlobStorageEnabled() ? publicPath : localFilePath;
+        const hairPrompt = await describeHairFromImageSource(hairAnalysisSource, resolveLocalPath);
+        if (hairPrompt) {
+          hairPayload = {
+            hairAutoPrompt: hairPrompt,
+            hairPrompt: currentInfluencer?.hairLocked === false && String(currentInfluencer?.hairPrompt || '').trim()
+              ? currentInfluencer.hairPrompt
+              : hairPrompt,
+            hairLocked: typeof currentInfluencer?.hairLocked === 'boolean' ? currentInfluencer.hairLocked : true,
+          };
+        }
+      } catch {
+        hairPayload = {};
+      }
+
+      try {
+        await prisma.influencer.update({
+          where: { id: influencerId },
+          data: {
+            faceRefPath: publicPath,
+            ...hairPayload,
+          }
+        });
+      } catch (err) {
+        if (!isPrismaSchemaDriftError(err)) {
+          throw err;
+        }
+
+        await prisma.influencer.update({
+          where: { id: influencerId },
+          data: { faceRefPath: publicPath },
+        });
+      }
     }
 
     return { path: publicPath, url: publicPath };
   } catch (err) {
-    return sendError(event, createError({ statusCode: 500, statusMessage: 'Erreur serveur', data: err }));
+    console.error('[upload:face-ref] failure', {
+      name: err?.name,
+      code: err?.code,
+      message: err?.message,
+      stack: err?.stack,
+    });
+
+    return sendError(event, createError({
+      statusCode: 500,
+      statusMessage: `Erreur upload face ref: ${err?.message || 'erreur inconnue'}`,
+      data: {
+        name: err?.name,
+        code: err?.code,
+        message: err?.message,
+      },
+    }));
   }
 });

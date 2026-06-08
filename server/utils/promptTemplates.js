@@ -1,7 +1,10 @@
 export const PROMPT_JSON_TO_IMAGE = `Generate a professional photo-realistic image featuring the character described below.
 
 CRITICAL - CHARACTER IDENTITY (attached 3-view reference sheet is the ONLY source of truth):
-Facial features, hair, skin tone and identity MUST come from the attached reference image.
+Facial features, skin tone and identity MUST come from the attached reference image.
+Hair MUST follow Scene JSON subject.hair exactly.
+If subject.hair.custom_instruction exists, prioritize it.
+Do not lengthen, shorten, restyle or reinterpret the hair beyond the reference or Scene JSON.
 Do NOT invent a new face and do NOT apply traits from another influencer profile.
 [CHARACTER REFERENCE IMAGE ATTACHED]
 
@@ -9,6 +12,11 @@ CRITICAL - BODY:
 Follow the body instructions from Scene JSON subject.body.
 If subject.body.custom_instruction exists, prioritize it.
 Otherwise apply the fallback physique exactly.
+
+CRITICAL - HAIR:
+Follow the hair instructions from Scene JSON subject.hair.
+If subject.hair.custom_instruction exists, prioritize it.
+Otherwise apply the fallback hair exactly.
 
 Respect all compositional, lighting, environmental and clothing details from the Scene JSON below.
 

@@ -50,6 +50,9 @@ model Influencer {
   faceRefPath          String?
   bodyRefPath          String?
   bodyPrompt           String?
+  hairPrompt           String?
+  hairAutoPrompt       String?
+  hairLocked           Boolean            @default(true)
   identityProfile      String             @default("default")
   instagramAccountId   String?
   instagramAccessToken  String?

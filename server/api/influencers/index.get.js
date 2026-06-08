@@ -20,6 +20,9 @@ function normalizeInfluencer(influencer) {
   return {
     ...influencer,
     bodyPrompt: typeof influencer?.bodyPrompt === 'string' ? influencer.bodyPrompt : null,
+    hairPrompt: typeof influencer?.hairPrompt === 'string' ? influencer.hairPrompt : null,
+    hairAutoPrompt: typeof influencer?.hairAutoPrompt === 'string' ? influencer.hairAutoPrompt : null,
+    hairLocked: typeof influencer?.hairLocked === 'boolean' ? influencer.hairLocked : true,
     identityProfile: String(influencer?.identityProfile || 'default'),
   };
 }
@@ -38,6 +41,9 @@ async function findInfluencersCompatible(prisma, userId) {
         faceRefPath: true,
         bodyRefPath: true,
         bodyPrompt: true,
+        hairPrompt: true,
+        hairAutoPrompt: true,
+        hairLocked: true,
         identityProfile: true,
         instagramAccountId: true,
         tiktokEnabled: true,
