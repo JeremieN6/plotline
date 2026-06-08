@@ -114,7 +114,7 @@
             <p class="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-gray-500">Categorie</p>
             <div class="flex flex-wrap gap-2">
               <button
-                v-for="category in categories"
+                v-for="category in categoryOptions"
                 :key="category"
                 type="button"
                 class="rounded-full border px-3 py-1.5 text-xs font-bold capitalize transition-colors"
@@ -209,7 +209,7 @@ const feedSources = [
   { value: 'pinterest_tags', label: 'pinterest_tags' },
 ]
 
-const categories = ['lifestyle', 'beach', 'outfit']
+const defaultCategories = ['lifestyle', 'beach', 'outfit']
 
 const contentType = ref('')
 const selectionMode = ref('')
@@ -259,6 +259,31 @@ const manualSource = computed(() => {
   }
 
   return ''
+})
+
+function getSourceCategories(sourceName) {
+  if (sourceName === 'pinterest_tags') {
+    return getSourceCategories('relevant_keywords')
+  }
+
+  const sourceData = variables.value?.[sourceName]
+  if (!sourceData || typeof sourceData !== 'object') {
+    return []
+  }
+
+  return Object.keys(sourceData).filter((key) => {
+    const values = sourceData[key]
+    return Array.isArray(values) && values.length > 0
+  })
+}
+
+const categoryOptions = computed(() => {
+  if (!manualSource.value) {
+    return defaultCategories
+  }
+
+  const categories = getSourceCategories(manualSource.value)
+  return categories.length ? categories : defaultCategories
 })
 
 const manualKeywordOptions = computed(() => {
@@ -394,9 +419,8 @@ function randomItem(list) {
 }
 
 function randomCategoryFromSource(sourceName) {
-  const sourceData = variables.value?.[sourceName] || {}
-  const sourceCategories = Object.keys(sourceData).filter((key) => categories.includes(key))
-  return randomItem(sourceCategories.length ? sourceCategories : categories)
+  const sourceCategories = getSourceCategories(sourceName)
+  return randomItem(sourceCategories.length ? sourceCategories : defaultCategories)
 }
 
 function rollRandomSelection() {
@@ -415,7 +439,7 @@ function rollRandomSelection() {
     if (source === 'pinterest_tags') {
       const tagEntries = Object.entries(variables.value?.pinterest_tags || {})
       const picked = randomItem(tagEntries)
-      category = randomItem(categories)
+      category = randomItem(defaultCategories)
       keywordLabel = String(picked?.[0] || '')
       keywordValue = String(picked?.[1] || '')
     } else {

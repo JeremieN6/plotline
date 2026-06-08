@@ -129,12 +129,41 @@
       "video pool baddie"
     ],
     "outfit": [
-      "video mirror selfie aesthetic",
+      "video outfit baddie aesthetic",
+      "video lingerie baddie aesthetic",
+      "video crop top baddie aesthetic",
+      "video dress baddie aesthetic",
+      "video casual baddie aesthetic",
+      "video summer outfit baddie aesthetic",
+      "video lounge outfit baddie aesthetic",
+      "video uniform aesthetic baddie",
+      "video tight jeans baddie aesthetic",
+      "video bodycon dress baddie aesthetic",
+      "video blazer baddie aesthetic",
+      "video oversized hoodie baddie aesthetic"
+    ],
+    "cosplay": [
+      "video cosplay baddie aesthetic",
+      "video anime baddie aesthetic",
+      "video fantasy baddie aesthetic",
+      "video video game baddie aesthetic",
+      "video nurse baddie",
+      "video nurse baddie aesthetic",
+      "video police baddie aesthetic",
+      "video military baddie",
+      "video airline baddie"      
+    ],
+    "location": [
+      "video balcony baddie",
+      "video rooftop city view baddie aesthetic",
+      "video hotel room baddie aesthetic",
+      "video forest baddie aesthetic",
+      "video street baddie aesthetic",
+      "video room baddie",
+            "video mirror selfie aesthetic",
       "video cafe outfit baddie aesthetic",
       "video rooftop baddie aesthetic",
-      "video room baddie",
-      "video kitchen baddie aesthetic",
-      "video balcony baddie"
+      "video kitchen baddie aesthetic"
     ]
   },
 
@@ -162,6 +191,12 @@
       "video hotel view morning",
       "video kitchen morning aesthetic",
       "video city lights night"
+    ],
+    "other": [
+      "video food aesthetic",
+      "video coffee aesthetic",
+      "video nature aesthetic",
+      "video cityscape aesthetic"
     ]
   }
 }
