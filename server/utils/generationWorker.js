@@ -20,7 +20,7 @@ import {
   validateBodyProportions,
   validatePersonAndUpperBody,
 } from './imageValidation.js';
-import { injectBody } from './injectBody.js';
+import { buildDefaultBodyInstruction, injectBody } from './injectBody.js';
 import { generateVideoMotionControl } from './klingGenerator.js';
 import { getGeneratedDir, toMediaUrl } from './mediaStorage.js';
 import { scrapePinterestImage } from './pinterestScraper.js';
@@ -636,16 +636,19 @@ async function resolveBodyPromptFromInfluencer(influencer) {
   }
 
   const bodyRefPath = String(influencer?.bodyRefPath || '').trim();
-  if (!bodyRefPath) {
-    return '';
+  if (bodyRefPath) {
+    try {
+      const inferred = await describeBodyFromImageSource(bodyRefPath, resolveFaceRefAbsolutePath);
+      const normalizedInferred = String(inferred || '').trim();
+      if (normalizedInferred) {
+        return normalizedInferred;
+      }
+    } catch {
+      // Fall back to the shared body template below.
+    }
   }
 
-  try {
-    const inferred = await describeBodyFromImageSource(bodyRefPath, resolveFaceRefAbsolutePath);
-    return String(inferred || '').trim();
-  } catch {
-    return '';
-  }
+  return buildDefaultBodyInstruction();
 }
 
 function isMissingColumnError(err) {

@@ -18,6 +18,9 @@
 - [x] Ajouter les utilitaires video ffmpeg (frame extractor + Kling client)
 - [x] Valider le pipeline Reel en build local
 - [x] Durcir les fetch Kling/tmpfiles contre les resets reseau
+- [x] Renforcer l'injection body/hair auto pour eviter les derives de generation
+- [x] Rebaser le fallback body sur les mensurations Madison sans dependre de Gemini
+- [x] Retirer l'upload body ref de la config influenceuse
 - [ ] Valider en execution reelle avec un run de generation
 
 ## Fait

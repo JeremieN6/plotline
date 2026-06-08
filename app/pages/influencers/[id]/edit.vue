@@ -117,10 +117,10 @@
           <div class="flex items-start justify-between gap-4">
             <div>
               <h2 class="text-base font-bold text-gray-900">Body guidance</h2>
-              <p class="mt-1 text-sm text-gray-500">Tu peux laisser vide pour utiliser le fallback global, ou renseigner un prompt body et/ou une body ref spécifique.</p>
+              <p class="mt-1 text-sm text-gray-500">Tu peux laisser vide pour reprendre automatiquement les mensurations Madison. Renseigne un prompt seulement si tu veux un override texte spécifique.</p>
             </div>
             <span class="rounded-full border border-[#E5E3DF] bg-white px-3 py-1 text-xs font-bold text-gray-600">
-              {{ currentBodyRefPath ? 'Body ref presente' : 'Fallback global actif' }}
+              {{ form.bodyPrompt.trim() ? 'Override texte actif' : 'Fallback Madison actif' }}
             </span>
           </div>
 
@@ -129,53 +129,11 @@
             v-model="form.bodyPrompt"
             rows="4"
             class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none"
-            placeholder="Ex: Silhouette athletique, poitrine moyenne, taille marquee, hanches proportionnees, rendu naturel et realiste"
+            placeholder="Ex: Hourglass prononce, poitrine tres genereuse, taille fine, hanches larges, rendu naturel et realiste"
           ></textarea>
-
-          <p v-if="currentBodyRefName" class="mt-3 text-sm text-gray-700">
-            Fichier body actuel : <strong>{{ currentBodyRefName }}</strong>
+          <p class="mt-3 text-xs text-gray-500">
+            Le visuel body ref n'est plus expose ici: la generation applique directement le fallback texte Madison quand aucun override n'est saisi.
           </p>
-
-          <div
-            class="mt-4 rounded-xl border-2 border-dashed p-6 text-center transition-colors"
-            :class="isBodyDragging ? 'border-[#E8873A] bg-orange-50' : bodyFileError ? 'border-red-400 bg-red-50' : 'border-[#E5E3DF] bg-white'"
-            @dragenter.prevent="isBodyDragging = true"
-            @dragover.prevent="isBodyDragging = true"
-            @dragleave.prevent="isBodyDragging = false"
-            @drop.prevent="onBodyDrop"
-          >
-            <input
-              ref="bodyFileInputRef"
-              type="file"
-              accept="image/jpeg,image/png,.jpg,.jpeg,.png"
-              class="hidden"
-              @change="onBodyFileSelect"
-            />
-            <p class="font-bold text-gray-800">Depose une image body ref</p>
-            <p class="mb-3 mt-2 text-sm text-gray-500">ou selectionne un nouveau fichier</p>
-            <button type="button" class="rounded-lg border border-[#E5E3DF] bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-50" @click="openBodyFilePicker">
-              Choisir un fichier body
-            </button>
-          </div>
-
-          <div v-if="bodyPreviewUrl" class="mt-4 overflow-hidden rounded-xl border border-[#E5E3DF]">
-            <img :src="bodyPreviewUrl" alt="Apercu body ref" class="block max-h-72 w-full object-cover" />
-          </div>
-          <div v-else-if="currentBodyRefUrl" class="mt-4 overflow-hidden rounded-xl border border-[#E5E3DF]">
-            <img
-              v-if="!currentBodyRefMissing"
-              :src="currentBodyRefUrl"
-              alt="Body ref actuelle"
-              class="block max-h-72 w-full object-cover"
-              @error="onCurrentBodyRefError"
-            />
-            <div v-else class="p-4 text-sm text-amber-700 bg-amber-50">
-              Cette body ref n'est pas disponible sur ce poste. Uploadez une nouvelle image body ref.
-            </div>
-          </div>
-
-          <p v-if="bodyFileError" class="mt-3 text-sm text-red-600">{{ bodyFileError }}</p>
-          <p v-if="bodyUploadError" class="mt-3 text-sm text-red-600">{{ bodyUploadError }}</p>
         </div>
 
         <div class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
@@ -251,24 +209,15 @@ const { pushToast } = useUiFeedback()
 const fetchError = ref('')
 const submitError = ref('')
 const uploadError = ref('')
-const bodyUploadError = ref('')
 const fileError = ref('')
-const bodyFileError = ref('')
 const saving = ref(false)
 const isDragging = ref(false)
-const isBodyDragging = ref(false)
 const selectedFile = ref(null)
-const selectedBodyFile = ref(null)
 const previewUrl = ref('')
-const bodyPreviewUrl = ref('')
 const currentFaceRefPath = ref('')
 const currentFaceRefUrl = ref('')
 const currentFaceRefMissing = ref(false)
-const currentBodyRefPath = ref('')
-const currentBodyRefUrl = ref('')
-const currentBodyRefMissing = ref(false)
 const fileInputRef = ref(null)
-const bodyFileInputRef = ref(null)
 
 const form = reactive({
   name: '',
@@ -288,8 +237,6 @@ const influencer = computed(() => data.value ?? null)
 const nicheItems = computed(() => splitNiches(form.niche))
 const currentFaceRefName = computed(() => currentFaceRefPath.value.split(/[\\/]/).pop() || '')
 const currentFaceRefFilename = computed(() => currentFaceRefPath.value.split(/[\\/]/).pop() || '')
-const currentBodyRefName = computed(() => currentBodyRefPath.value.split(/[\\/]/).pop() || '')
-const currentBodyRefFilename = computed(() => currentBodyRefPath.value.split(/[\\/]/).pop() || '')
 const canSubmit = computed(() => Boolean(form.name.trim() && nicheItems.value.length && form.style.trim()))
 
 watch(
@@ -309,9 +256,6 @@ watch(
     currentFaceRefPath.value = value.faceRefPath || ''
     currentFaceRefUrl.value = value.faceRefUrl || (currentFaceRefFilename.value ? `/api/media/face-refs/${encodeURIComponent(currentFaceRefFilename.value)}` : '')
     currentFaceRefMissing.value = false
-    currentBodyRefPath.value = value.bodyRefPath || ''
-    currentBodyRefUrl.value = value.bodyRefUrl || (currentBodyRefFilename.value ? `/api/media/body-refs/${encodeURIComponent(currentBodyRefFilename.value)}` : '')
-    currentBodyRefMissing.value = false
   },
   { immediate: true },
 )
@@ -328,10 +272,6 @@ function openFilePicker() {
   fileInputRef.value?.click()
 }
 
-function openBodyFilePicker() {
-  bodyFileInputRef.value?.click()
-}
-
 function validImage(file) {
   if (!file) return false
   return ['image/jpeg', 'image/png'].includes(file.type)
@@ -346,10 +286,6 @@ function updatePreview(file) {
 
 function onCurrentFaceRefError() {
   currentFaceRefMissing.value = true
-}
-
-function onCurrentBodyRefError() {
-  currentBodyRefMissing.value = true
 }
 
 function toggleHairLock() {
@@ -373,23 +309,6 @@ function setFile(file) {
   updatePreview(file)
 }
 
-function setBodyFile(file) {
-  bodyFileError.value = ''
-  bodyUploadError.value = ''
-
-  if (!validImage(file)) {
-    selectedBodyFile.value = null
-    bodyFileError.value = 'Format invalide. Utilise un fichier JPG ou PNG.'
-    return
-  }
-
-  selectedBodyFile.value = file
-  if (bodyPreviewUrl.value) {
-    URL.revokeObjectURL(bodyPreviewUrl.value)
-  }
-  bodyPreviewUrl.value = URL.createObjectURL(file)
-}
-
 function onFileSelect(event) {
   setFile(event.target?.files?.[0])
 }
@@ -397,15 +316,6 @@ function onFileSelect(event) {
 function onDrop(event) {
   isDragging.value = false
   setFile(event.dataTransfer?.files?.[0])
-}
-
-function onBodyFileSelect(event) {
-  setBodyFile(event.target?.files?.[0])
-}
-
-function onBodyDrop(event) {
-  isBodyDragging.value = false
-  setBodyFile(event.dataTransfer?.files?.[0])
 }
 
 async function uploadFaceRefIfNeeded() {
@@ -434,32 +344,6 @@ async function uploadFaceRefIfNeeded() {
   selectedFile.value = null
 }
 
-async function uploadBodyRefIfNeeded() {
-  if (!selectedBodyFile.value) {
-    return
-  }
-
-  const formData = new FormData()
-  formData.append('file', selectedBodyFile.value)
-  formData.append('influencerId', id)
-
-  const response = await fetch('/api/upload/body-ref', {
-    method: 'POST',
-    body: formData,
-  })
-
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}))
-    throw new Error(payload?.statusMessage || payload?.message || 'Upload body ref impossible')
-  }
-
-  const payload = await response.json()
-  currentBodyRefPath.value = payload?.path || currentBodyRefPath.value
-  currentBodyRefUrl.value = payload?.url || (currentBodyRefFilename.value ? `/api/media/body-refs/${encodeURIComponent(currentBodyRefFilename.value)}` : currentBodyRefUrl.value)
-  currentBodyRefMissing.value = false
-  selectedBodyFile.value = null
-}
-
 async function submit() {
   if (!canSubmit.value || saving.value) {
     return
@@ -468,7 +352,6 @@ async function submit() {
   saving.value = true
   submitError.value = ''
   uploadError.value = ''
-  bodyUploadError.value = ''
 
   try {
     await $fetch(`/api/influencers/${id}`, {
@@ -484,7 +367,6 @@ async function submit() {
     })
 
     await uploadFaceRefIfNeeded()
-    await uploadBodyRefIfNeeded()
     await refresh()
 
     pushToast({
@@ -511,9 +393,6 @@ async function submit() {
 onBeforeUnmount(() => {
   if (previewUrl.value) {
     URL.revokeObjectURL(previewUrl.value)
-  }
-  if (bodyPreviewUrl.value) {
-    URL.revokeObjectURL(bodyPreviewUrl.value)
   }
 })
 </script>
