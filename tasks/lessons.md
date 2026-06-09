@@ -49,6 +49,12 @@
 **Solution** : Faire monter la consigne finale auto/fallback au meme niveau prioritaire que le manuel, ajouter des contraintes negatives sur les cheveux courts, et replier le body sur les mensurations Madison quand aucune inference fiable n'est disponible.
 **Regle** : Un prompt auto ou fallback critique doit alimenter le meme champ prioritaire que le prompt manuel; ne jamais laisser une contrainte identitaire sur un chemin secondaire ou optionnel.
 
+### 2026-06-09 Suppression UI incomplète d'une fonctionnalité legacy
+**Probleme** : Le body ref avait disparu de l'ecran d'edition, mais le backend continuait de le transporter dans les API, le worker et le schema.
+**Cause racine** : La suppression a d'abord ete faite au niveau UI seulement, sans purge systematique des dependances serveur et des champs de persistence associes.
+**Solution** : Supprimer les routes et utilitaires `bodyRef`, retirer le champ des lectures metier, nettoyer le schema Prisma, et preparer la migration SQL de drop.
+**Regle** : Quand une fonctionnalite legacy est retiree de l'UI, faire immediatement un grep bout-en-bout pour purger aussi les routes, workers, caches et schema relies.
+
 ### 2026-06-08 Vue contenus en mode validated-only
 **Probleme** : La page liste affichait des statuts de brouillon / erreur / traitement, alors que le comportement attendu etait de ne montrer que les contenus valides, comme avant.
 **Cause racine** : La vue avait ete elargie trop loin en reactualisant les statuts visibles, au lieu de corriger uniquement le statut de sortie de la generation reussie.

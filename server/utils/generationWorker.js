@@ -10,7 +10,6 @@ import { buildGenerationPrompt } from './buildGenerationPrompt.js';
 import { isAbsoluteHttpUrl, isBlobStorageEnabled, uploadPublicMediaBuffer } from './blobStorage.js';
 import { checkMinDuration, extractBestFrame } from './frameExtractor.js';
 import { imageToJson } from './imageToJson.js';
-import { describeBodyFromImageSource } from './bodyReference.js';
 import { describeHairFromImageSource } from './hairReference.js';
 import {
   detectFaceVisible,
@@ -583,9 +582,7 @@ async function resolveFaceRefAbsolutePath(faceRefPath) {
 
   const basename = path.basename(rawPath);
   candidates.push(path.join(process.cwd(), 'public', 'uploads', 'face-refs', basename));
-  candidates.push(path.join(process.cwd(), 'public', 'uploads', 'body-refs', basename));
   candidates.push(path.join(process.cwd(), 'storage', 'uploads', 'face-refs', basename));
-  candidates.push(path.join(process.cwd(), 'storage', 'uploads', 'body-refs', basename));
 
   for (const candidatePath of candidates) {
     if (await fileExists(candidatePath)) {
@@ -635,19 +632,6 @@ async function resolveBodyPromptFromInfluencer(influencer) {
     return explicitBodyPrompt;
   }
 
-  const bodyRefPath = String(influencer?.bodyRefPath || '').trim();
-  if (bodyRefPath) {
-    try {
-      const inferred = await describeBodyFromImageSource(bodyRefPath, resolveFaceRefAbsolutePath);
-      const normalizedInferred = String(inferred || '').trim();
-      if (normalizedInferred) {
-        return normalizedInferred;
-      }
-    } catch {
-      // Fall back to the shared body template below.
-    }
-  }
-
   return buildDefaultBodyInstruction();
 }
 
@@ -670,7 +654,6 @@ async function findInfluencerForGeneration(prisma, influencerId) {
         id: true,
         name: true,
         faceRefPath: true,
-        bodyRefPath: true,
         bodyPrompt: true,
         hairPrompt: true,
         hairAutoPrompt: true,
@@ -689,7 +672,6 @@ async function findInfluencerForGeneration(prisma, influencerId) {
         id: true,
         name: true,
         faceRefPath: true,
-        bodyRefPath: true,
       },
     });
 

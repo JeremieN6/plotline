@@ -27,12 +27,22 @@ function isUnknownFieldSelectError(err) {
 function normalizeInfluencer(influencer) {
   if (!influencer) return influencer;
   return {
-    ...influencer,
+    id: influencer.id,
+    userId: influencer.userId,
+    name: influencer.name,
+    niche: influencer.niche,
+    style: influencer.style,
+    faceRefPath: influencer.faceRefPath,
     bodyPrompt: typeof influencer?.bodyPrompt === 'string' ? influencer.bodyPrompt : null,
     hairPrompt: typeof influencer?.hairPrompt === 'string' ? influencer.hairPrompt : null,
     hairAutoPrompt: typeof influencer?.hairAutoPrompt === 'string' ? influencer.hairAutoPrompt : null,
     hairLocked: typeof influencer?.hairLocked === 'boolean' ? influencer.hairLocked : true,
     identityProfile: String(influencer?.identityProfile || 'default'),
+    instagramAccountId: influencer.instagramAccountId,
+    instagramAccessToken: influencer.instagramAccessToken,
+    tiktokEnabled: Boolean(influencer.tiktokEnabled),
+    calendarStep: influencer.calendarStep,
+    createdAt: influencer.createdAt,
   };
 }
 
@@ -47,7 +57,6 @@ async function findInfluencerCompatible(prisma, id) {
         niche: true,
         style: true,
         faceRefPath: true,
-        bodyRefPath: true,
         bodyPrompt: true,
         hairPrompt: true,
         hairAutoPrompt: true,
@@ -74,7 +83,6 @@ async function findInfluencerCompatible(prisma, id) {
         niche: true,
         style: true,
         faceRefPath: true,
-        bodyRefPath: true,
         instagramAccountId: true,
         instagramAccessToken: true,
         tiktokEnabled: true,
@@ -132,25 +140,16 @@ module.exports = defineEventHandler(async (event) => {
     await store.setItem(`influencer:${id}`, influencer);
 
     const faceRefPath = String(influencer?.faceRefPath || '').trim();
-    const bodyRefPath = String(influencer?.bodyRefPath || '').trim();
     const faceRefFilename = faceRefPath.split(/[\\/]/).pop();
-    const bodyRefFilename = bodyRefPath.split(/[\\/]/).pop();
     const faceRefUrl = !faceRefPath
       ? null
       : isAbsoluteHttpUrl(faceRefPath)
         ? faceRefPath
         : toMediaUrl('face-refs', faceRefFilename);
 
-    const bodyRefUrl = !bodyRefPath
-      ? null
-      : isAbsoluteHttpUrl(bodyRefPath)
-        ? bodyRefPath
-        : toMediaUrl('body-refs', bodyRefFilename);
-
     return {
       ...influencer,
       faceRefUrl,
-      bodyRefUrl,
     };
   } catch (err) {
     return sendError(event, createError({ statusCode: 500, statusMessage: 'Erreur serveur', data: err }));

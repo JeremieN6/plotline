@@ -18,6 +18,36 @@ function isPrismaSchemaDriftError(err) {
     || message.includes('unknown field');
 }
 
+const LEGACY_FACE_REF_SELECT = {
+  id: true,
+  faceRefPath: true,
+};
+
+async function updateInfluencerFaceRefCompatible(influencerId, data) {
+  try {
+    return await prisma.influencer.update({
+      where: { id: influencerId },
+      data,
+      select: {
+        ...LEGACY_FACE_REF_SELECT,
+        hairPrompt: true,
+        hairAutoPrompt: true,
+        hairLocked: true,
+      },
+    });
+  } catch (err) {
+    if (!isPrismaSchemaDriftError(err)) {
+      throw err;
+    }
+
+    return await prisma.influencer.update({
+      where: { id: influencerId },
+      data: { faceRefPath: data.faceRefPath },
+      select: LEGACY_FACE_REF_SELECT,
+    });
+  }
+}
+
 module.exports = defineEventHandler(async (event) => {
   try {
     const { isBlobStorageEnabled, uploadPublicMediaBuffer } = await import('../../utils/blobStorage.js');
@@ -117,22 +147,16 @@ module.exports = defineEventHandler(async (event) => {
       }
 
       try {
-        await prisma.influencer.update({
-          where: { id: influencerId },
-          data: {
-            faceRefPath: publicPath,
-            ...hairPayload,
-          }
+        await updateInfluencerFaceRefCompatible(influencerId, {
+          faceRefPath: publicPath,
+          ...hairPayload,
         });
       } catch (err) {
         if (!isPrismaSchemaDriftError(err)) {
           throw err;
         }
 
-        await prisma.influencer.update({
-          where: { id: influencerId },
-          data: { faceRefPath: publicPath },
-        });
+        await updateInfluencerFaceRefCompatible(influencerId, { faceRefPath: publicPath });
       }
     }
 

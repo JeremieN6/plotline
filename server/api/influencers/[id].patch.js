@@ -15,6 +15,22 @@ function isPrismaSchemaDriftError(err) {
     || message.includes('unknown field');
 }
 
+function buildMissingColumnMessage(payload) {
+  if ('bodyPrompt' in payload) {
+    return 'La colonne bodyPrompt est absente de la base active. Appliquez la migration add_body_prompt sur Neon puis reessayez.';
+  }
+
+  if ('hairPrompt' in payload || 'hairLocked' in payload) {
+    return 'Les colonnes hairPrompt/hairLocked sont absentes de la base active. Appliquez la migration add_hair_profile_fields sur Neon puis reessayez.';
+  }
+
+  if ('identityProfile' in payload) {
+    return 'La colonne identityProfile est absente de la base active. Appliquez la migration add_identity_profile sur Neon puis reessayez.';
+  }
+
+  return 'Le schema Prisma local ne correspond pas a la base active. Appliquez les migrations manquantes sur Neon puis reessayez.';
+}
+
 async function getPrisma() {
   if (prismaClient) return prismaClient;
 
@@ -54,6 +70,47 @@ async function updateStoredInfluencer(id, payload) {
   }
 
   return updated;
+}
+
+const LEGACY_INFLUENCER_SELECT = {
+  id: true,
+  userId: true,
+  name: true,
+  niche: true,
+  style: true,
+  faceRefPath: true,
+  instagramAccountId: true,
+  instagramAccessToken: true,
+  tiktokEnabled: true,
+  calendarStep: true,
+  createdAt: true,
+};
+
+async function updateInfluencerCompatible(prisma, id, data) {
+  try {
+    return await prisma.influencer.update({
+      where: { id },
+      data,
+      select: {
+        ...LEGACY_INFLUENCER_SELECT,
+        bodyPrompt: true,
+        hairPrompt: true,
+        hairAutoPrompt: true,
+        hairLocked: true,
+        identityProfile: true,
+      },
+    });
+  } catch (err) {
+    if (!isPrismaSchemaDriftError(err)) {
+      throw err;
+    }
+
+    return await prisma.influencer.update({
+      where: { id },
+      data,
+      select: LEGACY_INFLUENCER_SELECT,
+    });
+  }
 }
 
 module.exports = defineEventHandler(async (event) => {
@@ -112,26 +169,45 @@ module.exports = defineEventHandler(async (event) => {
     const prisma = await getPrisma();
 
     try {
-      const influencer = await prisma.influencer.update({
-        where: { id },
-        data: payload,
-      });
+      const influencer = await updateInfluencerCompatible(prisma, id, payload);
 
       await updateStoredInfluencer(id, influencer);
       return influencer;
     } catch (err) {
+      if (isPrismaSchemaDriftError(err) && 'bodyPrompt' in payload) {
+        return sendError(event, createError({
+          statusCode: 409,
+          statusMessage: buildMissingColumnMessage(payload),
+        }));
+      }
+
       if (isPrismaSchemaDriftError(err) && ('hairPrompt' in payload || 'hairLocked' in payload)) {
         const legacyPayload = { ...payload };
         delete legacyPayload.hairPrompt;
         delete legacyPayload.hairLocked;
 
-        const influencer = await prisma.influencer.update({
-          where: { id },
-          data: legacyPayload,
+        const influencer = await updateInfluencerCompatible(prisma, id, legacyPayload);
+
+        await updateStoredInfluencer(id, influencer);
+        return influencer;
+      }
+
+      if (isPrismaSchemaDriftError(err)) {
+        const influencer = await updateInfluencerCompatible(prisma, id, {
+          name: payload.name,
+          niche: payload.niche,
+          style: payload.style,
         });
 
         await updateStoredInfluencer(id, influencer);
         return influencer;
+      }
+
+      if (isPrismaSchemaDriftError(err) && 'identityProfile' in payload) {
+        return sendError(event, createError({
+          statusCode: 409,
+          statusMessage: buildMissingColumnMessage(payload),
+        }));
       }
 
       if (isTransientDbError(err)) {

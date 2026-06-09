@@ -10,6 +10,36 @@ function isPrismaSchemaDriftError(err) {
     || message.includes('unknown field');
 }
 
+const LEGACY_FACE_REF_SELECT = {
+  id: true,
+  faceRefPath: true,
+};
+
+async function updateInfluencerFaceRefCompatible(id, data) {
+  try {
+    return await prisma.influencer.update({
+      where: { id },
+      data,
+      select: {
+        ...LEGACY_FACE_REF_SELECT,
+        hairPrompt: true,
+        hairAutoPrompt: true,
+        hairLocked: true,
+      }
+    });
+  } catch (err) {
+    if (!isPrismaSchemaDriftError(err)) {
+      throw err;
+    }
+
+    return await prisma.influencer.update({
+      where: { id },
+      data: { faceRefPath: data.faceRefPath },
+      select: LEGACY_FACE_REF_SELECT,
+    });
+  }
+}
+
 module.exports = defineEventHandler(async (event) => {
   try {
     const { describeHairFromImageSource } = await import('../../../utils/hairReference.js');
@@ -66,30 +96,13 @@ module.exports = defineEventHandler(async (event) => {
 
     let influencer;
     try {
-      influencer = await prisma.influencer.update({
-        where: { id },
-        data: { faceRefPath, ...hairPayload },
-        select: {
-          id: true,
-          faceRefPath: true,
-          hairPrompt: true,
-          hairAutoPrompt: true,
-          hairLocked: true,
-        }
-      });
+      influencer = await updateInfluencerFaceRefCompatible(id, { faceRefPath, ...hairPayload });
     } catch (err) {
       if (!isPrismaSchemaDriftError(err)) {
         throw err;
       }
 
-      influencer = await prisma.influencer.update({
-        where: { id },
-        data: { faceRefPath },
-        select: {
-          id: true,
-          faceRefPath: true,
-        }
-      });
+      influencer = await updateInfluencerFaceRefCompatible(id, { faceRefPath });
     }
 
     return influencer;

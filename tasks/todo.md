@@ -21,6 +21,8 @@
 - [x] Renforcer l'injection body/hair auto pour eviter les derives de generation
 - [x] Rebaser le fallback body sur les mensurations Madison sans dependre de Gemini
 - [x] Retirer l'upload body ref de la config influenceuse
+- [x] Nettoyer le JSON scene des indices corporels source avant injection
+- [x] Supprimer le backend body ref residuel et preparer la migration schema
 - [ ] Valider en execution reelle avec un run de generation
 
 ## Fait

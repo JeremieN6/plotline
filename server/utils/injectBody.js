@@ -1,5 +1,53 @@
 import { COMMON_BODY_TEMPLATE, INFLUENCER_IDENTITY_PROFILES } from './promptTemplates.js';
 
+const BODY_CUE_WORDS = [
+  'slim',
+  'slender',
+  'petite',
+  'thin',
+  'skinny',
+  'toned',
+  'athletic',
+  'lean',
+  'small bust',
+  'flat chest',
+  'flat stomach',
+  'curvy',
+  'plus size',
+  'voluptuous',
+  'large frame',
+  'small frame',
+  'tiny waist',
+  'showing off figure',
+  'hourglass',
+  'silhouette',
+  'proportions',
+  'measurements',
+  'large breast',
+  'big breast',
+  'huge breast',
+  'enormous breast',
+  'large chest',
+  'big chest',
+  'full chest',
+  'heavy chest',
+  'cleavage',
+  'busty',
+  'buxom',
+  'curvaceous',
+  'wide hips',
+  'full hips',
+  'round hips',
+  'big butt',
+  'large butt',
+  'round butt',
+  'big glutes',
+  'ample',
+  'generously',
+];
+
+const BODY_STRIP_SKIP_KEYS = new Set(['body', 'face', 'description']);
+
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
@@ -72,6 +120,51 @@ function buildHairNegativeConstraints(hairInstruction) {
   return constraints;
 }
 
+function stripBodyCues(text) {
+  if (typeof text !== 'string') {
+    return text;
+  }
+
+  let nextText = text;
+  let lowered = nextText.toLowerCase();
+
+  for (const word of BODY_CUE_WORDS) {
+    if (!lowered.includes(word)) {
+      continue;
+    }
+
+    nextText = nextText
+      .replace(new RegExp(`[^,.]* ${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^,.]*[,.]?`, 'ig'), '')
+      .trim()
+      .replace(/^[,\s]+|[,\s]+$/g, '');
+    lowered = nextText.toLowerCase();
+  }
+
+  return nextText.trim();
+}
+
+function deepStripBodyCues(value, parentKey = '') {
+  if (BODY_STRIP_SKIP_KEYS.has(parentKey)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    return stripBodyCues(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => deepStripBodyCues(item));
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [key, deepStripBodyCues(nestedValue, key)]),
+    );
+  }
+
+  return value;
+}
+
 function resolveIdentityProfile(profileKey, influencerName) {
   const explicitKey = normalizeKey(profileKey);
   if (explicitKey && explicitKey !== 'default' && INFLUENCER_IDENTITY_PROFILES[explicitKey]) {
@@ -97,7 +190,7 @@ export function sanitizePromptForSafety(prompt) {
 }
 
 export function injectBody(sceneJson, options = {}) {
-  const enriched = clone(sceneJson ?? {});
+  const enriched = deepStripBodyCues(clone(sceneJson ?? {}));
 
   let topGarment = 'top garment';
   try {

@@ -6,6 +6,67 @@ function isTransientDbError(err) {
   return code === 'ETIMEDOUT' || code === 'P1001' || code === 'P1002';
 }
 
+function isPrismaSchemaDriftError(err) {
+  const message = String(err?.message || '').toLowerCase();
+  return err?.code === 'P2022'
+    || (message.includes('column') && message.includes('does not exist'))
+    || message.includes('unknown arg')
+    || message.includes('unknown argument')
+    || message.includes('unknown field');
+}
+
+function buildMissingColumnMessage(body) {
+  if (typeof body?.bodyPrompt === 'string') {
+    return 'La colonne bodyPrompt est absente de la base active. Appliquez la migration add_body_prompt sur Neon puis reessayez.';
+  }
+
+  return 'Le schema Prisma local ne correspond pas a la base active. Appliquez les migrations manquantes sur Neon puis reessayez.';
+}
+
+const LEGACY_INFLUENCER_SELECT = {
+  id: true,
+  userId: true,
+  name: true,
+  niche: true,
+  style: true,
+  faceRefPath: true,
+  instagramAccountId: true,
+  instagramAccessToken: true,
+  tiktokEnabled: true,
+  calendarStep: true,
+  createdAt: true,
+};
+
+async function createInfluencerCompatible(prisma, data) {
+  try {
+    return await prisma.influencer.create({
+      data,
+      select: {
+        ...LEGACY_INFLUENCER_SELECT,
+        bodyPrompt: true,
+        hairPrompt: true,
+        hairAutoPrompt: true,
+        hairLocked: true,
+        identityProfile: true,
+      },
+    });
+  } catch (err) {
+    if (!isPrismaSchemaDriftError(err)) {
+      throw err;
+    }
+
+    return await prisma.influencer.create({
+      data: {
+        userId: data.userId,
+        name: data.name,
+        niche: data.niche,
+        style: data.style,
+      },
+      select: LEGACY_INFLUENCER_SELECT,
+    });
+  }
+}
+
 function createOfflineInfluencer({ userId, name, niche, style }) {
   return {
     id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -14,7 +75,6 @@ function createOfflineInfluencer({ userId, name, niche, style }) {
     niche,
     style,
     faceRefPath: null,
-    bodyRefPath: null,
     bodyPrompt: null,
     hairPrompt: null,
     hairAutoPrompt: null,
@@ -83,7 +143,7 @@ module.exports = defineEventHandler(async (event) => {
         }
       });
 
-      influencer = await prisma.influencer.create({
+      influencer = await createInfluencerCompatible(prisma, {
         data: {
           userId,
           name: body.name,
@@ -91,8 +151,15 @@ module.exports = defineEventHandler(async (event) => {
           style: body.style,
           bodyPrompt: typeof body?.bodyPrompt === 'string' ? body.bodyPrompt.trim() || null : null,
         }
-      });
+      }.data);
     } catch (err) {
+      if (isPrismaSchemaDriftError(err)) {
+        return sendError(event, createError({
+          statusCode: 409,
+          statusMessage: buildMissingColumnMessage(body),
+        }));
+      }
+
       if (!isTransientDbError(err)) {
         throw err;
       }

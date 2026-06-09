@@ -132,7 +132,7 @@
             placeholder="Ex: Hourglass prononce, poitrine tres genereuse, taille fine, hanches larges, rendu naturel et realiste"
           ></textarea>
           <p class="mt-3 text-xs text-gray-500">
-            Le visuel body ref n'est plus expose ici: la generation applique directement le fallback texte Madison quand aucun override n'est saisi.
+            La generation applique directement le fallback texte Madison quand aucun override n'est saisi.
           </p>
         </div>
 
@@ -218,6 +218,11 @@ const currentFaceRefPath = ref('')
 const currentFaceRefUrl = ref('')
 const currentFaceRefMissing = ref(false)
 const fileInputRef = ref(null)
+const initialFormState = ref({
+  bodyPrompt: '',
+  hairPrompt: '',
+  hairLocked: true,
+})
 
 const form = reactive({
   name: '',
@@ -253,6 +258,11 @@ watch(
     form.hairPrompt = value.hairPrompt || ''
     form.hairAutoPrompt = value.hairAutoPrompt || value.hairPrompt || ''
     form.hairLocked = typeof value.hairLocked === 'boolean' ? value.hairLocked : true
+    initialFormState.value = {
+      bodyPrompt: form.bodyPrompt,
+      hairPrompt: form.hairPrompt,
+      hairLocked: form.hairLocked,
+    }
     currentFaceRefPath.value = value.faceRefPath || ''
     currentFaceRefUrl.value = value.faceRefUrl || (currentFaceRefFilename.value ? `/api/media/face-refs/${encodeURIComponent(currentFaceRefFilename.value)}` : '')
     currentFaceRefMissing.value = false
@@ -354,16 +364,27 @@ async function submit() {
   uploadError.value = ''
 
   try {
+    const patchBody = {
+      name: form.name.trim(),
+      niche: form.niche,
+      style: form.style.trim(),
+    }
+
+    if (form.bodyPrompt !== initialFormState.value.bodyPrompt) {
+      patchBody.bodyPrompt = form.bodyPrompt
+    }
+
+    if (form.hairPrompt !== initialFormState.value.hairPrompt) {
+      patchBody.hairPrompt = form.hairPrompt
+    }
+
+    if (form.hairLocked !== initialFormState.value.hairLocked) {
+      patchBody.hairLocked = form.hairLocked
+    }
+
     await $fetch(`/api/influencers/${id}`, {
       method: 'PATCH',
-      body: {
-        name: form.name.trim(),
-        niche: form.niche,
-        style: form.style.trim(),
-        bodyPrompt: form.bodyPrompt,
-        hairPrompt: form.hairPrompt,
-        hairLocked: form.hairLocked,
-      },
+      body: patchBody,
     })
 
     await uploadFaceRefIfNeeded()

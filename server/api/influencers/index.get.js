@@ -17,13 +17,24 @@ function isUnknownFieldSelectError(err) {
 }
 
 function normalizeInfluencer(influencer) {
+  if (!influencer) return influencer;
+
   return {
-    ...influencer,
+    id: influencer.id,
+    userId: influencer.userId,
+    name: influencer.name,
+    niche: influencer.niche,
+    style: influencer.style,
+    faceRefPath: influencer.faceRefPath,
     bodyPrompt: typeof influencer?.bodyPrompt === 'string' ? influencer.bodyPrompt : null,
     hairPrompt: typeof influencer?.hairPrompt === 'string' ? influencer.hairPrompt : null,
     hairAutoPrompt: typeof influencer?.hairAutoPrompt === 'string' ? influencer.hairAutoPrompt : null,
     hairLocked: typeof influencer?.hairLocked === 'boolean' ? influencer.hairLocked : true,
     identityProfile: String(influencer?.identityProfile || 'default'),
+    instagramAccountId: influencer.instagramAccountId,
+    tiktokEnabled: Boolean(influencer.tiktokEnabled),
+    calendarStep: influencer.calendarStep,
+    createdAt: influencer.createdAt,
   };
 }
 
@@ -39,7 +50,6 @@ async function findInfluencersCompatible(prisma, userId) {
         niche: true,
         style: true,
         faceRefPath: true,
-        bodyRefPath: true,
         bodyPrompt: true,
         hairPrompt: true,
         hairAutoPrompt: true,
@@ -68,7 +78,6 @@ async function findInfluencersCompatible(prisma, userId) {
         niche: true,
         style: true,
         faceRefPath: true,
-        bodyRefPath: true,
         instagramAccountId: true,
         tiktokEnabled: true,
         calendarStep: true,

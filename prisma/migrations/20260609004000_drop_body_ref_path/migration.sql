@@ -1,0 +1,2 @@
+ALTER TABLE "Influencer"
+DROP COLUMN IF EXISTS "bodyRefPath";

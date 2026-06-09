@@ -48,7 +48,6 @@ model Influencer {
   niche                String
   style                String
   faceRefPath          String?
-  bodyRefPath          String?
   bodyPrompt           String?
   hairPrompt           String?
   hairAutoPrompt       String?
