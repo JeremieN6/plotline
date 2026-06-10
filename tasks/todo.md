@@ -23,6 +23,8 @@
 - [x] Retirer l'upload body ref de la config influenceuse
 - [x] Nettoyer le JSON scene des indices corporels source avant injection
 - [x] Supprimer le backend body ref residuel et preparer la migration schema
+- [x] Ajouter un check runtime de drift schema Prisma/Neon
+- [x] Ajouter un endpoint de diagnostic pipeline feed/story/reel
 - [ ] Valider en execution reelle avec un run de generation
 
 ## Fait
