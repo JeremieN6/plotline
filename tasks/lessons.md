@@ -19,6 +19,12 @@
 
 <!-- Les entrees seront ajoutees ici au fil du temps -->
 
+### 2026-06-10 Healthcheck schema Prisma + nettoyage jobs bloqués
+**Probleme** : `/api/health/schema` renvoyait un 500 et certains `GeneratedContent` restaient en `PROCESSING` sans fin.
+**Cause racine** : Le raw query Prisma lisait `information_schema.columns.column_name` sans cast compatible, et les jobs orphelins n'etaient pas remis a plat apres un crash worker.
+**Solution** : Caster `column_name` en `text` dans le healthcheck, puis marquer les `PROCESSING` anciens comme `FAILED` avec un message explicite de nettoyage manuel.
+**Regle** : Pour les healthchecks Prisma sur `information_schema`, caster les colonnes non triviales en types Prisma-friendly; pour les jobs orphelins, appliquer un seuil de date avant de nettoyer l'etat.
+
 ### 2026-06-08 Gemini image preview renvoie IMAGE_OTHER sans parts
 **Probleme** : La generation d'image pouvait echouer avec `Gemini returned no parts` et `finishReason=IMAGE_OTHER`, meme sans blocage safety explicite.
 **Cause racine** : Le pipeline ne gerait qu'un fallback sur `IMAGE_SAFETY`; tout retour zero-part `IMAGE_OTHER` etait traite comme une erreur fatale immediate.

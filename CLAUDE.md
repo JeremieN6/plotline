@@ -80,6 +80,7 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 
 - 2026-05-26: Cadrage produit saisi (identity lock, scheduler, pipeline Pinterest, tags, architecture), projet Nuxt initialise, Prisma initialise, branche principale renommee en main.
 - 2026-06-07: Ajout du workflow story video Pinterest, stockage local des MP4, lecture media .mp4 et publication Instagram video avec polling du container.
+- 2026-06-10: Healthcheck schema corrige (cast `information_schema.column_name`), 3 jobs `PROCESSING` orphelins marques `FAILED`, fallback Gemini durci avec retries transitoires et sanitisation plus large.
 
 ---
 

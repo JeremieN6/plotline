@@ -436,10 +436,16 @@ const SAFETY_REPLACEMENTS = [
   ['Voluptuous hourglass figure with significantly enlarged breasts', 'Hourglass figure with full bust'],
   ['NON-NEGOTIABLE', 'important'],
   ['stretching the top garment', 'filling the top garment'],
+  ['stretching the attire', 'filling the attire'],
+  ['filling the bikini top', 'complementing the attire'],
+  ['cleavage and stretching', 'fitting naturally'],
   ['prominent glutes', 'balanced lower silhouette'],
+  ['rounded glutes', 'balanced lower silhouette'],
   ['Pronounced hourglass', 'balanced silhouette'],
   ['full bust', 'natural upper silhouette'],
   ['Hourglass figure with full bust', 'balanced silhouette'],
+  ['extreme waist-to-hip ratio', 'balanced proportions'],
+  ['wide hips and rounded glutes', 'defined hips'],
 ];
 
 function sanitizePromptForSafety(prompt) {
@@ -453,6 +459,10 @@ function sanitizePromptForSafety(prompt) {
     .replace(/significantly enlarged breasts[^.\n]*/gi, 'full bust')
     .replace(/extremely large[^.\n]*breasts[^.\n]*/gi, 'full bust')
     .replace(/causing cleavage[^.\n]*/gi, 'filling the garment')
+    .replace(/stretching the (?!top garment)[\w][\w\s]+(?=[.,"\n])/gi, 'filling the attire')
+    .replace(/(?:fill|filling) the [\w][\w\s]+(?=[.,"\n])/gi, 'complementing the attire')
+    .replace(/voluptuous hourglass figure[^.\n]*/gi, 'balanced silhouette')
+    .replace(/full and rounded high-set glutes[^.\n]*/gi, 'rounded hips')
     .replace(/\b(?:glutes?|butt|breasts?|cleavage|busty|buxom)\b/gi, 'silhouette')
     .replace(/\b(?:voluptuous|hourglass|curvy)\b/gi, 'balanced')
     .replace(/\b(?:extremely|very|significantly|prominent|huge|enlarged)\b/gi, 'natural');
@@ -463,6 +473,20 @@ function sanitizePromptForSafety(prompt) {
 function isRetryableNoPartsFinishReason(finishReason) {
   const normalized = String(finishReason || '').trim().toUpperCase();
   return normalized.includes('IMAGE_OTHER');
+}
+
+function isTransientGeminiError(error) {
+  const message = String(error?.message || '').toUpperCase();
+  return (
+    message.includes('500 INTERNAL')
+    || message.includes('INTERNAL ERROR ENCOUNTERED')
+    || message.includes('503 UNAVAILABLE')
+    || message.includes('RESOURCE_EXHAUSTED')
+    || message.includes('OVERLOADED')
+    || message.includes('TRY AGAIN LATER')
+    || message.includes('HIGH DEMAND')
+    || message.includes('DEADLINE_EXCEEDED')
+  );
 }
 
 async function retryWithSanitizedPrompt(prompt, extraParts, error, reasonLabel) {
@@ -538,6 +562,11 @@ async function generateImageFromGeminiWithSafetyFallback(prompt, extraParts = []
   } catch (error) {
     if (error instanceof ImageSafetyError) {
       return await retryWithSanitizedPrompt(prompt, extraParts, error, 'IMAGE_SAFETY detected');
+    }
+
+    if (isTransientGeminiError(error)) {
+      console.warn('[generation-worker] transient Gemini error detected, retrying image generation once.');
+      return await generateImageFromGemini(prompt, extraParts);
     }
 
     if (!(error instanceof GeminiNoPartsError) || !isRetryableNoPartsFinishReason(error.finishReason)) {
