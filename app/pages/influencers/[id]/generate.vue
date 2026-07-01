@@ -200,9 +200,17 @@ const router = useRouter()
 const { pushToast } = useUiFeedback()
 const activeInfluencerId = useActiveInfluencer()
 
-activeInfluencerId.value = String(route.params.id || '')
+const id = computed(() => String(route.params.id || ''))
 
-const id = String(route.params.id || '')
+watch(
+  id,
+  (value) => {
+    if (value) {
+      activeInfluencerId.value = value
+    }
+  },
+  { immediate: true },
+)
 
 const contentTypeOptions = [
   { value: 'feed', label: '🖼️ Feed', description: 'Publication image' },
@@ -230,8 +238,8 @@ const generating = ref(false)
 const formError = ref('')
 const lastResult = ref(null)
 
-const { data: influencerData } = await useFetch(`/api/influencers/${id}`, {
-  key: `influencer-generate-${id}`,
+const { data: influencerData } = await useFetch(() => `/api/influencers/${id.value}`, {
+  key: computed(() => `influencer-generate-${id.value}`),
 })
 
 const { data: variablesData } = await useFetch('/api/variables', {
@@ -239,7 +247,7 @@ const { data: variablesData } = await useFetch('/api/variables', {
 })
 
 const influencerName = computed(() => {
-  return influencerData.value?.name ? `Influenceuse: ${influencerData.value.name}` : `Influenceuse #${id}`
+  return influencerData.value?.name ? `Influenceuse: ${influencerData.value.name}` : `Influenceuse #${id.value}`
 })
 
 const variables = computed(() => {
@@ -351,7 +359,7 @@ const payloadPreview = computed(() => {
 
   return JSON.stringify(
     {
-      influencerId: id,
+      influencerId: id.value,
       workflowType: 'pinterest',
       contentType: activeSelection.value.contentType,
       source: activeSelection.value.source,
@@ -363,7 +371,7 @@ const payloadPreview = computed(() => {
 })
 
 const canGenerate = computed(() => {
-  return Boolean(id && activeSelection.value?.source && activeSelection.value?.keywordValue)
+  return Boolean(id.value && activeSelection.value?.source && activeSelection.value?.keywordValue)
 })
 
 watch(
@@ -495,7 +503,7 @@ async function submitGeneration() {
 
   try {
     const payload = {
-      influencerId: id,
+      influencerId: id.value,
       workflowType: 'pinterest',
       contentType: activeSelection.value.contentType,
       source: activeSelection.value.source,

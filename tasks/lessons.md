@@ -19,6 +19,12 @@
 
 <!-- Les entrees seront ajoutees ici au fil du temps -->
 
+### 2026-07-01 Persistance personnage incoherente sur route influenceuse
+**Probleme** : Sur `/influencers/:id/edit`, changer de personnage via le switcher puis rafraichir pouvait revenir a l'ancien personnage.
+**Cause racine** : Le switcher modifiait l'etat actif sans toujours aligner l'URL parametree (`:id`), et la page edit utilisait un `id` capture au premier rendu (non reactif aux changements de route).
+**Solution** : Quand on change de personnage sur une route scopee influenceuse (`/influencers/:id/edit|generate`), remplacer l'URL avec le nouvel `id`; rendre l'`id` de la page edit reactif (`computed`) et brancher `useFetch`/PATCH dessus.
+**Regle** : Pour toute page parametree par `:id`, l'etat actif et l'URL doivent rester synchronises; si l'utilisateur change d'entite, on doit aussi mettre a jour la route et utiliser des params reactifs cote page.
+
 ### 2026-07-01 Débordement horizontal mobile causé par un grid sans colonne de base
 **Probleme** : Le dashboard débordait horizontalement en mobile (bord gauche coupé, contenu décalé), malgré plusieurs corrections sur les cartes et images.
 **Cause racine** : Le grid bento `grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.9fr)]` ne définissait AUCUNE colonne en mobile. Sans `grid-cols`, le grid crée une colonne implicite `auto` dimensionnée à `max-content` (1732px mesurés) au lieu d'être contrainte au conteneur (343px), poussant tout le contenu hors écran. Diagnostiqué via Playwright: `getComputedStyle(grid).gridTemplateColumns` = `1732px` alors que le grid faisait 343px.

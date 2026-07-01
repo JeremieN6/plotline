@@ -173,9 +173,10 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
+const router = useRouter()
 const activeInfluencerId = useActiveInfluencer()
 const switcherOpen = ref(false)
 const mobileMenuOpen = ref(false)
@@ -194,6 +195,14 @@ const activeInfluencerName = computed(() => activeInfluencer.value?.name || 'Cho
 const activeInfluencerNiche = computed(() => summarizeNiches(activeInfluencer.value?.niche) || 'Aucune niche renseignée')
 const activeInfluencerInitial = computed(() => avatarLetter(activeInfluencer.value?.name || 'P'))
 
+const routeInfluencerId = computed(() => {
+  const segments = String(route.path || '').split('/').filter(Boolean)
+  if (segments[0] !== 'influencers') return ''
+  const rawId = segments[1] || ''
+  if (!rawId || rawId === 'new') return ''
+  return rawId
+})
+
 const navigation = computed(() => [
   { label: 'Accueil', to: '/dashboard' },
   { label: 'Générer', to: activeInfluencer.value ? `/influencers/${activeInfluencer.value.id}/generate` : '/influencers', disabled: !activeInfluencer.value },
@@ -208,6 +217,16 @@ watch(
   (list) => {
     if (!activeInfluencerId.value && list.length) {
       activeInfluencerId.value = list[0].id
+    }
+  },
+  { immediate: true },
+)
+
+watch(
+  routeInfluencerId,
+  (value) => {
+    if (value && activeInfluencerId.value !== value) {
+      activeInfluencerId.value = value
     }
   },
   { immediate: true },
@@ -230,8 +249,23 @@ function avatarLetter(value) {
   return String(value || 'P').trim().charAt(0).toUpperCase() || 'P'
 }
 
-function selectInfluencer(id) {
+function buildInfluencerScopedPath(path, influencerId) {
+  const segments = String(path || '').split('/').filter(Boolean)
+  if (segments[0] !== 'influencers') return null
+  if (!segments[1] || segments[1] === 'new') return null
+
+  segments[1] = influencerId
+  return `/${segments.join('/')}`
+}
+
+async function selectInfluencer(id) {
   activeInfluencerId.value = id
+
+  const scopedPath = buildInfluencerScopedPath(route.path, id)
+  if (scopedPath && scopedPath !== route.path) {
+    await router.replace({ path: scopedPath, query: route.query, hash: route.hash })
+  }
+
   switcherOpen.value = false
 }
 

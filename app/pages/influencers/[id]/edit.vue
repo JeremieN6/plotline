@@ -231,13 +231,19 @@ import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
-const id = String(route.params.id || '')
+const id = computed(() => String(route.params.id || ''))
 const activeInfluencerId = useActiveInfluencer()
 const { pushToast } = useUiFeedback()
 
-if (id) {
-  activeInfluencerId.value = id
-}
+watch(
+  id,
+  (value) => {
+    if (value) {
+      activeInfluencerId.value = value
+    }
+  },
+  { immediate: true },
+)
 
 const fetchError = ref('')
 const submitError = ref('')
@@ -273,8 +279,8 @@ const instagramForm = reactive({
   instagramAccessToken: '',
 })
 
-const { data, pending, error, refresh } = await useFetch(`/api/influencers/${id}`, {
-  key: `influencer-edit-${id}`,
+const { data, pending, error, refresh } = await useFetch(() => `/api/influencers/${id.value}`, {
+  key: computed(() => `influencer-edit-${id.value}`),
 })
 
 const influencer = computed(() => data.value ?? null)
@@ -376,7 +382,7 @@ async function saveInstagramCredentials() {
 
   savingInstagram.value = true
   try {
-    await $fetch(`/api/influencers/${id}/instagram`, {
+    await $fetch(`/api/influencers/${id.value}/instagram`, {
       method: 'PATCH',
       body: {
         instagramAccountId: instagramForm.instagramAccountId,
@@ -410,7 +416,7 @@ async function uploadFaceRefIfNeeded() {
 
   const formData = new FormData()
   formData.append('file', selectedFile.value)
-  formData.append('influencerId', id)
+  formData.append('influencerId', id.value)
 
   const response = await fetch('/api/upload/face-ref', {
     method: 'POST',
@@ -457,7 +463,7 @@ async function submit() {
       patchBody.hairLocked = form.hairLocked
     }
 
-    await $fetch(`/api/influencers/${id}`, {
+    await $fetch(`/api/influencers/${id.value}`, {
       method: 'PATCH',
       body: patchBody,
     })
