@@ -47,6 +47,9 @@ export function useUiFeedback() {
       message: options?.message || '',
       tone: options?.tone || 'info',
       duration: options?.duration ?? 3200,
+      actionLabel: options?.actionLabel || '',
+      actionHref: options?.actionHref || '',
+      actionCallback: typeof options?.actionCallback === 'function' ? options.actionCallback : null,
     };
 
     toasts.value = [...toasts.value, toast];

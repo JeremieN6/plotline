@@ -3,7 +3,7 @@ let prismaClient;
 async function getPrisma() {
   if (prismaClient) return prismaClient;
 
-  const module = await import('../../utils/prisma.js');
+  const module = await import('../../../utils/prisma.js');
   prismaClient = module?.prisma || module?.default?.prisma;
 
   if (!prismaClient) {
@@ -20,41 +20,44 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'Parametre id requis' }));
     }
 
+    const body = await readBody(event);
+    const scheduledAt = String(body?.scheduledAt || '').trim();
+    if (!scheduledAt) {
+      return sendError(event, createError({ statusCode: 400, statusMessage: 'scheduledAt requis' }));
+    }
+
+    const parsedDate = new Date(scheduledAt);
+    if (Number.isNaN(parsedDate.getTime())) {
+      return sendError(event, createError({ statusCode: 400, statusMessage: 'scheduledAt invalide' }));
+    }
+
     const prisma = await getPrisma();
-    const content = await prisma.generatedContent.findUnique({
+    const updated = await prisma.generatedContent.update({
       where: { id },
+      data: {
+        scheduledAt: parsedDate,
+      },
       select: {
         id: true,
-        influencerId: true,
-        imageUrl: true,
-        caption: true,
-        status: true,
-        errorMessage: true,
-        platform: true,
-        format: true,
         scheduledAt: true,
-        createdAt: true,
-        influencer: {
-          select: {
-            id: true,
-            name: true,
-            niche: true,
-          },
-        },
+        status: true,
       },
     });
 
-    if (!content) {
+    return {
+      success: true,
+      content: updated,
+    };
+  } catch (err) {
+    if (err?.code === 'P2025') {
       return sendError(event, createError({ statusCode: 404, statusMessage: 'Contenu introuvable' }));
     }
 
-    return content;
-  } catch (err) {
     return sendError(
       event,
       createError({
         statusCode: 500,
-        statusMessage: 'Recuperation du contenu impossible',
+        statusMessage: 'Planification du contenu impossible',
         data: {
           code: err?.code,
           message: err?.message,

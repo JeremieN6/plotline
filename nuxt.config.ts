@@ -26,7 +26,7 @@ loadEnvFile(path.resolve(cwd, '.env.local'));
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
-  modules: ['@nuxtjs/tailwindcss'],
+  modules: ['@nuxtjs/tailwindcss', '@nuxt/icon'],
   css: ['~/assets/css/main.css'],
   pages: true,
   devServer: {

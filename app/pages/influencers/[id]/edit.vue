@@ -1,20 +1,10 @@
 <template>
-  <div class="min-h-screen bg-[#FAFAF8] p-8">
-    <div class="mx-auto w-full max-w-3xl rounded-2xl border border-[#E5E3DF] bg-white p-6 shadow-sm">
-      <div class="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <p class="text-sm font-semibold uppercase tracking-[0.18em] text-[#E8873A]">Influenceuse</p>
-          <h1 class="mt-2 text-2xl font-bold text-gray-900">Modifier le profil</h1>
-          <p class="mt-2 text-sm text-gray-500">Ajoute plusieurs niches si besoin, et remplace la face ref depuis le même écran.</p>
-        </div>
-        <button
-          type="button"
-          class="rounded-lg border border-[#E5E3DF] bg-white px-4 py-2 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50"
-          @click="router.push('/influencers')"
-        >
-          Retour
-        </button>
-      </div>
+  <div class="space-y-6">
+    <header class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+      <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#E8873A]">Influenceuse</p>
+      <h1 class="mt-2 text-3xl font-bold tracking-tight text-[#111111]">Modifier le profil</h1>
+      <p class="mt-2 text-sm text-[#666666]">Ajoute plusieurs niches si besoin, et remplace la face ref depuis le même écran.</p>
+    </header>
 
       <div v-if="pending" class="space-y-3">
         <div class="h-5 w-40 animate-pulse rounded bg-gray-200"></div>
@@ -172,13 +162,52 @@
           </p>
         </div>
 
+        <div class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 class="text-base font-bold text-gray-900">Instagram</h2>
+              <p class="mt-1 text-sm text-gray-500">Configure ici le compte et le token utilisés pour publier le contenu.</p>
+            </div>
+            <button
+              type="button"
+              class="rounded-lg bg-[#111111] px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="savingInstagram"
+              @click="saveInstagramCredentials"
+            >
+              {{ savingInstagram ? 'Sauvegarde...' : 'Sauvegarder Instagram' }}
+            </button>
+          </div>
+
+          <div class="mt-4 grid gap-4">
+            <div>
+              <label class="mb-1.5 block text-sm font-semibold text-gray-800">Instagram account ID</label>
+              <input
+                v-model="instagramForm.instagramAccountId"
+                type="text"
+                class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none"
+                placeholder="17841400000000000"
+              />
+            </div>
+
+            <div>
+              <label class="mb-1.5 block text-sm font-semibold text-gray-800">Instagram access token</label>
+              <textarea
+                v-model="instagramForm.instagramAccessToken"
+                rows="4"
+                class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none"
+                placeholder="EAAG..."
+              ></textarea>
+            </div>
+          </div>
+        </div>
+
         <p v-if="submitError" class="text-sm text-red-600">{{ submitError }}</p>
 
         <div class="flex flex-wrap justify-end gap-3">
           <button
             type="button"
             class="rounded-lg border border-[#E5E3DF] bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50"
-            @click="router.push('/influencers')"
+            @click="router.push('/content')"
           >
             Annuler
           </button>
@@ -193,7 +222,6 @@
           </button>
         </div>
       </div>
-    </div>
   </div>
 </template>
 
@@ -204,13 +232,19 @@ import { useRoute, useRouter } from 'vue-router'
 const route = useRoute()
 const router = useRouter()
 const id = String(route.params.id || '')
+const activeInfluencerId = useActiveInfluencer()
 const { pushToast } = useUiFeedback()
+
+if (id) {
+  activeInfluencerId.value = id
+}
 
 const fetchError = ref('')
 const submitError = ref('')
 const uploadError = ref('')
 const fileError = ref('')
 const saving = ref(false)
+const savingInstagram = ref(false)
 const isDragging = ref(false)
 const selectedFile = ref(null)
 const previewUrl = ref('')
@@ -232,6 +266,11 @@ const form = reactive({
   hairPrompt: '',
   hairAutoPrompt: '',
   hairLocked: true,
+})
+
+const instagramForm = reactive({
+  instagramAccountId: '',
+  instagramAccessToken: '',
 })
 
 const { data, pending, error, refresh } = await useFetch(`/api/influencers/${id}`, {
@@ -258,6 +297,8 @@ watch(
     form.hairPrompt = value.hairPrompt || ''
     form.hairAutoPrompt = value.hairAutoPrompt || value.hairPrompt || ''
     form.hairLocked = typeof value.hairLocked === 'boolean' ? value.hairLocked : true
+    instagramForm.instagramAccountId = value.instagramAccountId || ''
+    instagramForm.instagramAccessToken = value.instagramAccessToken || ''
     initialFormState.value = {
       bodyPrompt: form.bodyPrompt,
       hairPrompt: form.hairPrompt,
@@ -328,6 +369,40 @@ function onDrop(event) {
   setFile(event.dataTransfer?.files?.[0])
 }
 
+async function saveInstagramCredentials() {
+  if (savingInstagram.value) {
+    return
+  }
+
+  savingInstagram.value = true
+  try {
+    await $fetch(`/api/influencers/${id}/instagram`, {
+      method: 'PATCH',
+      body: {
+        instagramAccountId: instagramForm.instagramAccountId,
+        instagramAccessToken: instagramForm.instagramAccessToken,
+      },
+    })
+
+    pushToast({
+      title: 'Instagram mis à jour',
+      message: 'Les credentials Instagram ont été enregistrés.',
+      tone: 'success',
+    })
+    await refresh()
+  } catch (err) {
+    const message = err?.data?.statusMessage || err?.message || 'Sauvegarde impossible'
+    pushToast({
+      title: 'Instagram',
+      message,
+      tone: 'error',
+      duration: 4500,
+    })
+  } finally {
+    savingInstagram.value = false
+  }
+}
+
 async function uploadFaceRefIfNeeded() {
   if (!selectedFile.value) {
     return
@@ -396,7 +471,7 @@ async function submit() {
       tone: 'success',
     })
 
-    await router.push('/influencers')
+    await router.push('/content')
   } catch (err) {
     const message = err?.data?.statusMessage || err?.message || String(err)
     submitError.value = message

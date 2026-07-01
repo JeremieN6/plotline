@@ -1,9 +1,20 @@
 <template>
-  <div>
-    <!-- <NuxtRouteAnnouncer /> -->
-    <!-- <NuxtWelcome /> -->
+  <PlotlineShell v-if="showShell">
     <NuxtPage />
-    <UiConfirmDialog />
-    <UiToastStack />
-  </div>
+  </PlotlineShell>
+  <NuxtPage v-else />
+
+  <UiConfirmDialog />
+  <UiToastStack />
 </template>
+
+<script setup>
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import PlotlineShell from '~/components/layout/PlotlineShell.vue'
+
+useJobNotifications()
+
+const route = useRoute()
+const showShell = computed(() => route.path !== '/' && route.path !== '/influencers/new')
+</script>

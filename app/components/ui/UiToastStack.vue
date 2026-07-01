@@ -13,6 +13,13 @@
             <div class="min-w-0 flex-1">
               <p v-if="toast.title" class="text-sm font-bold text-gray-900">{{ toast.title }}</p>
               <p class="text-sm leading-6 text-gray-600">{{ toast.message }}</p>
+                <button
+                  v-if="toast.actionLabel"
+                  class="mt-3 inline-flex rounded-[12px] bg-[#111111] px-3 py-2 text-xs font-bold text-white transition-colors duration-150 hover:bg-[#2a2a2a]"
+                  @click="handleAction(toast)"
+                >
+                  {{ toast.actionLabel }}
+                </button>
             </div>
             <button
               class="text-sm font-bold text-gray-400 transition-colors hover:text-gray-600"
@@ -28,6 +35,7 @@
 </template>
 
 <script setup>
+const router = useRouter()
 const { toasts, removeToast } = useUiFeedback()
 
 function toastClass(tone) {
@@ -52,6 +60,18 @@ function dotClass(tone) {
   }
 
   return 'bg-[#E8873A]'
+}
+
+function handleAction(toast) {
+  if (toast.actionHref) {
+    router.push(toast.actionHref)
+  }
+
+  if (toast.actionCallback) {
+    toast.actionCallback()
+  }
+
+  removeToast(toast.id)
 }
 </script>
 

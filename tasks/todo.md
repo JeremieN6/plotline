@@ -26,6 +26,10 @@
 - [x] Ajouter un check runtime de drift schema Prisma/Neon
 - [x] Ajouter un endpoint de diagnostic pipeline feed/story/reel
 - [ ] Valider en execution reelle avec un run de generation
+- [x] Poser le shell global avec sidebar et navigation
+- [x] Refonte dashboard, contenu, calendrier et generation
+- [x] Ajouter la notification de jobs actifs et les routes schedule/active
+- [x] Verifier les routes, types et contrats API touches
 
 ## Fait
 - [x] Initialisation MCP memoire + structure projet

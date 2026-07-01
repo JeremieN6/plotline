@@ -19,6 +19,12 @@
 
 <!-- Les entrees seront ajoutees ici au fil du temps -->
 
+### 2026-07-01 Débordement horizontal mobile causé par un grid sans colonne de base
+**Probleme** : Le dashboard débordait horizontalement en mobile (bord gauche coupé, contenu décalé), malgré plusieurs corrections sur les cartes et images.
+**Cause racine** : Le grid bento `grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.9fr)]` ne définissait AUCUNE colonne en mobile. Sans `grid-cols`, le grid crée une colonne implicite `auto` dimensionnée à `max-content` (1732px mesurés) au lieu d'être contrainte au conteneur (343px), poussant tout le contenu hors écran. Diagnostiqué via Playwright: `getComputedStyle(grid).gridTemplateColumns` = `1732px` alors que le grid faisait 343px.
+**Solution** : Ajouter `grid-cols-1` comme classe de base (= `minmax(0,1fr)`, contraint au conteneur) tout en gardant `xl:grid-cols-[...]` pour le desktop. Appliqué au grid réel et au skeleton de chargement. Vérifié en navigateur: `scrollWidth === clientWidth`, 0 élément en débordement.
+**Regle** : Tout `grid` responsive avec des colonnes définies seulement à un breakpoint (`xl:grid-cols-...`) DOIT avoir une base `grid-cols-1` (ou `minmax(0,1fr)`), sinon la colonne implicite `auto` prend la largeur max-content et déborde. Pour diagnostiquer un overflow horizontal, comparer `scrollWidth`/`clientWidth` et inspecter `gridTemplateColumns` calculé, pas seulement le CSS global.
+
 ### 2026-06-10 Healthcheck schema Prisma + nettoyage jobs bloqués
 **Probleme** : `/api/health/schema` renvoyait un 500 et certains `GeneratedContent` restaient en `PROCESSING` sans fin.
 **Cause racine** : Le raw query Prisma lisait `information_schema.columns.column_name` sans cast compatible, et les jobs orphelins n'etaient pas remis a plat apres un crash worker.
