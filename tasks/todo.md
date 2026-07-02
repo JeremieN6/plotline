@@ -5,6 +5,13 @@
 ---
 
 ## En cours
+- [x] Ajouter un systeme auth complet (signup/login/session cookie)
+- [x] Proteger les routes back-office via middleware Nuxt (redirect vers /auth/login)
+- [x] Ajouter pages Auth avec nouvelle DA (connexion + inscription)
+- [x] Brancher les API serveur sur l utilisateur de session (retirer user-test hardcode)
+- [x] Afficher onboarding modal si aucun influenceur pour l utilisateur connecte
+- [x] Harmoniser la DA de l onboarding modal avec la refonte back-office
+- [ ] Verifier le flux complet (non connecte -> login -> dashboard vide -> modal creation)
 - [x] Durcir le scraper Pinterest image contre les pins sans visage
 - [x] Verifier la validation Gemini du scraper sur le flux Node
 - [x] Basculer la logique body sur fallback global + override par influenceuse

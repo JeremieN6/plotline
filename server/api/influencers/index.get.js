@@ -109,10 +109,9 @@ async function getPrisma() {
 module.exports = defineEventHandler(async (event) => {
   try {
     const prisma = await getPrisma();
-    const userId = getQuery(event).userId;
-    if (!userId) {
-      return sendError(event, createError({ statusCode: 400, statusMessage: 'Paramètre userId requis' }));
-    }
+    const authModule = await import('../../utils/auth.js');
+    const user = await authModule.requireAuthUser(event);
+    const userId = user.id;
     const store = useStorage('data');
     const storeKey = `influencers:${userId}`;
 
@@ -140,7 +139,9 @@ module.exports = defineEventHandler(async (event) => {
     return influencers;
   } catch (err) {
     if (isTransientDbError(err)) {
-      const userId = getQuery(event).userId;
+      const authModule = await import('../../utils/auth.js');
+      const user = await authModule.requireAuthUser(event);
+      const userId = user.id;
       const store = useStorage('data');
       const storeKey = `influencers:${userId}`;
       const cached = await store.getItem(storeKey);

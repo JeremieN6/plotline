@@ -251,7 +251,6 @@ async function submit() {
     const created = await $fetch('/api/influencers', {
       method: 'POST',
       body: {
-        userId: 'user-test',
         name: form.name.trim(),
         niche: form.niche.trim(),
         style: form.style.trim(),

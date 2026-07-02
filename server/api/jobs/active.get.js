@@ -13,9 +13,11 @@ async function getPrisma() {
   return prismaClient;
 }
 
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
   const prisma = await getPrisma();
-  const userId = 'user-test';
+  const authModule = await import('../../utils/auth.js');
+  const user = await authModule.requireAuthUser(event);
+  const userId = user.id;
 
   const jobs = await prisma.generatedContent.findMany({
     where: {

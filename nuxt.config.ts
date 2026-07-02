@@ -34,6 +34,7 @@ export default defineNuxtConfig({
     port: Number(process.env.PORT || 3000)
   },
   runtimeConfig: {
+    authSessionSecret: process.env.AUTH_SESSION_SECRET,
     geminiApiKey: process.env.GEMINI_API_KEY,
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
     klingApiKey: process.env.KLINGAI_ACCESS_KEY || process.env.KLING_API_KEY,

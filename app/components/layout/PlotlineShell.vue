@@ -147,25 +147,88 @@
           </nav>
 
           <div class="mt-6 border-t border-[#E5E3DF] pt-4">
-            <NuxtLink
-              to="/settings"
-              class="flex items-center gap-3 rounded-[12px] px-2 py-2 transition-colors duration-150 hover:bg-[#FAFAF8]"
-              @click="mobileMenuOpen = false"
-            >
-              <div class="flex h-10 w-10 items-center justify-center rounded-full bg-[#111111] text-sm font-bold text-white">
-                U
-              </div>
-              <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-semibold text-[#111111]">creator@plotline.local</p>
-                <p class="text-xs text-[#666666]">Paramètres</p>
-              </div>
-            </NuxtLink>
+            <div class="rounded-[12px] border border-[#E5E3DF] bg-[#FAFAF8] p-3">
+              <NuxtLink
+                to="/settings"
+                class="flex items-center gap-3 rounded-[10px] px-2 py-2 transition-colors duration-150 hover:bg-white"
+                @click="mobileMenuOpen = false"
+              >
+                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-[#111111] text-sm font-bold text-white">
+                  {{ userInitial }}
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-semibold text-[#111111]">{{ userEmail }}</p>
+                  <p class="text-xs text-[#666666]">Compte connecté</p>
+                </div>
+              </NuxtLink>
+
+              <button
+                type="button"
+                class="mt-2 inline-flex w-full items-center justify-center rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2 text-xs font-bold text-[#111111] transition-colors duration-150 hover:bg-[#F6F3EE]"
+                @click="logout"
+              >
+                Se déconnecter
+              </button>
+            </div>
           </div>
         </div>
       </aside>
 
       <main class="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
-        <slot />
+        <div :class="showOnboardingModal ? 'pointer-events-none select-none blur-[2px] opacity-40' : ''">
+          <slot />
+        </div>
+
+        <transition
+          enter-active-class="transition duration-200 ease-out"
+          enter-from-class="opacity-0 scale-[0.98]"
+          enter-to-class="opacity-100 scale-100"
+          leave-active-class="transition duration-150 ease-in"
+          leave-from-class="opacity-100 scale-100"
+          leave-to-class="opacity-0 scale-[0.98]"
+        >
+          <div
+            v-if="showOnboardingModal"
+            class="fixed inset-0 z-[70] flex items-center justify-center bg-[#0E0B07]/55 p-5 backdrop-blur-[2px]"
+          >
+            <div class="relative w-full max-w-xl overflow-hidden rounded-[28px] border border-[#F4CDA9]/40 bg-[#19110A] text-[#FFF4E6] shadow-[0_28px_80px_rgba(0,0,0,0.45)]">
+              <div class="absolute inset-0 bg-[radial-gradient(circle_at_18%_15%,rgba(232,135,58,0.28),transparent_48%),radial-gradient(circle_at_86%_4%,rgba(246,177,102,0.18),transparent_38%)]" />
+
+              <div class="relative p-7 sm:p-9">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#F6B37A]">Onboarding</p>
+                <h2 class="mt-3 text-3xl font-black tracking-tight text-white">Crée ta première influenceuse</h2>
+                <p class="mt-3 text-sm leading-relaxed text-[#F7D8BF]">
+                  Ton workspace est prêt, mais il n y a encore aucune identité active. Ajoute une première influenceuse pour débloquer le dashboard, le calendrier et la génération.
+                </p>
+
+                <div class="mt-6 grid gap-3 rounded-[16px] border border-[#3A2A1E] bg-[#120C07]/85 p-4 text-sm">
+                  <p class="font-semibold text-white">Ce que tu vas configurer maintenant :</p>
+                  <ul class="space-y-2 text-[#F5D4B8]">
+                    <li>Nom et niche de l influenceuse</li>
+                    <li>Style visuel de base</li>
+                    <li>Face reference pour verrouiller l identité</li>
+                  </ul>
+                </div>
+
+                <div class="mt-7 flex flex-col gap-3 sm:flex-row">
+                  <NuxtLink
+                    to="/influencers/new"
+                    class="inline-flex flex-1 items-center justify-center rounded-[12px] bg-[#E8873A] px-4 py-3 text-sm font-bold text-white transition-all duration-150 hover:-translate-y-0.5 hover:bg-[#d4762f]"
+                  >
+                    Créer une influenceuse
+                  </NuxtLink>
+                  <button
+                    type="button"
+                    class="inline-flex items-center justify-center rounded-[12px] border border-[#5C4633] bg-transparent px-4 py-3 text-sm font-bold text-[#F8DCC3] transition-colors duration-150 hover:bg-[#2A1C12]"
+                    @click="logout"
+                  >
+                    Changer de compte
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </transition>
       </main>
     </div>
   </div>
@@ -177,14 +240,13 @@ import { useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
 const router = useRouter()
+const { user, refreshAuth } = useAuthSession()
 const activeInfluencerId = useActiveInfluencer()
 const switcherOpen = ref(false)
 const mobileMenuOpen = ref(false)
-const userId = 'user-test'
 
 const { data: influencersData } = await useFetch('/api/influencers', {
   key: 'plotline-shell-influencers',
-  query: { userId },
 })
 
 const influencers = computed(() => influencersData.value || [])
@@ -194,6 +256,12 @@ const activeInfluencer = computed(() => {
 const activeInfluencerName = computed(() => activeInfluencer.value?.name || 'Choisir une influenceuse')
 const activeInfluencerNiche = computed(() => summarizeNiches(activeInfluencer.value?.niche) || 'Aucune niche renseignée')
 const activeInfluencerInitial = computed(() => avatarLetter(activeInfluencer.value?.name || 'P'))
+const userEmail = computed(() => String(user.value?.email || 'compte@plotline.local'))
+const userInitial = computed(() => avatarLetter(user.value?.email || 'U'))
+const showOnboardingModal = computed(() => {
+  if (route.path.startsWith('/influencers/new')) return false
+  return influencers.value.length === 0
+})
 
 const routeInfluencerId = computed(() => {
   const segments = String(route.path || '').split('/').filter(Boolean)
@@ -267,6 +335,12 @@ async function selectInfluencer(id) {
   }
 
   switcherOpen.value = false
+}
+
+async function logout() {
+  await $fetch('/api/auth/logout', { method: 'POST' })
+  await refreshAuth({ force: true })
+  await router.push('/auth/login')
 }
 
 function navClass(item) {

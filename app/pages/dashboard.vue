@@ -137,11 +137,9 @@
 
 <script setup>
 const activeInfluencerId = useActiveInfluencer()
-const userId = 'user-test'
 
 const { data, pending: loading, refresh } = await useFetch('/api/dashboard', {
   key: 'plotline-dashboard',
-  query: { userId },
 })
 const { pushToast } = useUiFeedback()
 const dashboard = computed(() => data.value || {

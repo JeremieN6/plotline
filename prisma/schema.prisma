@@ -36,9 +36,24 @@ enum ContentStatus {
 model User {
   id           String        @id @default(cuid())
   email        String        @unique
+  passwordHash String?
   plan         Plan          @default(SOLO)
   createdAt    DateTime      @default(now())
   influencers  Influencer[]
+  authSessions AuthSession[]
+}
+
+model AuthSession {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Influencer {

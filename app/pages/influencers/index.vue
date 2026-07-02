@@ -122,7 +122,6 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
-const userId = 'user-test'
 const deletingIds = ref([])
 const { requestConfirmation, pushToast } = useUiFeedback()
 
@@ -133,7 +132,6 @@ const {
   refresh,
 } = await useFetch('/api/influencers', {
   key: 'influencers',
-  query: { userId },
 })
 const influencers = computed(() => data.value ?? [])
 

@@ -111,8 +111,10 @@ async function getNicheUtils() {
 module.exports = defineEventHandler(async (event) => {
   try {
     const prisma = await getPrisma();
+    const authModule = await import('../../utils/auth.js');
+    const user = await authModule.requireAuthUser(event);
     const body = await readBody(event);
-    const required = ['userId', 'name', 'niche', 'style'];
+    const required = ['name', 'niche', 'style'];
 
     for (const field of required) {
       if (!body?.[field]) {
@@ -120,8 +122,8 @@ module.exports = defineEventHandler(async (event) => {
       }
     }
 
-    const userId = String(body.userId).trim();
-    const userEmail = `${userId}@plotline.local`;
+    const userId = String(user.id).trim();
+    const userEmail = String(user.email || `${userId}@plotline.local`).toLowerCase();
     const { normalizeNicheValue } = await getNicheUtils();
     const normalizedNiche = normalizeNicheValue(body.niche);
     const store = useStorage('data');

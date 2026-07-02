@@ -16,5 +16,5 @@ import PlotlineShell from '~/components/layout/PlotlineShell.vue'
 useJobNotifications()
 
 const route = useRoute()
-const showShell = computed(() => route.path !== '/' && route.path !== '/influencers/new')
+const showShell = computed(() => route.path !== '/' && !route.path.startsWith('/auth'))
 </script>

@@ -189,7 +189,6 @@
 import { computed, reactive, ref, watch } from 'vue'
 
 const activeInfluencerId = useActiveInfluencer()
-const userId = 'user-test'
 
 const tabs = [
   { label: 'Tout', value: 'ALL' },
@@ -207,7 +206,6 @@ const activeRequestId = ref(0)
 
 const { data: influencersData, pending: loadingMeta } = await useFetch('/api/influencers', {
   key: 'plotline-content-influencers',
-  query: { userId },
 })
 
 const influencers = computed(() => influencersData.value || [])

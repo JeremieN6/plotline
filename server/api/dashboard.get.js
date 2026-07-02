@@ -13,13 +13,11 @@ async function getPrisma() {
   return prismaClient;
 }
 
-function relativeUserId() {
-  return 'user-test';
-}
-
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
   const prisma = await getPrisma();
-  const userId = relativeUserId();
+  const authModule = await import('../utils/auth.js');
+  const user = await authModule.requireAuthUser(event);
+  const userId = user.id;
   const now = new Date();
   const upcomingCutoff = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 45);
 

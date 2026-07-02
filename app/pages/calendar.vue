@@ -100,12 +100,10 @@ import { computed, ref, watch } from 'vue'
 const activeInfluencerId = useActiveInfluencer()
 const currentMonth = ref(new Date())
 const drawerContent = ref(null)
-const userId = 'user-test'
 const weekLabels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
 const { data, pending: loading, refresh } = await useFetch('/api/influencers', {
   key: 'plotline-calendar-source',
-  query: { userId },
 })
 
 const selectedInfluencer = computed(() => {
