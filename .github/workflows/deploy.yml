@@ -36,6 +36,7 @@ jobs:
           git fetch --all --prune
           git reset --hard origin/main
           npm ci
+          npx prisma generate
           rm -rf .output
           npm run build
           if pm2 describe plotline > /dev/null 2>&1; then
