@@ -6,7 +6,7 @@
     <section class="auth-card">
       <p class="auth-kicker">Plotline Studio</p>
       <h1 class="auth-title">Connexion</h1>
-      <p class="auth-subtitle">Accède à ton back-office de production d influenceuses IA.</p>
+      <p class="auth-subtitle">Accède à ton back-office de production d'influenceuses IA.</p>
 
       <form class="auth-form" @submit.prevent="submit">
         <label class="auth-label" for="email">Email</label>
