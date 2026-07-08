@@ -5,73 +5,82 @@
 
     <section class="auth-card">
       <p class="auth-kicker">Plotline Studio</p>
-      <h1 class="auth-title">Connexion</h1>
-      <p class="auth-subtitle">Accède à ton back-office de production d'influenceuses IA.</p>
+      <h1 class="auth-title">Nouveau mot de passe</h1>
+      <p class="auth-subtitle">Choisis un nouveau mot de passe pour sécuriser ton compte.</p>
 
       <form class="auth-form" @submit.prevent="submit">
-        <label class="auth-label" for="email">Email</label>
-        <input id="email" v-model="form.email" type="email" autocomplete="email" class="auth-input" placeholder="toi@exemple.com" required />
+        <label class="auth-label" for="password">Nouveau mot de passe</label>
+        <input id="password" v-model="form.password" type="password" autocomplete="new-password" class="auth-input" placeholder="Minimum 8 caractères" required />
 
-        <label class="auth-label" for="password">Mot de passe</label>
-        <input id="password" v-model="form.password" type="password" autocomplete="current-password" class="auth-input" placeholder="Minimum 8 caractères" required />
-        <NuxtLink to="/auth/forgot-password" class="auth-secondary-link">Mot de passe oublié ?</NuxtLink>
+        <label class="auth-label" for="confirmPassword">Confirmer le mot de passe</label>
+        <input id="confirmPassword" v-model="form.confirmPassword" type="password" autocomplete="new-password" class="auth-input" placeholder="Répète ton mot de passe" required />
 
         <p v-if="error" class="auth-error">{{ error }}</p>
+        <p v-if="success" class="auth-success">{{ success }}</p>
 
-        <button type="submit" class="auth-submit" :disabled="loading">
-          <span v-if="loading">Connexion...</span>
-          <span v-else>Entrer dans le dashboard</span>
+        <button type="submit" class="auth-submit" :disabled="loading || !token || !!success">
+          <span v-if="loading">Validation...</span>
+          <span v-else>Mettre à jour le mot de passe</span>
         </button>
       </form>
 
       <p class="auth-footnote">
-        Nouveau sur Plotline ?
-        <NuxtLink to="/auth/signup" class="auth-link">Créer un compte</NuxtLink>
+        Retour à la connexion
+        <NuxtLink to="/auth/login" class="auth-link">Se connecter</NuxtLink>
       </p>
     </section>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 
 const route = useRoute();
 const router = useRouter();
-const { refreshAuth } = useAuthSession();
+
+const token = computed(() => String(route.query?.token || '').trim());
 
 const loading = ref(false);
 const error = ref('');
-const form = reactive({
-  email: '',
-  password: '',
-});
+const success = ref('');
 
-const redirectTarget = computed(() => {
-  const candidate = String(route.query?.redirect || '/dashboard');
-  if (!candidate.startsWith('/')) return '/dashboard';
-  if (candidate.startsWith('/auth')) return '/dashboard';
-  return candidate;
+const form = reactive({
+  password: '',
+  confirmPassword: '',
 });
 
 async function submit() {
   if (loading.value) return;
 
+  if (!token.value) {
+    error.value = 'Le lien de réinitialisation est invalide.';
+    return;
+  }
+
+  if (form.password !== form.confirmPassword) {
+    error.value = 'Les mots de passe ne correspondent pas';
+    return;
+  }
+
   loading.value = true;
   error.value = '';
+  success.value = '';
 
   try {
-    await $fetch('/api/auth/login', {
+    await $fetch('/api/auth/password/reset', {
       method: 'POST',
       body: {
-        email: form.email,
+        token: token.value,
         password: form.password,
       },
     });
 
-    await refreshAuth({ force: true });
-    await router.push(redirectTarget.value);
+    success.value = 'Mot de passe mis à jour. Tu peux maintenant te reconnecter.';
+    setTimeout(() => {
+      router.push('/auth/login');
+    }, 1200);
   } catch (err) {
-    error.value = err?.data?.statusMessage || err?.message || 'Connexion impossible';
+    error.value = err?.data?.statusMessage || err?.message || 'Réinitialisation impossible';
   } finally {
     loading.value = false;
   }
@@ -195,6 +204,13 @@ async function submit() {
   color: #ffb9a8;
 }
 
+.auth-success {
+  margin: 0.35rem 0 0;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.82rem;
+  color: #b9ffd9;
+}
+
 .auth-submit {
   margin-top: 0.35rem;
   border: none;
@@ -227,25 +243,13 @@ async function submit() {
 }
 
 .auth-link {
+  margin-left: 0.4rem;
   color: #ffc486;
   font-weight: 700;
   text-decoration: none;
 }
 
 .auth-link:hover {
-  text-decoration: underline;
-}
-
-.auth-secondary-link {
-  margin-top: -0.18rem;
-  justify-self: end;
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 0.78rem;
-  text-decoration: none;
-  color: #ffcd9b;
-}
-
-.auth-secondary-link:hover {
   text-decoration: underline;
 }
 

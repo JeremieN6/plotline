@@ -40,6 +40,14 @@ function hashSessionToken(token, secret) {
   return createHash('sha256').update(`${token}:${secret}`).digest('hex');
 }
 
+export function createOpaqueToken() {
+  return randomBytes(32).toString('hex');
+}
+
+export function hashOpaqueToken(token, secret) {
+  return hashSessionToken(token, secret);
+}
+
 export async function hashPassword(password) {
   const salt = randomBytes(16);
   const derivedKey = await scrypt(password, salt, PASSWORD_KEY_LENGTH);

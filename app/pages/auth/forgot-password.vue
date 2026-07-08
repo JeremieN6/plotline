@@ -5,28 +5,27 @@
 
     <section class="auth-card">
       <p class="auth-kicker">Plotline Studio</p>
-      <h1 class="auth-title">Connexion</h1>
-      <p class="auth-subtitle">Accède à ton back-office de production d'influenceuses IA.</p>
+      <h1 class="auth-title">Mot de passe oublié</h1>
+      <p class="auth-subtitle">
+        Saisis l'adresse liée à ton compte, on t'envoie un lien pour choisir un nouveau mot de passe.
+      </p>
 
       <form class="auth-form" @submit.prevent="submit">
         <label class="auth-label" for="email">Email</label>
         <input id="email" v-model="form.email" type="email" autocomplete="email" class="auth-input" placeholder="toi@exemple.com" required />
 
-        <label class="auth-label" for="password">Mot de passe</label>
-        <input id="password" v-model="form.password" type="password" autocomplete="current-password" class="auth-input" placeholder="Minimum 8 caractères" required />
-        <NuxtLink to="/auth/forgot-password" class="auth-secondary-link">Mot de passe oublié ?</NuxtLink>
-
         <p v-if="error" class="auth-error">{{ error }}</p>
+        <p v-if="success" class="auth-success">{{ success }}</p>
 
         <button type="submit" class="auth-submit" :disabled="loading">
-          <span v-if="loading">Connexion...</span>
-          <span v-else>Entrer dans le dashboard</span>
+          <span v-if="loading">Envoi...</span>
+          <span v-else>Envoyer le lien</span>
         </button>
       </form>
 
       <p class="auth-footnote">
-        Nouveau sur Plotline ?
-        <NuxtLink to="/auth/signup" class="auth-link">Créer un compte</NuxtLink>
+        Retour à la connexion
+        <NuxtLink to="/auth/login" class="auth-link">Se connecter</NuxtLink>
       </p>
     </section>
   </div>
@@ -35,22 +34,12 @@
 <script setup>
 import { reactive, ref } from 'vue';
 
-const route = useRoute();
-const router = useRouter();
-const { refreshAuth } = useAuthSession();
-
 const loading = ref(false);
 const error = ref('');
+const success = ref('');
+
 const form = reactive({
   email: '',
-  password: '',
-});
-
-const redirectTarget = computed(() => {
-  const candidate = String(route.query?.redirect || '/dashboard');
-  if (!candidate.startsWith('/')) return '/dashboard';
-  if (candidate.startsWith('/auth')) return '/dashboard';
-  return candidate;
 });
 
 async function submit() {
@@ -58,20 +47,19 @@ async function submit() {
 
   loading.value = true;
   error.value = '';
+  success.value = '';
 
   try {
-    await $fetch('/api/auth/login', {
+    await $fetch('/api/auth/password/forgot', {
       method: 'POST',
       body: {
         email: form.email,
-        password: form.password,
       },
     });
 
-    await refreshAuth({ force: true });
-    await router.push(redirectTarget.value);
+    success.value = 'Si un compte existe avec cet email, un lien de réinitialisation a été envoyé.';
   } catch (err) {
-    error.value = err?.data?.statusMessage || err?.message || 'Connexion impossible';
+    error.value = err?.data?.statusMessage || err?.message || 'Impossible d envoyer le mail';
   } finally {
     loading.value = false;
   }
@@ -195,6 +183,13 @@ async function submit() {
   color: #ffb9a8;
 }
 
+.auth-success {
+  margin: 0.35rem 0 0;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 0.82rem;
+  color: #b9ffd9;
+}
+
 .auth-submit {
   margin-top: 0.35rem;
   border: none;
@@ -227,25 +222,13 @@ async function submit() {
 }
 
 .auth-link {
+  margin-left: 0.4rem;
   color: #ffc486;
   font-weight: 700;
   text-decoration: none;
 }
 
 .auth-link:hover {
-  text-decoration: underline;
-}
-
-.auth-secondary-link {
-  margin-top: -0.18rem;
-  justify-self: end;
-  font-family: 'Space Grotesk', sans-serif;
-  font-size: 0.78rem;
-  text-decoration: none;
-  color: #ffcd9b;
-}
-
-.auth-secondary-link:hover {
   text-decoration: underline;
 }
 

@@ -12,6 +12,9 @@
 - [x] Afficher onboarding modal si aucun influenceur pour l utilisateur connecte
 - [x] Harmoniser la DA de l onboarding modal avec la refonte back-office
 - [ ] Verifier le flux complet (non connecte -> login -> dashboard vide -> modal creation)
+- [x] Ajouter reset mot de passe par email (API + ecrans forgot/reset + template mail)
+- [x] Ajouter changement d'email avec confirmation par lien (API + ecran settings)
+- [ ] Appliquer la migration Prisma tokens auth sur la base Neon active
 - [x] Durcir le scraper Pinterest image contre les pins sans visage
 - [x] Verifier la validation Gemini du scraper sur le flux Node
 - [x] Basculer la logique body sur fallback global + override par influenceuse
