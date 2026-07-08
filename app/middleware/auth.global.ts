@@ -1,4 +1,13 @@
-const PUBLIC_PATHS = ['/', '/auth/login', '/auth/signup'];
+const PUBLIC_PATHS = [
+  '/',
+  '/auth/login',
+  '/auth/signup',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+  '/auth/confirm-email-change',
+];
+
+const AUTH_ENTRY_PATHS = ['/auth/login', '/auth/signup'];
 
 function isPublicPath(path: string) {
   if (PUBLIC_PATHS.includes(path)) return true;
@@ -17,7 +26,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return navigateTo(`/auth/login?redirect=${redirect}`);
   }
 
-  if (authenticated && to.path.startsWith('/auth/')) {
+  if (authenticated && AUTH_ENTRY_PATHS.includes(to.path)) {
     return navigateTo('/dashboard');
   }
 });

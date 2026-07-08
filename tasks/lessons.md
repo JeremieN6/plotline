@@ -19,6 +19,12 @@
 
 <!-- Les entrees seront ajoutees ici au fil du temps -->
 
+### 2026-07-08 Routes auth publiques bloquees par middleware
+**Probleme** : Le lien mot de passe oublie semblait ne rien faire en prod; l URL devenait `/auth/login?redirect=/auth/forgot-password`.
+**Cause racine** : Le middleware auth ne listait comme publiques que `/`, `/auth/login` et `/auth/signup`, donc les pages `forgot-password`, `reset-password` et `confirm-email-change` etaient traitees comme privees.
+**Solution** : Ajouter ces routes d action auth aux chemins publics et ne rediriger les utilisateurs connectes que depuis login/signup.
+**Regle** : Toute page auth necessaire avant connexion ou depuis un lien email doit etre explicitement publique dans le middleware.
+
 ### 2026-07-01 Persistance personnage incoherente sur route influenceuse
 **Probleme** : Sur `/influencers/:id/edit`, changer de personnage via le switcher puis rafraichir pouvait revenir a l'ancien personnage.
 **Cause racine** : Le switcher modifiait l'etat actif sans toujours aligner l'URL parametree (`:id`), et la page edit utilisait un `id` capture au premier rendu (non reactif aux changements de route).

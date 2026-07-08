@@ -5,6 +5,8 @@
 ---
 
 ## En cours
+- [x] Corriger le middleware auth pour laisser passer forgot/reset/confirmation email
+- [ ] Verifier sur VPS que la migration tokens auth est appliquee a la base active
 - [x] Ajouter un systeme auth complet (signup/login/session cookie)
 - [x] Proteger les routes back-office via middleware Nuxt (redirect vers /auth/login)
 - [x] Ajouter pages Auth avec nouvelle DA (connexion + inscription)
