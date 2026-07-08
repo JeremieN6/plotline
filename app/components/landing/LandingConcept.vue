@@ -22,11 +22,12 @@
           </p>
         </div>
         <div class="persona-attr-card">
-          <div class="persona-attr-icon">🎨</div>
-          <div class="persona-attr-label">Image to JSON</div>
+          <div class="persona-attr-icon">🛡️</div>
+          <div class="persona-attr-label">Generation 100% originale Image-to-JSON</div>
           <p class="persona-attr-desc">
-            Plotline analyse les inspirations Pinterest, extrait la scene (lumiere, pose, decor, tenue) et la
-            reconstruit avec ton influenceuse.
+            Plotline s'inspire de l'ambiance d'une image, lumiere, cadrage, decor, mais genere une image entierement
+            nouvelle avec ton influenceuse. Aucune copie, aucun deepfake, aucun risque juridique. Chaque visuel est
+            unique.
           </p>
         </div>
         <div class="persona-attr-card">

@@ -51,6 +51,13 @@
               <td>✗</td>
               <td>✗</td>
             </tr>
+            <tr>
+              <td>Conformite droits d'auteur by design</td>
+              <td>✓</td>
+              <td>✗</td>
+              <td>✗</td>
+              <td>✗</td>
+            </tr>
           </tbody>
         </table>
       </div>

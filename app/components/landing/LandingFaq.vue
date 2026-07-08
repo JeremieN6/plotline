@@ -15,6 +15,15 @@
         </details>
 
         <details class="faq-item">
+          <summary class="faq-question">Est-ce que Plotline respecte les droits d'auteur ?</summary>
+          <p class="faq-answer">
+            Oui. Plotline analyse la composition d'images (lumiere, cadrage, ambiance) via l'IA, mais genere
+            systematiquement une image entierement nouvelle avec ton influenceuse. Aucune image tierce n'est copiee ou
+            modifiee. Chaque visuel produit par Plotline est original et t'appartient.
+          </p>
+        </details>
+
+        <details class="faq-item">
           <summary class="faq-question">Comment fonctionne le scraping Pinterest ?</summary>
           <p class="faq-answer">
             Tu choisis un mot-cle, Plotline trouve une image ou video pertinente, analyse la scene, puis la regenere
