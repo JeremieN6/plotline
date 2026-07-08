@@ -769,6 +769,7 @@ export async function processGenerationJob(jobData, options = {}) {
       workflowType,
       contentType,
       keyword,
+        prompt: freePrompt,
   } = jobData || {};
   const updateProgress = typeof options.updateProgress === 'function'
     ? options.updateProgress
@@ -896,6 +897,61 @@ export async function processGenerationJob(jobData, options = {}) {
       } finally {
         await fs.unlink(scrapedImagePath).catch(() => {});
       }
+    } else if (normalizedWorkflow === 'free') {
+      const freePromptText = String(freePrompt || '').trim();
+
+      if (!freePromptText) {
+        throw new Error('Missing prompt for free workflow');
+      }
+
+      const freeSceneJson = injectBody(
+        {
+          global_context: {
+            scene_description: freePromptText,
+            weather_atmosphere: 'Natural, realistic lifestyle ambiance',
+          },
+          scene: {
+            location: freePromptText,
+            lighting: {
+              type: 'natural soft light',
+              quality: 'clean instagram photography lighting',
+            },
+          },
+          subject: {
+            pose: 'natural candid pose',
+            wardrobe: {
+              top: 'scene-appropriate outfit aligned with requested style',
+            },
+          },
+          mood: 'authentic, confident, lifestyle',
+        },
+        {
+          identityProfile: influencer.identityProfile,
+          influencerName: influencer.name,
+          bodyPrompt,
+          hairPrompt,
+          hairAutoPrompt,
+          hairLocked,
+        },
+      );
+
+      prompt = freePromptText;
+      geminiParts = [
+        {
+          inlineData: {
+            mimeType: faceRefMime,
+            data: faceRefBase64,
+          },
+        },
+      ];
+
+      sceneDescriptionConcept = {
+        location: freePromptText,
+        outfit: freeSceneJson?.subject?.wardrobe?.top || '',
+        pose: freeSceneJson?.subject?.pose || '',
+        mood: freeSceneJson?.mood || '',
+        lighting: freeSceneJson?.scene?.lighting?.type || '',
+      };
     } else {
       const concept = { location, outfit, pose, mood, lighting };
       sceneDescriptionConcept = concept;

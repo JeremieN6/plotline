@@ -178,6 +178,7 @@ export default defineEventHandler(async (event) => {
       workflowType,
       source,
       keyword,
+      prompt,
     } = body || {};
     errorContext = {
       influencerId,
@@ -185,6 +186,7 @@ export default defineEventHandler(async (event) => {
       contentType,
       source,
       keyword,
+      promptLength: String(prompt || '').trim().length,
     };
     const normalizedContentType = String(contentType || '').trim().toLowerCase();
 
@@ -217,6 +219,7 @@ export default defineEventHandler(async (event) => {
 
     const normalizedWorkflowType = String(workflowType || '').trim().toLowerCase();
     const isPinterestWorkflow = normalizedWorkflowType === 'pinterest';
+    const isFreeWorkflow = normalizedWorkflowType === 'free';
 
     if (!influencerId) {
       return sendError(
@@ -238,7 +241,17 @@ export default defineEventHandler(async (event) => {
       );
     }
 
-    if (!isPinterestWorkflow && (!location || !outfit || !pose || !mood || !lighting)) {
+    if (isFreeWorkflow && !String(prompt || '').trim()) {
+      return sendError(
+        event,
+        createError({
+          statusCode: 400,
+          statusMessage: 'Missing required field for free workflow: prompt',
+        }),
+      );
+    }
+
+    if (!isPinterestWorkflow && !isFreeWorkflow && (!location || !outfit || !pose || !mood || !lighting)) {
       return sendError(
         event,
         createError({
@@ -286,6 +299,7 @@ export default defineEventHandler(async (event) => {
       contentType,
       source,
       keyword,
+      prompt,
       contentId: generatedContent.id,
     };
 

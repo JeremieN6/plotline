@@ -28,7 +28,7 @@
 
         <section class="mb-5 rounded-[18px] border border-[#E5E3DF] bg-[#FCFCFB] p-4">
           <p class="mb-3 text-sm font-bold text-gray-900">Section 1 - Type de contenu</p>
-          <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-4">
             <button
               v-for="item in contentTypeOptions"
               :key="item.value"
@@ -45,7 +45,43 @@
           </div>
         </section>
 
-        <section v-if="contentType" class="mb-5 rounded-[18px] border border-[#E5E3DF] bg-[#FCFCFB] p-4">
+        <section
+          v-if="contentType === 'free'"
+          class="mb-5 rounded-[18px] border border-[#E5E3DF] bg-[#FCFCFB] p-4"
+        >
+          <p class="mb-3 text-sm font-bold text-gray-900">Generation libre</p>
+          <label for="free-prompt" class="mb-2 block text-sm font-semibold text-gray-900">
+            Decris la scene que tu veux generer
+          </label>
+          <textarea
+            id="free-prompt"
+            v-model="freePrompt"
+            class="w-full resize-y border border-[#E5E3DF] p-4 text-sm text-gray-900 outline-none focus:border-[#E8873A]"
+            style="min-height: 120px; border-radius: 12px; font-family: Inter, sans-serif;"
+            placeholder="Ex : Madison dans un cafe parisien, lumiere doree, tenue casual chic, sourire naturel..."
+          />
+
+          <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              class="rounded-[12px] border border-[#E8873A] bg-white px-4 py-2.5 text-sm font-bold text-[#E8873A] transition-colors hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="!canOptimizePrompt || optimizingPrompt || generating"
+              @click="optimizePrompt"
+            >
+              {{ optimizingPrompt ? 'Optimisation...' : '✨ Optimiser le prompt' }}
+            </button>
+            <button
+              type="button"
+              class="rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#d4762f] disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="!canGenerate || generating || optimizingPrompt"
+              @click="submitGeneration"
+            >
+              {{ generating ? 'Generation en cours...' : 'Generer' }}
+            </button>
+          </div>
+        </section>
+
+        <section v-if="contentType && contentType !== 'free'" class="mb-5 rounded-[18px] border border-[#E5E3DF] bg-[#FCFCFB] p-4">
           <p class="mb-3 text-sm font-bold text-gray-900">Section 2 - Mode de selection</p>
 
           <div class="flex gap-2">
@@ -89,7 +125,7 @@
         </section>
 
         <section
-          v-if="contentType && selectionMode === 'manual'"
+          v-if="contentType && contentType !== 'free' && selectionMode === 'manual'"
           class="mb-5 rounded-[18px] border border-[#E5E3DF] bg-[#FCFCFB] p-4"
         >
           <p class="mb-3 text-sm font-bold text-gray-900">Section 3 - Selection manuelle</p>
@@ -154,6 +190,7 @@
         </p>
 
         <button
+          v-if="contentType !== 'free'"
           type="button"
           class="w-full rounded-[14px] bg-[#E8873A] px-4 py-3 text-sm font-bold text-white transition-all duration-150 hover:bg-[#d4762f] disabled:cursor-not-allowed disabled:opacity-60"
           :class="generating ? 'animate-pulse shadow-[0_0_0_4px_rgba(232,135,58,0.12)]' : 'shadow-[0_1px_3px_rgba(0,0,0,0.08)]'"
@@ -173,6 +210,7 @@
           <p><span class="font-bold">Categorie:</span> {{ activeSelection?.category || '-' }}</p>
           <p><span class="font-bold">Mot-cle affiche:</span> {{ activeSelection?.keywordLabel || '-' }}</p>
           <p><span class="font-bold">Keyword API:</span> {{ activeSelection?.keywordValue || '-' }}</p>
+          <p><span class="font-bold">Prompt libre:</span> {{ activeSelection?.prompt || '-' }}</p>
         </div>
 
         <div class="mt-4 rounded-[18px] border border-[#E5E3DF] bg-[#FCFCFB] p-4">
@@ -216,6 +254,7 @@ const contentTypeOptions = [
   { value: 'feed', label: '🖼️ Feed', description: 'Publication image' },
   { value: 'reel', label: '🎬 Reel', description: 'Format video court' },
   { value: 'story', label: '📱 Story', description: 'Format vertical' },
+  { value: 'free', label: '✏️ Libre', description: 'Decris ce que tu veux' },
 ]
 
 const feedSources = [
@@ -234,7 +273,9 @@ const manualKeywordLabel = ref('')
 const manualKeywordValue = ref('')
 
 const randomSelection = ref(null)
+const freePrompt = ref('')
 const generating = ref(false)
+const optimizingPrompt = ref(false)
 const formError = ref('')
 const lastResult = ref(null)
 
@@ -249,6 +290,10 @@ const { data: variablesData } = await useFetch('/api/variables', {
 const influencerName = computed(() => {
   return influencerData.value?.name ? `Influenceuse: ${influencerData.value.name}` : `Influenceuse #${id.value}`
 })
+
+const influencerNameRaw = computed(() => String(influencerData.value?.name || '').trim())
+const influencerStyle = computed(() => String(influencerData.value?.style || '').trim())
+const influencerNiche = computed(() => String(influencerData.value?.niche || '').trim())
 
 const variables = computed(() => {
   return variablesData.value || {
@@ -335,6 +380,17 @@ const activeSelection = computed(() => {
     return null
   }
 
+  if (contentType.value === 'free') {
+    return {
+      contentType: 'free',
+      source: 'custom_prompt',
+      category: '-',
+      keywordLabel: '-',
+      keywordValue: '-',
+      prompt: freePrompt.value.trim(),
+    }
+  }
+
   if (selectionMode.value === 'random') {
     return randomSelection.value
   }
@@ -353,6 +409,19 @@ const activeSelection = computed(() => {
 })
 
 const payloadPreview = computed(() => {
+  if (contentType.value === 'free') {
+    return JSON.stringify(
+      {
+        influencerId: id.value,
+        workflowType: 'free',
+        contentType: 'feed',
+        prompt: freePrompt.value.trim(),
+      },
+      null,
+      2,
+    )
+  }
+
   if (!activeSelection.value) {
     return '{}'
   }
@@ -371,7 +440,15 @@ const payloadPreview = computed(() => {
 })
 
 const canGenerate = computed(() => {
+  if (contentType.value === 'free') {
+    return Boolean(id.value && freePrompt.value.trim())
+  }
+
   return Boolean(id.value && activeSelection.value?.source && activeSelection.value?.keywordValue)
+})
+
+const canOptimizePrompt = computed(() => {
+  return Boolean(freePrompt.value.trim())
 })
 
 watch(
@@ -381,6 +458,7 @@ watch(
     resetManualSelection()
     randomSelection.value = null
     formError.value = ''
+    lastResult.value = null
   },
 )
 
@@ -502,13 +580,20 @@ async function submitGeneration() {
   lastResult.value = null
 
   try {
-    const payload = {
-      influencerId: id.value,
-      workflowType: 'pinterest',
-      contentType: activeSelection.value.contentType,
-      source: activeSelection.value.source,
-      keyword: activeSelection.value.keywordValue,
-    }
+    const payload = contentType.value === 'free'
+      ? {
+          influencerId: id.value,
+          workflowType: 'free',
+          prompt: freePrompt.value.trim(),
+          contentType: 'feed',
+        }
+      : {
+          influencerId: id.value,
+          workflowType: 'pinterest',
+          contentType: activeSelection.value.contentType,
+          source: activeSelection.value.source,
+          keyword: activeSelection.value.keywordValue,
+        }
 
     const response = await $fetch('/api/generate/image', {
       method: 'POST',
@@ -526,6 +611,36 @@ async function submitGeneration() {
     formError.value = err?.data?.statusMessage || err?.message || 'Erreur pendant la generation'
   } finally {
     generating.value = false
+  }
+}
+
+async function optimizePrompt() {
+  if (!canOptimizePrompt.value || optimizingPrompt.value || generating.value) {
+    return
+  }
+
+  formError.value = ''
+  optimizingPrompt.value = true
+
+  try {
+    const response = await $fetch('/api/generate/optimize-prompt', {
+      method: 'POST',
+      body: {
+        rawPrompt: freePrompt.value.trim(),
+        influencerName: influencerNameRaw.value,
+        influencerStyle: influencerStyle.value,
+        influencerNiche: influencerNiche.value,
+      },
+    })
+
+    const optimized = String(response?.optimizedPrompt || '').trim()
+    if (optimized) {
+      freePrompt.value = optimized
+    }
+  } catch (err) {
+    formError.value = err?.data?.statusMessage || err?.message || 'Erreur pendant l\'optimisation du prompt'
+  } finally {
+    optimizingPrompt.value = false
   }
 }
 </script>
