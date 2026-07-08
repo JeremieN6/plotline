@@ -122,7 +122,7 @@
                 <input
                   v-model="personalization.origin"
                   class="input"
-                  placeholder="ex: French, Arab, Asian..."
+                  placeholder="ex: Europe de l'Est, Arabe, Asiatique, Latina..."
                 />
               </div>
 
@@ -131,7 +131,7 @@
                 <input
                   v-model="personalization.traits"
                   class="input"
-                  placeholder="ex: freckles, glasses, dimples..."
+                  placeholder="ex: tâches de rousseur, lunettes, fossettes..."
                 />
               </div>
 
@@ -324,7 +324,7 @@ const dynamicTraitsLine = computed(() => {
   const chunks = []
 
   if (resolvedHairColor.value) {
-    chunks.push(`The character must have ${resolvedHairColor.value} hair`)
+    chunks.push(`Le personnage aura les cheveux ${resolvedHairColor.value}`)
   }
 
   if (resolvedEyeColor.value) {
@@ -332,14 +332,14 @@ const dynamicTraitsLine = computed(() => {
   }
 
   if (personalization.origin.trim()) {
-    chunks.push(`${personalization.origin.trim()} descent`)
+    chunks.push(`${personalization.origin.trim()} comme origine ethnique`)
   }
 
   if (chunks.length === 0) {
     return ''
   }
 
-  return `- ${chunks.join(' - ')}. These are non-negotiable traits, override any feature visible in the reference image.`
+  return `- ${chunks.join(' - ')}. Ces caractéristiques sont impératives et prévalent sur tout élément visible sur l'image de référence.`
 })
 
 const customPrompt = computed(() => {

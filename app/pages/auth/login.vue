@@ -4,6 +4,7 @@
     <div class="auth-glow auth-glow-right" />
 
     <section class="auth-card">
+      <!-- <p class="auth-kicker">Plotline Studio</p> -->      
       <NuxtLink to="/"><p class="router-link-active router-link-exact-active nav-logo pl-main-color">Plotline Studio</p></NuxtLink>
       <h1 class="auth-title">Connexion</h1>
       <p class="auth-subtitle">Accède à ton back-office de production d'influenceuses IA.</p>
