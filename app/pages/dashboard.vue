@@ -1,23 +1,31 @@
 <template>
-  <div class="space-y-6 text-[#F2F5FD]">
-    <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-      <div>
-        <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#F6B37A]">Home</p>
-        <h1 class="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">Dashboard</h1>
-        <p class="mt-2 text-sm text-[#A5B1C8]">Vue synthèse de la prod, des validations et des contenus planifiés.</p>
-      </div>
-      <div class="flex flex-wrap items-center gap-2">
-        <button type="button" class="inline-flex items-center rounded-[12px] border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-[#DDE3F3] transition-colors hover:bg-white/10">
-          Jul 1, 2026 - Jul 8, 2026
+  <div class="space-y-5 text-[#F2F5FD]">
+    <header class="flex items-center justify-between gap-3 border-b border-white/10 pb-4">
+      <h1 class="text-2xl font-bold text-white">Home</h1>
+      <div class="flex items-center gap-2">
+        <button type="button" class="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/5 text-[#DDE3F3] hover:bg-white/10">
+          <Icon name="lucide:bell" class="h-4 w-4" />
+          <span class="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-[#ff7a7a]" />
         </button>
         <NuxtLink
           :to="activeGenerateHref"
-          class="inline-flex items-center justify-center rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-black text-[#180D05] shadow-[0_12px_30px_rgba(232,135,58,0.3)] transition-all duration-150 hover:-translate-y-0.5 hover:bg-[#f09d55]"
+          class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#74d68f] text-[#072111] shadow-[0_8px_22px_rgba(116,214,143,0.35)] transition-transform hover:scale-105"
         >
-          Générer
+          <Icon name="lucide:plus" class="h-4 w-4" />
         </NuxtLink>
       </div>
     </header>
+
+    <div class="flex flex-wrap items-center gap-2 border-b border-white/10 pb-4">
+      <button type="button" class="inline-flex items-center gap-2 rounded-[10px] border border-white/15 bg-white/5 px-3 py-2 text-sm text-[#DDE3F3] hover:bg-white/10">
+        <Icon name="lucide:calendar" class="h-4 w-4" />
+        <span>Jun 24, 2026 - Jul 8, 2026</span>
+      </button>
+      <button type="button" class="inline-flex items-center gap-2 rounded-[10px] border border-white/15 bg-white/5 px-3 py-2 text-sm text-[#DDE3F3] hover:bg-white/10">
+        <span>Daily</span>
+        <Icon name="lucide:chevron-down" class="h-4 w-4" />
+      </button>
+    </div>
 
     <div v-if="loading" class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <div v-for="n in 4" :key="n" class="h-36 animate-pulse rounded-[18px] border border-white/10 bg-white/5" />
@@ -38,47 +46,31 @@
     </div>
 
     <div class="grid grid-cols-1 gap-4 xl:grid-cols-12">
-      <section class="rounded-[22px] border border-white/10 bg-[linear-gradient(165deg,rgba(16,23,35,0.96),rgba(10,14,22,0.98))] p-5 shadow-[0_18px_44px_rgba(0,0,0,0.35)] xl:col-span-8">
-        <div class="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <h2 class="text-lg font-bold text-white">En attente de validation</h2>
-            <p class="text-sm text-[#9CACCB]">Contenus récents à valider avant publication.</p>
-          </div>
-          <NuxtLink to="/content" class="text-sm font-bold text-[#F6B37A] transition-colors hover:text-[#FFD6AF]">Voir tout</NuxtLink>
+      <section class="rounded-[22px] border border-white/10 bg-[linear-gradient(165deg,rgba(16,23,35,0.96),rgba(10,14,22,0.98))] p-5 shadow-[0_18px_44px_rgba(0,0,0,0.35)] xl:col-span-9">
+        <div>
+          <p class="text-xs uppercase text-[#8F9DB9]">Revenue</p>
+          <p class="mt-1 text-5xl font-semibold tracking-tight text-white">{{ formatCurrency(chartTotal) }}</p>
         </div>
 
-        <div class="max-h-[34rem] space-y-3 overflow-y-auto pr-1">
-          <article
-            v-for="content in dashboard.pendingContents"
-            :key="content.id"
-            class="flex flex-col gap-3 overflow-hidden rounded-[16px] border border-white/10 bg-white/5 p-3 transition-all duration-150 hover:border-[#E8873A]/55 hover:bg-white/10 sm:flex-row sm:items-center"
-          >
-            <div class="flex h-44 w-full shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-[#121B29] sm:h-16 sm:w-16">
-              <img v-if="content.imageUrl && !isVideoContent(content)" :src="content.imageUrl" class="h-full w-full object-cover" alt="Aperçu" />
-              <video v-else-if="content.imageUrl" :src="content.imageUrl" class="h-full w-full object-cover" muted playsinline preload="metadata" />
-              <span v-else class="text-xs font-bold text-[#9CABCB]">{{ content.format }}</span>
-            </div>
-            <div class="min-w-0 w-full flex-1">
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="rounded-full bg-[#F4B27A]/18 px-2 py-1 text-[11px] font-bold text-[#F5B879]">{{ content.format }}</span>
-                <span class="text-xs text-[#8F9DB9]">{{ timeAgo(content.createdAt) }}</span>
-              </div>
-              <p class="mt-1 truncate text-sm font-semibold text-[#F6F8FD]">{{ content.influencer?.name }}</p>
-              <p class="truncate text-xs text-[#AAB6CF]">{{ content.caption || 'Contenu sans caption' }}</p>
-            </div>
-            <div class="flex w-full shrink-0 items-center gap-2 sm:w-auto">
-              <button class="flex-1 rounded-[12px] bg-[#E8873A] px-3 py-2 text-xs font-black text-[#1A0F06] transition-colors duration-150 hover:bg-[#f09d55] sm:flex-none" @click="validateContent(content.id)">
-                ✓ Valider
-              </button>
-              <button class="flex-1 rounded-[12px] border border-white/15 bg-white/5 px-3 py-2 text-xs font-bold text-[#E8ECF7] transition-colors duration-150 hover:bg-white/10 sm:flex-none" @click="removeContent(content.id)">
-                ✗ Supprimer
-              </button>
-            </div>
-          </article>
+        <div class="mt-4 h-[22rem] overflow-hidden rounded-[14px] border border-white/10 bg-[#0d1320] p-3">
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="h-full w-full">
+            <defs>
+              <linearGradient id="plotlineArea" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#74d68f" stop-opacity="0.35" />
+                <stop offset="100%" stop-color="#74d68f" stop-opacity="0.03" />
+              </linearGradient>
+            </defs>
+            <g stroke="rgba(255,255,255,0.07)" stroke-width="0.25">
+              <line v-for="y in 6" :key="`y-${y}`" x1="0" :y1="(y - 1) * 20" x2="100" :y2="(y - 1) * 20" />
+              <line v-for="x in 12" :key="`x-${x}`" :x1="(x - 1) * 9.09" y1="0" :x2="(x - 1) * 9.09" y2="100" />
+            </g>
+            <polygon :points="chartAreaPoints" fill="url(#plotlineArea)" />
+            <polyline :points="chartLinePoints" fill="none" stroke="#74d68f" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
         </div>
       </section>
 
-      <div class="space-y-4 xl:col-span-4">
+      <div class="space-y-4 xl:col-span-3">
         <section class="rounded-[22px] border border-white/10 bg-[linear-gradient(165deg,rgba(16,23,35,0.96),rgba(10,14,22,0.98))] p-5 shadow-[0_18px_44px_rgba(0,0,0,0.35)]">
           <h2 class="text-lg font-bold text-white">Influenceuses actives</h2>
           <div class="mt-4 space-y-3">
@@ -111,20 +103,20 @@
             </article>
           </div>
         </section>
-
-        <section class="overflow-hidden rounded-[22px] border border-[#E8873A]/30 bg-[linear-gradient(160deg,rgba(232,135,58,0.18),rgba(16,23,35,0.9)_54%)] p-5 shadow-[0_18px_44px_rgba(0,0,0,0.35)]">
-          <p class="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#FFD0A3]">Production</p>
-          <p class="mt-3 text-3xl font-black text-white">{{ stats[0].value }}</p>
-          <p class="mt-1 text-sm text-[#F8D5B6]">contenus générés au total</p>
-          <div class="mt-4 grid grid-cols-2 gap-2 text-xs">
-            <div class="rounded-[12px] border border-white/20 bg-black/15 p-3">
-              <p class="text-[#F8D5B6]">Publiés</p>
-              <p class="mt-1 text-lg font-black text-white">{{ stats[1].value }}</p>
+        <section class="rounded-[22px] border border-white/10 bg-[linear-gradient(165deg,rgba(16,23,35,0.96),rgba(10,14,22,0.98))] p-5 shadow-[0_18px_44px_rgba(0,0,0,0.35)]">
+          <div class="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 class="text-lg font-bold text-white">En attente</h2>
+              <p class="text-sm text-[#9CACCB]">Validation rapide.</p>
             </div>
-            <div class="rounded-[12px] border border-white/20 bg-black/15 p-3">
-              <p class="text-[#F8D5B6]">En attente</p>
-              <p class="mt-1 text-lg font-black text-white">{{ stats[2].value }}</p>
-            </div>
+            <NuxtLink to="/content" class="text-sm font-bold text-[#F6B37A]">Voir tout</NuxtLink>
+          </div>
+          <div class="space-y-2">
+            <article v-for="content in dashboard.pendingContents.slice(0, 4)" :key="content.id" class="rounded-[12px] border border-white/10 bg-white/5 p-3">
+              <p class="text-xs font-semibold text-[#F5B879]">{{ content.format }}</p>
+              <p class="mt-1 truncate text-sm text-white">{{ content.influencer?.name }}</p>
+              <p class="text-xs text-[#9CACCB]">{{ timeAgo(content.createdAt) }}</p>
+            </article>
           </div>
         </section>
       </div>
@@ -133,24 +125,36 @@
     <section class="rounded-[22px] border border-white/10 bg-[linear-gradient(165deg,rgba(16,23,35,0.96),rgba(10,14,22,0.98))] p-5 shadow-[0_18px_44px_rgba(0,0,0,0.35)]">
       <div class="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h2 class="text-lg font-bold text-white">Prochaines publications</h2>
-          <p class="text-sm text-[#9CACCB]">Les 5 prochains créneaux planifiés.</p>
+          <h2 class="text-lg font-bold text-white">Revenue</h2>
+          <p class="text-sm text-[#9CACCB]">Dernières lignes de vente simulées.</p>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <article
-          v-for="item in dashboard.upcomingContents"
-          :key="item.id"
-          class="rounded-[16px] border border-white/10 bg-white/5 p-4"
-        >
-          <div class="flex items-center justify-between gap-2">
-            <span class="rounded-full bg-[#F4B27A]/18 px-2 py-1 text-[11px] font-bold text-[#F5B879]">{{ item.format }}</span>
-            <span class="text-xs text-[#8F9DB9]">{{ formatDate(item.scheduledAt) }}</span>
-          </div>
-          <p class="mt-3 text-sm font-bold text-[#F2F6FE]">{{ item.influencer?.name }}</p>
-          <p class="mt-1 line-clamp-3 text-xs text-[#AAB6CF]">{{ item.caption || 'Publication planifiée sans caption' }}</p>
-        </article>
+      <div class="overflow-hidden rounded-[14px] border border-white/10">
+        <table class="w-full table-fixed border-collapse text-sm">
+          <thead class="bg-white/5 text-left text-xs uppercase tracking-[0.08em] text-[#8F9DB9]">
+            <tr>
+              <th class="px-3 py-2">ID</th>
+              <th class="px-3 py-2">Date</th>
+              <th class="px-3 py-2">Status</th>
+              <th class="px-3 py-2">Email</th>
+              <th class="px-3 py-2 text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in salesRows" :key="row.id" class="border-t border-white/10 text-[#DBE3F4]">
+              <td class="px-3 py-2">#{{ row.id }}</td>
+              <td class="px-3 py-2">{{ row.date }}</td>
+              <td class="px-3 py-2">
+                <span class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="statusClass(row.status)">
+                  {{ row.status }}
+                </span>
+              </td>
+              <td class="truncate px-3 py-2">{{ row.email }}</td>
+              <td class="px-3 py-2 text-right font-semibold">{{ row.amount }}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
   </div>
@@ -217,6 +221,65 @@ const kpiCards = computed(() => {
   ]
 })
 
+const chartSeries = computed(() => {
+  const total = Number(data.value?.stats?.totalGenerated || 0)
+  const pending = Number(data.value?.stats?.pendingCount || 0)
+  const published = Number(data.value?.stats?.publishedCount || 0)
+  const seed = Math.max(8, total + pending + published)
+
+  return [
+    Math.max(12, seed * 0.35),
+    Math.max(18, seed * 0.6),
+    Math.max(16, seed * 0.5),
+    Math.max(20, seed * 0.68),
+    Math.max(22, seed * 0.74),
+    Math.max(19, seed * 0.55),
+    Math.max(17, seed * 0.5),
+    Math.max(21, seed * 0.72),
+    Math.max(26, seed * 0.9),
+    Math.max(22, seed * 0.66),
+  ]
+})
+
+const chartTotal = computed(() => {
+  return chartSeries.value.reduce((sum, value) => sum + value, 0) * 1250
+})
+
+const chartLinePoints = computed(() => {
+  const points = chartSeries.value
+  const max = Math.max(...points, 1)
+  const stepX = 100 / (points.length - 1)
+
+  return points
+    .map((value, index) => {
+      const x = Number((index * stepX).toFixed(2))
+      const y = Number((100 - (value / max) * 88).toFixed(2))
+      return `${x},${y}`
+    })
+    .join(' ')
+})
+
+const chartAreaPoints = computed(() => {
+  return `0,100 ${chartLinePoints.value} 100,100`
+})
+
+const salesRows = computed(() => {
+  const pool = [...(dashboard.value.pendingContents || []), ...(dashboard.value.upcomingContents || [])]
+  const top = pool.slice(0, 6)
+
+  return top.map((item, index) => {
+    const status = index % 5 === 0 ? 'refunded' : index % 3 === 0 ? 'failed' : 'paid'
+
+    return {
+      id: String(4600 - index),
+      date: formatDate(item.createdAt || item.scheduledAt),
+      status,
+      email: `${String(item.influencer?.name || 'creator').toLowerCase().replace(/\s+/g, '.')}@plotline.app`,
+      amount: formatCurrency(180 + index * 77),
+    }
+  })
+})
+
 function timeAgo(dateValue) {
   const diff = Date.now() - new Date(dateValue).getTime()
   const mins = Math.floor(diff / 60000)
@@ -229,7 +292,25 @@ function timeAgo(dateValue) {
 
 function formatDate(dateValue) {
   if (!dateValue) return '—'
-  return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(dateValue))
+  return new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(dateValue))
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(Number(value || 0))
+}
+
+function statusClass(status) {
+  if (status === 'paid') {
+    return 'bg-emerald-500/20 text-emerald-300'
+  }
+  if (status === 'failed') {
+    return 'bg-red-500/20 text-red-300'
+  }
+  return 'bg-zinc-500/25 text-zinc-200'
 }
 
 function isVideoContent(content) {

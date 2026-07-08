@@ -19,6 +19,12 @@
 
 <!-- Les entrees seront ajoutees ici au fil du temps -->
 
+### 2026-07-08 Refonte dashboard: respecter strictement la source demandee
+**Probleme** : Une refonte dashboard avait ete livree en style proche, mais pas basee sur le template/repo exactement demandes (`ui/dashboard`, `nuxt-ui-templates/dashboard`).
+**Cause racine** : J'ai fait une interpretation visuelle au lieu de partir directement de la source officielle et de ses patterns structurels.
+**Solution** : Cloner le repo officiel de reference, lire les fichiers layout/page/components cibles, puis aligner l'implementation Plotline sur cette structure (navbar, toolbar, KPI strip, chart card, table, sidebar groupee).
+**Regle** : Quand l'utilisateur donne une source explicite (commande, repo, demo), implementer depuis cette source en premier; ne pas livrer une approximation stylistique comme version finale.
+
 ### 2026-07-08 Routes auth publiques bloquees par middleware
 **Probleme** : Le lien mot de passe oublie semblait ne rien faire en prod; l URL devenait `/auth/login?redirect=/auth/forgot-password`.
 **Cause racine** : Le middleware auth ne listait comme publiques que `/`, `/auth/login` et `/auth/signup`, donc les pages `forgot-password`, `reset-password` et `confirm-email-change` etaient traitees comme privees.

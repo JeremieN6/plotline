@@ -15,10 +15,7 @@
             <div class="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#E8873A] text-sm font-black text-[#1A0F06] shadow-[0_8px_26px_rgba(232,135,58,0.28)]">
               P
             </div>
-            <!-- <div>
-              <p class="text-base font-bold tracking-tight text-[#111111]">Plotline</p>
-              <p class="text-xs text-[#666666]">Back office SaaS</p>
-            </div> -->
+            <p class="text-sm font-semibold text-white">Home</p>
           </div>
         </div>
       </header>
@@ -41,7 +38,7 @@
               </div>
               <div>
                 <p class="text-lg font-black tracking-tight text-white">Plotline</p>
-                <p class="text-xs text-[#A5B1C8]">Studio dashboard</p>
+                <p class="text-xs text-[#A5B1C8]">Workspace</p>
               </div>
             </div>
 
@@ -54,7 +51,7 @@
             </button>
           </div>
 
-          <div class="plotline-switcher relative mb-5">
+          <div class="plotline-switcher relative mb-4">
             <button
               type="button"
               class="flex w-full items-center gap-3 rounded-[14px] border border-white/10 bg-white/5 px-3 py-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.2)] transition-all duration-150 hover:border-[#E8873A]/55 hover:bg-white/10"
@@ -110,6 +107,15 @@
             </div>
           </div>
 
+          <button
+            type="button"
+            class="mb-4 inline-flex items-center gap-2 rounded-[12px] border border-white/15 bg-white/5 px-3 py-2.5 text-sm text-[#C9D2E6]"
+          >
+            <Icon name="lucide:search" class="h-4 w-4" />
+            <span class="flex-1 text-left">Search...</span>
+            <span class="rounded border border-white/15 px-1.5 py-0.5 text-[10px]">CTRL K</span>
+          </button>
+
           <nav class="flex flex-1 flex-col gap-2">
             <template v-for="item in navigation" :key="item.to">
               <button
@@ -119,7 +125,10 @@
                 class="flex items-center justify-between rounded-[12px] px-3 py-2.5 text-sm font-semibold transition-all duration-150"
                 disabled
               >
-                <span>{{ item.label }}</span>
+                <span class="inline-flex items-center gap-2">
+                  <Icon v-if="item.icon" :name="item.icon" class="h-4 w-4" />
+                  <span>{{ item.label }}</span>
+                </span>
                 <span
                   v-if="item.badge"
                   class="rounded-full bg-[#F4B27A]/18 px-2 py-0.5 text-[11px] font-bold text-[#F5B879]"
@@ -135,7 +144,10 @@
                 class="flex items-center justify-between rounded-[12px] px-3 py-2.5 text-sm font-semibold transition-all duration-150"
                 @click="mobileMenuOpen = false"
               >
-                <span>{{ item.label }}</span>
+                <span class="inline-flex items-center gap-2">
+                  <Icon v-if="item.icon" :name="item.icon" class="h-4 w-4" />
+                  <span>{{ item.label }}</span>
+                </span>
                 <span
                   v-if="item.badge"
                   class="rounded-full bg-[#F4B27A]/18 px-2 py-0.5 text-[11px] font-bold text-[#F5B879]"
@@ -143,6 +155,22 @@
                   {{ item.badge }}
                 </span>
               </NuxtLink>
+
+              <div
+                v-if="item.to === '/settings' && route.path.startsWith('/settings')"
+                class="ml-6 mt-1 space-y-1"
+              >
+                <NuxtLink
+                  v-for="sub in settingsLinks"
+                  :key="sub.label"
+                  :to="sub.to"
+                  class="block rounded-[10px] px-3 py-2 text-sm text-[#AEB9D0] transition-colors hover:bg-white/8 hover:text-white"
+                  :class="route.path === sub.to ? 'bg-white/10 text-white' : ''"
+                  @click="mobileMenuOpen = false"
+                >
+                  {{ sub.label }}
+                </NuxtLink>
+              </div>
             </template>
           </nav>
 
@@ -272,13 +300,25 @@ const routeInfluencerId = computed(() => {
 })
 
 const navigation = computed(() => [
-  { label: 'Accueil', to: '/dashboard' },
-  { label: 'Générer', to: activeInfluencer.value ? `/influencers/${activeInfluencer.value.id}/generate` : '/influencers', disabled: !activeInfluencer.value },
-  { label: 'Contenu', to: '/content' },
-  { label: 'Paramètres influenceuse', to: activeInfluencer.value ? `/influencers/${activeInfluencer.value.id}/edit` : '/influencers/new', disabled: !activeInfluencer.value },
-  { label: 'Calendrier', to: '/calendar' },
-  { label: 'Analytics', to: '/analytics', badge: 'Bientôt', disabled: true },
+  { label: 'Home', to: '/dashboard', icon: 'lucide:house' },
+  { label: 'Inbox', to: '/content', icon: 'lucide:inbox', badge: String(dashboardBadge.value) },
+  { label: 'Customers', to: '/influencers', icon: 'lucide:users' },
+  { label: 'Settings', to: '/settings', icon: 'lucide:settings' },
+  { label: 'Générer', to: activeInfluencer.value ? `/influencers/${activeInfluencer.value.id}/generate` : '/influencers', icon: 'lucide:send', disabled: !activeInfluencer.value },
+  { label: 'Calendrier', to: '/calendar', icon: 'lucide:calendar-days' },
+  { label: 'Analytics', to: '/analytics', icon: 'lucide:bar-chart-3', badge: 'Bientôt', disabled: true },
 ])
+
+const settingsLinks = [
+  { label: 'General', to: '/settings' },
+  { label: 'Members', to: '/settings' },
+  { label: 'Notifications', to: '/settings' },
+  { label: 'Security', to: '/settings' },
+]
+
+const dashboardBadge = computed(() => {
+  return route.path.startsWith('/content') ? 0 : 4
+})
 
 watch(
   influencers,
