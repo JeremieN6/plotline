@@ -14,6 +14,20 @@
       </NuxtLink>
     </header>
 
+    <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <article
+        v-for="item in bentoStats"
+        :key="item.label"
+        class="rounded-[16px] border border-[#E5E3DF] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)]"
+      >
+        <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#999999]">{{ item.label }}</p>
+        <div class="mt-3 flex items-center justify-between gap-2">
+          <p class="text-2xl font-bold leading-none text-[#111111]">{{ item.value }}</p>
+          <span class="rounded-full px-2.5 py-1 text-[11px] font-bold" :class="item.chipClass">{{ item.delta }}</span>
+        </div>
+      </article>
+    </div>
+
     <div v-if="loading" class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.9fr)]">
       <div class="h-[32rem] animate-pulse rounded-[20px] border border-[#E5E3DF] bg-white" />
       <div class="space-y-5">
@@ -97,15 +111,6 @@
           </div>
         </section>
 
-        <section class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-          <h2 class="text-lg font-bold text-[#111111]">Stats</h2>
-          <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div v-for="stat in stats" :key="stat.label" class="rounded-[16px] bg-[#FAFAF8] p-4 text-center">
-              <p class="text-2xl font-bold text-[#111111]">{{ stat.value }}</p>
-              <p class="mt-1 text-xs font-medium text-[#666666]">{{ stat.label }}</p>
-            </div>
-          </div>
-        </section>
       </div>
     </div>
 
@@ -161,6 +166,38 @@ const stats = computed(() => {
     { label: 'Contenus générés', value: summary.totalGenerated || 0 },
     { label: 'Contenus publiés', value: summary.publishedCount || 0 },
     { label: 'En attente', value: summary.pendingCount || 0 },
+  ]
+})
+
+const bentoStats = computed(() => {
+  const summary = data.value?.stats || {}
+  const influencerCount = data.value?.influencers?.length || 0
+
+  return [
+    {
+      label: 'Contenus',
+      value: summary.totalGenerated || 0,
+      delta: 'Total',
+      chipClass: 'bg-[#F4EFE8] text-[#B45F1D]',
+    },
+    {
+      label: 'Publiés',
+      value: summary.publishedCount || 0,
+      delta: 'Live',
+      chipClass: 'bg-[#E9F7EF] text-[#1A7A44]',
+    },
+    {
+      label: 'En attente',
+      value: summary.pendingCount || 0,
+      delta: 'Pending',
+      chipClass: 'bg-[#FDE7D6] text-[#B45F1D]',
+    },
+    {
+      label: 'Influenceuses',
+      value: influencerCount,
+      delta: 'Actives',
+      chipClass: 'bg-[#F2F2F2] text-[#555555]',
+    },
   ]
 })
 

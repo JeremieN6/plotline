@@ -3,7 +3,7 @@
     <header class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
       <div class="flex items-start justify-between gap-3">
         <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#E8873A]">Generation</p>
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#E8873A]">Génération</p>
           <h1 class="mt-2 text-3xl font-bold tracking-tight text-[#111111]">Pinterest Workflow</h1>
           <p class="mt-2 text-sm text-[#666666]">{{ influencerName }}</p>
         </div>
@@ -49,9 +49,9 @@
           v-if="contentType === 'free'"
           class="mb-5 rounded-[18px] border border-[#E5E3DF] bg-[#FCFCFB] p-4"
         >
-          <p class="mb-3 text-sm font-bold text-gray-900">Generation libre</p>
+          <p class="mb-3 text-sm font-bold text-gray-900">Génération libre</p>
           <label for="free-prompt" class="mb-2 block text-sm font-semibold text-gray-900">
-            Decris la scene que tu veux generer
+            Décris la scene que tu veux générer
           </label>
           <textarea
             id="free-prompt"
@@ -197,7 +197,7 @@
           :disabled="!canGenerate || generating"
           @click="submitGeneration"
         >
-          {{ generating ? 'Generation en cours...' : 'Lancer la generation' }}
+          {{ generating ? 'Generation en cours...' : 'Lancer la génération' }}
         </button>
       </aside>
 
@@ -252,9 +252,9 @@ watch(
 
 const contentTypeOptions = [
   { value: 'feed', label: '🖼️ Feed', description: 'Publication image' },
-  { value: 'reel', label: '🎬 Reel', description: 'Format video court' },
+  { value: 'reel', label: '🎬 Reel', description: 'Format vidéo court' },
   { value: 'story', label: '📱 Story', description: 'Format vertical' },
-  { value: 'free', label: '✏️ Libre', description: 'Decris ce que tu veux' },
+  { value: 'free', label: '✏️ Libre', description: 'Décris ce que tu veux' },
 ]
 
 const feedSources = [
