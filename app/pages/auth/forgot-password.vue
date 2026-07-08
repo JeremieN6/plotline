@@ -4,7 +4,7 @@
     <div class="auth-glow auth-glow-right" />
 
     <section class="auth-card">
-      <p class="auth-kicker">Plotline Studio</p>
+      <NuxtLink to="/"><p class="router-link-active router-link-exact-active nav-logo pl-main-color">Plotline Studio</p></NuxtLink>
       <h1 class="auth-title">Mot de passe oublié</h1>
       <p class="auth-subtitle">
         Saisis l'adresse liée à ton compte, on t'envoie un lien pour choisir un nouveau mot de passe.
@@ -68,6 +68,10 @@ async function submit() {
 
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap');
+
+.pl-main-color{
+  color: #f8b989;
+}
 
 .auth-screen {
   min-height: 100vh;
