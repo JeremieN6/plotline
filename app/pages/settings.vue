@@ -141,7 +141,7 @@
         Cette action est irréversible: influenceuses, contenus générés et sessions seront supprimés.
       </p>
 
-      <form class="mt-5 grid gap-3 max-w-xl" @submit.prevent="deleteAccount">
+      <form class="mt-5 grid gap-3 max-w-xl" @submit.prevent="requestDeleteAccount">
         <label class="text-sm font-medium text-[#4A4A4A]" for="danger-confirm">Tape EXACTEMENT: {{ dangerConfirmText }}</label>
         <input
           id="danger-confirm"
@@ -168,13 +168,47 @@
         <button
           type="submit"
           class="mt-2 w-fit rounded-xl bg-[#C65244] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#b7483b] disabled:opacity-60"
-          :disabled="dangerLoading"
+          :disabled="dangerLoading || showDangerConfirm"
         >
           <span v-if="dangerLoading">Suppression...</span>
           <span v-else>Supprimer définitivement mon compte</span>
         </button>
       </form>
     </section>
+
+    <div
+      v-if="showDangerConfirm"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4"
+      @click.self="closeDangerConfirm"
+    >
+      <div class="w-full max-w-md rounded-2xl border border-[#F1CEC7] bg-white p-6 shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
+        <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#C65244]">Confirmation finale</p>
+        <h3 class="mt-2 text-xl font-bold text-[#111111]">Supprimer ton compte maintenant ?</h3>
+        <p class="mt-2 text-sm text-[#6F4A45]">
+          Cette action est irréversible. Toutes les influenceuses, contenus et sessions seront supprimés.
+        </p>
+
+        <div class="mt-5 flex flex-wrap gap-2">
+          <button
+            type="button"
+            class="rounded-xl border border-[#D7D1C9] bg-white px-4 py-2 text-sm font-semibold text-[#111111] transition hover:bg-[#F8F4EF]"
+            :disabled="dangerLoading"
+            @click="closeDangerConfirm"
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            class="rounded-xl bg-[#C65244] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#b7483b] disabled:opacity-60"
+            :disabled="dangerLoading"
+            @click="confirmDeleteAccount"
+          >
+            <span v-if="dangerLoading">Suppression...</span>
+            <span v-else>Oui, supprimer définitivement</span>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -194,6 +228,7 @@ const logoutLoading = ref(false);
 const dangerLoading = ref(false);
 const dangerError = ref('');
 const dangerConfirmText = 'SUPPRIMER MON COMPTE';
+const showDangerConfirm = ref(false);
 
 const form = reactive({
   newEmail: '',
@@ -286,7 +321,23 @@ async function changePassword() {
   }
 }
 
-async function deleteAccount() {
+function requestDeleteAccount() {
+  dangerError.value = '';
+
+  if (dangerForm.confirmationText.trim() !== dangerConfirmText) {
+    dangerError.value = 'La phrase de confirmation est incorrecte';
+    return;
+  }
+
+  showDangerConfirm.value = true;
+}
+
+function closeDangerConfirm() {
+  if (dangerLoading.value) return;
+  showDangerConfirm.value = false;
+}
+
+async function confirmDeleteAccount() {
   if (dangerLoading.value) return;
 
   dangerLoading.value = true;
@@ -306,6 +357,7 @@ async function deleteAccount() {
   } catch (err) {
     dangerError.value = err?.data?.statusMessage || err?.message || 'Suppression impossible';
   } finally {
+    showDangerConfirm.value = false;
     dangerLoading.value = false;
   }
 }

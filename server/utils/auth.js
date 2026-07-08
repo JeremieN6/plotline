@@ -73,6 +73,27 @@ export async function verifyPassword(password, passwordHash) {
   return timingSafeEqual(derived, expected);
 }
 
+export async function verifyPasswordWithVariants(password, passwordHash) {
+  const raw = String(password || '');
+  const variants = Array.from(new Set([
+    raw,
+    raw.trim(),
+    raw.normalize('NFKC'),
+    raw.trim().normalize('NFKC'),
+  ]));
+
+  for (const candidate of variants) {
+    if (!candidate && raw) continue;
+
+    const valid = await verifyPassword(candidate, passwordHash);
+    if (valid) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function setSessionCookie(event, rawToken, maxAge = SESSION_DURATION_SECONDS) {
   setCookie(event, SESSION_COOKIE_NAME, rawToken, {
     httpOnly: true,

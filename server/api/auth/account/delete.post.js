@@ -1,6 +1,6 @@
 import { createError } from 'h3';
 import { prisma } from '../../../utils/prisma.js';
-import { clearSessionCookie, requireAuthUser, verifyPassword } from '../../../utils/auth.js';
+import { clearSessionCookie, requireAuthUser, verifyPasswordWithVariants } from '../../../utils/auth.js';
 
 const CONFIRMATION_TEXT = 'SUPPRIMER MON COMPTE';
 
@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (user.passwordHash) {
-    const validPassword = await verifyPassword(password, user.passwordHash);
+    const validPassword = await verifyPasswordWithVariants(password, user.passwordHash);
     if (!validPassword) {
       throw createError({ statusCode: 401, statusMessage: 'Mot de passe incorrect' });
     }

@@ -1,6 +1,12 @@
 import { createError } from 'h3';
 import { prisma } from '../../../utils/prisma.js';
-import { hashPassword, requireAuthUser, validatePasswordShape, verifyPassword } from '../../../utils/auth.js';
+import {
+  hashPassword,
+  requireAuthUser,
+  validatePasswordShape,
+  verifyPassword,
+  verifyPasswordWithVariants,
+} from '../../../utils/auth.js';
 
 export default defineEventHandler(async (event) => {
   const authUser = await requireAuthUser(event);
@@ -26,7 +32,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (user.passwordHash) {
-    const validCurrentPassword = await verifyPassword(currentPassword, user.passwordHash);
+    const validCurrentPassword = await verifyPasswordWithVariants(currentPassword, user.passwordHash);
     if (!validCurrentPassword) {
       throw createError({ statusCode: 401, statusMessage: 'Mot de passe actuel incorrect' });
     }

@@ -5,7 +5,7 @@ import {
   hashOpaqueToken,
   normalizeEmail,
   requireAuthUser,
-  verifyPassword,
+  verifyPasswordWithVariants,
 } from '../../../utils/auth.js';
 import { sendMail } from '../../../utils/mailer.js';
 import { buildEmailChangeEmail } from '../../../utils/authEmails.js';
@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
   }
 
   if (currentUser.passwordHash) {
-    const passwordOk = await verifyPassword(password, currentUser.passwordHash);
+    const passwordOk = await verifyPasswordWithVariants(password, currentUser.passwordHash);
     if (!passwordOk) {
       throw createError({ statusCode: 401, statusMessage: 'Mot de passe incorrect' });
     }
