@@ -1,5 +1,5 @@
 // Usage: node scripts/update-email.js ANCIEN_EMAIL NOUVEL_EMAIL
-import('./server/utils/prisma.js').then(async ({ prisma }) => {
+import('../server/utils/prisma.js').then(async ({ prisma }) => {
   const oldEmail = process.argv[2];
   const newEmail = process.argv[3];
 
