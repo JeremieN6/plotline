@@ -42,6 +42,7 @@
 - [x] Refonte dashboard, contenu, calendrier et generation
 - [x] Ajouter la notification de jobs actifs et les routes schedule/active
 - [x] Verifier les routes, types et contrats API touches
+- [x] Lancer une refonte visuelle dashboard style Nuxt template (bento + shell modernise)
 
 ## Fait
 - [x] Initialisation MCP memoire + structure projet
