@@ -26,7 +26,7 @@
           <div>
             <h3 class="fonctionnement-step-title">Tu choisis le type de contenu</h3>
             <p class="fonctionnement-step-body">
-              Feed Pinterest, Feed generatif, Reel Motion Control, ou Story d'ambiance. Tu choisis un mot-cle ou tu
+              Feed Pinterest, Feed generatif, Reel Motion Control, ou Story d'ambiance. Tu choisis un mot-clé ou tu
               laisses Plotline choisir.
             </p>
           </div>
@@ -48,7 +48,7 @@
           <h3 class="persona-example-title">Feed Pinterest</h3>
           <p class="persona-example-priority">Priorite : scene forte + visage coherent.</p>
           <ul class="persona-example-list">
-            <li class="persona-example-item">Scraping image source par niche ou mot-cle.</li>
+            <li class="persona-example-item">Scraping image source par niche ou mot-clé.</li>
             <li class="persona-example-item">Extraction scene via analyse image-to-json.</li>
             <li class="persona-example-item">Regeneration avec ton influenceuse reference.</li>
           </ul>

@@ -289,9 +289,9 @@ const titles = {
 
 const subtitles = {
   1: 'Renseigne les informations de base de ton influenceuse.',
-  2: 'Genere la fiche reference de ton influenceuse a partir d une photo source.',
-  3: 'Verifie la fiche reference avant de finaliser la creation.',
-  4: 'Recapitulatif final avant creation.',
+  2: 'Génère la fiche réference de ton influenceuse à partir d\'une photo source.',
+  3: 'Verifie la fiche référence avant de finaliser la creation.',
+  4: 'Récapitulatif final avant creation.',
 }
 
 const stepTitle = computed(() => titles[step.value])

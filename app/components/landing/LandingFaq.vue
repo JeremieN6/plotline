@@ -26,7 +26,7 @@
         <details class="faq-item">
           <summary class="faq-question">Comment fonctionne le scraping Pinterest ?</summary>
           <p class="faq-answer">
-            Tu choisis un mot-cle, Plotline trouve une image ou video pertinente, analyse la scene, puis la regenere
+            Tu choisis un mot-clé, Plotline trouve une image ou video pertinente, analyse la scene, puis la regenere
             avec ton influenceuse.
           </p>
         </details>

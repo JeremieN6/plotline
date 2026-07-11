@@ -208,18 +208,18 @@
           <p><span class="font-bold">Type:</span> {{ activeSelection?.contentType || '-' }}</p>
           <p><span class="font-bold">Source:</span> {{ activeSelection?.source || '-' }}</p>
           <p><span class="font-bold">Categorie:</span> {{ activeSelection?.category || '-' }}</p>
-          <p><span class="font-bold">Mot-cle affiche:</span> {{ activeSelection?.keywordLabel || '-' }}</p>
+          <p><span class="font-bold">mot-clé affiche:</span> {{ activeSelection?.keywordLabel || '-' }}</p>
           <p><span class="font-bold">Keyword API:</span> {{ activeSelection?.keywordValue || '-' }}</p>
           <p><span class="font-bold">Prompt libre:</span> {{ activeSelection?.prompt || '-' }}</p>
         </div>
 
         <div class="mt-4 rounded-[18px] border border-[#E5E3DF] bg-[#FCFCFB] p-4">
-          <p class="text-sm font-semibold text-gray-800">Payload envoye</p>
+          <p class="text-sm font-semibold text-gray-800">Payload envoyé</p>
           <pre class="mt-2 overflow-x-auto rounded-lg bg-[#111827] p-3 text-xs text-gray-100">{{ payloadPreview }}</pre>
         </div>
 
         <div v-if="lastResult" class="mt-4 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
-          <p class="font-bold">Generation creee</p>
+          <p class="font-bold">Génération créée</p>
           <p class="mt-1">Status: {{ lastResult.status || '-' }}</p>
           <p>Content ID: {{ lastResult.contentId || '-' }}</p>
           <p>Job ID: {{ lastResult.jobId || 'null' }}</p>
@@ -604,8 +604,11 @@ async function submitGeneration() {
 
     pushToast({
       title: 'Generation lancee',
-      message: `Content ID ${response?.contentId || '-'}`,
+      message: `Content ID ${response?.contentId || '-'} · La generation est en cours dans l'onglet Contenu.`,
       tone: 'success',
+      actionLabel: 'Voir dans Contenu',
+      actionHref: '/content',
+      duration: 7000,
     })
   } catch (err) {
     formError.value = err?.data?.statusMessage || err?.message || 'Erreur pendant la generation'

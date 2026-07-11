@@ -77,7 +77,7 @@
           <template v-if="item.status === 'PROCESSING'">
             <div class="absolute inset-0 animate-pulse bg-[#F2EEE8]" />
             <div class="absolute inset-0 flex items-center justify-center">
-              <span class="rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-[#111111] shadow-sm">Génération en cours...</span>
+              <span class="rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-[#111111] shadow-sm">Génération en cours... {{ item._progress }}%</span>
             </div>
           </template>
 
@@ -186,7 +186,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
 const activeInfluencerId = useActiveInfluencer()
 
@@ -203,6 +203,8 @@ const modalMedia = ref(null)
 const modalMediaIsVideo = ref(false)
 const contentItems = ref([])
 const activeRequestId = ref(0)
+const activeJobsByContentId = ref({})
+let activeJobsTimer = null
 
 const { data: influencersData, pending: loadingMeta } = await useFetch('/api/influencers', {
   key: 'plotline-content-influencers',
@@ -238,7 +240,7 @@ watch(
       const statuses = getStatusesForTab(tab)
       const response = await $fetch(`/api/influencers/${influencer.id}/content?statuses=${statuses}`)
       if (activeRequestId.value === requestId) {
-        contentItems.value = (response.contents || []).map((item) => normalizeItem(item))
+        contentItems.value = (response.contents || []).map((item) => normalizeItem(item, activeJobsByContentId.value))
       }
     } catch {
       if (activeRequestId.value === requestId) {
@@ -253,15 +255,53 @@ watch(
   { immediate: true },
 )
 
+onMounted(() => {
+  pollActiveJobsProgress()
+  activeJobsTimer = window.setInterval(pollActiveJobsProgress, 5000)
+})
+
+onBeforeUnmount(() => {
+  if (activeJobsTimer) {
+    window.clearInterval(activeJobsTimer)
+  }
+})
+
 function getStatusesForTab(tab) {
   if (tab === 'ALL') return 'PENDING,PROCESSING,VALIDATED,PUBLISHED,REJECTED,FAILED'
   if (tab === 'PENDING') return 'PENDING,PROCESSING'
   return tab
 }
 
-function normalizeItem(item) {
+async function pollActiveJobsProgress() {
+  try {
+    const jobs = await $fetch('/api/jobs/active')
+    const nextMap = {}
+
+    for (const job of jobs || []) {
+      const contentId = String(job?.id || '').trim()
+      if (!contentId) {
+        continue
+      }
+
+      const rawProgress = typeof job?.progress === 'number' ? job.progress : Number(job?.progress || 0)
+      nextMap[contentId] = Number.isFinite(rawProgress)
+        ? Math.max(0, Math.min(100, Math.round(rawProgress)))
+        : 0
+    }
+
+    activeJobsByContentId.value = nextMap
+    contentItems.value = contentItems.value.map((item) => normalizeItem(item, nextMap))
+  } catch {
+    // Ignore transient polling errors.
+  }
+}
+
+function normalizeItem(item, progressMap = activeJobsByContentId.value) {
   return reactive({
     ...item,
+    _progress: item.status === 'PROCESSING'
+      ? Math.max(0, Math.min(100, Number(progressMap?.[item.id] ?? item._progress ?? 0)))
+      : 100,
     _loading: false,
     _copied: false,
     _imageMissing: false,
