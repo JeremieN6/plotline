@@ -630,7 +630,7 @@ html {
 .persona-callout {
   border-left: 2px solid var(--ember);
   padding-left: 1.5rem;
-  max-width: 640px;
+  /* max-width: 640px; */
 }
 
 .persona-callout-text {

@@ -2,58 +2,62 @@
   <section class="section-faq" id="faq">
     <div class="section-inner">
       <div class="section-header">
-        <h2 class="section-title">Questions <em class="accent-em">frequentes</em></h2>
+        <h2 class="section-title">Questions <em class="accent-em">fréquentes</em></h2>
       </div>
 
       <div class="faq-list">
         <details class="faq-item">
-          <summary class="faq-question">Le visage de mon influenceuse reste vraiment identique d'un post a l'autre ?</summary>
+          <summary class="faq-question">Le visage de ma créatrice virtuelle reste vraiment identique d'un post a l'autre ?</summary>
           <p class="faq-answer">
-            Oui. Tu uploades une image de reference une fois, Plotline l'injecte dans chaque generation Gemini pour
-            garder les memes traits et le meme style.
+            Oui. Tu crée ton image de référence une fois, lors de l'onboarding, Plotline l'injècte dans chaque génération pour
+            garder les mêmes traits et le même style.
           </p>
         </details>
 
         <details class="faq-item">
-          <summary class="faq-question">Est-ce que Plotline respecte les droits d'auteur ?</summary>
+          <summary class="faq-question">Est-ce que Plotline respècte les droits d'auteur ?</summary>
           <p class="faq-answer">
-            Oui. Plotline analyse la composition d'images (lumiere, cadrage, ambiance) via l'IA, mais genere
-            systematiquement une image entierement nouvelle avec ton influenceuse. Aucune image tierce n'est copiee ou
-            modifiee. Chaque visuel produit par Plotline est original et t'appartient.
+            Oui. Plotline analyse la composition d'images (lumiere, cadrage, ambiance) via l'Intelligence Artificielle, mais génère
+            systematiquement une image entièrement nouvelle avec ton persona. Aucune image tierce n'est copiée ou
+            modifiée. Chaque visuel produit par Plotline est original et t'appartient.
           </p>
         </details>
 
         <details class="faq-item">
-          <summary class="faq-question">Comment fonctionne le scraping Pinterest ?</summary>
+          <summary class="faq-question">Comment fonctionne la génération d'inspiration de contenu ?</summary>
           <p class="faq-answer">
-            Tu choisis un mot-clé, Plotline trouve une image ou video pertinente, analyse la scene, puis la regenere
-            avec ton influenceuse.
+            Tu choisis un mot-clé, Plotline trouve une image ou vidéo pertinente, analyse la scene, puis la regénère
+            avec ton ambassadeur.
           </p>
         </details>
 
         <details class="faq-item">
           <summary class="faq-question">C'est quoi le Motion Control pour les Reels ?</summary>
           <p class="faq-answer">
-            Plotline recupere une video Pinterest, extrait la meilleure frame, place ton influenceuse dessus, puis
+            Quand Plotline récupère une vidéo via un mot clé sélectionné, il extrait la meilleure frame, place ton ambassadrice dessus, puis
             applique le mouvement source via Kling AI.
           </p>
         </details>
 
         <details class="faq-item">
-          <summary class="faq-question">Est-ce que ca marche pour TikTok ?</summary>
-          <p class="faq-answer">Oui. La publication TikTok est disponible sur les plans Studio et Agency.</p>
+          <summary class="faq-question">Est-ce que ça marche pour TikTok ?</summary>
+          <p class="faq-answer">
+            Oui. La publication TikTok est disponible sur les plans Studio et Agency. <br>
+            Cependant, on conseille de publier sur Tiktok via l'application mobile car les performances sont meilleures que via l'API. 
+            La plateforme Tiktok récompense les publications faites via l'application mobile avec un reach plus large et un meilleur engagement.
+          </p>
         </details>
 
         <details class="faq-item">
-          <summary class="faq-question">Combien de temps pour creer une influenceuse ?</summary>
+          <summary class="faq-question">Combien de temps pour créer mon influenceuse ?</summary>
           <p class="faq-answer">
-            Moins de 5 minutes: nom, niche, style, photo reference. Tu lances ensuite directement tes generations.
+            Moins de 5 minutes: Photo de base, ce à quoi tu veux que ton influenceuse ressemble, persistance du visage, nom, niche, style. Tu lances ensuite directement tes générations.
           </p>
         </details>
 
         <details class="faq-item">
           <summary class="faq-question">Y a-t-il un essai gratuit ?</summary>
-          <p class="faq-answer">Oui. 3 generations offertes, sans carte bancaire.</p>
+          <p class="faq-answer">Oui. 3 générations offertes, sans carte bancaire.</p>
         </details>
       </div>
     </div>

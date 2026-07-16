@@ -2,12 +2,12 @@
   <section class="section-final-cta">
     <div class="section-inner">
       <div class="final-cta-inner">
-        <h2 class="final-cta-title">Ton influenceuse merite un vrai visage stable.</h2>
+        <h2 class="final-cta-title">Ton influenceuse mérite un vrai visage stable.</h2>
         <p class="final-cta-sub">
-          Rejoins les createurs qui ont arrete de corriger manuellement la coherence visuelle de leurs influenceuses IA.
+          Rejoins les créateurs qui ont arrêté de corriger manuellement la cohérence visuelle de leurs modèle virtuelle.
         </p>
         <a class="cta-primary cta-large" href="#pricing">
-          Essayer gratuitement - 3 generations offertes, sans CB
+          Essayer gratuitement - 3 générations offertes, sans CB
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path
               d="M3 8h10M9 4l4 4-4 4"
@@ -19,7 +19,7 @@
           </svg>
         </a>
         <p class="hero-footnote" style="margin-top: 1rem">
-          3 generations offertes · Pas de carte requise · Instagram & TikTok
+          3 générations offertes · Pas de carte requise · Instagram & TikTok
         </p>
       </div>
     </div>

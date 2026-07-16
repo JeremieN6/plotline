@@ -4,10 +4,10 @@
             <div class="section-header">
                 <span class="section-label">POUR QUI</span>
                 <h2 class="section-title">
-                    Fait pour toi si tu crees ou <em class="accent-em">geres</em> des influenceuses IA.
+                    Fait pour toi si tu crées ou <em class="accent-em">gères</em> des créateurs virtiels.
                 </h2>
                 <p class="section-subtext">
-                    Peu importe le volume ou le nombre de comptes: Plotline garde chaque influenceuse dans son propre
+                    Peu importe le volume ou le nombre de comptes, Plotline garde chaque modèle dans son propre
                     univers.
                 </p>
             </div>
@@ -47,9 +47,9 @@
                                 </svg><span>Instagram</span></span>
                         </div>
                     </div>
-                    <h3 class="use-case-title">Solopreneur createur</h3>
+                    <h3 class="use-case-title">Solopreneur créateur</h3>
                     <p class="use-case-body">
-                        Tu as lance une influenceuse IA et tu veux garder exactement le meme visage sans effort manuel.
+                        Tu as lancé une créatrice digitale et tu veux garder exactement le meme visage sans effort manuel.
                     </p>
                     <span class="use-case-tag">Solopreneur createur</span>
                 </article>
@@ -88,7 +88,7 @@
                                 </svg><span>TikTok</span></span>
                         </div>
                     </div>
-                    <h3 class="use-case-title">Agence multi-influenceuses</h3>
+                    <h3 class="use-case-title">Agence multi-créatrices</h3>
                     <p class="use-case-body">
                         Tu geres plusieurs comptes. Plotline conserve un profil isole par influenceuse: face ref, style,
                         historique.
@@ -106,10 +106,10 @@
                     </div>
                     <h3 class="use-case-title">Createur qui scale</h3>
                     <p class="use-case-body">
-                        Tu publies plusieurs fois par semaine. Plotline automatise scraping, generation et preparation
+                        Tu publies plusieurs fois par semaine. Plotline automatise récupération d'inspirations, génération et préparation à la
                         publication.
                     </p>
-                    <span class="use-case-tag">Createur multi-publication</span>
+                    <span class="use-case-tag">Créateur multi-publication</span>
                 </article>
             </div>
         </div>

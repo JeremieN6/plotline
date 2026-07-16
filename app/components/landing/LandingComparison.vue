@@ -2,13 +2,13 @@
   <section class="section-compare" id="comparatif">
     <div class="section-inner">
       <div class="section-header">
-        <h2 class="section-title">Voyez pourquoi Plotline fait la <em class="accent-em">difference</em>.</h2>
+        <h2 class="section-title">Voyez pourquoi Plotline fait la <em class="accent-em">différence</em>.</h2>
       </div>
       <div class="compare-card">
         <table class="compare-table">
           <thead>
             <tr>
-              <th>Capacites</th>
+              <th>Capacités</th>
               <th>Plotline</th>
               <th>ChatGPT</th>
               <th>Canva IA</th>
@@ -17,46 +17,46 @@
           </thead>
           <tbody>
             <tr>
-              <td>Face consistency automatique</td>
+              <td>Persistance du visage automatique</td>
               <td>✓</td>
               <td>✗</td>
               <td>✗</td>
               <td>✗</td>
             </tr>
             <tr>
-              <td>Scraping Pinterest</td>
+              <td>Génération d'inspiration de contenu</td>
+              <td>✓</td>
+              <td>✗</td>
+              <td>✓</td>
+              <td>✓</td>
+            </tr>
+            <tr>
+              <td>Motion Control • Reels Insta/Tiktok</td>
               <td>✓</td>
               <td>✗</td>
               <td>✗</td>
               <td>✗</td>
             </tr>
             <tr>
-              <td>Motion Control Reels</td>
+              <td>Publication Feed Instagram</td>
               <td>✓</td>
               <td>✗</td>
               <td>✗</td>
               <td>✗</td>
             </tr>
             <tr>
-              <td>Publication Instagram/TikTok</td>
+              <td>Pipeline 100% automatisé</td>
               <td>✓</td>
-              <td>✗</td>
-              <td>✗</td>
-              <td>✗</td>
+              <td>Très technique (via API)</td>
+              <td>Très technique (via API)</td>
+              <td>Très technique (via API)</td>
             </tr>
             <tr>
-              <td>Pipeline 100% automatise</td>
+              <td>Conformité droits d'auteur by design</td>
+              <td>✓</td>
               <td>✓</td>
               <td>✗</td>
-              <td>✗</td>
-              <td>✗</td>
-            </tr>
-            <tr>
-              <td>Conformite droits d'auteur by design</td>
               <td>✓</td>
-              <td>✗</td>
-              <td>✗</td>
-              <td>✗</td>
             </tr>
           </tbody>
         </table>

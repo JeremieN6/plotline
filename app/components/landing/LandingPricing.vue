@@ -3,14 +3,13 @@
         <div class="section-inner">
             <div class="section-header">
                 <span class="section-label">PRICING</span>
-                <h2 class="section-title">La valeur est dans la <em class="accent-em">coherence</em>.</h2>
+                <h2 class="section-title">La valeur est dans la <em class="accent-em">cohérence</em>.</h2>
                 <p class="section-subtext">
-                    Tu paies pour un pipeline automatise: face consistency, scraping Pinterest, Motion Control,
-                    publication
-                    Instagram & TikTok.
+                    Tu paies pour un pipeline automatisé: 1- persistance du visage, 2- récupération d'inspiration de contenu, 3- Motion Control 
+                    4- Publication sur Instagram &/ou TikTok.
                 </p>
                 <p class="pricing-trial-note">
-                    Commence avec 3 generations offertes sur ton influenceuse - sans carte requise.
+                    Commence avec 3 générations offertes sur ton modèle - sans carte requise.
                 </p>
             </div>
 
