@@ -2,11 +2,14 @@
     <section class="section-pricing" id="pricing">
         <div class="section-inner">
             <div class="section-header">
-                <span class="section-label">PRICING</span>
+                <span class="section-label">TARIFS</span>
                 <h2 class="section-title">La valeur est dans la <em class="accent-em">cohérence</em>.</h2>
                 <p class="section-subtext">
-                    Tu paies pour un pipeline automatisé: 1- persistance du visage, 2- récupération d'inspiration de contenu, 3- Motion Control 
-                    4- Publication sur Instagram &/ou TikTok.
+                    Tu paies pour un pipeline automatisé: <br> 
+                    1- persistance du visage <br>
+                    2- récupération d'inspiration de contenu <br>
+                    3- Motion Control <br>
+                    4- Publication sur Instagram et/ou TikTok.
                 </p>
                 <p class="pricing-trial-note">
                     Commence avec 3 générations offertes sur ton modèle - sans carte requise.
@@ -25,7 +28,7 @@
                     </div>
                     <ul class="pricing-features">
                         <li class="pricing-feature"><span class="feature-check">✓</span>1 influenceuse active</li>
-                        <li class="pricing-feature"><span class="feature-check">✓</span>30 generations/mois</li>
+                        <li class="pricing-feature"><span class="feature-check">✓</span>30 générations/mois</li>
                         <li class="pricing-feature"><span class="feature-check">✓</span>Liste de prompts Pro</li>
                         <li class="pricing-feature"><span class="feature-check">✓</span>Validation manuelle du contenu
                         </li>
@@ -47,7 +50,7 @@
                         <li class="pricing-feature"><span class="feature-check feature-check-pro">✓</span>5
                             influenceuses actives</li>
                         <li class="pricing-feature"><span class="feature-check feature-check-pro">✓</span>150
-                            généerations/mois</li>
+                            générations/mois</li>
                         <li class="pricing-feature"><span class="feature-check feature-check-pro">✓</span>Gestion
                             multi-comptes créateurs</li>
                         <li class="pricing-feature"><span class="feature-check feature-check-pro">✓</span>Publication

@@ -2,7 +2,7 @@
     <section class="section-testimonials" id="temoignages">
         <div class="section-inner">
             <div class="section-header">
-                <span class="section-label">TEMOIGNAGES</span>
+                <span class="section-label">TÉMOIGNAGES</span>
                 <h2 class="section-title">
                     Ils ont arrêté de <em class="accent-em">corriger le visage</em> manuellement.
                 </h2>

@@ -7,7 +7,7 @@
           Tu uploades. Tu choisis. <em class="accent-em">Plotline génère.</em>
         </h2>
         <p class="section-subtext">
-          Tu configures ton influenceuse une fois, puis le pipeline gere la production sans casser son identite.
+          Tu configures ton ambassadrice une fois, puis le pipeline gère la production sans casser son identite.
         </p>
       </div>
 
@@ -15,7 +15,7 @@
         <article class="fonctionnement-step">
           <div class="fonctionnement-step-number">01</div>
           <div>
-            <h3 class="fonctionnement-step-title">Tu crées ton influenceuse</h3>
+            <h3 class="fonctionnement-step-title">Tu crées ton persona</h3>
             <p class="fonctionnement-step-body">
               Nom, niche, style. Tu uploades une photo de référence visage. C'est tout.
             </p>
@@ -26,7 +26,7 @@
           <div>
             <h3 class="fonctionnement-step-title">Tu choisis le type de contenu</h3>
             <p class="fonctionnement-step-body">
-              Feed Pinterest, Feed ou Réel Instagram, ou Story Insta plus lègère, story d'ambiance. Tu choisis un mot-clé ou tu
+              Feed Pinterest, Feed ou Réel Instagram, ou Story Insta plus lègère  (paysage, belle vue, ambiance etc.) , story d'ambiance. Tu choisis un mot-clé ou tu
               laisses Plotline choisir.
             </p>
           </div>
@@ -50,15 +50,15 @@
           <ul class="persona-example-list">
             <li class="persona-example-item">Récupération d'image source par niche ou mot-clé.</li>
             <li class="persona-example-item">Extraction de scène via analyse image-to-json.</li>
-            <li class="persona-example-item">Re génération avec ton influenceuse.</li>
+            <li class="persona-example-item">Re-génération avec ton modèle virtuel.</li>
           </ul>
           <p class="persona-example-fit">Idéal pour du volume avec cohérence visuelle.</p>
         </article>
 
         <article class="persona-example-card">
           <p class="persona-example-kicker">Pipeline</p>
-          <h3 class="persona-example-title">Réel Instagram (Motion Control)</h3>
-          <p class="persona-example-priority">Priorite : mouvement + identité stable.</p>
+          <h3 class="persona-example-title">REel Instagram (Motion Control)</h3>
+          <p class="persona-example-priority">Priorité : mouvement + identité stable.</p>
           <ul class="persona-example-list">
             <li class="persona-example-item">Récupération de vidéo avec une frame de la vidéo</li> <!-- avec frame pertinente (first best frame), avec un mot-clé ou une niche -->
             <li class="persona-example-item">Génération avec cohérence visuelle sur la frame.</li>
@@ -70,7 +70,7 @@
 
       <div class="audience-fit-grid">
         <article class="audience-fit-card">
-          <p class="audience-fit-label">Createur d'influenceuse IA</p>
+          <p class="audience-fit-label">Créateur d'influenceuse IA</p>
           <p class="audience-fit-body">
             Tu gardes le même visage post après post sans passer des heures en retouche manuelle.
           </p>
@@ -82,9 +82,9 @@
           </p>
         </article>
         <article class="audience-fit-card">
-          <p class="audience-fit-label">Createur qui scale</p>
+          <p class="audience-fit-label">Créateur qui scale</p>
           <p class="audience-fit-body">
-            Tu produis plusieurs contenus par semaine en gardant un contrôle éditorial simple: valider puis publier.
+            Tu produis plusieurs contenus par semaine, de toi même pour ta personal brand, tout en gardant un contrôle éditorial simple: valider puis publier.
           </p>
         </article>
       </div>

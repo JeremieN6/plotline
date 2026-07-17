@@ -9,7 +9,7 @@
         <a href="#pricing" class="footer-link">Plans</a>
         <a href="#faq" class="footer-link">FAQ</a>
       </div>
-      <p class="footer-copy">© 2026 Plotline. Tous droits réserves.</p>
+      <p class="footer-copy">© 2026 Plotline. Tous droits réservés.</p>
     </div>
   </footer>
 </template>

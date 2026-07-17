@@ -518,7 +518,7 @@ html {
 
 @media (min-width: 900px) {
   .persona-attributes-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .pricing-grid-3 {

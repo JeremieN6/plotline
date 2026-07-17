@@ -104,9 +104,9 @@
                             <span class="platform-badge">Story</span>
                         </div>
                     </div>
-                    <h3 class="use-case-title">Createur qui scale</h3>
+                    <h3 class="use-case-title">Créateur qui scale</h3>
                     <p class="use-case-body">
-                        Tu publies plusieurs fois par semaine. Plotline automatise récupération d'inspirations, génération et préparation à la
+                        Tu produis/publies plusieurs contenus par semaine, de toi même pour ta personal brand, tout en gardant un contrôle éditorial simple. <br> Plotline automatise récupération d'inspirations, génération et préparation à la
                         publication.
                     </p>
                     <span class="use-case-tag">Créateur multi-publication</span>

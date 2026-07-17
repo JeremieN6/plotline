@@ -7,7 +7,7 @@
           Rejoins les créateurs qui ont arrêté de corriger manuellement la cohérence visuelle de leurs modèle virtuelle.
         </p>
         <a class="cta-primary cta-large" href="#pricing">
-          Essayer gratuitement - 3 générations offertes, sans CB
+          Essayer gratuitement • 3 générations offertes - sans CB
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path
               d="M3 8h10M9 4l4 4-4 4"
