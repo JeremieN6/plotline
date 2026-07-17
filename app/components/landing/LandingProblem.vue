@@ -2,7 +2,7 @@
   <section class="section-problem" id="problem">
     <div class="section-inner">
       <div class="section-header">
-        <span class="section-label">LE PROBLME</span>
+        <span class="section-label">LE PROBLÈME</span>
         <h2 class="section-title">
           La dérive visuelle est le <em class="accent-em">cauchemar invisible</em> de tout créateur d'influenceuse IA.
         </h2>

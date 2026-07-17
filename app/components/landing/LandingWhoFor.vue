@@ -2,7 +2,7 @@
     <section class="section-pour-qui" id="pour-qui">
         <div class="section-inner">
             <div class="section-header">
-                <span class="section-label">POUR QUI</span>
+                <span class="section-label">POUR QUI ?</span>
                 <h2 class="section-title">
                     Fait pour toi si tu crées ou <em class="accent-em">gères</em> des créateurs virtiels.
                 </h2>
