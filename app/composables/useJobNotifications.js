@@ -3,7 +3,10 @@ import { watch } from 'vue'
 export function useJobNotifications() {
   const { pushToast } = useUiFeedback()
   const notifiedContentIds = useState('plotline-job-notifications', () => ({}))
+  const POLL_FAST_MS = 15_000
+  const POLL_IDLE_MS = 60_000
   let timerId = null
+  let currentPollInterval = POLL_FAST_MS
   let activeContentIds = new Set()
 
   async function pollJobs() {
@@ -13,7 +16,12 @@ export function useJobNotifications() {
       const disappearedIds = [...activeContentIds].filter((contentId) => !nextActiveIds.has(contentId))
 
       activeContentIds = nextActiveIds
-
+    const targetInterval = nextActiveIds.size > 0 ? POLL_FAST_MS : POLL_IDLE_MS
+    if (targetInterval !== currentPollInterval && timerId) {
+      currentPollInterval = targetInterval
+      window.clearInterval(timerId)
+      timerId = window.setInterval(pollJobs, currentPollInterval)
+    }
       for (const contentId of disappearedIds) {
         if (notifiedContentIds.value?.[contentId]) {
           continue
@@ -51,7 +59,7 @@ export function useJobNotifications() {
 
   onMounted(() => {
     pollJobs()
-    timerId = window.setInterval(pollJobs, 5000)
+    timerId = window.setInterval(pollJobs, POLL_FAST_MS)
   })
 
   onBeforeUnmount(() => {

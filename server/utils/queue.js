@@ -23,8 +23,14 @@ function buildUpstashRedisOptions() {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
     tls: { rejectUnauthorized: false },
-    retryStrategy: (times) => Math.min(times * 50, 2000),
-    reconnectOnError: () => true,
+    retryStrategy: (times) => {
+      if (times > 8) return null;
+      return Math.min(times * 500, 5000);
+    },
+    reconnectOnError: (err) => {
+      const msg = String(err?.message || '').toUpperCase();
+      return msg.includes('ECONNRESET') || msg.includes('ETIMEDOUT') || msg.includes('ECONNREFUSED');
+    },
     lazyConnect: false,
   };
 }

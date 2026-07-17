@@ -202,9 +202,12 @@ const loadingContent = ref(false)
 const modalMedia = ref(null)
 const modalMediaIsVideo = ref(false)
 const contentItems = ref([])
+const POLL_FAST_MS = 15_000
+const POLL_IDLE_MS = 60_000
 const activeRequestId = ref(0)
 const activeJobsByContentId = ref({})
 let activeJobsTimer = null
+let currentPollInterval = POLL_FAST_MS
 
 const { data: influencersData, pending: loadingMeta } = await useFetch('/api/influencers', {
   key: 'plotline-content-influencers',
@@ -257,7 +260,7 @@ watch(
 
 onMounted(() => {
   pollActiveJobsProgress()
-  activeJobsTimer = window.setInterval(pollActiveJobsProgress, 5000)
+  activeJobsTimer = window.setInterval(pollActiveJobsProgress, POLL_FAST_MS)
 })
 
 onBeforeUnmount(() => {
@@ -291,6 +294,13 @@ async function pollActiveJobsProgress() {
 
     activeJobsByContentId.value = nextMap
     contentItems.value = contentItems.value.map((item) => normalizeItem(item, nextMap))
+
+    const targetInterval = Object.keys(nextMap).length > 0 ? POLL_FAST_MS : POLL_IDLE_MS
+    if (targetInterval !== currentPollInterval && activeJobsTimer) {
+      currentPollInterval = targetInterval
+      window.clearInterval(activeJobsTimer)
+      activeJobsTimer = window.setInterval(pollActiveJobsProgress, currentPollInterval)
+    }
   } catch {
     // Ignore transient polling errors.
   }
