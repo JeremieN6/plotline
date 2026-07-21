@@ -23,8 +23,6 @@ async function updateInfluencerFaceRefCompatible(id, data) {
       select: {
         ...LEGACY_FACE_REF_SELECT,
         hairPrompt: true,
-        hairAutoPrompt: true,
-        hairLocked: true,
       }
     });
   } catch (err) {
@@ -55,20 +53,6 @@ module.exports = defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'faceRefPath requis' }));
     }
 
-    let currentInfluencer = null;
-    try {
-      currentInfluencer = await prisma.influencer.findUnique({
-        where: { id },
-        select: {
-          hairPrompt: true,
-          hairAutoPrompt: true,
-          hairLocked: true,
-        },
-      });
-    } catch {
-      currentInfluencer = null;
-    }
-
     const resolveLocalPath = (value) => {
       const rawPath = String(value || '').trim();
       if (path.isAbsolute(rawPath)) return rawPath;
@@ -83,11 +67,7 @@ module.exports = defineEventHandler(async (event) => {
       const hairPrompt = await describeHairFromImageSource(faceRefPath, resolveLocalPath);
       if (hairPrompt) {
         hairPayload = {
-          hairAutoPrompt: hairPrompt,
-          hairPrompt: currentInfluencer?.hairLocked === false && String(currentInfluencer?.hairPrompt || '').trim()
-            ? currentInfluencer.hairPrompt
-            : hairPrompt,
-          hairLocked: typeof currentInfluencer?.hairLocked === 'boolean' ? currentInfluencer.hairLocked : true,
+          hairPrompt,
         };
       }
     } catch {

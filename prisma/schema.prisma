@@ -33,6 +33,13 @@ enum ContentStatus {
   FAILED
 }
 
+enum SilhouetteType {
+  SLIM
+  ATHLETIC
+  CURVY
+  VOLUPTUOUS
+}
+
 model User {
   id           String        @id @default(cuid())
   email        String        @unique
@@ -94,11 +101,10 @@ model Influencer {
   name                 String
   niche                String
   style                String
+  silhouette           SilhouetteType     @default(VOLUPTUOUS)
   faceRefPath          String?
   bodyPrompt           String?
   hairPrompt           String?
-  hairAutoPrompt       String?
-  hairLocked           Boolean            @default(true)
   identityProfile      String             @default("default")
   instagramAccountId   String?
   instagramAccessToken  String?

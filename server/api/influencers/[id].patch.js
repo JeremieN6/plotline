@@ -20,8 +20,8 @@ function buildMissingColumnMessage(payload) {
     return 'La colonne bodyPrompt est absente de la base active. Appliquez la migration add_body_prompt sur Neon puis reessayez.';
   }
 
-  if ('hairPrompt' in payload || 'hairLocked' in payload) {
-    return 'Les colonnes hairPrompt/hairLocked sont absentes de la base active. Appliquez la migration add_hair_profile_fields sur Neon puis reessayez.';
+  if ('silhouette' in payload) {
+    return 'La colonne silhouette est absente de la base active. Appliquez la migration silhouette sur Neon puis reessayez.';
   }
 
   if ('identityProfile' in payload) {
@@ -93,10 +93,9 @@ async function updateInfluencerCompatible(prisma, id, data) {
       data,
       select: {
         ...LEGACY_INFLUENCER_SELECT,
+        silhouette: true,
         bodyPrompt: true,
         hairPrompt: true,
-        hairAutoPrompt: true,
-        hairLocked: true,
         identityProfile: true,
       },
     });
@@ -145,13 +144,20 @@ module.exports = defineEventHandler(async (event) => {
       payload.bodyPrompt = normalizedBodyPrompt ? normalizedBodyPrompt : null;
     }
 
+    if (typeof body?.silhouette === 'string' && body.silhouette.trim()) {
+      const normalizedSilhouette = String(body.silhouette).trim().toUpperCase();
+      const allowedSilhouettes = new Set(['SLIM', 'ATHLETIC', 'CURVY', 'VOLUPTUOUS']);
+
+      if (!allowedSilhouettes.has(normalizedSilhouette)) {
+        return sendError(event, createError({ statusCode: 400, statusMessage: 'silhouette invalide' }));
+      }
+
+      payload.silhouette = normalizedSilhouette;
+    }
+
     if (typeof body?.hairPrompt === 'string') {
       const normalizedHairPrompt = body.hairPrompt.trim();
       payload.hairPrompt = normalizedHairPrompt ? normalizedHairPrompt : null;
-    }
-
-    if (typeof body?.hairLocked === 'boolean') {
-      payload.hairLocked = body.hairLocked;
     }
 
     if (!payload.name || !payload.niche || !payload.style) {
@@ -179,17 +185,6 @@ module.exports = defineEventHandler(async (event) => {
           statusCode: 409,
           statusMessage: buildMissingColumnMessage(payload),
         }));
-      }
-
-      if (isPrismaSchemaDriftError(err) && ('hairPrompt' in payload || 'hairLocked' in payload)) {
-        const legacyPayload = { ...payload };
-        delete legacyPayload.hairPrompt;
-        delete legacyPayload.hairLocked;
-
-        const influencer = await updateInfluencerCompatible(prisma, id, legacyPayload);
-
-        await updateStoredInfluencer(id, influencer);
-        return influencer;
       }
 
       if (isPrismaSchemaDriftError(err)) {

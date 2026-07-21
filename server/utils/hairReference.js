@@ -60,6 +60,11 @@ async function readImageSourceBuffer(imageSource, resolveLocalPath) {
 }
 
 function buildHairPrompt(parsed) {
+  const color = String(parsed?.hair_color || '').trim();
+  if (color) {
+    return `Hair color from reference: ${color}`;
+  }
+
   const explicitPrompt = String(parsed?.hair_prompt || '').trim();
   if (explicitPrompt) {
     return explicitPrompt;
@@ -89,7 +94,7 @@ export async function describeHairFromImageSource(imageSource, resolveLocalPath)
   const prompt = `Analyze this CHARACTER REFERENCE image and extract only hair guidance for image generation.
 Return JSON only:
 {
-  "hair_prompt": "single concise sentence",
+  "hair_prompt": "single concise sentence (optional)",
   "hair_length": "",
   "hair_cut": "",
   "hair_color": "",
@@ -100,6 +105,7 @@ Return JSON only:
 
 Rules:
 - Focus only on visible hair attributes: length, cut, color, texture, part, fringe/bangs.
+- Prioritize hair_color extraction accuracy over every other attribute.
 - Be agnostic to gender and hair length; describe exactly what is visible.
 - Do NOT describe face, skin, age, body or clothing.
 - Keep the result concise and production-ready for an image prompt.`;

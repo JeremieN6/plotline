@@ -30,11 +30,35 @@
 
           <label class="field-label">Style</label>
           <input v-model="form.style" class="input" placeholder="ex : californian blonde, parisian chic" />
+
+          <div class="field-group">
+            <label class="field-label">Silhouette</label>
+            <div class="silhouette-grid">
+              <button
+                v-for="option in silhouetteOptions"
+                :key="option.value"
+                type="button"
+                class="silhouette-card"
+                :class="{ selected: form.silhouette === option.value }"
+                :aria-pressed="form.silhouette === option.value"
+                @click.stop="setSilhouette(option.value)"
+              >
+                <div class="silhouette-head">
+                  <span class="silhouette-emoji">{{ option.emoji }}</span>
+                  <span v-if="form.silhouette === option.value" class="silhouette-selected-mark">✓</span>
+                  <span v-if="option.isDefault" class="silhouette-badge">Par defaut</span>
+                </div>
+                <p class="silhouette-name">{{ option.label }}</p>
+                <p class="silhouette-description">{{ option.description }}</p>
+              </button>
+            </div>
+            <p v-if="step1ValidationMessage" class="step1-hint">{{ step1ValidationMessage }}</p>
+          </div>
         </div>
 
         <div v-if="step === 2" class="step-content">
           <p class="step2-description">
-            L'image de reference fixe le visage de ton influenceuse pour toujours. Toutes tes generations futures
+            L'image de reference fixe le visage de ton influenceuse pour toujours. Toutes tes générations futures
             utiliseront ce visage.
           </p>
 
@@ -72,28 +96,6 @@
 
             <div class="personalization">
               <h3 class="prompt-section-title">Personnalisation</h3>
-
-              <div class="field-group">
-                <label class="field-label">Couleur des cheveux</label>
-                <div class="pill-row">
-                  <button
-                    v-for="option in hairColorOptions"
-                    :key="option"
-                    type="button"
-                    class="pill"
-                    :class="{ selected: personalization.hairColor === option }"
-                    @click="setHairColor(option)"
-                  >
-                    {{ option }}
-                  </button>
-                </div>
-                <input
-                  v-if="personalization.hairColor === 'Autre'"
-                  v-model="personalization.hairColorCustom"
-                  class="input"
-                  placeholder="Precise la couleur des cheveux"
-                />
-              </div>
 
               <div class="field-group">
                 <label class="field-label">Couleur des yeux</label>
@@ -180,6 +182,7 @@
             <div class="recap-row"><strong>Nom :</strong> <span>{{ form.name }}</span></div>
             <div class="recap-row"><strong>Niche :</strong> <span>{{ form.niche }}</span></div>
             <div class="recap-row"><strong>Style :</strong> <span>{{ form.style }}</span></div>
+            <div class="recap-row"><strong>Silhouette :</strong> <span>{{ selectedSilhouetteLabel }}</span></div>
             <div class="recap-row"><strong>Image de reference :</strong> <span>{{ generatedImageDataUrl ? 'Oui' : 'Non' }}</span></div>
           </div>
 
@@ -256,41 +259,70 @@ const form = reactive({
   name: '',
   niche: '',
   style: '',
+  silhouette: 'VOLUPTUOUS',
 })
 
 const personalization = reactive({
-  hairColor: '',
-  hairColorCustom: '',
   eyeColor: '',
   eyeColorCustom: '',
   origin: '',
   traits: '',
 })
 
-const hairColorOptions = ['Blonde', 'Brune', 'Rousse', 'Noire', 'Autre']
+const silhouetteOptions = [
+  {
+    value: 'SLIM',
+    emoji: '🌿',
+    label: 'Mince',
+    description: 'Elancée, minimaliste, éditoriale',
+    isDefault: false,
+  },
+  {
+    value: 'ATHLETIC',
+    emoji: '💪',
+    label: 'Athletique',
+    description: 'Tonique, sportive, fit',
+    isDefault: false,
+  },
+  {
+    value: 'VOLUPTUOUS',
+    emoji: '🔥',
+    label: 'Voluptueuse',
+    description: 'Sablier prononcé, courbes marquées',
+    isDefault: true,
+  },
+  {
+    value: 'CURVY',
+    emoji: '🫧',
+    label: 'Harmonieuse',
+    description: 'Courbes douces, taille dessinée, silhouette plus équilibrée',
+    isDefault: false,
+  },
+]
+
 const eyeColorOptions = ['Bleus', 'Verts', 'Marrons', 'Noisette', 'Noirs', 'Autre']
 
 const basePrompt =
-  'Create a professional character reference sheet of this exact character. Feature perfect character consistency and exact 1:1 likeness of the uploaded reference across all 3 panels. The image must be a vertical composite sheet divided into three equal horizontal rows. All panels prominently display the character on a pure white (#FFFFFF) background. The sheet must contain 3 distinct close-ups: Front View, 45-Degree Angle, Side Profile. The final image must be a true-to-life photography capturing real skin pores, fine lines, natural color variation, and authentic texture. Professional portrait photography with organic depth of field, preserving all natural human characteristics without digital smoothing or enhancement. 4K quality. No duplication of identical panels and no inconsistent features.'
+  'Create a professional character reference sheet of this exact character. Feature perfect character consistency and exact 1:1 likeness of the uploaded reference across all 3 panels. The image must be a vertical composite sheet divided into three equal horizontal rows. All panels prominently display the character on a pure white (#FFFFFF) background. The sheet must contain 3 distinct close-ups: Front View, 45-Degree Angle, Side Profile, with neutral face expression. The final image must be a true-to-life photography capturing real skin pores, fine lines, natural color variation, neutral expression, and authentic texture. Professional portrait photography with organic depth of field, preserving all natural human characteristics without digital smoothing or enhancement. 4K quality. No duplication of identical panels and no inconsistent features.'
 
 const stepItems = [
-  { id: 1, label: 'Identite' },
-  { id: 2, label: 'Image ref' },
+  { id: 1, label: 'Identité' },
+  { id: 2, label: 'Cohérence faciale' },
   { id: 3, label: 'Validation' },
   { id: 4, label: 'Confirmation' },
 ]
 
 const titles = {
-  1: 'Identite',
-  2: 'Creation de l image de reference',
-  3: 'Validation de l image de reference',
+  1: 'Identité',
+  2: 'Création de l\'image de référence',
+  3: 'Validation de l\'image de référence',
   4: 'Confirmation',
 }
 
 const subtitles = {
   1: 'Renseigne les informations de base de ton influenceuse.',
-  2: 'Génère la fiche réference de ton influenceuse à partir d\'une photo source.',
-  3: 'Verifie la fiche référence avant de finaliser la creation.',
+  2: 'Génère la fiche référence de ton influenceuse à partir d\'une photo source.',
+  3: 'Vérifie la fiche référence avant de finaliser la creation.',
   4: 'Récapitulatif final avant creation.',
 }
 
@@ -306,11 +338,15 @@ const canGoFromStep1 = computed(() => {
   return Boolean(form.name.trim() && form.niche.trim() && form.style.trim())
 })
 
-const resolvedHairColor = computed(() => {
-  if (personalization.hairColor === 'Autre') {
-    return personalization.hairColorCustom.trim()
-  }
-  return personalization.hairColor.trim()
+const step1ValidationMessage = computed(() => {
+  if (canGoFromStep1.value) return ''
+
+  const missing = []
+  if (!form.name.trim()) missing.push('Nom')
+  if (!form.niche.trim()) missing.push('Niche')
+  if (!form.style.trim()) missing.push('Style')
+
+  return missing.length ? `Complète: ${missing.join(', ')}.` : ''
 })
 
 const resolvedEyeColor = computed(() => {
@@ -320,12 +356,13 @@ const resolvedEyeColor = computed(() => {
   return personalization.eyeColor.trim()
 })
 
+const selectedSilhouetteLabel = computed(() => {
+  const found = silhouetteOptions.find((item) => item.value === form.silhouette)
+  return found?.label || 'Voluptueuse'
+})
+
 const dynamicTraitsLine = computed(() => {
   const chunks = []
-
-  if (resolvedHairColor.value) {
-    chunks.push(`Le personnage aura les cheveux ${resolvedHairColor.value}`)
-  }
 
   if (resolvedEyeColor.value) {
     chunks.push(`${resolvedEyeColor.value} eyes`)
@@ -432,11 +469,8 @@ async function onDrop(event) {
   await setFile(file)
 }
 
-function setHairColor(option) {
-  personalization.hairColor = option
-  if (option !== 'Autre') {
-    personalization.hairColorCustom = ''
-  }
+function setSilhouette(value) {
+  form.silhouette = value
 }
 
 function setEyeColor(option) {
@@ -513,6 +547,7 @@ async function submit() {
         name: form.name.trim(),
         niche: form.niche.trim(),
         style: form.style.trim(),
+        silhouette: form.silhouette,
       },
     })
 
@@ -544,36 +579,56 @@ onBeforeUnmount(() => {
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
 
-:root {
-  --bg: #fafaf8;
-  --card: #ffffff;
-  --text: #111111;
-  --muted: #666666;
-  --accent: #e8873a;
-  --border: #e5e3df;
-  --radius: 12px;
-}
-
 .page {
-  min-height: 100vh;
-  background: var(--bg);
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  --card: #19110a;
+  --text: #fff4e6;
+  --muted: #f3cdb0;
+  --accent: #e8873a;
+  --border: rgba(244, 205, 169, 0.22);
+  --radius: 28px;
+  background: rgba(14, 11, 7, 0.55);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
   color: var(--text);
-  padding: 32px;
+  padding: 20px;
   box-sizing: border-box;
+  overflow-y: auto;
 }
 
 .card {
+  position: relative;
+  z-index: 1;
+  margin: auto;
+  overflow: hidden;
   background: var(--card);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(244, 205, 169, 0.4);
   border-radius: var(--radius);
   width: 100%;
-  max-width: 680px;
-  padding: 24px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  max-width: 760px;
+  padding: 28px;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.45);
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 18% 15%, rgba(232, 135, 58, 0.28), transparent 48%),
+    radial-gradient(circle at 86% 4%, rgba(246, 177, 102, 0.18), transparent 38%);
+  pointer-events: none;
+}
+
+.card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .progress-wrap {
@@ -588,7 +643,7 @@ onBeforeUnmount(() => {
   right: 16px;
   top: 18px;
   height: 8px;
-  background: var(--border);
+  background: rgba(255, 244, 230, 0.08);
   border-radius: 999px;
 }
 
@@ -597,7 +652,8 @@ onBeforeUnmount(() => {
   left: 16px;
   top: 18px;
   height: 8px;
-  background: linear-gradient(90deg, var(--accent), #f6a16a);
+  background: linear-gradient(90deg, #ff8d3b 0%, #e8873a 55%, #d46f26 100%);
+  box-shadow: 0 0 0 1px rgba(232, 135, 58, 0.26), 0 4px 16px rgba(232, 135, 58, 0.32);
   border-radius: 999px;
   transition: width 0.3s ease;
 }
@@ -622,18 +678,18 @@ onBeforeUnmount(() => {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: var(--card);
-  border: 1px solid var(--border);
+  background: rgba(18, 12, 7, 0.95);
+  border: 1px solid rgba(244, 205, 169, 0.16);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #666666;
+  color: #f1cfb3;
   font-weight: 600;
 }
 
 .step-label {
   font-size: 12px;
-  color: var(--muted);
+  color: rgba(243, 205, 176, 0.82);
   font-weight: 600;
 }
 
@@ -641,7 +697,7 @@ onBeforeUnmount(() => {
   background: var(--accent);
   color: #ffffff;
   border-color: var(--accent);
-  box-shadow: 0 6px 14px rgba(232, 135, 58, 0.18);
+  box-shadow: 0 8px 18px rgba(232, 135, 58, 0.25);
 }
 
 .step-bubble.active .step-label {
@@ -657,7 +713,7 @@ onBeforeUnmount(() => {
 
 .subtitle {
   margin: 0 0 16px;
-  color: var(--muted);
+  color: rgba(243, 205, 176, 0.82);
   font-size: 14px;
 }
 
@@ -692,26 +748,27 @@ onBeforeUnmount(() => {
 .input {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(244, 205, 169, 0.16);
   border-radius: 8px;
-  background: transparent;
+  background: rgba(10, 7, 5, 0.9);
   color: var(--text);
   box-sizing: border-box;
   font-size: 14px;
 }
 
 .dropzone {
-  border: 2px dashed var(--border);
+  border: 1px dashed rgba(244, 205, 169, 0.28);
   border-radius: 12px;
   padding: 22px;
   text-align: center;
-  background: #fff;
-  transition: border-color 0.2s ease, background 0.2s ease;
+  background: rgba(12, 8, 5, 0.82);
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
 }
 
 .dropzone.dragging {
   border-color: var(--accent);
-  background: #fff8f3;
+  background: rgba(232, 135, 58, 0.1);
+  transform: translateY(-1px);
 }
 
 .dropzone.invalid {
@@ -725,7 +782,7 @@ onBeforeUnmount(() => {
 
 .drop-subtitle {
   margin: 8px 0;
-  color: var(--muted);
+  color: rgba(243, 205, 176, 0.76);
 }
 
 .hidden-input {
@@ -737,7 +794,7 @@ onBeforeUnmount(() => {
   height: 200px;
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(244, 205, 169, 0.16);
 }
 
 .source-preview {
@@ -748,14 +805,15 @@ onBeforeUnmount(() => {
 }
 
 .prompt-editor {
-  border: 1px solid var(--border);
+  border: 1px solid rgba(244, 205, 169, 0.16);
   border-radius: 12px;
   overflow: hidden;
+  background: rgba(12, 8, 5, 0.82);
 }
 
 .base-prompt {
-  background: #f5f5f5;
-  color: #aaaaaa;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 244, 230, 0.55);
   padding: 12px;
   font-size: 13px;
   line-height: 1.5;
@@ -796,14 +854,97 @@ onBeforeUnmount(() => {
   color: #ffffff;
 }
 
-.dynamic-line {
-  border: 1px dashed var(--border);
-  border-radius: 10px;
-  background: #fffdfa;
+.silhouette-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.silhouette-card {
+  position: relative;
+  text-align: left;
+  border: 1px solid rgba(244, 205, 169, 0.16);
+  border-radius: 12px;
+  background: rgba(12, 8, 5, 0.88);
   padding: 10px;
-  color: #7a4a24;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.silhouette-card:hover {
+  border-color: rgba(232, 135, 58, 0.45);
+  transform: translateY(-1px);
+}
+
+.silhouette-card.selected {
+  border-color: #ff9a57;
+  box-shadow: 0 0 0 1px rgba(255, 154, 87, 0.42), 0 12px 26px rgba(232, 135, 58, 0.28);
+  background: rgba(232, 135, 58, 0.1);
+}
+
+.silhouette-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.silhouette-emoji {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.silhouette-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #f6cfb0;
+  border: 1px solid rgba(244, 205, 169, 0.24);
+  background: rgba(232, 135, 58, 0.16);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.silhouette-selected-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(255, 153, 85, 0.24);
+  border: 1px solid rgba(255, 170, 109, 0.65);
+  color: #ffd9bd;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.silhouette-name {
+  margin: 8px 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff4e6;
+}
+
+.silhouette-description {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(243, 205, 176, 0.76);
+  line-height: 1.4;
+}
+
+.dynamic-line {
+  border: 1px dashed rgba(244, 205, 169, 0.18);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 10px;
+  color: #f7d2b4;
   font-size: 13px;
   line-height: 1.45;
+}
+
+.step1-hint {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #f6bf97;
 }
 
 .generated-preview-wrap {
@@ -815,7 +956,7 @@ onBeforeUnmount(() => {
   width: 100%;
   max-width: 400px;
   border-radius: 12px;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(244, 205, 169, 0.16);
   display: block;
 }
 
@@ -827,8 +968,8 @@ onBeforeUnmount(() => {
 }
 
 .recap {
-  background: #fbfbfb;
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(244, 205, 169, 0.16);
   border-radius: 8px;
   padding: 12px;
 }
@@ -867,7 +1008,7 @@ onBeforeUnmount(() => {
 .btn {
   padding: 10px 16px;
   border-radius: 8px;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(244, 205, 169, 0.18);
   background: transparent;
   cursor: pointer;
   font-weight: 600;
@@ -875,12 +1016,12 @@ onBeforeUnmount(() => {
 }
 
 .btn.secondary {
-  background: #fff;
+  background: rgba(42, 28, 18, 0.9);
   color: var(--text);
 }
 
 .btn.primary {
-  background: var(--accent);
+  background: linear-gradient(180deg, #e8873a 0%, #d46f26 100%);
   color: #ffffff;
   border-color: var(--accent);
 }
@@ -888,7 +1029,7 @@ onBeforeUnmount(() => {
 .btn.outline-orange {
   border-color: var(--accent);
   color: var(--accent);
-  background: #fff;
+  background: rgba(232, 135, 58, 0.08);
 }
 
 .btn.full-width {
@@ -919,7 +1060,7 @@ onBeforeUnmount(() => {
 }
 
 .error {
-  color: #b00020;
+  color: #ff8e8e;
   font-size: 14px;
 }
 
@@ -944,6 +1085,10 @@ onBeforeUnmount(() => {
 
   .step3-actions {
     flex-direction: column;
+  }
+
+  .silhouette-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

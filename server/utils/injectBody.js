@@ -1,4 +1,4 @@
-import { COMMON_BODY_TEMPLATE, INFLUENCER_IDENTITY_PROFILES } from './promptTemplates.js';
+import { INFLUENCER_IDENTITY_PROFILES } from './promptTemplates.js';
 
 const BODY_CUE_WORDS = [
   'slim',
@@ -52,10 +52,7 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function replaceTopGarmentInBody(bodyTemplate, topGarment) {
-  const template = JSON.stringify(bodyTemplate);
-  return JSON.parse(template.split('{top_garment}').join(topGarment));
-}
+const SILHOUETTE_TYPES = new Set(['SLIM', 'ATHLETIC', 'CURVY', 'VOLUPTUOUS']);
 
 function normalizeKey(value) {
   return String(value || '')
@@ -65,26 +62,73 @@ function normalizeKey(value) {
     .trim();
 }
 
-function appendUniqueNegativeConstraints(sceneJson, constraints) {
-  if (!Array.isArray(constraints) || constraints.length === 0) {
-    return;
+function normalizeSilhouetteType(value) {
+  const normalized = String(value || '').trim().toUpperCase();
+  if (SILHOUETTE_TYPES.has(normalized)) {
+    return normalized;
+  }
+  return 'VOLUPTUOUS';
+}
+
+export function getBodyBlock(silhouette = 'VOLUPTUOUS', topGarment = 'top garment') {
+  const safeTopGarment = String(topGarment || 'top garment').trim() || 'top garment';
+  const resolvedSilhouette = normalizeSilhouetteType(silhouette);
+
+  if (resolvedSilhouette === 'SLIM') {
+    return {
+      physique: 'Slender and lean build, minimal curves, small bust (A-B cup), narrow waist and hips, long slim legs. Editorial and minimalist aesthetic.',
+      anatomy: {
+        shoulders: 'Slim, proportional shoulders.',
+        waist: 'Narrow waist, clean lines.',
+        hips: 'Narrow hips, subtle curves.',
+        breasts: `Small bust (A-B cup), natural fit in the ${safeTopGarment}.`,
+        waist_to_hip_ratio: 'Subtle waist definition.',
+      },
+    };
   }
 
-  if (!Array.isArray(sceneJson.negative_constraints)) {
-    sceneJson.negative_constraints = [];
+  if (resolvedSilhouette === 'ATHLETIC') {
+    return {
+      physique: 'Athletic and toned build, defined muscles without bulk, moderate bust (B-C cup), narrow waist, firm glutes, long toned legs. Fit and active aesthetic.',
+      anatomy: {
+        shoulders: 'Athletic shoulders, defined and proportional.',
+        waist: 'Narrow athletic waist.',
+        hips: 'Balanced hips with firm glutes.',
+        breasts: `Moderate bust (B-C cup), natural support in the ${safeTopGarment}.`,
+        waist_to_hip_ratio: 'Athletic taper with balanced proportions.',
+      },
+    };
   }
 
-  for (const constraint of constraints) {
-    const normalized = String(constraint || '').trim();
-    if (!normalized) continue;
-    if (!sceneJson.negative_constraints.includes(normalized)) {
-      sceneJson.negative_constraints.push(normalized);
-    }
+  if (resolvedSilhouette === 'CURVY') {
+    return {
+      physique: 'Full figured with natural curves, soft hourglass shape, moderate bust (C-cup), defined waist, rounded hips and glutes. Feminine and natural.',
+      anatomy: {
+        shoulders: 'Soft, proportional shoulders.',
+        waist: 'Defined feminine waist.',
+        hips: 'Rounded hips and glutes.',
+        breasts: `Moderate bust (C-cup), natural fullness in the ${safeTopGarment}.`,
+        waist_to_hip_ratio: 'Soft hourglass.',
+      },
+    };
   }
+
+  return {
+    physique: `Voluptuous hourglass figure, large bust (DD-cup) filling the ${safeTopGarment}, narrow defined waist, wide hips, and rounded glutes.`,
+    anatomy: {
+      shoulders: 'Defined, proportional.',
+      waist: 'Narrow, defined waist.',
+      hips: 'Wide hips with rounded glutes.',
+      breasts: `Large, very full bust (DD-cup) with visible cleavage shaping the ${safeTopGarment}.`,
+      waist_to_hip_ratio: 'Pronounced hourglass.',
+    },
+  };
 }
 
 function buildDefaultBodyInstruction(bodyTemplate) {
-  const source = bodyTemplate && typeof bodyTemplate === 'object' ? bodyTemplate : COMMON_BODY_TEMPLATE;
+  const source = bodyTemplate && typeof bodyTemplate === 'object'
+    ? bodyTemplate
+    : getBodyBlock('VOLUPTUOUS', 'top garment');
   const fragments = [
     source?.physique,
     source?.anatomy?.waist,
@@ -98,26 +142,37 @@ function buildDefaultBodyInstruction(bodyTemplate) {
   return fragments.join(' ');
 }
 
-function buildHairNegativeConstraints(hairInstruction) {
+function extractHairToneConstraint(hairInstruction) {
   const normalized = normalizeKey(hairInstruction);
   if (!normalized) {
-    return [];
+    return '';
   }
 
-  const constraints = [];
-  const mentionsShortLength = normalized.includes('short')
-    || normalized.includes('bob')
-    || normalized.includes('shoulder')
-    || normalized.includes('above shoulders')
-    || normalized.includes('collarbone');
+  const colorTokens = [
+    'black',
+    'dark brown',
+    'brown',
+    'light brown',
+    'blonde',
+    'dark blonde',
+    'platinum blonde',
+    'auburn',
+    'red',
+    'ginger',
+    'silver',
+    'grey',
+    'gray',
+    'white',
+    'brunette',
+  ];
 
-  if (mentionsShortLength) {
-    constraints.push('no long hair');
-    constraints.push('hair does not extend below the shoulders');
-    constraints.push('no waist-length hair');
+  for (const token of colorTokens) {
+    if (normalized.includes(token)) {
+      return token;
+    }
   }
 
-  return constraints;
+  return '';
 }
 
 function stripBodyCues(text) {
@@ -189,7 +244,10 @@ export function sanitizePromptForSafety(prompt) {
   return String(prompt ?? '');
 }
 
-export function injectBody(sceneJson, options = {}) {
+export function injectBody(sceneJson, silhouetteOrOptions = {}, maybeOptions = {}) {
+  const options = typeof silhouetteOrOptions === 'string'
+    ? { ...maybeOptions, silhouette: silhouetteOrOptions }
+    : (silhouetteOrOptions && typeof silhouetteOrOptions === 'object' ? silhouetteOrOptions : {});
   const enriched = deepStripBodyCues(clone(sceneJson ?? {}));
 
   let topGarment = 'top garment';
@@ -215,7 +273,7 @@ export function injectBody(sceneJson, options = {}) {
     enriched.subject = {};
   }
 
-  const fallbackBody = replaceTopGarmentInBody(COMMON_BODY_TEMPLATE, topGarment);
+  const fallbackBody = getBodyBlock(options.silhouette, topGarment);
   const customBodyPrompt = String(options.bodyPrompt || '').trim();
   const finalBodyInstruction = customBodyPrompt || buildDefaultBodyInstruction(fallbackBody);
 
@@ -238,21 +296,19 @@ export function injectBody(sceneJson, options = {}) {
   }
 
   const hairPrompt = String(options.hairPrompt || '').trim();
-  const hairAutoPrompt = String(options.hairAutoPrompt || '').trim();
-  const hairLocked = options.hairLocked !== false;
-  const finalHairInstruction = hairLocked ? (hairAutoPrompt || hairPrompt) : (hairPrompt || hairAutoPrompt);
+  const hairTone = extractHairToneConstraint(hairPrompt);
 
-  if (finalHairInstruction) {
+  if (hairPrompt) {
+    const finalHairInstruction = hairTone
+      ? `Preserve hair color from reference image (${hairTone}). Haircut, length, and styling must follow the target scene image.`
+      : 'Preserve hair color from reference image. Haircut, length, and styling must follow the target scene image.';
+
     enriched.subject.hair = {
       description: finalHairInstruction,
       custom_instruction: finalHairInstruction,
-      auto_instruction: hairAutoPrompt || hairPrompt,
-      manual_instruction: hairPrompt,
       final_instruction: finalHairInstruction,
-      locked: hairLocked,
+      reference_instruction: hairPrompt,
     };
-
-    appendUniqueNegativeConstraints(enriched, buildHairNegativeConstraints(finalHairInstruction));
   }
 
   return enriched;

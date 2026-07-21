@@ -4,11 +4,10 @@ const REQUIRED_INFLUENCER_COLUMNS = [
   'name',
   'niche',
   'style',
+  'silhouette',
   'faceRefPath',
   'bodyPrompt',
   'hairPrompt',
-  'hairAutoPrompt',
-  'hairLocked',
   'identityProfile',
   'createdAt',
 ];

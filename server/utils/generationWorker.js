@@ -104,19 +104,8 @@ function buildMotionPrompt(sceneJson) {
 }
 
 async function resolveHairPromptFromInfluencer(influencer) {
-  const hairLocked = influencer?.hairLocked !== false;
   const hairPrompt = String(influencer?.hairPrompt || '').trim();
-  const hairAutoPrompt = String(influencer?.hairAutoPrompt || '').trim();
-
-  if (!hairLocked && hairPrompt) {
-    return hairPrompt;
-  }
-
-  if (hairLocked && hairAutoPrompt) {
-    return hairAutoPrompt;
-  }
-
-  if (hairLocked && hairPrompt) {
+  if (hairPrompt) {
     return hairPrompt;
   }
 
@@ -223,8 +212,6 @@ async function runReelWorkflow({
   anthropicApiKey,
   bodyPrompt,
   hairPrompt,
-  hairAutoPrompt,
-  hairLocked,
   keyword,
   tagCategory,
   faceRefMime,
@@ -307,12 +294,11 @@ async function runReelWorkflow({
     }
 
     const sceneJson = injectBody(await imageToJson(framePath), {
+      silhouette: influencer.silhouette,
       identityProfile: influencer.identityProfile,
       influencerName: influencer.name,
       bodyPrompt,
       hairPrompt,
-      hairAutoPrompt,
-      hairLocked,
     });
 
     const prompt = PROMPT_JSON_TO_PRO_IMAGE.replace('{scene_json}', JSON.stringify(sceneJson, null, 2));
@@ -682,11 +668,10 @@ async function findInfluencerForGeneration(prisma, influencerId) {
       select: {
         id: true,
         name: true,
+        silhouette: true,
         faceRefPath: true,
         bodyPrompt: true,
         hairPrompt: true,
-        hairAutoPrompt: true,
-        hairLocked: true,
         identityProfile: true,
       },
     });
@@ -707,10 +692,9 @@ async function findInfluencerForGeneration(prisma, influencerId) {
     if (!legacy) return legacy;
     return {
       ...legacy,
+      silhouette: 'VOLUPTUOUS',
       bodyPrompt: null,
       hairPrompt: null,
-      hairAutoPrompt: null,
-      hairLocked: true,
       identityProfile: 'default',
     };
   }
@@ -793,8 +777,6 @@ export async function processGenerationJob(jobData, options = {}) {
     const { format, ratio, contentType: normalizedContentType } = resolveFormatAndRatio(contentType);
     const bodyPrompt = await resolveBodyPromptFromInfluencer(influencer);
     const hairPrompt = await resolveHairPromptFromInfluencer(influencer);
-    const hairLocked = influencer?.hairLocked !== false;
-    const hairAutoPrompt = String(influencer?.hairAutoPrompt || '').trim() || hairPrompt;
     const anthropicApiKey = process.env.ANTHROPIC_API_KEY || process.env.anthropicApiKey;
 
     if (normalizedContentType === 'story') {
@@ -846,8 +828,6 @@ export async function processGenerationJob(jobData, options = {}) {
         anthropicApiKey,
         bodyPrompt,
         hairPrompt,
-        hairAutoPrompt,
-        hairLocked,
         keyword,
         tagCategory,
         faceRefMime,
@@ -870,13 +850,11 @@ export async function processGenerationJob(jobData, options = {}) {
 
       try {
         const sceneJson = await imageToJson(scrapedImagePath);
-        const enrichedSceneJson = injectBody(sceneJson, {
+        const enrichedSceneJson = injectBody(sceneJson, influencer.silhouette, {
           identityProfile: influencer.identityProfile,
           influencerName: influencer.name,
           bodyPrompt,
           hairPrompt,
-          hairAutoPrompt,
-          hairLocked,
         });
 
         prompt = PROMPT_JSON_TO_PRO_IMAGE.replace('{scene_json}', JSON.stringify(enrichedSceneJson, null, 2));
@@ -932,12 +910,11 @@ export async function processGenerationJob(jobData, options = {}) {
           mood: 'authentic, confident, lifestyle',
         },
         {
+          silhouette: influencer.silhouette,
           identityProfile: influencer.identityProfile,
           influencerName: influencer.name,
           bodyPrompt,
           hairPrompt,
-          hairAutoPrompt,
-          hairLocked,
         },
       );
 
@@ -963,13 +940,11 @@ export async function processGenerationJob(jobData, options = {}) {
       sceneDescriptionConcept = concept;
 
       const sceneJsonText = buildGenerationPrompt(concept, normalizedContentType, ratio);
-      const sceneJson = injectBody(JSON.parse(sceneJsonText), {
+      const sceneJson = injectBody(JSON.parse(sceneJsonText), influencer.silhouette, {
         identityProfile: influencer.identityProfile,
         influencerName: influencer.name,
         bodyPrompt,
         hairPrompt,
-        hairAutoPrompt,
-        hairLocked,
       });
       prompt = PROMPT_JSON_TO_IMAGE.replace('{scene_json}', JSON.stringify(sceneJson, null, 2));
 

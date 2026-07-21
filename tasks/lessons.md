@@ -19,6 +19,12 @@
 
 <!-- Les entrees seront ajoutees ici au fil du temps -->
 
+### 2026-07-20 Face ref Gemini renvoie parfois zero part
+**Probleme** : La creation d'une influenceuse pouvait echouer avec `Erreur generation face ref: Gemini returned no parts. finishReason=unknown`.
+**Cause racine** : Le endpoint `server/api/generate/face-ref.post.js` transformait un candidate vide en erreur fatale sans retry ni fallback de prompt, alors que Gemini peut parfois renvoyer une reponse sans `parts` sur ce flux preview.
+**Solution** : Retry une fois avec un prompt nettoye, remonter un statut metier explicite quand Gemini ne renvoie toujours pas d'image exploitable, et garder un message d'erreur plus precis pour l'UI.
+**Regle** : Sur les endpoints image Gemini, tout retour `parts=[]` doit avoir un fallback cible avant de devenir un 500 generic.
+
 ### 2026-07-08 Routes auth publiques bloquees par middleware
 **Probleme** : Le lien mot de passe oublie semblait ne rien faire en prod; l URL devenait `/auth/login?redirect=/auth/forgot-password`.
 **Cause racine** : Le middleware auth ne listait comme publiques que `/`, `/auth/login` et `/auth/signup`, donc les pages `forgot-password`, `reset-password` et `confirm-email-change` etaient traitees comme privees.

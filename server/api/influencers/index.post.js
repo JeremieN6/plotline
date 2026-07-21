@@ -15,9 +15,44 @@ function isPrismaSchemaDriftError(err) {
     || message.includes('unknown field');
 }
 
-function buildMissingColumnMessage(body) {
+function getMissingColumnFromError(err) {
+  const fromMeta = String(err?.meta?.column || '').trim();
+  if (fromMeta) return fromMeta;
+
+  const message = String(err?.message || '');
+  const match = message.match(/column\s+["'`]?([^"'`\s.]+)["'`]?\s+does not exist/i);
+  return match?.[1] ? String(match[1]).trim() : '';
+}
+
+function buildMissingColumnMessage(body, err) {
+  const missingColumn = getMissingColumnFromError(err).toLowerCase();
+
+  if (missingColumn.includes('silhouette')) {
+    return 'La colonne silhouette est absente de la base active. Appliquez la migration silhouette sur Neon puis reessayez.';
+  }
+
+  if (missingColumn.includes('bodyprompt')) {
+    return 'La colonne bodyPrompt est absente de la base active. Appliquez la migration add_body_prompt sur Neon puis reessayez.';
+  }
+
+  if (missingColumn.includes('identityprofile')) {
+    return 'La colonne identityProfile est absente de la base active. Appliquez la migration add_identity_profile sur Neon puis reessayez.';
+  }
+
+  if (missingColumn.includes('plan') || missingColumn.includes('password') || missingColumn.includes('email')) {
+    return `Le schema de la table User semble incomplet (${missingColumn}). Appliquez les migrations auth sur la base connectee (DATABASE_URL) puis reessayez.`;
+  }
+
   if (typeof body?.bodyPrompt === 'string') {
     return 'La colonne bodyPrompt est absente de la base active. Appliquez la migration add_body_prompt sur Neon puis reessayez.';
+  }
+
+  if (typeof body?.silhouette === 'string') {
+    return 'La colonne silhouette est absente de la base active. Appliquez la migration silhouette sur Neon puis reessayez.';
+  }
+
+  if (missingColumn) {
+    return `Le schema Prisma local ne correspond pas a la base active (colonne manquante: ${missingColumn}). Appliquez les migrations manquantes sur Neon puis reessayez.`;
   }
 
   return 'Le schema Prisma local ne correspond pas a la base active. Appliquez les migrations manquantes sur Neon puis reessayez.';
@@ -43,10 +78,9 @@ async function createInfluencerCompatible(prisma, data) {
       data,
       select: {
         ...LEGACY_INFLUENCER_SELECT,
+        silhouette: true,
         bodyPrompt: true,
         hairPrompt: true,
-        hairAutoPrompt: true,
-        hairLocked: true,
         identityProfile: true,
       },
     });
@@ -74,11 +108,10 @@ function createOfflineInfluencer({ userId, name, niche, style }) {
     name,
     niche,
     style,
+    silhouette: 'VOLUPTUOUS',
     faceRefPath: null,
     bodyPrompt: null,
     hairPrompt: null,
-    hairAutoPrompt: null,
-    hairLocked: true,
     identityProfile: 'default',
     instagramAccountId: null,
     instagramAccessToken: null,
@@ -126,11 +159,17 @@ module.exports = defineEventHandler(async (event) => {
     const userEmail = String(user.email || `${userId}@plotline.local`).toLowerCase();
     const { normalizeNicheValue } = await getNicheUtils();
     const normalizedNiche = normalizeNicheValue(body.niche);
+    const allowedSilhouettes = new Set(['SLIM', 'ATHLETIC', 'CURVY', 'VOLUPTUOUS']);
+    const resolvedSilhouette = String(body?.silhouette || 'VOLUPTUOUS').trim().toUpperCase();
     const store = useStorage('data');
     const storeKey = `influencers:${userId}`;
 
     if (!normalizedNiche) {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'Champ manquant: niche' }));
+    }
+
+    if (!allowedSilhouettes.has(resolvedSilhouette)) {
+      return sendError(event, createError({ statusCode: 400, statusMessage: 'silhouette invalide' }));
     }
 
     let influencer;
@@ -151,6 +190,7 @@ module.exports = defineEventHandler(async (event) => {
           name: body.name,
           niche: normalizedNiche,
           style: body.style,
+          silhouette: resolvedSilhouette,
           bodyPrompt: typeof body?.bodyPrompt === 'string' ? body.bodyPrompt.trim() || null : null,
         }
       }.data);
@@ -158,7 +198,13 @@ module.exports = defineEventHandler(async (event) => {
       if (isPrismaSchemaDriftError(err)) {
         return sendError(event, createError({
           statusCode: 409,
-          statusMessage: buildMissingColumnMessage(body),
+          statusMessage: buildMissingColumnMessage(body, err),
+          data: {
+            name: err?.name,
+            code: err?.code,
+            message: err?.message,
+            meta: err?.meta,
+          },
         }));
       }
 

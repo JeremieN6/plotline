@@ -203,11 +203,11 @@
 
                 <div class="mt-6 grid gap-3 rounded-[16px] border border-[#3A2A1E] bg-[#120C07]/85 p-4 text-sm">
                   <p class="font-semibold text-white">Ce que tu vas configurer maintenant :</p>
-                  <ul class="space-y-2 text-[#F5D4B8]">
-                    <li>Nom et niche de l influenceuse</li>
+                  <ol class="space-y-2 text-[#F5D4B8]">
+                    <li>Nom et niche du persona (influenceur/euse)</li>
                     <li>Style visuel de base</li>
-                    <li>Face reference pour verrouiller l identité</li>
-                  </ul>
+                    <li>Cohérence Faciale pour verrouiller l'identité</li>
+                  </ol>
                 </div>
 
                 <div class="mt-7 flex flex-col gap-3 sm:flex-row">

@@ -127,39 +127,27 @@
         </div>
 
         <div class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h2 class="text-base font-bold text-gray-900">Hair lock</h2>
-              <p class="mt-1 text-sm text-gray-500">Gemini propose automatiquement la coupe/couleur depuis la face ref. Le verrou garde cette valeur, le déverrouillage permet de la modifier.</p>
-            </div>
+          <div>
+            <h2 class="text-base font-bold text-gray-900">Silhouette</h2>
+            <p class="mt-1 text-sm text-gray-500">Définis le gabarit de base utilisé dans le prompt body.</p>
+          </div>
+
+          <div class="mt-4 grid gap-2 sm:grid-cols-2">
             <button
+              v-for="option in silhouetteOptions"
+              :key="option.value"
               type="button"
-              class="rounded-full border px-3 py-1 text-xs font-bold transition-colors"
-              :class="form.hairLocked ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'"
-              @click="toggleHairLock"
+              class="rounded-xl border px-3 py-3 text-left transition-colors"
+              :class="form.silhouette === option.value ? 'border-[#E8873A] bg-orange-50' : 'border-[#E5E3DF] bg-white hover:bg-gray-50'"
+              @click="form.silhouette = option.value"
             >
-              {{ form.hairLocked ? 'Verrouillé' : 'Déverrouillé' }}
+              <div class="flex items-center justify-between gap-2">
+                <p class="text-sm font-bold text-gray-900">{{ option.label }}</p>
+                <span v-if="option.value === 'VOLUPTUOUS'" class="rounded-full border border-orange-200 bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700">Par defaut</span>
+              </div>
+              <p class="mt-1 text-xs text-gray-600">{{ option.description }}</p>
             </button>
           </div>
-
-          <div class="mt-4 rounded-xl border border-[#E5E3DF] bg-white p-4">
-            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500">Analyse auto</p>
-            <p class="mt-2 text-sm text-gray-700">
-              {{ form.hairAutoPrompt || 'Aucune analyse disponible pour le moment.' }}
-            </p>
-          </div>
-
-          <label class="mt-4 mb-1.5 block text-sm font-semibold text-gray-800">Hair prompt utilisé en génération</label>
-          <textarea
-            v-model="form.hairPrompt"
-            rows="3"
-            :disabled="form.hairLocked"
-            class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50"
-            placeholder="Ex: Cheveux au-dessus des epaules, raie legerement laterale, texture lisse naturelle"
-          ></textarea>
-          <p class="mt-2 text-xs text-gray-500">
-            Quand le verrou est actif, la génération suit l’analyse auto. Déverrouille pour éditer manuellement sans perdre la valeur auto.
-          </p>
         </div>
 
         <div class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
@@ -260,18 +248,23 @@ const currentFaceRefMissing = ref(false)
 const fileInputRef = ref(null)
 const initialFormState = ref({
   bodyPrompt: '',
-  hairPrompt: '',
-  hairLocked: true,
+  silhouette: 'VOLUPTUOUS',
 })
+
+const silhouetteOptions = [
+  { value: 'SLIM', label: '🌿 Mince', description: 'Elancée, minimaliste, éditoriale' },
+  { value: 'ATHLETIC', label: '💪 Athletique', description: 'Tonique, sportive, fit' },
+  { value: 'VOLUPTUOUS', label: '🔥 Voluptueuse', description: 'Sablier prononcé, courbes marquées' },
+  { value: 'CURVY', label: '🫧 Harmonieuse', description: 'Courbes douces, taille dessinée, silhouette plus équilibrée' },
+]
 
 const form = reactive({
   name: '',
   niche: '',
   style: '',
+  silhouette: 'VOLUPTUOUS',
   bodyPrompt: '',
   hairPrompt: '',
-  hairAutoPrompt: '',
-  hairLocked: true,
 })
 
 const instagramForm = reactive({
@@ -299,16 +292,14 @@ watch(
     form.name = value.name || ''
     form.niche = value.niche || ''
     form.style = value.style || ''
+    form.silhouette = value.silhouette || 'VOLUPTUOUS'
     form.bodyPrompt = value.bodyPrompt || ''
     form.hairPrompt = value.hairPrompt || ''
-    form.hairAutoPrompt = value.hairAutoPrompt || value.hairPrompt || ''
-    form.hairLocked = typeof value.hairLocked === 'boolean' ? value.hairLocked : true
     instagramForm.instagramAccountId = value.instagramAccountId || ''
     instagramForm.instagramAccessToken = value.instagramAccessToken || ''
     initialFormState.value = {
       bodyPrompt: form.bodyPrompt,
-      hairPrompt: form.hairPrompt,
-      hairLocked: form.hairLocked,
+      silhouette: form.silhouette,
     }
     currentFaceRefPath.value = value.faceRefPath || ''
     currentFaceRefUrl.value = value.faceRefUrl || (currentFaceRefFilename.value ? `/api/media/face-refs/${encodeURIComponent(currentFaceRefFilename.value)}` : '')
@@ -343,13 +334,6 @@ function updatePreview(file) {
 
 function onCurrentFaceRefError() {
   currentFaceRefMissing.value = true
-}
-
-function toggleHairLock() {
-  form.hairLocked = !form.hairLocked
-  if (!form.hairLocked && !form.hairPrompt.trim()) {
-    form.hairPrompt = form.hairAutoPrompt || ''
-  }
 }
 
 function setFile(file) {
@@ -455,12 +439,8 @@ async function submit() {
       patchBody.bodyPrompt = form.bodyPrompt
     }
 
-    if (form.hairPrompt !== initialFormState.value.hairPrompt) {
-      patchBody.hairPrompt = form.hairPrompt
-    }
-
-    if (form.hairLocked !== initialFormState.value.hairLocked) {
-      patchBody.hairLocked = form.hairLocked
+    if (form.silhouette !== initialFormState.value.silhouette) {
+      patchBody.silhouette = form.silhouette
     }
 
     await $fetch(`/api/influencers/${id.value}`, {

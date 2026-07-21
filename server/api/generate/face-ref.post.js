@@ -20,7 +20,10 @@ function extractInlineDataFromResponse(response) {
 
   if (!parts.length) {
     const finishReason = candidate?.finishReason;
-    throw new Error(`Gemini returned no parts. finishReason=${finishReason || 'unknown'}`);
+    const error = new Error(`Gemini returned no parts. finishReason=${finishReason || 'unknown'}`);
+    error.name = 'GeminiNoPartsError';
+    error.finishReason = finishReason;
+    throw error;
   }
 
   const imagePart = parts.find((part) => part?.inlineData?.data || part?.inline_data?.data);
@@ -29,6 +32,70 @@ function extractInlineDataFromResponse(response) {
   }
 
   return imagePart.inlineData ?? imagePart.inline_data;
+}
+
+function isRetryableNoPartsFinishReason(finishReason) {
+  const normalized = String(finishReason || '').trim().toUpperCase();
+  if (!normalized) return true;
+  return normalized.includes('IMAGE_SAFETY') || normalized.includes('IMAGE_OTHER') || normalized.includes('SAFETY');
+}
+
+function sanitizeFallbackPrompt(customPrompt) {
+  const normalized = String(customPrompt || '').replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return 'Generate the reference sheet from this source image.';
+  }
+
+  const sentences = normalized
+    .split(/(?<=\.)\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean)
+    .filter((sentence) => !/imp[eé]rativ|prevail|prevaut|prevaud|must/i.test(sentence));
+
+  return sentences.join(' ').trim() || 'Generate the reference sheet from this source image.';
+}
+
+async function generateFaceRefImage(genai, customPrompt, sourceImageBase64, Modality) {
+  return genai.models.generateContent({
+    model: 'gemini-3-pro-image-preview',
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          { text: 'Generate the reference sheet from this source image.' },
+          {
+            inlineData: {
+              mimeType: 'image/jpeg',
+              data: sourceImageBase64,
+            },
+          },
+        ],
+      },
+    ],
+    config: {
+      systemInstruction: customPrompt,
+      responseModalities: [Modality.TEXT, Modality.IMAGE],
+    },
+  })
+}
+
+async function generateFaceRefImageWithFallback(genai, customPrompt, sourceImageBase64, Modality) {
+  try {
+    const response = await generateFaceRefImage(genai, customPrompt, sourceImageBase64, Modality)
+    return extractInlineDataFromResponse(response)
+  } catch (error) {
+    if (error?.name !== 'GeminiNoPartsError' || !isRetryableNoPartsFinishReason(error.finishReason)) {
+      throw error
+    }
+
+    console.warn('[generate:face-ref] Gemini returned no parts, retrying with a sanitized prompt.', {
+      finishReason: error.finishReason || 'unknown',
+    })
+
+    const fallbackPrompt = sanitizeFallbackPrompt(customPrompt)
+    const retryResponse = await generateFaceRefImage(genai, fallbackPrompt, sourceImageBase64, Modality)
+    return extractInlineDataFromResponse(retryResponse)
+  }
 }
 
 module.exports = defineEventHandler(async (event) => {
@@ -53,29 +120,7 @@ module.exports = defineEventHandler(async (event) => {
     const { GoogleGenAI, Modality } = await import('@google/genai');
     const genai = new GoogleGenAI({ apiKey: geminiKey });
 
-    const response = await genai.models.generateContent({
-      model: 'gemini-3-pro-image-preview',
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            { text: 'Generate the reference sheet from this source image.' },
-            {
-              inlineData: {
-                mimeType: 'image/jpeg',
-                data: sourceImageBase64,
-              },
-            },
-          ],
-        },
-      ],
-      config: {
-        systemInstruction: customPrompt,
-        responseModalities: [Modality.TEXT, Modality.IMAGE],
-      },
-    });
-
-    const inlineData = extractInlineDataFromResponse(response);
+    const inlineData = await generateFaceRefImageWithFallback(genai, customPrompt, sourceImageBase64, Modality)
     const imageBase64 = String(inlineData?.data || '').trim();
 
     if (!imageBase64) {
@@ -105,8 +150,10 @@ module.exports = defineEventHandler(async (event) => {
       stack: err?.stack,
     });
 
+    const statusCode = err?.name === 'GeminiNoPartsError' ? 422 : 500;
+
     return sendError(event, createError({
-      statusCode: 500,
+      statusCode,
       statusMessage: `Erreur generation face ref: ${err?.message || 'erreur inconnue'}`,
       data: {
         name: err?.name,
