@@ -108,6 +108,8 @@ model Influencer {
   identityProfile      String             @default("default")
   instagramAccountId   String?
   instagramAccessToken  String?
+  twitterConnected     Boolean            @default(false)
+  twitterUsername      String?
   tiktokEnabled        Boolean            @default(false)
   calendarStep         Int                @default(1)
   createdAt            DateTime           @default(now())
@@ -127,6 +129,7 @@ model GeneratedContent {
   status        ContentStatus   @default(PENDING)
   scheduledAt   DateTime?
   publishedAt   DateTime?
+  twitterPublishedAt DateTime?
   createdAt     DateTime       @default(now())
 
   influencer    Influencer     @relation(fields: [influencerId], references: [id])

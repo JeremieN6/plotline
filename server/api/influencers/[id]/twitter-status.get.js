@@ -3,7 +3,7 @@ let prismaClient;
 async function getPrisma() {
   if (prismaClient) return prismaClient;
 
-  const module = await import('../../utils/prisma.js');
+  const module = await import('../../../utils/prisma.js');
   prismaClient = module?.prisma || module?.default?.prisma;
 
   if (!prismaClient) {
@@ -21,42 +21,31 @@ export default defineEventHandler(async (event) => {
     }
 
     const prisma = await getPrisma();
-    const content = await prisma.generatedContent.findUnique({
+    const influencer = await prisma.influencer.findUnique({
       where: { id },
       select: {
         id: true,
-        influencerId: true,
-        imageUrl: true,
-        caption: true,
-        status: true,
-        errorMessage: true,
-        platform: true,
-        format: true,
-        scheduledAt: true,
-        publishedAt: true,
-        twitterPublishedAt: true,
-        createdAt: true,
-        influencer: {
-          select: {
-            id: true,
-            name: true,
-            niche: true,
-          },
-        },
+        twitterUsername: true,
       },
     });
 
-    if (!content) {
-      return sendError(event, createError({ statusCode: 404, statusMessage: 'Contenu introuvable' }));
+    if (!influencer) {
+      return sendError(event, createError({ statusCode: 404, statusMessage: 'Influenceuse introuvable' }));
     }
 
-    return content;
+    const { getTwitterSession } = await import('../../../utils/twitterSession.js');
+    const connected = await getTwitterSession(id);
+
+    return {
+      connected,
+      username: influencer.twitterUsername || null,
+    };
   } catch (err) {
     return sendError(
       event,
       createError({
         statusCode: 500,
-        statusMessage: 'Recuperation du contenu impossible',
+        statusMessage: 'Verification du statut Twitter impossible',
         data: {
           code: err?.code,
           message: err?.message,

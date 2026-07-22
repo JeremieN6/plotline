@@ -26,6 +26,16 @@
         >
           Générer
         </NuxtLink>
+        <button
+          v-if="selectedInfluencer"
+          type="button"
+          class="rounded-[12px] px-4 py-2.5 text-sm font-bold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-60"
+          :class="twitterConnected ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'border border-[#E5E3DF] bg-white text-[#111111] hover:bg-[#FAFAF8]'"
+          :disabled="twitterConnecting || twitterStatusLoading"
+          @click="connectTwitter"
+        >
+          {{ twitterButtonLabel }}
+        </button>
       </div>
     </header>
 
@@ -138,7 +148,16 @@
               :disabled="item._loading"
               @click="publish(item)"
             >
-              Publier
+              {{ isInstagramPublished(item) ? 'Instagram publié' : 'Publier Insta' }}
+            </button>
+            <button
+              v-if="canPublishTwitter(item)"
+              type="button"
+              class="flex-1 rounded-[12px] bg-[#0f1419] px-3 py-2 text-xs font-bold text-white shadow-sm transition-colors duration-150 hover:bg-[#1f2a33] disabled:opacity-60"
+              :disabled="item._loading"
+              @click="publishTwitter(item)"
+            >
+              {{ isTwitterPublished(item) ? 'X publié' : '🐦 Publier sur X' }}
             </button>
             <button
               type="button"
@@ -162,6 +181,22 @@
             >
               {{ item._copied ? 'Copié !' : 'Copier la caption' }}
             </button>
+          </div>
+          <div v-if="item.status === 'PUBLISHED'" class="flex flex-wrap items-center gap-2 text-[11px] font-extrabold tracking-wide">
+            <span
+              v-if="isInstagramPublished(item)"
+              class="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-2 text-emerald-700"
+              title="Publié sur Instagram"
+            >
+              IG
+            </span>
+            <span
+              v-if="isTwitterPublished(item)"
+              class="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-sky-200 bg-sky-50 px-2 text-sky-700"
+              title="Publié sur X"
+            >
+              X
+            </span>
           </div>
           <p v-if="item.caption" class="line-clamp-3 text-sm leading-6 text-[#111111]">{{ item.caption }}</p>
         </div>
@@ -189,6 +224,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
 const activeInfluencerId = useActiveInfluencer()
+const { pushToast } = useUiFeedback()
 
 const tabs = [
   { label: 'Tout', value: 'ALL' },
@@ -202,6 +238,10 @@ const loadingContent = ref(false)
 const modalMedia = ref(null)
 const modalMediaIsVideo = ref(false)
 const contentItems = ref([])
+const twitterStatusLoading = ref(false)
+const twitterConnecting = ref(false)
+const twitterConnected = ref(false)
+const twitterUsername = ref('')
 const POLL_FAST_MS = 15_000
 const POLL_IDLE_MS = 60_000
 const activeRequestId = ref(0)
@@ -225,6 +265,20 @@ const emptyStateLabel = computed(() => {
   if (activeTab.value === 'VALIDATED') return 'Aucun contenu validé pour l’instant.'
   if (activeTab.value === 'PUBLISHED') return 'Aucun contenu publié pour l’instant.'
   return 'Aucun contenu trouvé pour cette influenceuse.'
+})
+
+const twitterButtonLabel = computed(() => {
+  if (twitterConnecting.value) {
+    return 'En attente de connexion... (120s)'
+  }
+
+  if (twitterConnected.value) {
+    return twitterUsername.value
+      ? `✓ Twitter connecté @${twitterUsername.value}`
+      : '✓ Twitter connecté'
+  }
+
+  return '🐦 Connecter Twitter'
 })
 
 watch(
@@ -254,6 +308,20 @@ watch(
         loadingContent.value = false
       }
     }
+  },
+  { immediate: true },
+)
+
+watch(
+  selectedInfluencer,
+  async (influencer) => {
+    if (!influencer?.id) {
+      twitterConnected.value = false
+      twitterUsername.value = ''
+      return
+    }
+
+    await loadTwitterStatus(influencer.id)
   },
   { immediate: true },
 )
@@ -349,7 +417,23 @@ function canValidate(item) {
 }
 
 function canPublish(item) {
-  return item.status === 'VALIDATED' || activeTab.value === 'VALIDATED'
+  if (activeTab.value === 'VALIDATED') return true
+  if (item.status === 'VALIDATED') return true
+  return item.status === 'PUBLISHED' && !isInstagramPublished(item)
+}
+
+function canPublishTwitter(item) {
+  if (activeTab.value === 'VALIDATED') return true
+  if (item.status === 'VALIDATED') return true
+  return item.status === 'PUBLISHED' && !isTwitterPublished(item)
+}
+
+function isInstagramPublished(item) {
+  return Boolean(item?.publishedAt)
+}
+
+function isTwitterPublished(item) {
+  return Boolean(item?.twitterPublishedAt)
 }
 
 function openModal(item) {
@@ -403,7 +487,104 @@ async function publish(item) {
   item._loading = true
   try {
     await $fetch(`/api/content/${item.id}/publish`, { method: 'POST' })
+    pushToast({
+      title: 'Publication Instagram lancée',
+      message: 'Le contenu a été publié sur Instagram.',
+      tone: 'success',
+    })
     await reloadContents()
+  } finally {
+    item._loading = false
+  }
+}
+
+function extractHttpErrorDetails(err) {
+  const statusCode = Number(err?.statusCode || err?.response?.status || err?.data?.statusCode || 0)
+  const statusMessage = String(err?.statusMessage || err?.data?.statusMessage || err?.data?.message || err?.message || '')
+  return { statusCode, statusMessage }
+}
+
+async function loadTwitterStatus(influencerId) {
+  twitterStatusLoading.value = true
+  try {
+    const response = await $fetch(`/api/influencers/${influencerId}/twitter-status`)
+    twitterConnected.value = Boolean(response?.connected)
+    twitterUsername.value = String(response?.username || '').trim()
+  } catch {
+    twitterConnected.value = false
+    twitterUsername.value = ''
+  } finally {
+    twitterStatusLoading.value = false
+  }
+}
+
+async function connectTwitter() {
+  const influencerId = selectedInfluencer.value?.id
+  if (!influencerId || twitterConnecting.value) {
+    return
+  }
+
+  twitterConnecting.value = true
+  try {
+    const response = await $fetch(`/api/influencers/${influencerId}/twitter-connect`, { method: 'POST' })
+    twitterConnected.value = Boolean(response?.connected ?? response?.success)
+    twitterUsername.value = String(response?.username || '').trim()
+
+    pushToast({
+      title: 'Twitter connecté',
+      message: twitterUsername.value
+        ? `Compte @${twitterUsername.value} prêt pour la publication.`
+        : 'Compte connecté, publication prête.',
+      tone: 'success',
+    })
+  } catch (err) {
+    const { statusMessage } = extractHttpErrorDetails(err)
+    pushToast({
+      title: 'Connexion Twitter impossible',
+      message: statusMessage || 'La connexion n a pas pu être finalisée.',
+      tone: 'error',
+      duration: 6000,
+    })
+  } finally {
+    twitterConnecting.value = false
+  }
+}
+
+async function publishTwitter(item) {
+  item._loading = true
+  try {
+    await $fetch(`/api/content/${item.id}/publish-twitter`, { method: 'POST' })
+
+    pushToast({
+      title: 'Publication X réussie',
+      message: 'Le contenu a été publié sur X.',
+      tone: 'success',
+    })
+
+    await reloadContents()
+  } catch (err) {
+    const { statusCode, statusMessage } = extractHttpErrorDetails(err)
+
+    if (statusCode === 401 || statusMessage.includes('Session expirée')) {
+      pushToast({
+        title: 'Session expirée',
+        message: 'Session expirée — reconnectez votre compte',
+        tone: 'error',
+        duration: 8000,
+        actionLabel: 'Reconnecter',
+        actionCallback: () => {
+          connectTwitter()
+        },
+      })
+      return
+    }
+
+    pushToast({
+      title: 'Publication X impossible',
+      message: statusMessage || 'La publication a échoué.',
+      tone: 'error',
+      duration: 6000,
+    })
   } finally {
     item._loading = false
   }

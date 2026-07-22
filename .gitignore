@@ -27,6 +27,7 @@ logs
 /public/uploads/
 /storage/uploads/
 /storage/temp/
+/storage/sessions/
 
 
 # Dossiers et fichiers temporaire

@@ -50,6 +50,7 @@ export default defineEventHandler(async (event) => {
         status: true,
         scheduledAt: true,
         publishedAt: true,
+        twitterPublishedAt: true,
         createdAt: true,
       },
     });
