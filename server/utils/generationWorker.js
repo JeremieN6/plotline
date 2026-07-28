@@ -33,6 +33,11 @@ import {
 
 let prismaClient;
 let generationWorker;
+const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
+
+function getAnthropicModel() {
+  return String(process.env.ANTHROPIC_MODEL || process.env.anthropicModel || DEFAULT_ANTHROPIC_MODEL).trim();
+}
 
 async function getPrisma() {
   if (prismaClient) return prismaClient;
@@ -141,7 +146,7 @@ async function generateCaption({ anthropicApiKey, influencerName, contentType, s
       .replace('{scene_description}', sceneDescription);
 
     const captionResponse = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: getAnthropicModel(),
       max_tokens: 300,
       messages: [{ role: 'user', content: captionPrompt }],
     });
@@ -1009,7 +1014,7 @@ export async function processGenerationJob(jobData, options = {}) {
         .replace('{scene_description}', formatSceneDescription(sceneDescriptionConcept));
 
       const captionResponse = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: getAnthropicModel(),
         max_tokens: 300,
         messages: [{ role: 'user', content: captionPrompt }],
       });

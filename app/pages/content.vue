@@ -26,16 +26,6 @@
         >
           Générer
         </NuxtLink>
-        <button
-          v-if="selectedInfluencer"
-          type="button"
-          class="rounded-[12px] px-4 py-2.5 text-sm font-bold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-60"
-          :class="twitterConnected ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'border border-[#E5E3DF] bg-white text-[#111111] hover:bg-[#FAFAF8]'"
-          :disabled="twitterConnecting || twitterStatusLoading"
-          @click="connectTwitter"
-        >
-          {{ twitterButtonLabel }}
-        </button>
       </div>
     </header>
 
@@ -238,10 +228,7 @@ const loadingContent = ref(false)
 const modalMedia = ref(null)
 const modalMediaIsVideo = ref(false)
 const contentItems = ref([])
-const twitterStatusLoading = ref(false)
 const twitterConnecting = ref(false)
-const twitterConnected = ref(false)
-const twitterUsername = ref('')
 const POLL_FAST_MS = 15_000
 const POLL_IDLE_MS = 60_000
 const activeRequestId = ref(0)
@@ -265,20 +252,6 @@ const emptyStateLabel = computed(() => {
   if (activeTab.value === 'VALIDATED') return 'Aucun contenu validé pour l’instant.'
   if (activeTab.value === 'PUBLISHED') return 'Aucun contenu publié pour l’instant.'
   return 'Aucun contenu trouvé pour cette influenceuse.'
-})
-
-const twitterButtonLabel = computed(() => {
-  if (twitterConnecting.value) {
-    return 'En attente de connexion... (120s)'
-  }
-
-  if (twitterConnected.value) {
-    return twitterUsername.value
-      ? `✓ Twitter connecté @${twitterUsername.value}`
-      : '✓ Twitter connecté'
-  }
-
-  return '🐦 Connecter Twitter'
 })
 
 watch(
@@ -308,20 +281,6 @@ watch(
         loadingContent.value = false
       }
     }
-  },
-  { immediate: true },
-)
-
-watch(
-  selectedInfluencer,
-  async (influencer) => {
-    if (!influencer?.id) {
-      twitterConnected.value = false
-      twitterUsername.value = ''
-      return
-    }
-
-    await loadTwitterStatus(influencer.id)
   },
   { immediate: true },
 )
@@ -504,20 +463,6 @@ function extractHttpErrorDetails(err) {
   return { statusCode, statusMessage }
 }
 
-async function loadTwitterStatus(influencerId) {
-  twitterStatusLoading.value = true
-  try {
-    const response = await $fetch(`/api/influencers/${influencerId}/twitter-status`)
-    twitterConnected.value = Boolean(response?.connected)
-    twitterUsername.value = String(response?.username || '').trim()
-  } catch {
-    twitterConnected.value = false
-    twitterUsername.value = ''
-  } finally {
-    twitterStatusLoading.value = false
-  }
-}
-
 async function connectTwitter() {
   const influencerId = selectedInfluencer.value?.id
   if (!influencerId || twitterConnecting.value) {
@@ -527,13 +472,12 @@ async function connectTwitter() {
   twitterConnecting.value = true
   try {
     const response = await $fetch(`/api/influencers/${influencerId}/twitter-connect`, { method: 'POST' })
-    twitterConnected.value = Boolean(response?.connected ?? response?.success)
-    twitterUsername.value = String(response?.username || '').trim()
+    const username = String(response?.username || '').trim()
 
     pushToast({
       title: 'Twitter connecté',
-      message: twitterUsername.value
-        ? `Compte @${twitterUsername.value} prêt pour la publication.`
+      message: username
+        ? `Compte @${username} prêt pour la publication.`
         : 'Compte connecté, publication prête.',
       tone: 'success',
     })

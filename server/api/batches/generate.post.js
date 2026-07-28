@@ -5,6 +5,12 @@ const { mergeNarrativeMemory } = require('../../utils/mergeNarrativeMemory');
 const { prisma } = require('../../utils/prisma');
 const { Anthropic } = require('@anthropic-ai/sdk');
 
+const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
+
+function getAnthropicModel() {
+  return String(process.env.ANTHROPIC_MODEL || process.env.anthropicModel || DEFAULT_ANTHROPIC_MODEL).trim();
+}
+
 module.exports = defineEventHandler(async (event) => {
   try {
     const body = await readBody(event);
@@ -28,7 +34,7 @@ module.exports = defineEventHandler(async (event) => {
     let claudeResponse;
     try {
       claudeResponse = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: getAnthropicModel(),
         max_tokens: 4096,
         system: prompt,
         messages: [

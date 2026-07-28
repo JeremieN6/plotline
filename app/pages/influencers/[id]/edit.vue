@@ -104,32 +104,9 @@
         </div>
 
         <div class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h2 class="text-base font-bold text-gray-900">Body guidance</h2>
-              <p class="mt-1 text-sm text-gray-500">Tu peux laisser vide pour reprendre automatiquement les mensurations Madison. Renseigne un prompt seulement si tu veux un override texte spécifique.</p>
-            </div>
-            <span class="rounded-full border border-[#E5E3DF] bg-white px-3 py-1 text-xs font-bold text-gray-600">
-              {{ form.bodyPrompt.trim() ? 'Override texte actif' : 'Fallback Madison actif' }}
-            </span>
-          </div>
-
-          <label class="mt-4 mb-1.5 block text-sm font-semibold text-gray-800">Prompt body (optionnel)</label>
-          <textarea
-            v-model="form.bodyPrompt"
-            rows="4"
-            class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none"
-            placeholder="Ex: Hourglass prononce, poitrine tres genereuse, taille fine, hanches larges, rendu naturel et realiste"
-          ></textarea>
-          <p class="mt-3 text-xs text-gray-500">
-            La generation applique directement le fallback texte Madison quand aucun override n'est saisi.
-          </p>
-        </div>
-
-        <div class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
           <div>
             <h2 class="text-base font-bold text-gray-900">Silhouette</h2>
-            <p class="mt-1 text-sm text-gray-500">Définis le gabarit de base utilisé dans le prompt body.</p>
+            <p class="mt-1 text-sm text-gray-500">Définis le gabarit de base qui sera utilisé par ton persona. Tu peux également le laisser par défaut.</p>
           </div>
 
           <div class="mt-4 grid gap-2 sm:grid-cols-2">
@@ -187,6 +164,24 @@
               ></textarea>
             </div>
           </div>
+
+          <div class="mt-6 border-t border-[#E5E3DF] pt-6">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h3 class="text-sm font-bold text-gray-900">Twitter / X</h3>
+                <p class="mt-1 text-sm text-gray-500">Connecte le compte X utilisé pour publier le contenu.</p>
+              </div>
+              <button
+                type="button"
+                class="rounded-lg px-4 py-2 text-sm font-bold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                :class="twitterConnected ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[#111111] hover:bg-[#2a2a2a]'"
+                :disabled="twitterConnecting || twitterStatusLoading"
+                @click="connectTwitter"
+              >
+                {{ twitterButtonLabel }}
+              </button>
+            </div>
+          </div>
         </div>
 
         <p v-if="submitError" class="text-sm text-red-600">{{ submitError }}</p>
@@ -239,6 +234,10 @@ const uploadError = ref('')
 const fileError = ref('')
 const saving = ref(false)
 const savingInstagram = ref(false)
+const twitterStatusLoading = ref(false)
+const twitterConnecting = ref(false)
+const twitterConnected = ref(false)
+const twitterUsername = ref('')
 const isDragging = ref(false)
 const selectedFile = ref(null)
 const previewUrl = ref('')
@@ -282,6 +281,20 @@ const currentFaceRefName = computed(() => currentFaceRefPath.value.split(/[\\/]/
 const currentFaceRefFilename = computed(() => currentFaceRefPath.value.split(/[\\/]/).pop() || '')
 const canSubmit = computed(() => Boolean(form.name.trim() && nicheItems.value.length && form.style.trim()))
 
+const twitterButtonLabel = computed(() => {
+  if (twitterConnecting.value) {
+    return 'En attente de connexion... (120s)'
+  }
+
+  if (twitterConnected.value) {
+    return twitterUsername.value
+      ? `✓ Twitter connecté @${twitterUsername.value}`
+      : '✓ Twitter connecté'
+  }
+
+  return '🐦 Connecter Twitter'
+})
+
 watch(
   () => influencer.value,
   (value) => {
@@ -309,12 +322,32 @@ watch(
 )
 
 watch(
+  id,
+  async (value) => {
+    if (!value) {
+      twitterConnected.value = false
+      twitterUsername.value = ''
+      return
+    }
+
+    await loadTwitterStatus(value)
+  },
+  { immediate: true },
+)
+
+watch(
   () => error.value,
   (value) => {
     fetchError.value = value?.data?.statusMessage || value?.message || ''
   },
   { immediate: true },
 )
+
+function extractHttpErrorDetails(err) {
+  const statusCode = Number(err?.statusCode || err?.response?.status || err?.data?.statusCode || 0)
+  const statusMessage = String(err?.statusMessage || err?.data?.statusMessage || err?.data?.message || err?.message || '')
+  return { statusCode, statusMessage }
+}
 
 function openFilePicker() {
   fileInputRef.value?.click()
@@ -390,6 +423,52 @@ async function saveInstagramCredentials() {
     })
   } finally {
     savingInstagram.value = false
+  }
+}
+
+async function loadTwitterStatus(influencerId) {
+  twitterStatusLoading.value = true
+  try {
+    const response = await $fetch(`/api/influencers/${influencerId}/twitter-status`)
+    twitterConnected.value = Boolean(response?.connected)
+    twitterUsername.value = String(response?.username || '').trim()
+  } catch {
+    twitterConnected.value = false
+    twitterUsername.value = ''
+  } finally {
+    twitterStatusLoading.value = false
+  }
+}
+
+async function connectTwitter() {
+  if (!id.value || twitterConnecting.value) {
+    return
+  }
+
+  twitterConnecting.value = true
+  try {
+    const response = await $fetch(`/api/influencers/${id.value}/twitter-connect`, { method: 'POST' })
+    twitterConnected.value = Boolean(response?.connected ?? response?.success)
+    twitterUsername.value = String(response?.username || '').trim()
+
+    pushToast({
+      title: 'Twitter connecté',
+      message: twitterUsername.value
+        ? `Compte @${twitterUsername.value} prêt pour la publication.`
+        : 'Compte connecté, publication prête.',
+      tone: 'success',
+    })
+    await refresh()
+  } catch (err) {
+    const { statusMessage } = extractHttpErrorDetails(err)
+    pushToast({
+      title: 'Connexion Twitter impossible',
+      message: statusMessage || 'La connexion n a pas pu être finalisée.',
+      tone: 'error',
+      duration: 6000,
+    })
+  } finally {
+    twitterConnecting.value = false
   }
 }
 

@@ -13,6 +13,10 @@ async function getPrisma() {
   return prismaClient;
 }
 
+function isMissingTwitterPublishedAtError(err) {
+  return String(err?.message || '').includes('Unknown field `twitterPublishedAt`')
+}
+
 export default defineEventHandler(async (event) => {
   try {
     const id = event.context?.params?.id;
@@ -21,30 +25,68 @@ export default defineEventHandler(async (event) => {
     }
 
     const prisma = await getPrisma();
-    const content = await prisma.generatedContent.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        influencerId: true,
-        imageUrl: true,
-        caption: true,
-        status: true,
-        errorMessage: true,
-        platform: true,
-        format: true,
-        scheduledAt: true,
-        publishedAt: true,
-        twitterPublishedAt: true,
-        createdAt: true,
-        influencer: {
-          select: {
-            id: true,
-            name: true,
-            niche: true,
+    let content
+    try {
+      content = await prisma.generatedContent.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          influencerId: true,
+          imageUrl: true,
+          caption: true,
+          status: true,
+          errorMessage: true,
+          platform: true,
+          format: true,
+          scheduledAt: true,
+          publishedAt: true,
+          twitterPublishedAt: true,
+          createdAt: true,
+          influencer: {
+            select: {
+              id: true,
+              name: true,
+              niche: true,
+            },
           },
         },
-      },
-    });
+      })
+    } catch (queryErr) {
+      if (!isMissingTwitterPublishedAtError(queryErr)) {
+        throw queryErr
+      }
+
+      const fallbackContent = await prisma.generatedContent.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          influencerId: true,
+          imageUrl: true,
+          caption: true,
+          status: true,
+          errorMessage: true,
+          platform: true,
+          format: true,
+          scheduledAt: true,
+          publishedAt: true,
+          createdAt: true,
+          influencer: {
+            select: {
+              id: true,
+              name: true,
+              niche: true,
+            },
+          },
+        },
+      })
+
+      content = fallbackContent
+        ? {
+            ...fallbackContent,
+            twitterPublishedAt: null,
+          }
+        : null
+    }
 
     if (!content) {
       return sendError(event, createError({ statusCode: 404, statusMessage: 'Contenu introuvable' }));

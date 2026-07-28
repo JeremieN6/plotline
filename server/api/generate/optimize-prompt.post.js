@@ -1,10 +1,15 @@
 import { Anthropic } from '@anthropic-ai/sdk';
 
 const SYSTEM_PROMPT = 'Tu es un expert en prompts pour la generation d\'images avec Gemini. Tu reformules des descriptions en prompts optimises pour generer des photos Instagram realistes d\'une influenceuse IA. Tu retournes UNIQUEMENT le prompt reformule, sans explication ni commentaire.';
+const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
 
 function getAnthropicApiKey() {
   const config = useRuntimeConfig();
   return config?.anthropicApiKey || process.env.ANTHROPIC_API_KEY || process.env.anthropicApiKey || '';
+}
+
+function getAnthropicModel() {
+  return String(process.env.ANTHROPIC_MODEL || process.env.anthropicModel || DEFAULT_ANTHROPIC_MODEL).trim();
 }
 
 function extractTextFromClaudeResponse(response) {
@@ -45,7 +50,7 @@ export default defineEventHandler(async (event) => {
     const userPrompt = `Influenceuse : ${influencerName}. Style : ${influencerStyle}. Niche : ${influencerNiche}. Description de l'utilisateur : ${rawPrompt}. Genere un prompt Gemini optimise en anglais pour cette scene.`;
 
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: getAnthropicModel(),
       max_tokens: 500,
       system: SYSTEM_PROMPT,
       messages: [

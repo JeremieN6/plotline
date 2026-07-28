@@ -13,6 +13,10 @@ async function getPrisma() {
   return prismaClient;
 }
 
+function isMissingTwitterPublishedAtError(err) {
+  return String(err?.message || '').includes('Unknown field `twitterPublishedAt`')
+}
+
 export default defineEventHandler(async (event) => {
   try {
     const id = event.context?.params?.id;
@@ -34,26 +38,57 @@ export default defineEventHandler(async (event) => {
 
     const prisma = await getPrisma();
 
-    const contents = await prisma.generatedContent.findMany({
-      where: {
-        influencerId: id,
-        status: statuses.length === 1 ? statuses[0] : { in: statuses },
-      },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        imageUrl: true,
-        caption: true,
-        errorMessage: true,
-        platform: true,
-        format: true,
-        status: true,
-        scheduledAt: true,
-        publishedAt: true,
-        twitterPublishedAt: true,
-        createdAt: true,
-      },
-    });
+    const where = {
+      influencerId: id,
+      status: statuses.length === 1 ? statuses[0] : { in: statuses },
+    }
+
+    let contents
+    try {
+      contents = await prisma.generatedContent.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          imageUrl: true,
+          caption: true,
+          errorMessage: true,
+          platform: true,
+          format: true,
+          status: true,
+          scheduledAt: true,
+          publishedAt: true,
+          twitterPublishedAt: true,
+          createdAt: true,
+        },
+      })
+    } catch (queryErr) {
+      if (!isMissingTwitterPublishedAtError(queryErr)) {
+        throw queryErr
+      }
+
+      const fallbackContents = await prisma.generatedContent.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          imageUrl: true,
+          caption: true,
+          errorMessage: true,
+          platform: true,
+          format: true,
+          status: true,
+          scheduledAt: true,
+          publishedAt: true,
+          createdAt: true,
+        },
+      })
+
+      contents = fallbackContents.map((item) => ({
+        ...item,
+        twitterPublishedAt: null,
+      }))
+    }
 
     return { contents };
   } catch (err) {

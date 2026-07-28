@@ -230,6 +230,24 @@ function normalizeVideoUrl(value) {
   return raw;
 }
 
+function getVideoUrlType(value) {
+  const normalized = normalizeVideoUrl(value);
+  if (!isPlayableVideoUrl(normalized)) {
+    return '';
+  }
+
+  try {
+    const url = new URL(normalized);
+    const ext = path.extname(url.pathname || '').toLowerCase();
+    if (ext === '.mp4') return 'mp4';
+    if (ext === '.m3u8' || ext === '.cmfv' || ext === '.cmfa') return 'hls';
+  } catch {
+    // Keep conservative fallback below.
+  }
+
+  return /\.mp4(\?|$)/i.test(normalized) ? 'mp4' : 'hls';
+}
+
 export async function scrapePinterestVideo(query) {
   const keyword = String(query || '').trim();
   if (!keyword) {
@@ -260,6 +278,62 @@ export async function scrapePinterestVideo(query) {
       await page.waitForTimeout(1000);
     }
 
+    const searchPageCandidates = await page.evaluate(() => {
+      const urls = new Set();
+
+      const add = (value) => {
+        const raw = String(value || '').trim();
+        if (!raw) return;
+        if (/\.(mp4|m3u8|cmfv|cmfa)(\?|$)/i.test(raw)) {
+          urls.add(raw);
+        }
+      };
+
+      for (const element of document.querySelectorAll('video, source, meta[property="og:video"], meta[property="og:video:url"]')) {
+        add(element.getAttribute('src'));
+        add(element.getAttribute('content'));
+        add(element.getAttribute('data-src'));
+        add(element.currentSrc);
+      }
+
+      const resources = performance.getEntriesByType('resource') || [];
+      for (const entry of resources) {
+        add(entry.name);
+      }
+
+      const dataElement = document.getElementById('__PWS_DATA__');
+      if (dataElement?.textContent) {
+        const matches = dataElement.textContent.match(/https?:\/\/[^\"'\s<>]+?\.(?:mp4|m3u8|cmfv|cmfa)[^\"'\s<>]*/gi) || [];
+        for (const match of matches) {
+          add(match);
+        }
+      }
+
+      return Array.from(urls);
+    });
+
+    for (const candidateUrl of searchPageCandidates.map(normalizeVideoUrl).filter(Boolean).slice(0, 10)) {
+      try {
+        const videoType = getVideoUrlType(candidateUrl);
+        if (videoType === 'mp4') {
+          const savedPath = await downloadVideo(candidateUrl, userAgent);
+          if (savedPath) {
+            return savedPath;
+          }
+          continue;
+        }
+
+        if (videoType === 'hls') {
+          const savedPath = await downloadPinterestHlsAsMp4(candidateUrl, userAgent);
+          if (savedPath) {
+            return savedPath;
+          }
+        }
+      } catch {
+        // Try next direct candidate URL.
+      }
+    }
+
     const hrefs = await page.evaluate(() => {
       const anchors = Array.from(document.querySelectorAll('a[href*="/pin/"]'));
 
@@ -284,7 +358,7 @@ export async function scrapePinterestVideo(query) {
       return Array.from(new Set(videoLike.length ? videoLike : allPins));
     });
 
-    for (const href of hrefs.map(normalizeHref).filter(Boolean).slice(0, 5)) {
+    for (const href of hrefs.map(normalizeHref).filter(Boolean).slice(0, 12)) {
       const pinUrl = `https://www.pinterest.com${href}`;
 
       try {
@@ -330,16 +404,19 @@ export async function scrapePinterestVideo(query) {
           continue;
         }
 
-        for (const candidateUrl of candidateUrls.map(normalizeVideoUrl)) {
+        for (const candidateUrl of candidateUrls.map(normalizeVideoUrl).filter(Boolean)) {
           try {
-            if (candidateUrl.endsWith('.mp4')) {
+            const videoType = getVideoUrlType(candidateUrl);
+
+            if (videoType === 'mp4') {
               const savedPath = await downloadVideo(candidateUrl, userAgent);
               if (savedPath) {
                 return savedPath;
               }
+              continue;
             }
 
-            if (candidateUrl.endsWith('.m3u8') || candidateUrl.endsWith('.cmfv') || candidateUrl.endsWith('.cmfa')) {
+            if (videoType === 'hls') {
               const savedPath = await downloadPinterestHlsAsMp4(candidateUrl, userAgent);
               if (savedPath) {
                 return savedPath;
