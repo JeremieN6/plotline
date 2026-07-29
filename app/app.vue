@@ -14,6 +14,7 @@ import { useRoute } from 'vue-router'
 import PlotlineShell from '~/components/layout/PlotlineShell.vue'
 
 useJobNotifications()
+useWelcomeMessage()
 
 const route = useRoute()
 const showShell = computed(() => route.path !== '/' && !route.path.startsWith('/auth') && !route.path.startsWith('/onboarding'))
