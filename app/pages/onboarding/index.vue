@@ -54,8 +54,8 @@ const cards = [
   {
     value: 'INFLUENCER_CREATOR',
     icon: '🎭',
-    title: 'Créateur·ice d identités virtuelles',
-    subtitle: 'Tu crées et gères des personas digitaux avec une cohérence visuelle parfaite — post après post.',
+    title: 'Créateur·ice d\'identités virtuelles',
+    subtitle: 'Tu crées et gères des personas digitaux avec une cohérence visuelle parfaite, post après post.',
   },
   {
     value: 'CONTENT_CREATOR',

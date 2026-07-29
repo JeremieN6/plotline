@@ -4,7 +4,7 @@
 1. Lis CLAUDE.md a la racine pour l etat du projet
 2. Lis tasks/lessons.md pour les regles apprises et patterns a eviter
 3. Lis tasks/todo.md pour les taches en cours
-4. Interroge la memoire MCP (read_graph) pour le contexte de la session precedente
+4. Interroge la memoire MCP (read_graph) pour le contexte de la session précédente
 
 ---
 

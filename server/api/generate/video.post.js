@@ -1,4 +1,10 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
+import { GoogleGenAI } from '@google/genai';
+
 import { generateVideoFromTextPrompt } from '../../utils/klingGenerator.js';
+import { getGeneratedDir, toMediaUrl } from '../../utils/mediaStorage.js';
 import { selectVideoModel } from '../../utils/videoModelSelector.js';
 
 let prismaClient;
@@ -45,34 +51,101 @@ async function requestSeedanceVideo({ prompt, influencerId, withFaceRef, faceRef
   };
 }
 
-async function requestVeoVideo({ prompt, influencerId, withFaceRef, faceRefPath, apiKey }) {
-  const endpoint = process.env.VEO_API_URL || 'https://generativelanguage.googleapis.com/v1beta/videos:generate';
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      prompt,
-      metadata: {
-        influencerId,
-        withFaceRef,
-        faceRefPath: withFaceRef ? faceRefPath : null,
-      },
-    }),
-  });
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-  const payload = await response.json().catch(() => ({}));
+function resolveGeminiApiKey(runtimeConfig) {
+  return String(
+    runtimeConfig?.geminiApiKey
+    || runtimeConfig?.veoApiKey
+    || process.env.GEMINI_API_KEY
+    || process.env.VEO_API_KEY
+    || ''
+  ).trim();
+}
 
-  if (!response.ok) {
-    throw new Error(`Veo request failed: ${JSON.stringify(payload)}`);
+function withApiKeyInUrl(rawUrl, apiKey) {
+  const url = String(rawUrl || '').trim();
+  if (!url) return '';
+
+  try {
+    const parsed = new URL(url);
+    if (!parsed.searchParams.has('key')) {
+      parsed.searchParams.set('key', apiKey);
+    }
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
+async function downloadVeoVideoToGenerated(videoUri, apiKey) {
+  const attempts = [videoUri, withApiKeyInUrl(videoUri, apiKey)].filter(Boolean);
+  let lastStatus = 0;
+
+  for (const attemptUrl of attempts) {
+    const response = await fetch(attemptUrl);
+    lastStatus = response.status;
+    if (!response.ok) {
+      continue;
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const filename = `video_veo_${Date.now()}.mp4`;
+    const outputPath = path.join(getGeneratedDir(), filename);
+    await fs.writeFile(outputPath, buffer);
+    return toMediaUrl('generated', filename);
   }
 
+  throw new Error(`Veo video download failed (status ${lastStatus})`);
+}
+
+async function requestVeoVideo({ prompt, apiKey }) {
+  const ai = new GoogleGenAI({ apiKey });
+
+  let operation = await ai.models.generateVideos({
+    model: 'veo-3.1-generate-001',
+    prompt,
+    config: {
+      aspectRatio: '9:16',
+      durationSeconds: 8,
+    },
+  });
+
+  const operationName = String(operation?.name || '').trim();
+  if (!operationName) {
+    throw new Error('Veo generation did not return an operation name');
+  }
+
+  while (!operation?.done) {
+    await sleep(5000);
+    operation = await ai.operations.getVideosOperation({
+      operation: { name: operationName },
+    });
+  }
+
+  if (operation?.error) {
+    throw new Error(`Veo generation failed: ${JSON.stringify(operation.error)}`);
+  }
+
+  const responsePayload = operation?.response || {};
+  const videoUri = String(
+    responsePayload?.videos?.[0]?.uri
+    || responsePayload?.generatedVideos?.[0]?.video?.uri
+    || ''
+  ).trim();
+
+  if (!videoUri) {
+    throw new Error(`Veo response missing video uri: ${JSON.stringify(responsePayload)}`);
+  }
+
+  const localVideoUrl = await downloadVeoVideoToGenerated(videoUri, apiKey);
+
   return {
-    jobId: String(payload?.jobId || payload?.name || payload?.id || ''),
-    videoUrl: String(payload?.videoUrl || payload?.output?.videoUrl || ''),
-    status: String(payload?.status || payload?.state || 'processing'),
+    jobId: String(operation?.name || ''),
+    videoUrl: localVideoUrl,
+    status: 'completed',
   };
 }
 
@@ -117,9 +190,9 @@ export default defineEventHandler(async (event) => {
   const runtimeConfig = useRuntimeConfig(event);
 
   if (model === 'veo') {
-    const veoApiKey = String(runtimeConfig.veoApiKey || process.env.VEO_API_KEY || '').trim();
-    if (!veoApiKey) {
-      return sendError(event, createError({ statusCode: 500, statusMessage: 'VEO_API_KEY non configuree' }));
+    const geminiApiKey = resolveGeminiApiKey(runtimeConfig);
+    if (!geminiApiKey) {
+      return sendError(event, createError({ statusCode: 500, statusMessage: 'GEMINI_API_KEY non configuree' }));
     }
   }
 
@@ -153,14 +226,11 @@ export default defineEventHandler(async (event) => {
         status: providerResult?.videoUrl ? 'completed' : 'processing',
       };
     } else if (model === 'veo') {
-      const veoApiKey = String(runtimeConfig.veoApiKey || process.env.VEO_API_KEY || '').trim();
+      const geminiApiKey = resolveGeminiApiKey(runtimeConfig);
 
       providerResult = await requestVeoVideo({
         prompt,
-        influencerId,
-        withFaceRef,
-        faceRefPath: influencer.faceRefPath,
-        apiKey: veoApiKey,
+        apiKey: geminiApiKey,
       });
     } else {
       const seedanceApiKey = String(runtimeConfig.seedanceApiKey || process.env.SEEDANCE_API_KEY || '').trim();

@@ -201,7 +201,7 @@
           :disabled="step === 1 || loading || generatingRef"
           @click="prevStep"
         >
-          Precedent
+          Précédent
         </button>
 
         <button

@@ -132,7 +132,7 @@
 
       <div class="mt-8 flex items-center justify-between gap-3">
         <button type="button" class="rounded-[12px] border border-[#5B4332] px-4 py-2.5 text-sm font-bold" :disabled="step === 1 || loading" @click="step -= 1">
-          Precedent
+          Précédent
         </button>
 
         <button v-if="step < 4" type="button" class="rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50" :disabled="!canContinue || loading" @click="step += 1">
@@ -140,7 +140,7 @@
         </button>
 
         <button v-else type="button" class="rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50" :disabled="loading" @click="submit">
-          {{ loading ? 'Creation...' : 'Acceder a mon espace marque' }}
+          {{ loading ? 'Creation...' : 'Accéder a mon espace marque' }}
         </button>
       </div>
     </div>

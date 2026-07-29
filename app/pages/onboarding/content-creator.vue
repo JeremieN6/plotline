@@ -18,14 +18,14 @@
         <input v-model="form.name" class="w-full rounded-[12px] border border-[#5B4332] bg-[#1A120D] px-4 py-3 text-white outline-none focus:border-[#E8873A]" placeholder="Ex : Jade Studio" />
 
         <label class="block text-sm font-semibold">Ta niche</label>
-        <input v-model="form.niche" class="w-full rounded-[12px] border border-[#5B4332] bg-[#1A120D] px-4 py-3 text-white outline-none focus:border-[#E8873A]" placeholder="Ex : business, education, lifestyle, tech..." />
+        <input v-model="form.niche" class="w-full rounded-[12px] border border-[#5B4332] bg-[#1A120D] px-4 py-3 text-white outline-none focus:border-[#E8873A]" placeholder="Ex : business, éducation, lifestyle, tech..." />
 
         <label class="block text-sm font-semibold">Ton style de contenu</label>
-        <input v-model="form.style" class="w-full rounded-[12px] border border-[#5B4332] bg-[#1A120D] px-4 py-3 text-white outline-none focus:border-[#E8873A]" placeholder="Ex : minimaliste, colore, premium..." />
+        <input v-model="form.style" class="w-full rounded-[12px] border border-[#5B4332] bg-[#1A120D] px-4 py-3 text-white outline-none focus:border-[#E8873A]" placeholder="Ex : minimaliste, coloré, premium..." />
       </div>
 
       <div v-if="step === 2" class="mt-8 space-y-4">
-        <p class="text-sm text-[#F5D4B8]">Tu peux associer un visage cohérent à tes créations. Optionnel — tu peux le faire plus tard.</p>
+        <p class="text-sm text-[#F5D4B8]">Tu peux associer un visage cohérent à tes créations. Optionnel, tu peux le faire plus tard.</p>
 
         <label class="flex items-center gap-3 rounded-[12px] border border-[#5B4332] bg-[#1A120D] px-4 py-3">
           <input v-model="addFaceRef" type="checkbox" class="h-4 w-4 accent-[#E8873A]" />
@@ -63,7 +63,7 @@
 
       <div class="mt-8 flex items-center justify-between gap-3">
         <button type="button" class="rounded-[12px] border border-[#5B4332] px-4 py-2.5 text-sm font-bold" :disabled="step === 1 || loading" @click="step -= 1">
-          Precedent
+          Précédent
         </button>
 
         <button v-if="step < 3" type="button" class="rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50" :disabled="!canContinue || loading" @click="step += 1">
@@ -71,7 +71,7 @@
         </button>
 
         <button v-else type="button" class="rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50" :disabled="loading" @click="submit">
-          {{ loading ? 'Creation...' : 'Acceder au Studio' }}
+          {{ loading ? 'Creation...' : 'Accéder au Studio' }}
         </button>
       </div>
     </div>
