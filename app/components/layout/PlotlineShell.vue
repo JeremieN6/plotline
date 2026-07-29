@@ -55,6 +55,7 @@
           </div>
 
           <div class="plotline-switcher relative mb-5">
+            <p class="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#666666]">{{ switcherLabel }}</p>
             <button
               type="button"
               class="flex w-full items-center gap-3 rounded-[12px] border border-[#E5E3DF] bg-[#FAFAF8] px-3 py-3 text-left shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition-all duration-150 hover:border-[#E8873A]/40 hover:bg-white"
@@ -104,7 +105,7 @@
                   @click="switcherOpen = false; mobileMenuOpen = false"
                 >
                   <span class="text-lg leading-none">+</span>
-                  Nouvelle influenceuse
+                  {{ addAmbassadorLabel }}
                 </NuxtLink>
               </div>
             </div>
@@ -196,15 +197,15 @@
 
               <div class="relative p-7 sm:p-9">
                 <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#F6B37A]">Onboarding</p>
-                <h2 class="mt-3 text-3xl font-black tracking-tight text-white">Crée ta première influenceuse</h2>
+                <h2 class="mt-3 text-3xl font-black tracking-tight text-white">Crée ta première {{ wording.ambassador }}</h2>
                 <p class="mt-3 text-sm leading-relaxed text-[#F7D8BF]">
-                  Ton workspace est prêt, mais il n y a encore aucune identité active. Ajoute une première influenceuse pour débloquer le dashboard, le calendrier et la génération.
+                  Ton workspace est prêt, mais il n y a encore aucune identité active. Ajoute une première {{ wording.ambassador }} pour débloquer le dashboard, le calendrier et la génération.
                 </p>
 
                 <div class="mt-6 grid gap-3 rounded-[16px] border border-[#3A2A1E] bg-[#120C07]/85 p-4 text-sm">
                   <p class="font-semibold text-white">Ce que tu vas configurer maintenant :</p>
                   <ol class="space-y-2 text-[#F5D4B8]">
-                    <li>Nom et niche du persona (influenceur/euse)</li>
+                    <li>Nom et niche de ton {{ wording.visualIdentity }}</li>
                     <li>Style visuel de base</li>
                     <li>Cohérence Faciale pour verrouiller l'identité</li>
                   </ol>
@@ -215,7 +216,7 @@
                     to="/influencers/new"
                     class="inline-flex flex-1 items-center justify-center rounded-[12px] bg-[#E8873A] px-4 py-3 text-sm font-bold text-white transition-all duration-150 hover:-translate-y-0.5 hover:bg-[#d4762f]"
                   >
-                    Créer une influenceuse
+                    {{ createAmbassadorLabel }}
                   </NuxtLink>
                   <button
                     type="button"
@@ -241,6 +242,7 @@ import { useRoute, useRouter } from 'vue-router'
 const route = useRoute()
 const router = useRouter()
 const { user, refreshAuth } = useAuthSession()
+const { wording } = useWording()
 const activeInfluencerId = useActiveInfluencer()
 const switcherOpen = ref(false)
 const mobileMenuOpen = ref(false)
@@ -253,12 +255,33 @@ const influencers = computed(() => influencersData.value || [])
 const activeInfluencer = computed(() => {
   return influencers.value.find((item) => item.id === activeInfluencerId.value) || influencers.value[0] || null
 })
-const activeInfluencerName = computed(() => activeInfluencer.value?.name || 'Choisir une influenceuse')
+const accountType = computed(() => String(user.value?.accountType || '').trim().toUpperCase())
+const isInfluencerCreator = computed(() => accountType.value === 'INFLUENCER_CREATOR')
+const isContentCreator = computed(() => accountType.value === 'CONTENT_CREATOR')
+const isBrand = computed(() => accountType.value === 'BRAND')
+const activeInfluencerName = computed(() => activeInfluencer.value?.name || `Choisir une ${wording.value.ambassador}`)
 const activeInfluencerNiche = computed(() => summarizeNiches(activeInfluencer.value?.niche) || 'Aucune niche renseignée')
 const activeInfluencerInitial = computed(() => avatarLetter(activeInfluencer.value?.name || 'P'))
 const userEmail = computed(() => String(user.value?.email || 'compte@plotline.local'))
 const userInitial = computed(() => avatarLetter(user.value?.email || 'U'))
+const switcherLabel = computed(() => {
+  if (isContentCreator.value) return 'Mes créations'
+  if (isBrand.value) return 'Mes ambassadrices'
+  return 'Mes influenceuses'
+})
+const addAmbassadorLabel = computed(() => {
+  if (isBrand.value) return 'Nouvelle ambassadrice'
+  if (isContentCreator.value) return 'Nouvelle ambassadrice'
+  return 'Nouvelle influenceuse'
+})
+const createAmbassadorLabel = computed(() => {
+  if (isBrand.value) return 'Créer une ambassadrice'
+  if (isContentCreator.value) return 'Créer une ambassadrice'
+  return 'Créer une influenceuse'
+})
 const showOnboardingModal = computed(() => {
+  if (!isInfluencerCreator.value) return false
+  if (route.path.startsWith('/onboarding')) return false
   if (route.path.startsWith('/influencers/new')) return false
   return influencers.value.length === 0
 })
@@ -271,14 +294,34 @@ const routeInfluencerId = computed(() => {
   return rawId
 })
 
-const navigation = computed(() => [
-  { label: 'Accueil', to: '/dashboard' },
-  { label: 'Générer', to: activeInfluencer.value ? `/influencers/${activeInfluencer.value.id}/generate` : '/influencers', disabled: !activeInfluencer.value },
-  { label: 'Contenu', to: '/content' },
-  { label: 'Paramètres influenceuse', to: activeInfluencer.value ? `/influencers/${activeInfluencer.value.id}/edit` : '/influencers/new', disabled: !activeInfluencer.value },
-  { label: 'Calendrier', to: '/calendar' },
-  { label: 'Analytics', to: '/analytics', badge: 'Bientôt', disabled: true },
-])
+const navigation = computed(() => {
+  if (isContentCreator.value) {
+    return [
+      { label: 'Studio', to: '/studio' },
+      { label: 'Mes créations', to: '/content' },
+      { label: 'Calendrier', to: '/calendar' },
+      { label: 'Analytics', to: '/analytics', badge: 'Bientôt', disabled: true },
+    ]
+  }
+
+  if (isBrand.value) {
+    return [
+      { label: 'Brand Studio', to: '/brand-studio' },
+      { label: 'Mes ambassadrices', to: '/influencers' },
+      { label: 'Calendrier', to: '/calendar' },
+      { label: 'Analytics', to: '/analytics', badge: 'Bientôt', disabled: true },
+    ]
+  }
+
+  return [
+    { label: 'Accueil', to: '/dashboard' },
+    { label: 'Générer', to: activeInfluencer.value ? `/influencers/${activeInfluencer.value.id}/generate` : '/influencers', disabled: !activeInfluencer.value },
+    { label: 'Contenu', to: '/content' },
+    { label: `Paramètres ${wording.value.ambassador}`, to: activeInfluencer.value ? `/influencers/${activeInfluencer.value.id}/edit` : '/influencers/new', disabled: !activeInfluencer.value },
+    { label: 'Calendrier', to: '/calendar' },
+    { label: 'Analytics', to: '/analytics', badge: 'Bientôt', disabled: true },
+  ]
+})
 
 watch(
   influencers,

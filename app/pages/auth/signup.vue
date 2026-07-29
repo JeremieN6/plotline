@@ -70,7 +70,7 @@ async function submit() {
     });
 
     await refreshAuth({ force: true });
-    await router.push('/dashboard');
+    await router.push('/onboarding');
   } catch (err) {
     error.value = err?.data?.statusMessage || err?.message || 'Inscription impossible';
   } finally {

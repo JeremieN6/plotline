@@ -48,9 +48,9 @@ const form = reactive({
 });
 
 const redirectTarget = computed(() => {
-  const candidate = String(route.query?.redirect || '/dashboard');
-  if (!candidate.startsWith('/')) return '/dashboard';
-  if (candidate.startsWith('/auth')) return '/dashboard';
+  const candidate = String(route.query?.redirect || '/onboarding');
+  if (!candidate.startsWith('/')) return '/onboarding';
+  if (candidate.startsWith('/auth')) return '/onboarding';
   return candidate;
 });
 

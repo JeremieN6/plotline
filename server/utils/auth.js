@@ -152,6 +152,7 @@ export async function resolveAuthUser(event) {
           id: true,
           email: true,
           plan: true,
+          accountType: true,
           createdAt: true,
         },
       },

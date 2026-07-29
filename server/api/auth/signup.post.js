@@ -36,6 +36,7 @@ export default defineEventHandler(async (event) => {
         id: true,
         email: true,
         plan: true,
+        accountType: true,
         createdAt: true,
       },
     });
@@ -49,6 +50,7 @@ export default defineEventHandler(async (event) => {
         id: true,
         email: true,
         plan: true,
+        accountType: true,
         createdAt: true,
       },
     });

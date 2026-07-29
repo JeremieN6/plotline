@@ -22,6 +22,7 @@ export default defineEventHandler(async (event) => {
       email: true,
       passwordHash: true,
       plan: true,
+      accountType: true,
       createdAt: true,
     },
   });
@@ -42,6 +43,7 @@ export default defineEventHandler(async (event) => {
       id: user.id,
       email: user.email,
       plan: user.plan,
+      accountType: user.accountType,
       createdAt: user.createdAt,
     },
   };

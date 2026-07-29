@@ -37,6 +37,8 @@ export default defineNuxtConfig({
     authSessionSecret: process.env.AUTH_SESSION_SECRET,
     geminiApiKey: process.env.GEMINI_API_KEY,
     anthropicApiKey: process.env.ANTHROPIC_API_KEY,
+    seedanceApiKey: process.env.SEEDANCE_API_KEY,
+    veoApiKey: process.env.VEO_API_KEY,
     klingApiKey: process.env.KLINGAI_ACCESS_KEY || process.env.KLING_API_KEY,
     klingApiSecret: process.env.KLINGAI_SECRET_KEY || process.env.KLING_API_SECRET,
     klingModel: process.env.KLINGAI_MODEL || process.env.KLING_MODEL,

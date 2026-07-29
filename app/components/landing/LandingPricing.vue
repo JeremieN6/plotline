@@ -48,7 +48,7 @@
                         <li class="pricing-feature"><span class="feature-check feature-check-pro">✓</span>Tout le plan
                             Solo</li>
                         <li class="pricing-feature"><span class="feature-check feature-check-pro">✓</span>5
-                            influenceuses actives</li>
+                            Influenceuses actives</li>
                         <li class="pricing-feature"><span class="feature-check feature-check-pro">✓</span>150
                             générations/mois</li>
                         <li class="pricing-feature"><span class="feature-check feature-check-pro">✓</span>Gestion

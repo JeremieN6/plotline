@@ -3,12 +3,12 @@
     <div class="max-w-5xl mx-auto">
       <!-- Header -->
       <div class="flex items-center justify-between gap-4 mb-6">
-        <h1 class="text-2xl font-bold text-gray-900">Mes influenceuses</h1>
+        <h1 class="text-2xl font-bold text-gray-900">Mes {{ wording.ambassadorPlural }}</h1>
         <button
           class="px-4 py-2 bg-[#E8873A] text-white font-bold text-sm rounded-lg hover:bg-[#d4762f] transition-colors"
           @click="goNew"
         >
-          Nouvelle influenceuse
+          Nouvelle {{ wording.ambassador }}
         </button>
       </div>
 
@@ -24,7 +24,7 @@
 
       <!-- Error -->
       <div v-else-if="error" class="flex flex-col items-center gap-3 py-16 text-center">
-        <p class="text-gray-500 text-base mb-2">Impossible de charger les influenceuses pour l'instant.</p>
+        <p class="text-gray-500 text-base mb-2">Impossible de charger les {{ wording.ambassadorPlural }} pour l'instant.</p>
         <div class="flex gap-3 flex-wrap justify-center">
           <button
             class="px-4 py-2 bg-white border border-[#E5E3DF] text-gray-900 font-bold text-sm rounded-lg hover:bg-gray-50 transition-colors"
@@ -36,19 +36,19 @@
             class="px-4 py-2 bg-[#E8873A] text-white font-bold text-sm rounded-lg hover:bg-[#d4762f] transition-colors"
             @click="goNew"
           >
-            Créer une influenceuse
+            Créer une {{ wording.ambassador }}
           </button>
         </div>
       </div>
 
       <!-- Empty state -->
       <div v-else-if="!influencers.length" class="flex flex-col items-center gap-3 py-16 text-center">
-        <p class="text-gray-500 text-base mb-2">Tu n'as pas encore d'influenceuse</p>
+        <p class="text-gray-500 text-base mb-2">Tu n'as pas encore d {{ wording.ambassador }}</p>
         <button
           class="px-4 py-2 bg-[#E8873A] text-white font-bold text-sm rounded-lg hover:bg-[#d4762f] transition-colors"
           @click="goNew"
         >
-          Créer ma première influenceuse
+          Créer ma première {{ wording.ambassador }}
         </button>
       </div>
 
@@ -124,6 +124,7 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 const deletingIds = ref([])
 const { requestConfirmation, pushToast } = useUiFeedback()
+const { wording } = useWording()
 
 const {
   data,
@@ -165,7 +166,7 @@ async function removeInfluencer(id) {
   }
 
   const confirmed = await requestConfirmation({
-    title: 'Supprimer cette influenceuse ?',
+    title: `Supprimer cette ${wording.value.ambassador} ?`,
     message: 'Cette action retire aussi ses contenus générés liés.',
     confirmLabel: 'Supprimer',
     cancelLabel: 'Annuler',
@@ -184,7 +185,7 @@ async function removeInfluencer(id) {
     })
     await refresh()
     pushToast({
-      title: 'Influenceuse supprimée',
+      title: `${wording.value.ambassador.charAt(0).toUpperCase()}${wording.value.ambassador.slice(1)} supprimée`,
       message: 'La liste a été mise à jour.',
       tone: 'success',
     })

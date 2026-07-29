@@ -12,6 +12,12 @@ enum Plan {
   AGENCY
 }
 
+enum AccountType {
+  INFLUENCER_CREATOR
+  CONTENT_CREATOR
+  BRAND
+}
+
 enum ContentPlatform {
   INSTAGRAM
   TIKTOK
@@ -45,6 +51,7 @@ model User {
   email        String        @unique
   passwordHash String?
   plan         Plan          @default(SOLO)
+  accountType  AccountType?
   createdAt    DateTime      @default(now())
   influencers  Influencer[]
   authSessions AuthSession[]

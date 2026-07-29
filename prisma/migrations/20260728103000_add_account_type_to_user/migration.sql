@@ -1,0 +1,13 @@
+DO $$
+BEGIN
+  CREATE TYPE "AccountType" AS ENUM ('INFLUENCER_CREATOR', 'CONTENT_CREATOR', 'BRAND');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+ALTER TABLE "User"
+ADD COLUMN IF NOT EXISTS "accountType" "AccountType";
+
+UPDATE "User"
+SET "accountType" = 'INFLUENCER_CREATOR'
+WHERE "accountType" IS NULL;

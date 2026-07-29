@@ -16,6 +16,7 @@ if (ffprobe?.path) {
 
 const KLING_API_BASE = 'https://api-singapore.klingai.com/v1';
 const KLING_MOTION_ENDPOINT = `${KLING_API_BASE}/videos/motion-control`;
+const KLING_TEXT_ENDPOINT = `${KLING_API_BASE}/videos/text2video`;
 const POLL_INTERVAL_MS = 10_000;
 const POLL_MAX_ATTEMPTS = 90;
 const MAX_VIDEO_DURATION_SECONDS = 20;
@@ -384,4 +385,76 @@ export async function generateVideoMotionControl(imagePath, videoPath, motionPro
       await fs.unlink(intermediate).catch(() => {});
     }
   }
+}
+
+async function submitTextToVideoTask({ prompt }) {
+  const { model } = getKlingConfig();
+  const response = await fetch(KLING_TEXT_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${generateAuthToken()}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model_name: model,
+      prompt: String(prompt || '').trim(),
+      mode: 'std',
+    }),
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(`Kling text2video request failed: ${JSON.stringify(payload)}`);
+  }
+
+  const taskId = payload?.data?.task_id || payload?.task_id;
+  if (!taskId) {
+    throw new Error(`Kling text2video response did not include task_id: ${JSON.stringify(payload)}`);
+  }
+
+  return String(taskId);
+}
+
+async function pollTextToVideoTask(taskId) {
+  for (let attempt = 1; attempt <= POLL_MAX_ATTEMPTS; attempt += 1) {
+    await sleep(POLL_INTERVAL_MS);
+
+    const response = await fetch(`${KLING_TEXT_ENDPOINT}/${taskId}`, {
+      headers: {
+        Authorization: `Bearer ${generateAuthToken()}`,
+      },
+    });
+
+    const payload = await response.json();
+    const data = payload?.data || payload || {};
+    const status = data.task_status || data.status || 'unknown';
+
+    if (status === 'succeed') {
+      const videoUrl = data?.task_result?.videos?.[0]?.url;
+      if (!videoUrl) {
+        throw new Error(`Kling text2video succeeded without a video URL: ${JSON.stringify(data)}`);
+      }
+      return videoUrl;
+    }
+
+    if (status === 'failed' || status === 'error') {
+      throw new Error(data?.task_status_msg || data?.error_message || `Kling text2video failed with status ${status}`);
+    }
+  }
+
+  throw new Error(`Kling text2video polling timed out after ${POLL_MAX_ATTEMPTS} attempts`);
+}
+
+export async function generateVideoFromTextPrompt(prompt) {
+  const taskId = await submitTextToVideoTask({ prompt });
+  const generatedVideoUrl = await pollTextToVideoTask(taskId);
+  const localPath = await downloadGeneratedVideo(generatedVideoUrl);
+
+  const persisted = await copyIntoGeneratedDir(localPath, 'kling-text');
+  await fs.unlink(localPath).catch(() => {});
+
+  return {
+    taskId,
+    videoUrl: persisted.publicUrl,
+  };
 }

@@ -79,7 +79,7 @@
 
       <div class="space-y-5">
         <section class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-          <h2 class="text-lg font-bold text-[#111111]">Influenceuses actives</h2>
+          <h2 class="text-lg font-bold text-[#111111]">{{ wording.ambassadorPlural }} actives</h2>
           <div class="mt-4 space-y-3">
             <article
               v-for="influencer in dashboard.influencers"
@@ -142,6 +142,7 @@
 
 <script setup>
 const activeInfluencerId = useActiveInfluencer()
+const { wording } = useWording()
 
 const { data, pending: loading, refresh } = await useFetch('/api/dashboard', {
   key: 'plotline-dashboard',
@@ -193,7 +194,7 @@ const bentoStats = computed(() => {
       chipClass: 'bg-[#FDE7D6] text-[#B45F1D]',
     },
     {
-      label: 'Influenceuses',
+      label: wording.value.ambassadorPlural,
       value: influencerCount,
       delta: 'Actives',
       chipClass: 'bg-[#F2F2F2] text-[#555555]',

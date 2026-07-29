@@ -4,7 +4,7 @@
       <div>
         <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#E8873A]">Contenu</p>
         <h1 class="mt-2 text-3xl font-bold tracking-tight text-[#111111]">{{ selectedInfluencer?.name || 'Contenu' }}</h1>
-        <p class="mt-2 text-sm text-[#666666]">{{ selectedInfluencer ? 'Par défaut, la vue démarre sur tout puis se filtre par statut.' : 'Aucune influenceuse active pour le moment.' }}</p>
+        <p class="mt-2 text-sm text-[#666666]">{{ selectedInfluencer ? 'Par défaut, la vue démarre sur tout puis se filtre par statut.' : `Aucune ${wording.ambassador} active pour le moment.` }}</p>
         <div v-if="selectedInfluencer" class="mt-3 flex flex-wrap items-center gap-2 text-sm text-[#666666]">
           <span v-if="selectedInfluencer.niche" class="rounded-full bg-[#FDE7D6] px-2.5 py-1 text-xs font-bold text-[#B45F1D]">{{ selectedInfluencer.niche }}</span>
           <span v-if="selectedInfluencer.style" class="rounded-full border border-[#E5E3DF] bg-[#FAFAF8] px-2.5 py-1 text-xs font-semibold text-[#111111]">{{ selectedInfluencer.style }}</span>
@@ -17,7 +17,7 @@
           :to="`/influencers/${selectedInfluencer.id}/edit`"
           class="rounded-[12px] border border-[#E5E3DF] bg-white px-4 py-2.5 text-sm font-bold text-[#111111] transition-colors duration-150 hover:bg-[#FAFAF8]"
         >
-          Paramètres influenceuse
+          Paramètres {{ wording.ambassador }}
         </NuxtLink>
         <NuxtLink
           v-if="selectedInfluencer"
@@ -54,16 +54,16 @@
     </div>
 
     <div v-else-if="!selectedInfluencer" class="rounded-[20px] border border-dashed border-[#E5E3DF] bg-white px-6 py-16 text-center">
-      <p class="text-base font-semibold text-[#111111]">Aucune influenceuse sélectionnée</p>
-      <p class="mt-2 text-sm text-[#666666]">Crée une influenceuse ou sélectionne-en une depuis la sidebar.</p>
+      <p class="text-base font-semibold text-[#111111]">Aucune {{ wording.ambassador }} sélectionnée</p>
+      <p class="mt-2 text-sm text-[#666666]">Crée une {{ wording.ambassador }} ou sélectionne-en une depuis la sidebar.</p>
       <NuxtLink to="/influencers/new" class="mt-5 inline-flex rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#d4762f]">
-        Nouvelle influenceuse
+        Nouvelle {{ wording.ambassador }}
       </NuxtLink>
     </div>
 
     <div v-else-if="!displayedContents.length" class="rounded-[20px] border border-dashed border-[#E5E3DF] bg-white px-6 py-16 text-center">
       <p class="text-base font-semibold text-[#111111]">{{ emptyStateLabel }}</p>
-      <p class="mt-2 text-sm text-[#666666]">Cette influenceuse n’a pas encore de contenu dans cette catégorie.</p>
+      <p class="mt-2 text-sm text-[#666666]">Cette {{ wording.ambassador }} n’a pas encore de contenu dans cette catégorie.</p>
     </div>
 
     <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -215,6 +215,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
 const activeInfluencerId = useActiveInfluencer()
 const { pushToast } = useUiFeedback()
+const { wording } = useWording()
 
 const tabs = [
   { label: 'Tout', value: 'ALL' },
@@ -251,7 +252,7 @@ const emptyStateLabel = computed(() => {
   if (activeTab.value === 'PENDING') return 'Aucun contenu en attente pour l’instant.'
   if (activeTab.value === 'VALIDATED') return 'Aucun contenu validé pour l’instant.'
   if (activeTab.value === 'PUBLISHED') return 'Aucun contenu publié pour l’instant.'
-  return 'Aucun contenu trouvé pour cette influenceuse.'
+  return `Aucun contenu trouvé pour cette ${wording.value.ambassador}.`
 })
 
 watch(

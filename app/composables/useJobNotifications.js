@@ -2,6 +2,7 @@ import { watch } from 'vue'
 
 export function useJobNotifications() {
   const { pushToast } = useUiFeedback()
+  const { user } = useAuthSession()
   const notifiedContentIds = useState('plotline-job-notifications', () => ({}))
   const POLL_FAST_MS = 15_000
   const POLL_IDLE_MS = 60_000
@@ -29,7 +30,9 @@ export function useJobNotifications() {
 
         const content = await $fetch(`/api/content/${contentId}`)
         if (content?.status === 'VALIDATED') {
-          const influencerName = content?.influencer?.name || 'Influenceuse'
+          const accountType = String(user.value?.accountType || '').trim().toUpperCase()
+          const fallbackLabel = accountType === 'INFLUENCER_CREATOR' ? 'Influenceuse' : 'Ambassadrice'
+          const influencerName = content?.influencer?.name || fallbackLabel
           pushToast({
             title: `Contenu prêt — ${influencerName}`,
             message: 'La génération est terminée.',

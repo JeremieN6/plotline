@@ -138,7 +138,7 @@
       <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#C65244]">Danger zone</p>
       <h2 class="mt-2 text-2xl font-bold text-[#111111]">Supprimer le compte et toutes les données</h2>
       <p class="mt-2 text-sm text-[#7D4A44]">
-        Cette action est irréversible: influenceuses, contenus générés et sessions seront supprimés.
+        Cette action est irréversible: {{ wording.ambassadorPlural }}, contenus générés et sessions seront supprimés.
       </p>
 
       <form class="mt-5 grid gap-3 max-w-xl" @submit.prevent="requestDeleteAccount">
@@ -185,7 +185,7 @@
         <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#C65244]">Confirmation finale</p>
         <h3 class="mt-2 text-xl font-bold text-[#111111]">Supprimer ton compte maintenant ?</h3>
         <p class="mt-2 text-sm text-[#6F4A45]">
-          Cette action est irréversible. Toutes les influenceuses, contenus et sessions seront supprimés.
+          Cette action est irréversible. Toutes les {{ wording.ambassadorPlural }}, contenus et sessions seront supprimés.
         </p>
 
         <div class="mt-5 flex flex-wrap gap-2">
@@ -217,6 +217,7 @@ import { computed, reactive, ref } from 'vue';
 
 const { user, refreshAuth } = useAuthSession();
 const router = useRouter();
+const { wording } = useWording();
 
 const loading = ref(false);
 const error = ref('');
