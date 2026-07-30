@@ -32,7 +32,7 @@
       </div>
     </section>
 
-    <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
+    <div class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
       <article
         v-for="item in bentoStats"
         :key="item.label"
