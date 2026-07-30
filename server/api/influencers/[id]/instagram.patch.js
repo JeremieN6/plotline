@@ -25,6 +25,20 @@ export default defineEventHandler(async (event) => {
     const instagramAccessToken = typeof body?.instagramAccessToken === 'string' ? body.instagramAccessToken.trim() : '';
 
     const prisma = await getPrisma();
+    const authModule = await import('../../../utils/auth.js');
+    const user = await authModule.requireAuthUser(event);
+
+    const ownerMatch = await prisma.influencer.findFirst({
+      where: {
+        id,
+        userId: user.id,
+      },
+      select: { id: true },
+    });
+
+    if (!ownerMatch) {
+      return sendError(event, createError({ statusCode: 404, statusMessage: 'Influenceuse introuvable' }));
+    }
 
     const updated = await prisma.influencer.update({
       where: { id },
