@@ -137,7 +137,7 @@
           :disabled="loading || !canGenerate"
           @click="submit"
         >
-          {{ loading ? 'Envoi...' : 'Générer' }}
+          {{ loading ? 'Envoi...' : (editingContentId ? 'Régénérer' : 'Générer') }}
         </button>
       </section>
 
@@ -198,10 +198,12 @@
 
 <script setup>
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
 const { pushToast } = useUiFeedback()
 const { user } = useAuthSession()
 const activeInfluencerId = useActiveInfluencer()
+const route = useRoute()
 
 const prompt = ref('')
 const mode = ref('image')
@@ -212,6 +214,7 @@ const errorMessage = ref('')
 const lastResult = ref(null)
 const showStudioHint = ref(true)
 const ambassadorPanelOpen = ref(true)
+const editingContentId = ref('')
 
 // Polling vidéo asynchrone
 const videoPolling = ref({ active: false, contentId: null, intervalId: null })
@@ -341,6 +344,26 @@ watch(generationMode, (value) => {
   }
 })
 
+const editContentIdParam = String(route.query.edit || '').trim()
+if (editContentIdParam) {
+  try {
+    const editContent = await $fetch(`/api/content/${editContentIdParam}`)
+    editingContentId.value = editContentIdParam
+    prompt.value = String(editContent?.prompt || '')
+    mode.value = String(editContent?.format || '').trim().toUpperCase() === 'REEL' ? 'video' : 'image'
+
+    if (editContent?.ambassadorId) {
+      generationMode.value = 'with-ambassador'
+      selectedAmbassadorId.value = editContent.ambassadorId
+    } else {
+      generationMode.value = 'without-ambassador'
+      selectedAmbassadorId.value = ''
+    }
+  } catch (err) {
+    errorMessage.value = err?.data?.statusMessage || err?.message || 'Impossible de charger ce contenu à modifier.'
+  }
+}
+
 function dismissStudioHint() {
   showStudioHint.value = false
   if (!process.client) return
@@ -364,34 +387,46 @@ async function submit() {
   errorMessage.value = ''
 
   try {
+    const isEditing = Boolean(editingContentId.value)
+
     if (mode.value === 'image') {
-      lastResult.value = await $fetch('/api/generate/image', {
-        method: 'POST',
-        body: {
-          influencerId: primaryInfluencerId.value,
-          ambassadorId: resolvedAmbassadorId.value || null,
-          workflowType: 'free',
-          prompt: prompt.value.trim(),
-          contentType: 'feed',
-        },
-      })
+      lastResult.value = isEditing
+        ? await $fetch(`/api/content/${editingContentId.value}/regenerate`, {
+            method: 'POST',
+            body: { prompt: prompt.value.trim() },
+          })
+        : await $fetch('/api/generate/image', {
+            method: 'POST',
+            body: {
+              influencerId: primaryInfluencerId.value,
+              ambassadorId: resolvedAmbassadorId.value || null,
+              workflowType: 'free',
+              prompt: prompt.value.trim(),
+              contentType: 'feed',
+            },
+          })
     } else {
-      const result = await $fetch('/api/generate/video', {
-        method: 'POST',
-        body: {
-          prompt: prompt.value.trim(),
-          influencerId: primaryInfluencerId.value,
-          ambassadorId: resolvedAmbassadorId.value || null,
-          withFaceRef: wantsAmbassador.value,
-        },
-      })
+      const result = isEditing
+        ? await $fetch(`/api/content/${editingContentId.value}/regenerate`, {
+            method: 'POST',
+            body: { prompt: prompt.value.trim() },
+          })
+        : await $fetch('/api/generate/video', {
+            method: 'POST',
+            body: {
+              prompt: prompt.value.trim(),
+              influencerId: primaryInfluencerId.value,
+              ambassadorId: resolvedAmbassadorId.value || null,
+              withFaceRef: wantsAmbassador.value,
+            },
+          })
       lastResult.value = result
 
       if (result?.contentId) {
         startVideoPolling(result.contentId)
         pushToast({
-          title: 'Génération lancée',
-          message: 'Veo génère ta vidéo. Résultat ici dans ~60s.',
+          title: isEditing ? 'Régénération lancée' : 'Génération lancée',
+          message: isEditing ? 'Veo régénère ta vidéo. Résultat ici dans ~60s.' : 'Veo génère ta vidéo. Résultat ici dans ~60s.',
           tone: 'success',
         })
       }
@@ -399,11 +434,13 @@ async function submit() {
 
     if (mode.value === 'image') {
       pushToast({
-        title: 'Génération lancée',
-        message: 'Le contenu a bien été envoyé au pipeline.',
+        title: isEditing ? 'Régénération lancée' : 'Génération lancée',
+        message: isEditing ? 'Le contenu a bien été renvoyé au pipeline.' : 'Le contenu a bien été envoyé au pipeline.',
         tone: 'success',
       })
     }
+
+    editingContentId.value = ''
   } catch (err) {
     errorMessage.value = err?.data?.statusMessage || err?.message || 'Generation impossible.'
   } finally {

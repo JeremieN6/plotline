@@ -148,6 +148,13 @@
           </div>
 
           <div class="absolute inset-x-0 bottom-0 flex gap-2 p-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+            <NuxtLink
+              v-if="canModify(item)"
+              :to="modifyHref(item)"
+              class="flex-1 rounded-[12px] border border-white/20 bg-white/15 px-3 py-2 text-center text-xs font-bold text-white backdrop-blur transition-colors duration-150 hover:bg-white/25"
+            >
+              ✎ Modifier
+            </NuxtLink>
             <button
               v-if="canValidate(item)"
               type="button"
@@ -246,6 +253,7 @@ const activeInfluencerId = useActiveInfluencer()
 const { pushToast } = useUiFeedback()
 const { wording, accountType } = useWording()
 const isContentCreator = computed(() => accountType.value === 'CONTENT_CREATOR')
+const isBrand = computed(() => accountType.value === 'BRAND')
 
 const tabs = [
   { label: 'Tout', value: 'ALL' },
@@ -414,6 +422,15 @@ function statusClass(status) {
 
 function canValidate(item) {
   return item.status === 'PENDING' || item.status === 'PROCESSING' || activeTab.value === 'PENDING'
+}
+
+function canModify(item) {
+  return (isContentCreator.value || isBrand.value) && item.status === 'PENDING'
+}
+
+function modifyHref(item) {
+  const studioPath = isBrand.value ? '/brand-studio' : '/studio'
+  return `${studioPath}?edit=${item.id}`
 }
 
 function canPublish(item) {

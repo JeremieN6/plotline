@@ -148,6 +148,7 @@ model GeneratedContent {
   campaignId    String?
   imageUrl      String?
   caption       String?
+  prompt        String?
   errorMessage  String?
   platform      ContentPlatform @default(INSTAGRAM)
   format        ContentFormat

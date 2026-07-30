@@ -18,6 +18,28 @@ async function getPrisma() {
   return prismaClient;
 }
 
+function isPrismaSchemaDriftError(err) {
+  const message = String(err?.message || '').toLowerCase();
+  return err?.code === 'P2022'
+    || (message.includes('column') && message.includes('does not exist'))
+    || message.includes('unknown arg')
+    || message.includes('unknown argument')
+    || message.includes('unknown field');
+}
+
+async function createGeneratedContentCompatible(prisma, data) {
+  try {
+    return await prisma.generatedContent.create({ data });
+  } catch (err) {
+    if (!isPrismaSchemaDriftError(err) || !('prompt' in data)) {
+      throw err;
+    }
+
+    const { prompt, ...rest } = data;
+    return await prisma.generatedContent.create({ data: rest });
+  }
+}
+
 function derivePlatformAndFormat(calendarStep) {
   const step = Number(calendarStep) || 1;
   const index = ((step - 1) % 3 + 3) % 3;
@@ -333,16 +355,15 @@ export default defineEventHandler(async (event) => {
     const explicitContentFormat = derivePlatformAndFormatFromContentType(normalizedContentType);
     const { platform, format } = explicitContentFormat || derivePlatformAndFormat(influencer.calendarStep);
 
-    const generatedContent = await prisma.generatedContent.create({
-      data: {
-        influencerId: influencer.id,
-        brandId: ownerProfile.id,
-        ambassadorId: withFaceRef ? influencer.id : null,
-        campaignId: campaignId || null,
-        platform,
-        format,
-        status: 'PROCESSING',
-      },
+    const generatedContent = await createGeneratedContentCompatible(prisma, {
+      influencerId: influencer.id,
+      brandId: ownerProfile.id,
+      ambassadorId: withFaceRef ? influencer.id : null,
+      campaignId: campaignId || null,
+      platform,
+      format,
+      status: 'PROCESSING',
+      prompt: prompt || null,
     });
 
     const jobPayload = {

@@ -100,7 +100,7 @@
           :disabled="loading || !canGenerate"
           @click="submit"
         >
-          {{ loading ? 'Génération...' : 'Générer' }}
+          {{ loading ? 'Génération...' : (editingContentId ? 'Régénérer' : 'Générer') }}
         </button>
       </section>
 
@@ -174,6 +174,7 @@ const creatingCampaign = ref(false)
 const errorMessage = ref('')
 const lastResult = ref(null)
 const campaignModalOpen = ref(false)
+const editingContentId = ref('')
 
 const campaignForm = reactive({
   name: '',
@@ -273,6 +274,25 @@ watch(generationMode, (value) => {
   }
 })
 
+const editContentIdParam = String(route.query.edit || '').trim()
+if (editContentIdParam) {
+  try {
+    const editContent = await $fetch(`/api/content/${editContentIdParam}`)
+    editingContentId.value = editContentIdParam
+    prompt.value = String(editContent?.prompt || '')
+
+    if (editContent?.ambassadorId) {
+      generationMode.value = 'with-ambassador'
+      selectedAmbassadorId.value = editContent.ambassadorId
+    } else {
+      generationMode.value = 'without-ambassador'
+      selectedAmbassadorId.value = ''
+    }
+  } catch (err) {
+    errorMessage.value = err?.data?.statusMessage || err?.message || 'Impossible de charger ce contenu à modifier.'
+  }
+}
+
 function openCampaignModal() {
   campaignModalOpen.value = true
 }
@@ -343,23 +363,32 @@ async function submit() {
   errorMessage.value = ''
 
   try {
-    lastResult.value = await $fetch('/api/generate/image', {
-      method: 'POST',
-      body: {
-        influencerId: primaryInfluencerId.value,
-        ambassadorId: resolvedAmbassadorId.value || null,
-        campaignId: selectedCampaignId.value || null,
-        workflowType: 'free',
-        prompt: prompt.value.trim(),
-        contentType: 'feed',
-      },
-    })
+    const isEditing = Boolean(editingContentId.value)
+
+    lastResult.value = isEditing
+      ? await $fetch(`/api/content/${editingContentId.value}/regenerate`, {
+          method: 'POST',
+          body: { prompt: prompt.value.trim() },
+        })
+      : await $fetch('/api/generate/image', {
+          method: 'POST',
+          body: {
+            influencerId: primaryInfluencerId.value,
+            ambassadorId: resolvedAmbassadorId.value || null,
+            campaignId: selectedCampaignId.value || null,
+            workflowType: 'free',
+            prompt: prompt.value.trim(),
+            contentType: 'feed',
+          },
+        })
 
     pushToast({
-      title: 'Generation lancée',
-      message: 'Le contenu image a bien été envoyé au pipeline.',
+      title: isEditing ? 'Régénération lancée' : 'Generation lancée',
+      message: isEditing ? 'Le contenu a bien été renvoyé au pipeline.' : 'Le contenu image a bien été envoyé au pipeline.',
       tone: 'success',
     })
+
+    editingContentId.value = ''
   } catch (err) {
     errorMessage.value = err?.data?.statusMessage || err?.message || 'Generation impossible.'
   } finally {

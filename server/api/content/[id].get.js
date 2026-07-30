@@ -25,6 +25,8 @@ export default defineEventHandler(async (event) => {
     }
 
     const prisma = await getPrisma();
+    const authModule = await import('../../utils/auth.js');
+    const user = await authModule.requireAuthUser(event);
     let content
     try {
       content = await prisma.generatedContent.findUnique({
@@ -32,8 +34,10 @@ export default defineEventHandler(async (event) => {
         select: {
           id: true,
           influencerId: true,
+          ambassadorId: true,
           imageUrl: true,
           caption: true,
+          prompt: true,
           status: true,
           errorMessage: true,
           platform: true,
@@ -54,6 +58,7 @@ export default defineEventHandler(async (event) => {
           influencer: {
             select: {
               id: true,
+              userId: true,
               name: true,
               niche: true,
             },
@@ -70,8 +75,10 @@ export default defineEventHandler(async (event) => {
         select: {
           id: true,
           influencerId: true,
+          ambassadorId: true,
           imageUrl: true,
           caption: true,
+          prompt: true,
           status: true,
           errorMessage: true,
           platform: true,
@@ -91,6 +98,7 @@ export default defineEventHandler(async (event) => {
           influencer: {
             select: {
               id: true,
+              userId: true,
               name: true,
               niche: true,
             },
@@ -110,7 +118,20 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 404, statusMessage: 'Contenu introuvable' }));
     }
 
-    return content;
+    if (String(content.influencer?.userId || '') !== String(user.id || '')) {
+      return sendError(event, createError({ statusCode: 403, statusMessage: 'Accès refusé' }));
+    }
+
+    return {
+      ...content,
+      influencer: content.influencer
+        ? {
+            id: content.influencer.id,
+            name: content.influencer.name,
+            niche: content.influencer.niche,
+          }
+        : null,
+    };
   } catch (err) {
     return sendError(
       event,
