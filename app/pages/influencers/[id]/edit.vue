@@ -43,14 +43,25 @@
           <div class="md:col-span-2">
             <label class="mb-1.5 block text-sm font-semibold text-gray-800">Style</label>
             <input v-model="form.style" class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none" placeholder="ex : parisian chic" />
+            <p class="mt-2 text-xs text-gray-500">Sépare les styles par des virgules. Ils seront affichés comme des tags dans la liste.</p>
+
+            <div v-if="styleItems.length" class="mt-3 flex flex-wrap gap-2">
+              <span
+                v-for="item in styleItems"
+                :key="item"
+                class="rounded-full border border-[#E5E3DF] bg-[#FAFAF8] px-2.5 py-1 text-xs font-semibold text-[#111111]"
+              >
+                {{ item }}
+              </span>
+            </div>
           </div>
         </div>
 
-        <div class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
+        <div v-if="isAmbassadorProfile" class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
           <div class="flex items-start justify-between gap-4">
             <div>
               <h2 class="text-base font-bold text-gray-900">Face ref</h2>
-              <p class="mt-1 text-sm text-gray-500">Conserve le fichier actuel ou remplace-le par une nouvelle image JPG/PNG.</p>
+              <p class="mt-1 text-sm text-gray-500">Dépose une photo classique de ce à quoi tu veux que ton {{ profileTypeLabel }} ressemble. Le pipeline génère automatiquement la fiche de cohérence visuelle (3 panneaux) à partir de cette photo.</p>
             </div>
             <span class="rounded-full border border-[#E5E3DF] bg-white px-3 py-1 text-xs font-bold text-gray-600">
               {{ currentFaceRefPath ? 'Fichier présent' : 'Aucun fichier' }}
@@ -61,32 +72,7 @@
             Fichier actuel : <strong>{{ currentFaceRefName }}</strong>
           </p>
 
-          <div
-            class="mt-4 rounded-xl border-2 border-dashed p-6 text-center transition-colors"
-            :class="isDragging ? 'border-[#E8873A] bg-orange-50' : fileError ? 'border-red-400 bg-red-50' : 'border-[#E5E3DF] bg-white'"
-            @dragenter.prevent="isDragging = true"
-            @dragover.prevent="isDragging = true"
-            @dragleave.prevent="isDragging = false"
-            @drop.prevent="onDrop"
-          >
-            <input
-              ref="fileInputRef"
-              type="file"
-              accept="image/jpeg,image/png,.jpg,.jpeg,.png"
-              class="hidden"
-              @change="onFileSelect"
-            />
-            <p class="font-bold text-gray-800">Dépose une nouvelle image ici</p>
-            <p class="mb-3 mt-2 text-sm text-gray-500">ou sélectionne un nouveau fichier</p>
-            <button type="button" class="rounded-lg border border-[#E5E3DF] bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-50" @click="openFilePicker">
-              Choisir un fichier
-            </button>
-          </div>
-
-          <div v-if="previewUrl" class="mt-4 overflow-hidden rounded-xl border border-[#E5E3DF]">
-            <img :src="previewUrl" alt="Aperçu de la face ref" class="block max-h-72 w-full object-cover" />
-          </div>
-          <div v-else-if="currentFaceRefUrl" class="mt-4 overflow-hidden rounded-xl border border-[#E5E3DF]">
+          <div v-if="currentFaceRefUrl && !sourcePreviewUrl && !generatedImageDataUrl" class="mt-4 overflow-hidden rounded-xl border border-[#E5E3DF]">
             <img
               v-if="!currentFaceRefMissing"
               :src="currentFaceRefUrl"
@@ -95,15 +81,79 @@
               @error="onCurrentFaceRefError"
             />
             <div v-else class="p-4 text-sm text-amber-700 bg-amber-50">
-              Cette image de reference n'est pas disponible sur ce poste. Uploadez une nouvelle face ref pour continuer.
+              Cette image de reference n'est pas disponible sur ce poste. Dépose une nouvelle photo source pour régénérer.
             </div>
           </div>
 
-          <p v-if="fileError" class="mt-3 text-sm text-red-600">{{ fileError }}</p>
-          <p v-if="uploadError" class="mt-3 text-sm text-red-600">{{ uploadError }}</p>
+          <template v-if="!generatedImageDataUrl">
+            <div
+              class="mt-4 rounded-xl border-2 border-dashed p-6 text-center transition-colors"
+              :class="isDragging ? 'border-[#E8873A] bg-orange-50' : fileError ? 'border-red-400 bg-red-50' : 'border-[#E5E3DF] bg-white'"
+              @dragenter.prevent="isDragging = true"
+              @dragover.prevent="isDragging = true"
+              @dragleave.prevent="isDragging = false"
+              @drop.prevent="onDrop"
+            >
+              <input
+                ref="fileInputRef"
+                type="file"
+                accept="image/jpeg,image/png,.jpg,.jpeg,.png"
+                class="hidden"
+                @change="onFileSelect"
+              />
+              <p class="font-bold text-gray-800">Dépose une photo source ici (visage dégagé, cadrage buste minimum)</p>
+              <p class="mb-3 mt-2 text-sm text-gray-500">ou sélectionne un nouveau fichier</p>
+              <button type="button" class="rounded-lg border border-[#E5E3DF] bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-50" @click="openFilePicker">
+                Choisir un fichier
+              </button>
+            </div>
+
+            <div v-if="sourcePreviewUrl" class="mt-4 overflow-hidden rounded-xl border border-[#E5E3DF]">
+              <img :src="sourcePreviewUrl" alt="Photo source" class="block max-h-72 w-full object-cover" />
+            </div>
+
+            <p v-if="fileError" class="mt-3 text-sm text-red-600">{{ fileError }}</p>
+            <p v-if="generateError" class="mt-3 text-sm text-red-600">{{ generateError }}</p>
+
+            <button
+              v-if="sourceImageBase64"
+              type="button"
+              class="mt-4 w-full rounded-lg bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#d4762f] disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="generatingRef"
+              @click="generateFaceReference"
+            >
+              {{ generatingRef ? 'Génération en cours... (~30s)' : 'Générer la nouvelle fiche référence' }}
+            </button>
+          </template>
+
+          <template v-else>
+            <p class="mt-4 text-sm text-gray-700">Nouvelle fiche référence générée. Valide-la pour remplacer la face ref actuelle, ou régénère à partir de la même photo.</p>
+            <div class="mt-3 overflow-hidden rounded-xl border border-[#E5E3DF]">
+              <img :src="generatedImageDataUrl" alt="Nouvelle fiche référence" class="block max-h-96 w-full object-cover" />
+            </div>
+            <p v-if="applyError" class="mt-3 text-sm text-red-600">{{ applyError }}</p>
+            <div class="mt-4 flex flex-wrap gap-3">
+              <button
+                type="button"
+                class="rounded-lg border border-[#E5E3DF] bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="generatingRef || applyingFaceRef"
+                @click="regenerateFaceReference"
+              >
+                🔄 Régénérer
+              </button>
+              <button
+                type="button"
+                class="rounded-lg bg-[#111111] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="applyingFaceRef"
+                @click="applyGeneratedFaceRef"
+              >
+                {{ applyingFaceRef ? 'Application...' : '✓ Valider et remplacer' }}
+              </button>
+            </div>
+          </template>
         </div>
 
-        <div class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
+        <div v-if="isAmbassadorProfile" class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
           <div>
             <h2 class="text-base font-bold text-gray-900">Silhouette</h2>
             <p class="mt-1 text-sm text-gray-500">Définis le gabarit de base qui sera utilisé par ton persona. Tu peux également le laisser par défaut.</p>
@@ -204,6 +254,24 @@
             <span v-else>Enregistrer</span>
           </button>
         </div>
+
+        <div class="rounded-2xl border border-red-200 bg-red-50/60 p-4">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 class="text-base font-bold text-red-700">Zone de danger</h2>
+              <p class="mt-1 text-sm text-red-600">Supprime définitivement ce profil {{ profileTypeLabel }} ainsi que tous ses contenus générés.</p>
+            </div>
+            <button
+              type="button"
+              class="shrink-0 rounded-lg border border-red-300 bg-white px-4 py-2.5 text-sm font-bold text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="deleting"
+              @click="deleteProfile"
+            >
+              {{ deleting ? 'Suppression...' : `Supprimer ce profil ${profileTypeLabel}` }}
+            </button>
+          </div>
+          <p v-if="deleteError" class="mt-3 text-sm text-red-600">{{ deleteError }}</p>
+        </div>
       </div>
   </div>
 </template>
@@ -216,7 +284,8 @@ const route = useRoute()
 const router = useRouter()
 const id = computed(() => String(route.params.id || ''))
 const activeInfluencerId = useActiveInfluencer()
-const { pushToast } = useUiFeedback()
+const { pushToast, requestConfirmation } = useUiFeedback()
+const { wording } = useWording()
 
 watch(
   id,
@@ -230,17 +299,24 @@ watch(
 
 const fetchError = ref('')
 const submitError = ref('')
-const uploadError = ref('')
 const fileError = ref('')
+const generateError = ref('')
+const applyError = ref('')
+const deleteError = ref('')
 const saving = ref(false)
+const deleting = ref(false)
+const generatingRef = ref(false)
+const applyingFaceRef = ref(false)
 const savingInstagram = ref(false)
 const twitterStatusLoading = ref(false)
 const twitterConnecting = ref(false)
 const twitterConnected = ref(false)
 const twitterUsername = ref('')
 const isDragging = ref(false)
-const selectedFile = ref(null)
-const previewUrl = ref('')
+const sourceImageBase64 = ref('')
+const sourcePreviewUrl = ref('')
+const generatedImageBase64 = ref('')
+const generatedTempImagePath = ref('')
 const currentFaceRefPath = ref('')
 const currentFaceRefUrl = ref('')
 const currentFaceRefMissing = ref(false)
@@ -277,6 +353,16 @@ const { data, pending, error, refresh } = await useFetch(() => `/api/influencers
 
 const influencer = computed(() => data.value ?? null)
 const nicheItems = computed(() => splitNiches(form.niche))
+const styleItems = computed(() => splitNiches(form.style))
+const isAmbassadorProfile = computed(() => {
+  return Boolean(String(influencer.value?.faceRefPath || currentFaceRefPath.value || '').trim())
+})
+const profileTypeLabel = computed(() => (isAmbassadorProfile.value ? wording.value.ambassador : 'marque'))
+const generatedImageDataUrl = computed(() => {
+  if (!generatedImageBase64.value) return ''
+  if (generatedImageBase64.value.startsWith('data:image/')) return generatedImageBase64.value
+  return `data:image/jpeg;base64,${generatedImageBase64.value}`
+})
 const currentFaceRefName = computed(() => currentFaceRefPath.value.split(/[\\/]/).pop() || '')
 const currentFaceRefFilename = computed(() => currentFaceRefPath.value.split(/[\\/]/).pop() || '')
 const canSubmit = computed(() => Boolean(form.name.trim() && nicheItems.value.length && form.style.trim()))
@@ -358,38 +444,152 @@ function validImage(file) {
   return ['image/jpeg', 'image/png'].includes(file.type)
 }
 
-function updatePreview(file) {
-  if (previewUrl.value) {
-    URL.revokeObjectURL(previewUrl.value)
-  }
-  previewUrl.value = URL.createObjectURL(file)
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+
+    reader.onload = () => {
+      const result = String(reader.result || '')
+      const base64 = result.includes(',') ? result.split(',')[1] : ''
+      if (!base64) {
+        reject(new Error('Impossible de lire l\'image source'))
+        return
+      }
+      resolve(base64)
+    }
+
+    reader.onerror = () => {
+      reject(new Error('Impossible de lire l\'image source'))
+    }
+
+    reader.readAsDataURL(file)
+  })
 }
 
 function onCurrentFaceRefError() {
   currentFaceRefMissing.value = true
 }
 
-function setFile(file) {
+function resetFaceRefFlow() {
+  if (sourcePreviewUrl.value) {
+    URL.revokeObjectURL(sourcePreviewUrl.value)
+  }
+  sourceImageBase64.value = ''
+  sourcePreviewUrl.value = ''
+  generatedImageBase64.value = ''
+  generatedTempImagePath.value = ''
   fileError.value = ''
-  uploadError.value = ''
+  generateError.value = ''
+  applyError.value = ''
+}
+
+async function setFile(file) {
+  fileError.value = ''
+  generateError.value = ''
+  generatedImageBase64.value = ''
+  generatedTempImagePath.value = ''
 
   if (!validImage(file)) {
-    selectedFile.value = null
+    sourceImageBase64.value = ''
     fileError.value = 'Format invalide. Utilise un fichier JPG ou PNG.'
     return
   }
 
-  selectedFile.value = file
-  updatePreview(file)
+  if (sourcePreviewUrl.value) {
+    URL.revokeObjectURL(sourcePreviewUrl.value)
+  }
+  sourcePreviewUrl.value = URL.createObjectURL(file)
+
+  try {
+    sourceImageBase64.value = await readFileAsBase64(file)
+  } catch (err) {
+    sourceImageBase64.value = ''
+    fileError.value = err?.message || String(err)
+  }
 }
 
-function onFileSelect(event) {
-  setFile(event.target?.files?.[0])
+async function onFileSelect(event) {
+  const file = event.target?.files?.[0]
+  if (!file) return
+  await setFile(file)
 }
 
-function onDrop(event) {
+async function onDrop(event) {
   isDragging.value = false
-  setFile(event.dataTransfer?.files?.[0])
+  const file = event.dataTransfer?.files?.[0]
+  if (!file) return
+  await setFile(file)
+}
+
+async function generateFaceReference() {
+  if (!sourceImageBase64.value || generatingRef.value) return
+
+  generatingRef.value = true
+  generateError.value = ''
+
+  try {
+    const payload = await $fetch('/api/generate/face-ref', {
+      method: 'POST',
+      body: {
+        sourceImageBase64: sourceImageBase64.value,
+        customPrompt: FACE_REF_BASE_PROMPT,
+      },
+    })
+
+    generatedImageBase64.value = payload?.imageBase64 || ''
+    generatedTempImagePath.value = payload?.tempImagePath || ''
+
+    if (!generatedImageBase64.value || !generatedTempImagePath.value) {
+      throw new Error('La génération n\'a pas retourné d\'image exploitable')
+    }
+  } catch (err) {
+    generateError.value = err?.data?.statusMessage || err?.message || String(err)
+  } finally {
+    generatingRef.value = false
+  }
+}
+
+function regenerateFaceReference() {
+  generatedImageBase64.value = ''
+  generatedTempImagePath.value = ''
+  applyError.value = ''
+}
+
+async function applyGeneratedFaceRef() {
+  if (!generatedTempImagePath.value || applyingFaceRef.value) return
+
+  applyingFaceRef.value = true
+  applyError.value = ''
+
+  try {
+    await $fetch('/api/upload/face-ref', {
+      method: 'POST',
+      body: {
+        influencerId: id.value,
+        tempImagePath: generatedTempImagePath.value,
+      },
+    })
+
+    resetFaceRefFlow()
+    await refresh()
+
+    pushToast({
+      title: 'Face ref mise à jour',
+      message: 'La nouvelle fiche référence a été appliquée.',
+      tone: 'success',
+    })
+  } catch (err) {
+    const message = err?.data?.statusMessage || err?.message || 'Application impossible'
+    applyError.value = message
+    pushToast({
+      title: 'Application impossible',
+      message,
+      tone: 'error',
+      duration: 4500,
+    })
+  } finally {
+    applyingFaceRef.value = false
+  }
 }
 
 async function saveInstagramCredentials() {
@@ -472,32 +672,6 @@ async function connectTwitter() {
   }
 }
 
-async function uploadFaceRefIfNeeded() {
-  if (!selectedFile.value) {
-    return
-  }
-
-  const formData = new FormData()
-  formData.append('file', selectedFile.value)
-  formData.append('influencerId', id.value)
-
-  const response = await fetch('/api/upload/face-ref', {
-    method: 'POST',
-    body: formData,
-  })
-
-  if (!response.ok) {
-    const payload = await response.json().catch(() => ({}))
-    throw new Error(payload?.statusMessage || payload?.message || 'Upload impossible')
-  }
-
-  const payload = await response.json()
-  currentFaceRefPath.value = payload?.path || currentFaceRefPath.value
-  currentFaceRefUrl.value = payload?.url || (currentFaceRefFilename.value ? `/api/media/face-refs/${encodeURIComponent(currentFaceRefFilename.value)}` : currentFaceRefUrl.value)
-  currentFaceRefMissing.value = false
-  selectedFile.value = null
-}
-
 async function submit() {
   if (!canSubmit.value || saving.value) {
     return
@@ -505,7 +679,6 @@ async function submit() {
 
   saving.value = true
   submitError.value = ''
-  uploadError.value = ''
 
   try {
     const patchBody = {
@@ -527,7 +700,6 @@ async function submit() {
       body: patchBody,
     })
 
-    await uploadFaceRefIfNeeded()
     await refresh()
 
     pushToast({
@@ -551,9 +723,57 @@ async function submit() {
   }
 }
 
+async function deleteProfile() {
+  if (deleting.value || !id.value) {
+    return
+  }
+
+  deleteError.value = ''
+
+  const confirmed = await requestConfirmation({
+    title: `Supprimer ce profil ${profileTypeLabel.value} ?`,
+    message: `Cette action est irréversible : le profil "${form.name || influencer.value?.name || ''}" et tous ses contenus générés seront définitivement supprimés.`,
+    confirmLabel: 'Supprimer définitivement',
+    cancelLabel: 'Annuler',
+    tone: 'danger',
+  })
+
+  if (!confirmed) {
+    return
+  }
+
+  deleting.value = true
+  try {
+    await $fetch(`/api/influencers/${id.value}`, { method: 'DELETE' })
+
+    if (activeInfluencerId.value === id.value) {
+      activeInfluencerId.value = ''
+    }
+
+    pushToast({
+      title: 'Profil supprimé',
+      message: 'Le profil a bien été supprimé.',
+      tone: 'success',
+    })
+
+    await router.push('/content')
+  } catch (err) {
+    const message = err?.data?.statusMessage || err?.message || 'Suppression impossible'
+    deleteError.value = message
+    pushToast({
+      title: 'Suppression impossible',
+      message,
+      tone: 'error',
+      duration: 4500,
+    })
+  } finally {
+    deleting.value = false
+  }
+}
+
 onBeforeUnmount(() => {
-  if (previewUrl.value) {
-    URL.revokeObjectURL(previewUrl.value)
+  if (sourcePreviewUrl.value) {
+    URL.revokeObjectURL(sourcePreviewUrl.value)
   }
 })
 </script>

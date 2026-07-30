@@ -6,19 +6,24 @@
         <h1 class="mt-2 text-3xl font-bold tracking-tight text-[#111111]">{{ selectedInfluencer?.name || 'Contenu' }}</h1>
         <p class="mt-2 text-sm text-[#666666]">{{ selectedInfluencer ? 'Par défaut, la vue démarre sur tout puis se filtre par statut.' : `Aucune ${wording.ambassador} active pour le moment.` }}</p>
         <div v-if="selectedInfluencer" class="mt-3 flex flex-wrap items-center gap-2 text-sm text-[#666666]">
-          <span v-if="selectedInfluencer.niche" class="rounded-full bg-[#FDE7D6] px-2.5 py-1 text-xs font-bold text-[#B45F1D]">{{ selectedInfluencer.niche }}</span>
-          <span v-if="selectedInfluencer.style" class="rounded-full border border-[#E5E3DF] bg-[#FAFAF8] px-2.5 py-1 text-xs font-semibold text-[#111111]">{{ selectedInfluencer.style }}</span>
+          <span
+            v-for="item in nicheChips"
+            :key="`niche-${item}`"
+            class="rounded-full bg-[#FDE7D6] px-2.5 py-1 text-xs font-bold text-[#B45F1D]"
+          >
+            {{ item }}
+          </span>
+          <span
+            v-for="item in styleChips"
+            :key="`style-${item}`"
+            class="rounded-full border border-[#E5E3DF] bg-[#FAFAF8] px-2.5 py-1 text-xs font-semibold text-[#111111]"
+          >
+            {{ item }}
+          </span>
         </div>
       </div>
 
       <div class="flex flex-wrap gap-2">
-        <NuxtLink
-          v-if="selectedInfluencer"
-          :to="`/influencers/${selectedInfluencer.id}/edit`"
-          class="rounded-[12px] border border-[#E5E3DF] bg-white px-4 py-2.5 text-sm font-bold text-[#111111] transition-colors duration-150 hover:bg-[#FAFAF8]"
-        >
-          Paramètres {{ wording.ambassador }}
-        </NuxtLink>
         <NuxtLink
           v-if="selectedInfluencer"
           :to="`/influencers/${selectedInfluencer.id}/generate`"
@@ -42,7 +47,7 @@
       </button>
     </div>
 
-    <div class="flex flex-col gap-3 rounded-[16px] border border-[#E5E3DF] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)] sm:flex-row sm:items-center sm:justify-between">
+    <div v-if="!isContentCreator" class="flex flex-col gap-3 rounded-[16px] border border-[#E5E3DF] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)] sm:flex-row sm:items-center sm:justify-between">
       <div>
         <p class="text-sm font-semibold text-[#111111]">Filtrer par campagne</p>
         <p class="text-xs text-[#666666]">Affiche uniquement les contenus liés à une campagne précise.</p>
@@ -239,7 +244,8 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
 const activeInfluencerId = useActiveInfluencer()
 const { pushToast } = useUiFeedback()
-const { wording } = useWording()
+const { wording, accountType } = useWording()
+const isContentCreator = computed(() => accountType.value === 'CONTENT_CREATOR')
 
 const tabs = [
   { label: 'Tout', value: 'ALL' },
@@ -275,6 +281,9 @@ const campaigns = computed(() => Array.isArray(campaignsData.value) ? campaignsD
 const selectedInfluencer = computed(() => {
   return influencers.value.find((item) => item.id === activeInfluencerId.value) || influencers.value[0] || null
 })
+
+const nicheChips = computed(() => splitNiches(selectedInfluencer.value?.niche))
+const styleChips = computed(() => splitNiches(selectedInfluencer.value?.style))
 
 const displayedContents = computed(() => contentItems.value)
 

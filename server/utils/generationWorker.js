@@ -200,7 +200,7 @@ async function finalizeStoryVideo({ prisma, contentId, influencer, anthropicApiK
   });
 
   await persistContentRecord(prisma, contentId, {
-    status: 'VALIDATED',
+    status: 'PENDING',
     format: 'STORY',
     imageUrl: persistedVideo.imageUrl,
     caption,
@@ -362,7 +362,7 @@ async function runReelWorkflow({
     }
 
     await persistContentRecord(prisma, contentId, {
-      status: 'VALIDATED',
+      status: 'PENDING',
       format: 'REEL',
       imageUrl: persistedVideo.imageUrl,
       caption,
@@ -1052,7 +1052,7 @@ export async function processGenerationJob(jobData, options = {}) {
     await prisma.generatedContent.update({
       where: { id: contentId },
       data: {
-        status: 'VALIDATED',
+        status: 'PENDING',
         format,
         imageUrl,
         caption,

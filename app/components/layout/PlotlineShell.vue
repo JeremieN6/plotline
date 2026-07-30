@@ -101,20 +101,12 @@
               <div class="border-t border-[#E5E3DF] p-2">
                 <template v-if="isContentCreator">
                   <NuxtLink
-                    to="/onboarding/content-creator"
-                    class="mb-2 flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#E8873A]/40 px-3 py-2 text-sm font-bold text-[#E8873A] transition-colors duration-150 hover:bg-[#FDF3EA]"
-                    @click="switcherOpen = false; mobileMenuOpen = false"
-                  >
-                    <span class="text-lg leading-none">+</span>
-                    Nouvelle marque
-                  </NuxtLink>
-                  <NuxtLink
                     to="/influencers/new"
-                    class="flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#E5E3DF] px-3 py-2 text-sm font-bold text-[#111111] transition-colors duration-150 hover:bg-[#FAFAF8]"
+                    class="flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#E8873A]/40 px-3 py-2 text-sm font-bold text-[#E8873A] transition-colors duration-150 hover:bg-[#FDF3EA]"
                     @click="switcherOpen = false; mobileMenuOpen = false"
                   >
                     <span class="text-lg leading-none">+</span>
-                    Nouvelle ambassadrice
+                    Nouveau profil
                   </NuxtLink>
                 </template>
                 <template v-else-if="isBrand">
@@ -316,6 +308,14 @@ const createAmbassadorLabel = computed(() => {
   if (isContentCreator.value) return 'Créer une ambassadrice'
   return 'Créer une influenceuse'
 })
+const activeProfileTypeLabel = computed(() => {
+  const hasFaceRef = Boolean(String(activeInfluencer.value?.faceRefPath || '').trim())
+  return hasFaceRef ? wording.value.ambassador : 'marque'
+})
+const settingsNavLabel = computed(() => {
+  if (!activeInfluencer.value) return `Paramètres ${wording.value.ambassador}`
+  return `Paramètres ${activeProfileTypeLabel.value}`
+})
 const showOnboardingModal = computed(() => {
   if (!isInfluencerCreator.value) return false
   if (route.path.startsWith('/onboarding')) return false
@@ -332,21 +332,31 @@ const routeInfluencerId = computed(() => {
 })
 
 const navigation = computed(() => {
+  const settingsItem = {
+    label: settingsNavLabel.value,
+    to: activeInfluencer.value ? `/influencers/${activeInfluencer.value.id}/edit` : '/influencers/new',
+    disabled: !activeInfluencer.value,
+  }
+
   if (isContentCreator.value) {
     return [
+      { label: 'Accueil', to: '/dashboard' },
       { label: 'Studio', to: '/studio' },
       { label: 'Mes créations', to: '/content' },
       { label: 'Calendrier', to: '/calendar' },
       { label: 'Analytics', to: '/analytics', badge: 'Bientôt', disabled: true },
+      settingsItem,
     ]
   }
 
   if (isBrand.value) {
     return [
+      { label: 'Accueil', to: '/dashboard' },
       { label: 'Brand Studio', to: '/brand-studio' },
       { label: 'Mes ambassadrices', to: '/influencers' },
       { label: 'Calendrier', to: '/calendar' },
       { label: 'Analytics', to: '/analytics', badge: 'Bientôt', disabled: true },
+      settingsItem,
     ]
   }
 
@@ -354,9 +364,9 @@ const navigation = computed(() => {
     { label: 'Accueil', to: '/dashboard' },
     { label: 'Générer', to: activeInfluencer.value ? `/influencers/${activeInfluencer.value.id}/generate` : '/influencers', disabled: !activeInfluencer.value },
     { label: 'Contenu', to: '/content' },
-    { label: `Paramètres ${wording.value.ambassador}`, to: activeInfluencer.value ? `/influencers/${activeInfluencer.value.id}/edit` : '/influencers/new', disabled: !activeInfluencer.value },
     { label: 'Calendrier', to: '/calendar' },
     { label: 'Analytics', to: '/analytics', badge: 'Bientôt', disabled: true },
+    settingsItem,
   ]
 })
 
@@ -398,9 +408,9 @@ function avatarLetter(value) {
 }
 
 function profileSecondaryLabel(influencer) {
-  if (isContentCreator.value) {
+  if (isContentCreator.value || isBrand.value) {
     const hasFaceRef = Boolean(String(influencer?.faceRefPath || '').trim())
-    return hasFaceRef ? 'Profil ambassadrice' : 'Profil marque'
+    return hasFaceRef ? `Profil ${wording.value.ambassador}` : 'Profil marque'
   }
 
   return summarizeNiches(influencer?.niche) || 'Sans niche'

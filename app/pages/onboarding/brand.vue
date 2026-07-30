@@ -110,10 +110,10 @@
         <p v-if="generateError" class="text-sm text-red-300">{{ generateError }}</p>
 
         <button type="button" class="rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50" :disabled="!sourceImageBase64 || generatingRef" @click="generateFaceReference">
-          {{ generatingRef ? 'Generation en cours...' : 'Generer la face ref' }}
+          {{ generatingRef ? 'Génération en cours...' : 'Lancer le processus de cohérence faciale' }}
         </button>
 
-        <img v-if="generatedImageDataUrl" :src="generatedImageDataUrl" alt="Face ref" class="max-h-64 rounded-[12px] border border-[#5B4332] object-cover" />
+        <img v-if="generatedImageDataUrl" :src="generatedImageDataUrl" alt="Cohérence faciale" class="max-h-64 rounded-[12px] border border-[#5B4332] object-cover" />
       </div>
 
       <div v-if="step === 4" class="mt-8 space-y-4">

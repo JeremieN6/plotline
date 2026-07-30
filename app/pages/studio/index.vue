@@ -137,7 +137,7 @@
           :disabled="loading || !canGenerate"
           @click="submit"
         >
-          {{ loading ? 'Génération...' : 'Générer' }}
+          {{ loading ? 'Envoi...' : 'Générer' }}
         </button>
       </section>
 
@@ -145,10 +145,48 @@
         <h2 class="text-lg font-bold text-[#111111]">Résultat</h2>
         <p class="mt-2 text-xs text-[#666666]">Le rendu apparaît ici après lancement.</p>
 
-        <div v-if="lastResult" class="mt-4 space-y-3 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-4 text-sm text-[#222]">
+        <!-- Génération vidéo en cours -->
+        <div v-if="videoPolling.active" class="mt-4 space-y-3">
+          <div class="flex items-center gap-3 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] px-4 py-3">
+            <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[#E8873A] border-t-transparent" />
+            <span class="text-sm font-semibold text-[#111111]">Génération vidéo en cours...</span>
+          </div>
+          <p class="text-xs text-[#888]">La vidéo est générée par Veo (~60–90 s). Elle apparaîtra ici automatiquement.</p>
+          <NuxtLink
+            to="/content"
+            class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#E8873A] hover:underline"
+          >
+            Suivre dans Mes créations →
+          </NuxtLink>
+        </div>
+
+        <!-- Résultat vidéo prêt -->
+        <div v-else-if="videoResult" class="mt-4 space-y-3">
+          <template v-if="videoResult.status === 'PENDING' || videoResult.status === 'VALIDATED' || videoResult.status === 'PUBLISHED'">
+            <video
+              v-if="videoResult.imageUrl"
+              :src="videoResult.imageUrl"
+              class="w-full rounded-[14px] border border-[#E5E3DF] object-cover"
+              controls
+              playsinline
+              muted
+            />
+            <p class="text-xs text-[#444]">Vidéo générée avec succès.</p>
+            <NuxtLink to="/content" class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#E8873A] hover:underline">
+              Voir dans Mes créations →
+            </NuxtLink>
+          </template>
+          <template v-else-if="videoResult.status === 'FAILED'">
+            <p class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {{ videoResult.errorMessage || 'La génération a échoué.' }}
+            </p>
+          </template>
+        </div>
+
+        <!-- Résultat image -->
+        <div v-else-if="lastResult && mode === 'image'" class="mt-4 space-y-3 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-4 text-sm text-[#222]">
           <p><strong>Status :</strong> {{ lastResult.status || '-' }}</p>
           <p><strong>Content ID :</strong> {{ lastResult.contentId || '-' }}</p>
-          <p><strong>Job ID :</strong> {{ lastResult.jobId || '-' }}</p>
           <p v-if="lastResult.model"><strong>Modèle :</strong> {{ lastResult.model }}</p>
         </div>
 
@@ -159,7 +197,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
 const { pushToast } = useUiFeedback()
 const { user } = useAuthSession()
@@ -174,6 +212,51 @@ const errorMessage = ref('')
 const lastResult = ref(null)
 const showStudioHint = ref(true)
 const ambassadorPanelOpen = ref(true)
+
+// Polling vidéo asynchrone
+const videoPolling = ref({ active: false, contentId: null, intervalId: null })
+const videoResult = ref(null)
+
+function clearVideoPolling() {
+  if (videoPolling.value.intervalId) {
+    clearInterval(videoPolling.value.intervalId)
+    videoPolling.value.intervalId = null
+  }
+  videoPolling.value.active = false
+  videoPolling.value.contentId = null
+}
+
+async function pollVideoStatus(contentId) {
+  try {
+    const status = await $fetch(`/api/content/${contentId}/status`)
+    if (status?.done) {
+      clearVideoPolling()
+      videoResult.value = status
+
+      if (status.status === 'PENDING' || status.status === 'VALIDATED' || status.status === 'PUBLISHED') {
+        pushToast({ title: 'Vidéo prête !', message: 'Ta vidéo est disponible dans Mes créations.', tone: 'success' })
+      } else if (status.status === 'FAILED') {
+        pushToast({ title: 'Erreur', message: status.errorMessage || 'Génération vidéo échouée.', tone: 'error' })
+      }
+    }
+  } catch {
+    // Ignore les erreurs transitoires du polling
+  }
+}
+
+function startVideoPolling(contentId) {
+  clearVideoPolling()
+  videoResult.value = null
+  videoPolling.value.active = true
+  videoPolling.value.contentId = contentId
+  videoPolling.value.intervalId = setInterval(() => pollVideoStatus(contentId), 5000)
+  // Premier check immédiat
+  pollVideoStatus(contentId)
+}
+
+onBeforeUnmount(() => {
+  clearVideoPolling()
+})
 
 const { data: influencersData } = await useFetch('/api/influencers', {
   key: 'studio-influencers',
@@ -293,7 +376,7 @@ async function submit() {
         },
       })
     } else {
-      lastResult.value = await $fetch('/api/generate/video', {
+      const result = await $fetch('/api/generate/video', {
         method: 'POST',
         body: {
           prompt: prompt.value.trim(),
@@ -302,13 +385,25 @@ async function submit() {
           withFaceRef: wantsAmbassador.value,
         },
       })
+      lastResult.value = result
+
+      if (result?.contentId) {
+        startVideoPolling(result.contentId)
+        pushToast({
+          title: 'Génération lancée',
+          message: 'Veo génère ta vidéo. Résultat ici dans ~60s.',
+          tone: 'success',
+        })
+      }
     }
 
-    pushToast({
-      title: 'Generation lancée',
-      message: 'Le contenu a bien été envoyé au pipeline.',
-      tone: 'success',
-    })
+    if (mode.value === 'image') {
+      pushToast({
+        title: 'Génération lancée',
+        message: 'Le contenu a bien été envoyé au pipeline.',
+        tone: 'success',
+      })
+    }
   } catch (err) {
     errorMessage.value = err?.data?.statusMessage || err?.message || 'Generation impossible.'
   } finally {

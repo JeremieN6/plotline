@@ -14,7 +14,7 @@
       </NuxtLink>
     </header>
 
-    <section class="flex flex-col gap-3 rounded-[20px] border border-[#E5E3DF] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sm:flex-row sm:items-center sm:justify-between">
+    <section v-if="!isContentCreator" class="flex flex-col gap-3 rounded-[20px] border border-[#E5E3DF] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sm:flex-row sm:items-center sm:justify-between">
       <div>
         <p class="text-sm font-semibold text-[#111111]">Filtrer par campagne</p>
         <p class="text-xs text-[#666666]">Le dashboard se cale sur une seule campagne si besoin.</p>
@@ -97,11 +97,11 @@
       </section>
 
       <div class="space-y-5">
-        <section class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+        <section v-if="ambassadorProfiles.length" class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
           <h2 class="text-lg font-bold text-[#111111]">{{ wording.ambassadorPlural }} actives</h2>
           <div class="mt-4 space-y-3">
             <article
-              v-for="influencer in dashboard.influencers"
+              v-for="influencer in ambassadorProfiles"
               :key="influencer.id"
               class="rounded-[16px] border border-[#E5E3DF] bg-[#FAFAF8] p-4 transition-all duration-150 hover:border-[#E8873A]/35 hover:bg-white"
             >
@@ -114,8 +114,9 @@
               </div>
               <div class="mt-4 flex gap-2">
                 <NuxtLink
-                  :to="`/influencers/${influencer.id}/generate`"
+                  :to="generateHrefFor(influencer)"
                   class="inline-flex rounded-[12px] bg-[#E8873A] px-3 py-2 text-xs font-bold text-white transition-colors duration-150 hover:bg-[#d4762f]"
+                  @click="activeInfluencerId = influencer.id"
                 >
                   Générer
                 </NuxtLink>
@@ -130,6 +131,39 @@
           </div>
         </section>
 
+        <section v-if="brandProfiles.length" class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+          <h2 class="text-lg font-bold text-[#111111]">Profils marque</h2>
+          <div class="mt-4 space-y-3">
+            <article
+              v-for="influencer in brandProfiles"
+              :key="influencer.id"
+              class="rounded-[16px] border border-[#E5E3DF] bg-[#FAFAF8] p-4 transition-all duration-150 hover:border-[#E8873A]/35 hover:bg-white"
+            >
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <h3 class="text-sm font-bold text-[#111111]">{{ influencer.name }}</h3>
+                  <p class="mt-1 text-xs text-[#666666]">{{ summarizeNiches(influencer.niche) || 'Sans niche' }}</p>
+                </div>
+                <span class="rounded-full bg-[#F4EFE8] px-2 py-1 text-[11px] font-bold text-[#B45F1D]">{{ influencer._count.generatedContents }} contenus</span>
+              </div>
+              <div class="mt-4 flex gap-2">
+                <NuxtLink
+                  :to="generateHrefFor(influencer)"
+                  class="inline-flex rounded-[12px] bg-[#E8873A] px-3 py-2 text-xs font-bold text-white transition-colors duration-150 hover:bg-[#d4762f]"
+                  @click="activeInfluencerId = influencer.id"
+                >
+                  Générer
+                </NuxtLink>
+                <NuxtLink
+                  :to="`/influencers/${influencer.id}`"
+                  class="inline-flex rounded-[12px] border border-[#E5E3DF] bg-white px-3 py-2 text-xs font-bold text-[#111111] transition-colors duration-150 hover:bg-[#FAFAF8]"
+                >
+                  Contenu
+                </NuxtLink>
+              </div>
+            </article>
+          </div>
+        </section>
       </div>
     </div>
 
@@ -162,7 +196,9 @@
 
 <script setup>
 const activeInfluencerId = useActiveInfluencer()
-const { wording } = useWording()
+const { wording, accountType } = useWording()
+const isContentCreator = computed(() => accountType.value === 'CONTENT_CREATOR')
+const isBrand = computed(() => accountType.value === 'BRAND')
 const selectedCampaignId = ref('')
 
 const dashboardUrl = computed(() => {
@@ -187,9 +223,25 @@ watch(selectedCampaignId, () => {
 })
 
 const activeGenerateHref = computed(() => {
+  if (isContentCreator.value) return '/studio'
+  if (isBrand.value) return '/brand-studio'
   const firstInfluencer = data.value?.influencers?.[0]
   const influencerId = activeInfluencerId.value || firstInfluencer?.id
   return influencerId ? `/influencers/${influencerId}/generate` : '/influencers/new'
+})
+
+function generateHrefFor(influencer) {
+  if (isContentCreator.value) return '/studio'
+  if (isBrand.value) return '/brand-studio'
+  return `/influencers/${influencer.id}/generate`
+}
+
+const ambassadorProfiles = computed(() => {
+  return (dashboard.value.influencers || []).filter((item) => Boolean(String(item.faceRefPath || '').trim()))
+})
+
+const brandProfiles = computed(() => {
+  return (dashboard.value.influencers || []).filter((item) => !String(item.faceRefPath || '').trim())
 })
 
 const stats = computed(() => {
@@ -203,7 +255,6 @@ const stats = computed(() => {
 
 const bentoStats = computed(() => {
   const summary = data.value?.stats || {}
-  const influencerCount = data.value?.influencers?.length || 0
 
   return [
     {
@@ -226,8 +277,14 @@ const bentoStats = computed(() => {
     },
     {
       label: wording.value.ambassadorPlural,
-      value: influencerCount,
+      value: ambassadorProfiles.value.length,
       delta: 'Actives',
+      chipClass: 'bg-[#F2F2F2] text-[#555555]',
+    },
+    {
+      label: 'Marques',
+      value: brandProfiles.value.length,
+      delta: 'Profils',
       chipClass: 'bg-[#F2F2F2] text-[#555555]',
     },
   ]

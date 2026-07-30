@@ -29,7 +29,7 @@ export function useJobNotifications() {
         }
 
         const content = await $fetch(`/api/content/${contentId}`)
-        if (content?.status === 'VALIDATED') {
+        if (content?.status === 'PENDING' || content?.status === 'VALIDATED') {
           const accountType = String(user.value?.accountType || '').trim().toUpperCase()
           const fallbackLabel = accountType === 'INFLUENCER_CREATOR' ? 'Influenceuse' : 'Ambassadrice'
           const influencerName = content?.influencer?.name || fallbackLabel

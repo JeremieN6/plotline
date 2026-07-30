@@ -12,7 +12,7 @@
       <div class="progress-wrap">
         <div class="progress-track"></div>
         <div class="progress-fill" :style="{ width: filledWidth }"></div>
-        <div class="steps">
+        <div class="steps" :style="{ gridTemplateColumns: `repeat(${totalSteps}, minmax(0, 1fr))` }">
           <div
             v-for="item in stepItems"
             :key="item.id"
@@ -30,8 +30,27 @@
 
       <div class="content">
         <div v-if="step === 1" class="step-content">
-          <label class="field-label">Nom</label>
-          <input v-model="form.name" class="input" placeholder="ex : Luna" />
+          <!-- Type de profil -->
+          <div class="field-group">
+            <label class="field-label">Type de profil</label>
+            <div class="profile-type-grid">
+              <button
+                v-for="t in profileTypes"
+                :key="t.value"
+                type="button"
+                class="profile-type-card"
+                :class="{ selected: form.profileType === t.value }"
+                @click="form.profileType = t.value"
+              >
+                <span class="pt-icon">{{ t.icon }}</span>
+                <span class="pt-label">{{ t.label }}</span>
+                <span class="pt-hint">{{ t.hint }}</span>
+              </button>
+            </div>
+          </div>
+
+          <label class="field-label">{{ nameLabel }}</label>
+          <input v-model="form.name" class="input" :placeholder="namePlaceholder" />
 
           <label class="field-label">Niche</label>
           <input v-model="form.niche" class="input" placeholder="ex : lifestyle, fitness, travel" />
@@ -39,7 +58,8 @@
           <label class="field-label">Style</label>
           <input v-model="form.style" class="input" placeholder="ex : californian blonde, parisian chic" />
 
-          <div class="field-group">
+          <!-- Silhouette : persona uniquement -->
+          <div v-if="form.profileType === 'persona'" class="field-group">
             <label class="field-label">Silhouette</label>
             <div class="silhouette-grid">
               <button
@@ -64,7 +84,7 @@
           </div>
         </div>
 
-        <div v-if="step === 2" class="step-content">
+        <div v-if="step === 2 && form.profileType === 'persona'" class="step-content">
           <p class="step2-description">
             L'image de reference fixe le visage de ton influenceuse pour toujours. Toutes tes générations futures
             utiliseront ce visage.
@@ -165,7 +185,7 @@
           </button>
         </div>
 
-        <div v-if="step === 3" class="step-content">
+        <div v-if="step === 3 && form.profileType === 'persona'" class="step-content">
           <p class="step3-description">
             Voici la fiche référence de ton influenceuse. Elle sera utilisée pour toutes tes générations.
           </p>
@@ -185,16 +205,19 @@
           </div>
         </div>
 
-        <div v-if="step === 4" class="step-content">
+        <div v-if="step === totalSteps" class="step-content">
           <div class="recap">
+            <div class="recap-row"><strong>Type :</strong> <span>{{ profileTypeLabel }}</span></div>
             <div class="recap-row"><strong>Nom :</strong> <span>{{ form.name }}</span></div>
             <div class="recap-row"><strong>Niche :</strong> <span>{{ form.niche }}</span></div>
             <div class="recap-row"><strong>Style :</strong> <span>{{ form.style }}</span></div>
-            <div class="recap-row"><strong>Silhouette :</strong> <span>{{ selectedSilhouetteLabel }}</span></div>
-            <div class="recap-row"><strong>Image de référence :</strong> <span>{{ generatedImageDataUrl ? 'Oui' : 'Non' }}</span></div>
+            <template v-if="form.profileType === 'persona'">
+              <div class="recap-row"><strong>Silhouette :</strong> <span>{{ selectedSilhouetteLabel }}</span></div>
+              <div class="recap-row"><strong>Image de référence :</strong> <span>{{ generatedTempImagePath ? 'Oui' : 'Non' }}</span></div>
+            </template>
           </div>
 
-          <div v-if="generatedImageDataUrl" class="recap-thumb-wrap">
+          <div v-if="form.profileType === 'persona' && generatedImageDataUrl" class="recap-thumb-wrap">
             <img :src="generatedImageDataUrl" alt="Miniature reference" class="recap-thumb" />
           </div>
 
@@ -223,14 +246,14 @@
         </button>
 
         <button
-          v-if="step === 4"
+          v-if="step === totalSteps"
           type="button"
           class="btn primary"
-          :disabled="loading || generatingRef || !generatedTempImagePath"
+          :disabled="loading || generatingRef || !canCreate"
           @click="submit"
         >
-          <span v-if="loading">Creation...</span>
-          <span v-else>Creer mon influenceuse</span>
+          <span v-if="loading">Création...</span>
+          <span v-else>{{ createLabel }}</span>
         </button>
       </div>
     </div>
@@ -246,7 +269,6 @@ import { resolveAccountHomePath } from '~/composables/useAccountRouting'
 const router = useRouter()
 const { user, refreshAuth } = useAuthSession()
 
-const totalSteps = 4
 const step = ref(1)
 const loading = ref(false)
 const generatingRef = ref(false)
@@ -264,7 +286,14 @@ const sourceImageBase64 = ref('')
 const generatedImageBase64 = ref('')
 const generatedTempImagePath = ref('')
 
+const profileTypes = [
+  { value: 'persona', icon: '🎭', label: 'Persona IA', hint: 'Compte fictif ou personnage' },
+  { value: 'brand', icon: '🏷️', label: 'Marque', hint: 'Identité commerciale ou produit' },
+  { value: 'activity', icon: '🎯', label: 'Activité', hint: 'Freelance, service ou coaching' },
+]
+
 const form = reactive({
+  profileType: 'persona',
   name: '',
   niche: '',
   style: '',
@@ -279,68 +308,96 @@ const personalization = reactive({
 })
 
 const silhouetteOptions = [
-  {
-    value: 'SLIM',
-    emoji: '🌿',
-    label: 'Mince',
-    description: 'Elancée, minimaliste, éditoriale',
-    isDefault: false,
-  },
-  {
-    value: 'ATHLETIC',
-    emoji: '💪',
-    label: 'Athletique',
-    description: 'Tonique, sportive, fit',
-    isDefault: false,
-  },
-  {
-    value: 'VOLUPTUOUS',
-    emoji: '🔥',
-    label: 'Voluptueuse',
-    description: 'Sablier prononcé, courbes marquées',
-    isDefault: true,
-  },
-  {
-    value: 'CURVY',
-    emoji: '🫧',
-    label: 'Harmonieuse',
-    description: 'Courbes douces, taille dessinée, silhouette plus équilibrée',
-    isDefault: false,
-  },
+  { value: 'SLIM', emoji: '🌿', label: 'Mince', description: 'Elancée, minimaliste, éditoriale', isDefault: false },
+  { value: 'ATHLETIC', emoji: '💪', label: 'Athletique', description: 'Tonique, sportive, fit', isDefault: false },
+  { value: 'VOLUPTUOUS', emoji: '🔥', label: 'Voluptueuse', description: 'Sablier prononcé, courbes marquées', isDefault: true },
+  { value: 'CURVY', emoji: '🫧', label: 'Harmonieuse', description: 'Courbes douces, taille dessinée, silhouette plus équilibrée', isDefault: false },
 ]
 
 const eyeColorOptions = ['Bleus', 'Verts', 'Marrons', 'Noisette', 'Noirs', 'Autre']
 
-const basePrompt =
-  'Create a professional character reference sheet of this exact character. Feature perfect character consistency and exact 1:1 likeness of the uploaded reference across all 3 panels. The image must be a vertical composite sheet divided into three equal horizontal rows. All panels prominently display the character on a pure white (#FFFFFF) background. The sheet must contain 3 distinct close-ups: Front View, 45-Degree Angle, Side Profile, with neutral face expression. The final image must be a true-to-life photography capturing real skin pores, fine lines, natural color variation, neutral expression, and authentic texture. Professional portrait photography with organic depth of field, preserving all natural human characteristics without digital smoothing or enhancement. 4K quality. No duplication of identical panels and no inconsistent features.'
+const basePrompt = FACE_REF_BASE_PROMPT
 
-const stepItems = [
-  { id: 1, label: 'Identité' },
-  { id: 2, label: 'Cohérence faciale' },
-  { id: 3, label: 'Validation' },
-  { id: 4, label: 'Confirmation' },
-]
+// --- Computeds dynamiques selon profileType ---
 
-const titles = {
-  1: 'Identité',
-  2: 'Création de l\'image de référence',
-  3: 'Validation de l\'image de référence',
-  4: 'Confirmation',
-}
+const totalSteps = computed(() => (form.profileType === 'persona' ? 4 : 2))
 
-const subtitles = {
-  1: 'Renseigne les informations de base de ton influenceuse.',
-  2: 'Génère la fiche référence de ton influenceuse à partir d\'une photo source.',
-  3: 'Vérifie la fiche référence avant de finaliser la creation.',
-  4: 'Récapitulatif final avant creation.',
-}
+const stepItems = computed(() => {
+  if (form.profileType === 'persona') {
+    return [
+      { id: 1, label: 'Identité' },
+      { id: 2, label: 'Référence' },
+      { id: 3, label: 'Validation' },
+      { id: 4, label: 'Confirmation' },
+    ]
+  }
+  return [
+    { id: 1, label: 'Profil' },
+    { id: 2, label: 'Confirmation' },
+  ]
+})
 
-const stepTitle = computed(() => titles[step.value])
-const stepSubtitle = computed(() => subtitles[step.value])
+const stepTitles = computed(() => {
+  if (form.profileType === 'persona') {
+    return { 1: 'Identité', 2: 'Cohérence faciale', 3: 'Validation', 4: 'Confirmation' }
+  }
+  if (form.profileType === 'brand') {
+    return { 1: 'Ta marque', 2: 'Confirmation' }
+  }
+  return { 1: 'Ton activité', 2: 'Confirmation' }
+})
+
+const stepSubtitles = computed(() => {
+  if (form.profileType === 'persona') {
+    return {
+      1: 'Renseigne les informations de base de ton influenceuse.',
+      2: 'Génère la fiche référence de ton influenceuse à partir d\'une photo source.',
+      3: 'Vérifie la fiche référence avant de finaliser la creation.',
+      4: 'Récapitulatif final avant creation.',
+    }
+  }
+  if (form.profileType === 'brand') {
+    return {
+      1: 'Renseigne les informations de ta marque.',
+      2: 'Récapitulatif avant création.',
+    }
+  }
+  return {
+    1: 'Renseigne les informations de ton activité.',
+    2: 'Récapitulatif avant création.',
+  }
+})
+
+const stepTitle = computed(() => stepTitles.value[step.value] || '')
+const stepSubtitle = computed(() => stepSubtitles.value[step.value] || '')
+
+const nameLabel = computed(() => {
+  if (form.profileType === 'brand') return 'Nom de la marque'
+  if (form.profileType === 'activity') return 'Nom de l\'activité'
+  return 'Nom du persona'
+})
+
+const namePlaceholder = computed(() => {
+  if (form.profileType === 'brand') return 'Ex : Jade Paris, Luxe & Co...'
+  if (form.profileType === 'activity') return 'Ex : Jade Coaching, Studio Créatif...'
+  return 'ex : Luna'
+})
+
+const profileTypeLabel = computed(() => {
+  const found = profileTypes.find(t => t.value === form.profileType)
+  return found?.label || form.profileType
+})
+
+const createLabel = computed(() => {
+  if (form.profileType === 'brand') return 'Créer la marque'
+  if (form.profileType === 'activity') return 'Créer l\'activité'
+  return 'Créer le persona'
+})
+
 const exitPath = computed(() => resolveAccountHomePath(user.value?.accountType))
 
 const filledWidth = computed(() => {
-  const pct = ((step.value - 1) / (totalSteps - 1)) * 100
+  const pct = ((step.value - 1) / (totalSteps.value - 1)) * 100
   return `${pct}%`
 })
 
@@ -348,21 +405,22 @@ const canGoFromStep1 = computed(() => {
   return Boolean(form.name.trim() && form.niche.trim() && form.style.trim())
 })
 
+const canCreate = computed(() => {
+  if (form.profileType === 'persona') return Boolean(generatedTempImagePath.value)
+  return true
+})
+
 const step1ValidationMessage = computed(() => {
   if (canGoFromStep1.value) return ''
-
   const missing = []
   if (!form.name.trim()) missing.push('Nom')
   if (!form.niche.trim()) missing.push('Niche')
   if (!form.style.trim()) missing.push('Style')
-
   return missing.length ? `Complète: ${missing.join(', ')}.` : ''
 })
 
 const resolvedEyeColor = computed(() => {
-  if (personalization.eyeColor === 'Autre') {
-    return personalization.eyeColorCustom.trim()
-  }
+  if (personalization.eyeColor === 'Autre') return personalization.eyeColorCustom.trim()
   return personalization.eyeColor.trim()
 })
 
@@ -373,33 +431,16 @@ const selectedSilhouetteLabel = computed(() => {
 
 const dynamicTraitsLine = computed(() => {
   const chunks = []
-
-  if (resolvedEyeColor.value) {
-    chunks.push(`${resolvedEyeColor.value} eyes`)
-  }
-
-  if (personalization.origin.trim()) {
-    chunks.push(`${personalization.origin.trim()} comme origine ethnique`)
-  }
-
-  if (chunks.length === 0) {
-    return ''
-  }
-
+  if (resolvedEyeColor.value) chunks.push(`${resolvedEyeColor.value} eyes`)
+  if (personalization.origin.trim()) chunks.push(`${personalization.origin.trim()} comme origine ethnique`)
+  if (chunks.length === 0) return ''
   return `- ${chunks.join(' - ')}. Ces caractéristiques sont impératives et prévalent sur tout élément visible sur l'image de référence.`
 })
 
 const customPrompt = computed(() => {
   const parts = [basePrompt]
-
-  if (dynamicTraitsLine.value) {
-    parts.push(dynamicTraitsLine.value)
-  }
-
-  if (personalization.traits.trim()) {
-    parts.push(`Particular traits to preserve: ${personalization.traits.trim()}.`)
-  }
-
+  if (dynamicTraitsLine.value) parts.push(dynamicTraitsLine.value)
+  if (personalization.traits.trim()) parts.push(`Particular traits to preserve: ${personalization.traits.trim()}.`)
   return parts.join(' ')
 })
 
@@ -571,7 +612,7 @@ async function submit() {
         name: form.name.trim(),
         niche: form.niche.trim(),
         style: form.style.trim(),
-        silhouette: form.silhouette,
+        silhouette: form.profileType === 'persona' ? form.silhouette : undefined,
       },
     })
 
@@ -585,7 +626,7 @@ async function submit() {
       })
     }
 
-    await router.push('/dashboard')
+    await router.push(exitPath.value || '/dashboard')
   } catch (err) {
     submitError.value = err?.data?.statusMessage || err?.message || String(err)
   } finally {
@@ -1129,5 +1170,53 @@ onBeforeUnmount(() => {
   .silhouette-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.profile-type-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.profile-type-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px;
+  border: 1px solid rgba(244, 205, 169, 0.16);
+  border-radius: 12px;
+  background: rgba(12, 8, 5, 0.88);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.profile-type-card:hover {
+  border-color: rgba(232, 135, 58, 0.45);
+  transform: translateY(-1px);
+}
+
+.profile-type-card.selected {
+  border-color: #ff9a57;
+  box-shadow: 0 0 0 1px rgba(255, 154, 87, 0.42), 0 8px 20px rgba(232, 135, 58, 0.22);
+  background: rgba(232, 135, 58, 0.1);
+}
+
+.pt-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.pt-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.pt-hint {
+  font-size: 11px;
+  color: rgba(243, 205, 176, 0.65);
+  line-height: 1.3;
 }
 </style>

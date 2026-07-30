@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -55,6 +56,64 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function normalizeErrorMessage(error) {
+  if (!error) return 'Unknown error';
+  if (typeof error === 'string') return error;
+
+  const statusMessage = String(error?.statusMessage || '').trim();
+  if (statusMessage) return statusMessage;
+
+  const message = String(error?.message || '').trim();
+  if (message) return message;
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return 'Unknown error';
+  }
+}
+
+function isModelAvailabilityError(error) {
+  const message = normalizeErrorMessage(error).toLowerCase();
+  return (
+    message.includes('not found')
+    || message.includes('is not supported')
+    || message.includes('unsupported')
+    || message.includes('permission')
+    || message.includes('access')
+    || message.includes('failed precondition')
+  );
+}
+
+function isMissingCampaignColumnError(error) {
+  const message = normalizeErrorMessage(error).toLowerCase();
+  return message.includes('campaignid') && message.includes('does not exist');
+}
+
+async function createGeneratedContentRecord(prisma, data) {
+  try {
+    return await prisma.generatedContent.create({
+      data,
+      select: { id: true },
+    });
+  } catch (error) {
+    if (!isMissingCampaignColumnError(error)) {
+      throw error;
+    }
+
+    const fallbackId = randomUUID().replace(/-/g, '');
+    const rows = await prisma.$queryRaw`
+      INSERT INTO "GeneratedContent" ("id", "influencerId", "brandId", "ambassadorId", "platform", "format", "status")
+      VALUES (${fallbackId}, ${data.influencerId}, ${data.brandId}, ${data.ambassadorId}, ${data.platform}, ${data.format}, ${data.status})
+      RETURNING "id"
+    `;
+
+    return {
+      id: String(rows?.[0]?.id || fallbackId),
+    };
+  }
+}
+
 function resolveGeminiApiKey(runtimeConfig) {
   return String(
     runtimeConfig?.geminiApiKey
@@ -103,15 +162,41 @@ async function downloadVeoVideoToGenerated(videoUri, apiKey) {
 
 async function requestVeoVideo({ prompt, apiKey }) {
   const ai = new GoogleGenAI({ apiKey });
+  const modelCandidates = [
+    'veo-3.1-generate-001',
+    'veo-3.1-generate-preview',
+    'veo-3.1-fast-generate-preview',
+    'veo-3.1-lite-generate-preview',
+  ];
 
-  let operation = await ai.models.generateVideos({
-    model: 'veo-3.1-generate-001',
-    prompt,
-    config: {
-      aspectRatio: '9:16',
-      durationSeconds: 8,
-    },
-  });
+  let operation;
+  let usedModel = modelCandidates[0];
+  let lastModelError = null;
+
+  for (const modelName of modelCandidates) {
+    try {
+      operation = await ai.models.generateVideos({
+        model: modelName,
+        prompt,
+        config: {
+          aspectRatio: '9:16',
+          durationSeconds: 8,
+        },
+      });
+      usedModel = modelName;
+      lastModelError = null;
+      break;
+    } catch (error) {
+      lastModelError = error;
+      if (!isModelAvailabilityError(error) || modelName === modelCandidates[modelCandidates.length - 1]) {
+        throw error;
+      }
+    }
+  }
+
+  if (!operation) {
+    throw lastModelError || new Error('Veo generation could not be started');
+  }
 
   const operationName = String(operation?.name || '').trim();
   if (!operationName) {
@@ -120,9 +205,7 @@ async function requestVeoVideo({ prompt, apiKey }) {
 
   while (!operation?.done) {
     await sleep(5000);
-    operation = await ai.operations.getVideosOperation({
-      operation: { name: operationName },
-    });
+    operation = await ai.operations.getVideosOperation({ operation });
   }
 
   if (operation?.error) {
@@ -146,6 +229,7 @@ async function requestVeoVideo({ prompt, apiKey }) {
     jobId: String(operation?.name || ''),
     videoUrl: localVideoUrl,
     status: 'completed',
+    model: usedModel,
   };
 }
 
@@ -255,21 +339,53 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const generatedContent = await prisma.generatedContent.create({
-    data: {
-      influencerId: influencer.id,
-      brandId: ownerProfile.id,
-      ambassadorId: withFaceRef ? influencer.id : null,
-      campaignId: campaignId || null,
-      platform: 'TIKTOK',
-      format: 'REEL',
-      status: 'PROCESSING',
-    },
-    select: {
-      id: true,
-    },
-  });
+  const generatedContentData = {
+    influencerId: influencer.id,
+    brandId: ownerProfile.id,
+    ambassadorId: withFaceRef ? influencer.id : null,
+    campaignId: campaignId || null,
+    platform: 'TIKTOK',
+    format: 'REEL',
+    status: 'PROCESSING',
+  };
 
+  const generatedContent = await createGeneratedContentRecord(prisma, generatedContentData);
+  const contentId = generatedContent.id;
+
+  // Veo est une opération longue (~60s). On la lance en arrière-plan et on répond
+  // immédiatement avec status "processing". Le frontend poll /api/content/:id/status.
+  if (model === 'veo') {
+    const geminiApiKey = resolveGeminiApiKey(runtimeConfig);
+
+    (async () => {
+      try {
+        const providerResult = await requestVeoVideo({ prompt, apiKey: geminiApiKey });
+        const resolvedVideoUrl = String(providerResult?.videoUrl || '').trim();
+
+        if (resolvedVideoUrl) {
+          await prisma.generatedContent.updateMany({
+            where: { id: contentId },
+            data: { imageUrl: resolvedVideoUrl, status: 'PENDING' },
+          }).catch(() => {});
+        }
+      } catch (error) {
+        const errorMessage = normalizeErrorMessage(error);
+        await prisma.generatedContent.updateMany({
+          where: { id: contentId },
+          data: { status: 'FAILED', errorMessage },
+        }).catch(() => {});
+      }
+    })();
+
+    return {
+      model,
+      jobId: null,
+      contentId,
+      status: 'processing',
+    };
+  }
+
+  // Providers synchrones (kling, seedance)
   let providerResult;
 
   try {
@@ -280,13 +396,6 @@ export default defineEventHandler(async (event) => {
         videoUrl: providerResult?.videoUrl || '',
         status: providerResult?.videoUrl ? 'completed' : 'processing',
       };
-    } else if (model === 'veo') {
-      const geminiApiKey = resolveGeminiApiKey(runtimeConfig);
-
-      providerResult = await requestVeoVideo({
-        prompt,
-        apiKey: geminiApiKey,
-      });
     } else {
       const seedanceApiKey = String(runtimeConfig.seedanceApiKey || process.env.SEEDANCE_API_KEY || '').trim();
 
@@ -299,32 +408,31 @@ export default defineEventHandler(async (event) => {
       });
     }
   } catch (error) {
-    await prisma.generatedContent.update({
-      where: { id: generatedContent.id },
-      data: {
-        status: 'FAILED',
-        errorMessage: error?.message ? String(error.message) : 'Video generation failed',
-      },
+    const errorMessage = normalizeErrorMessage(error);
+
+    await prisma.generatedContent.updateMany({
+      where: { id: contentId },
+      data: { status: 'FAILED', errorMessage },
     }).catch(() => {});
 
-    throw error;
+    throw createError({
+      statusCode: 500,
+      statusMessage: errorMessage,
+    });
   }
 
   const resolvedVideoUrl = String(providerResult?.videoUrl || '').trim();
   if (resolvedVideoUrl) {
-    await prisma.generatedContent.update({
-      where: { id: generatedContent.id },
-      data: {
-        imageUrl: resolvedVideoUrl,
-        status: 'VALIDATED',
-      },
+    await prisma.generatedContent.updateMany({
+      where: { id: contentId },
+      data: { imageUrl: resolvedVideoUrl, status: 'PENDING' },
     });
   }
 
   return {
-    model,
+    model: providerResult?.model || model,
     jobId: providerResult?.jobId || null,
-    contentId: generatedContent.id,
+    contentId,
     status: resolvedVideoUrl ? 'completed' : (providerResult?.status || 'processing'),
   };
 });

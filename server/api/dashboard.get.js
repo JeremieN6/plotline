@@ -46,6 +46,7 @@ export default defineEventHandler(async (event) => {
         id: true,
         name: true,
         niche: true,
+        faceRefPath: true,
         createdAt: true,
         _count: {
           select: {

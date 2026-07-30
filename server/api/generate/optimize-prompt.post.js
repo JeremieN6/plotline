@@ -1,6 +1,6 @@
 import { Anthropic } from '@anthropic-ai/sdk';
 
-const SYSTEM_PROMPT = 'Tu es un expert en prompts pour la generation d\'images avec Gemini. Tu reformules des descriptions en prompts optimises pour generer des photos Instagram realistes d\'une influenceuse IA. Tu retournes UNIQUEMENT le prompt reformule, sans explication ni commentaire.';
+const SYSTEM_PROMPT = 'Tu es un expert en prompts pour la génération d\'images avec Gemini. Tu reformules des descriptions en prompts optimisés pour générer des photos Instagram réalistes d\'une influenceuse IA. Tu retournes UNIQUEMENT le prompt reformule, sans explication ni commentaire.';
 const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
 
 function getAnthropicApiKey() {
