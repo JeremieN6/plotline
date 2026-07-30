@@ -765,6 +765,7 @@ export async function processGenerationJob(jobData, options = {}) {
       contentType,
       keyword,
         prompt: freePrompt,
+        withFaceRef,
   } = jobData || {};
   const updateProgress = typeof options.updateProgress === 'function'
     ? options.updateProgress
@@ -815,16 +816,29 @@ export async function processGenerationJob(jobData, options = {}) {
       }
     }
 
-    if (!influencer.faceRefPath) {
+    const requiresFaceRef = withFaceRef !== false;
+    const hasFaceRef = Boolean(String(influencer.faceRefPath || '').trim());
+
+    if (requiresFaceRef && !hasFaceRef) {
       throw new Error('Influencer face reference is missing. Upload a face ref first.');
     }
 
-    const faceRefAsset = await readImageSourceBuffer(influencer.faceRefPath);
-    const faceRefBuffer = faceRefAsset.buffer;
-    const faceRefMime = faceRefAsset.mimeType;
-    const faceRefBase64 = faceRefBuffer.toString('base64');
+    const useFaceRefForGeneration = requiresFaceRef && hasFaceRef;
+    let faceRefMime = '';
+    let faceRefBase64 = '';
+
+    if (useFaceRefForGeneration) {
+      const faceRefAsset = await readImageSourceBuffer(influencer.faceRefPath);
+      const faceRefBuffer = faceRefAsset.buffer;
+      faceRefMime = faceRefAsset.mimeType;
+      faceRefBase64 = faceRefBuffer.toString('base64');
+    }
 
     if (normalizedContentType === 'reel') {
+      if (!useFaceRefForGeneration) {
+        throw new Error('Reel generation requires an ambassador with a valid face reference.');
+      }
+
       await updateProgress(20);
       return await runReelWorkflow({
         prisma,
@@ -867,14 +881,16 @@ export async function processGenerationJob(jobData, options = {}) {
         // The Pinterest source image is used ONLY for scene JSON extraction (imageToJson above).
         // It must NOT be sent to Gemini during image generation — doing so causes Gemini to
         // reproduce the source instead of generating a new image from the face ref.
-        geminiParts = [
-          {
-            inlineData: {
-              mimeType: faceRefMime,
-              data: faceRefBase64,
-            },
-          },
-        ];
+        geminiParts = useFaceRefForGeneration
+          ? [
+              {
+                inlineData: {
+                  mimeType: faceRefMime,
+                  data: faceRefBase64,
+                },
+              },
+            ]
+          : [];
 
         sceneDescriptionConcept = {
           location: enrichedSceneJson?.scene?.location || location,
@@ -924,14 +940,16 @@ export async function processGenerationJob(jobData, options = {}) {
       );
 
       prompt = freePromptText;
-      geminiParts = [
-        {
-          inlineData: {
-            mimeType: faceRefMime,
-            data: faceRefBase64,
-          },
-        },
-      ];
+      geminiParts = useFaceRefForGeneration
+        ? [
+            {
+              inlineData: {
+                mimeType: faceRefMime,
+                data: faceRefBase64,
+              },
+            },
+          ]
+        : [];
 
       sceneDescriptionConcept = {
         location: freePromptText,
@@ -953,14 +971,16 @@ export async function processGenerationJob(jobData, options = {}) {
       });
       prompt = PROMPT_JSON_TO_IMAGE.replace('{scene_json}', JSON.stringify(sceneJson, null, 2));
 
-      geminiParts = [
-        {
-          inlineData: {
-            mimeType: faceRefMime,
-            data: faceRefBase64,
-          },
-        },
-      ];
+      geminiParts = useFaceRefForGeneration
+        ? [
+            {
+              inlineData: {
+                mimeType: faceRefMime,
+                data: faceRefBase64,
+              },
+            },
+          ]
+        : [];
     }
 
     await updateProgress(30);

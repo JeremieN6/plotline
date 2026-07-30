@@ -116,24 +116,24 @@ function buildBatchArcBlock(persona, batchOptions) {
 
   return [
     '=== ARC DU BATCH ===',
-    `Nombre de posts a generer: ${volume}.`,
+    `Nombre de posts à générer: ${volume}.`,
     `Type d\'arc demande: ${arcType}.`,
-    `Position de depart dans l\'arc global: ${startPosition}.`,
+    `Position de départ dans l\'arc global: ${startPosition}.`,
     selectedDescription,
     hasPast
-      ? 'Ce personnage a deja un passe narratif: maintiens la continuite avec son historique.'
-      : 'Ce personnage debute son historique narratif: pose les bases sans saturation.',
+      ? 'Ce personnage a déjà un passe narratif: maintiens la continuité avec son historique.'
+      : 'Ce personnage débute son historique narratif: pose les bases sans saturation.',
   ].join('\n');
 }
 
 function buildGenerationRulesBlock() {
   return [
     '=== REGLES DE GENERATION ===',
-    '1. Diversite des formats: jamais deux formats identiques consecutifs.',
-    '2. Diversite des tons: maximum deux occurrences du meme ton d\'affilee.',
-    '3. Authenticite avant performance: priorite a la verite narrative plutot qu\'au sensationnel.',
-    '4. Aucune repetition thematique exacte avec la memoire existante.',
-    '5. Resolution des arcs ouverts obligatoire (resolution complete ou progression nette et explicite).',
+    '1. Diversité des formats: jamais deux formats identiques consecutifs.',
+    '2. Diversité des tons: maximum deux occurrences du même ton d\'affilée.',
+    '3. Authenticité avant performance: priorité à la verité narrative plutôt qu\'au sensationnel.',
+    '4. Aucune répétition thématique exacte avec la memoire existante.',
+    '5. Résolution des arcs ouverts obligatoire (résolution complète ou progression nette et explicite).',
   ].join('\n');
 }
 

@@ -19,6 +19,12 @@
 
 <!-- Les entrees seront ajoutees ici au fil du temps -->
 
+### 2026-07-30 Campagnes et contenus relies
+**Probleme** : La suppression d'une campagne pouvait casser la lecture des contenus lies, et la vue contenu/dashboard ne montrait pas clairement la provenance campagne.
+**Cause racine** : La campagne n'etait pas persistee comme relation explicite sur les contenus generes, et les routes de lecture n'exposaient pas les donnees campagne.
+**Solution** : Ajouter `campaignId` sur `GeneratedContent`, exposer la campagne dans les listes et details, filtrer les vues par campagne, et bloquer la suppression si des contenus sont encore en cours.
+**Regle** : Quand une entite parent est supprimable, il faut d'abord definir le comportement des enfants lies: blocage pour l'actif, detachement ou fallback pour le reste.
+
 ### 2026-07-20 Face ref Gemini renvoie parfois zero part
 **Probleme** : La creation d'une influenceuse pouvait echouer avec `Erreur generation face ref: Gemini returned no parts. finishReason=unknown`.
 **Cause racine** : Le endpoint `server/api/generate/face-ref.post.js` transformait un candidate vide en erreur fatale sans retry ni fallback de prompt, alors que Gemini peut parfois renvoyer une reponse sans `parts` sur ce flux preview.

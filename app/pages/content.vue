@@ -42,6 +42,27 @@
       </button>
     </div>
 
+    <div class="flex flex-col gap-3 rounded-[16px] border border-[#E5E3DF] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)] sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p class="text-sm font-semibold text-[#111111]">Filtrer par campagne</p>
+        <p class="text-xs text-[#666666]">Affiche uniquement les contenus liés à une campagne précise.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <select
+          v-model="selectedCampaignId"
+          class="min-w-[220px] rounded-[12px] border border-[#E5E3DF] bg-white px-3 py-2 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+        >
+          <option value="">Toutes les campagnes</option>
+          <option v-for="campaign in campaigns" :key="campaign.id" :value="campaign.id">
+            {{ campaign.name }}
+          </option>
+        </select>
+        <button type="button" class="rounded-[12px] border border-[#E5E3DF] bg-[#FAFAF8] px-3 py-2 text-xs font-bold text-[#111111]" @click="selectedCampaignId = ''">
+          Réinitialiser
+        </button>
+      </div>
+    </div>
+
     <div v-if="loadingMeta || loadingContent" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
       <div v-for="n in 6" :key="n" class="overflow-hidden rounded-[20px] border border-[#E5E3DF] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
         <div class="aspect-[4/5] animate-pulse bg-[#F2EEE8]" />
@@ -163,6 +184,9 @@
         <div class="space-y-3 p-4">
           <div class="flex items-center justify-between gap-2 text-xs text-[#666666]">
             <span>{{ timeAgo(item.createdAt) }}</span>
+            <span v-if="item.campaign?.name" class="rounded-full bg-[#F4EFE8] px-2.5 py-1 text-[11px] font-bold text-[#B45F1D]">
+              {{ item.campaign.name }}
+            </span>
             <button
               v-if="item.caption"
               type="button"
@@ -225,6 +249,7 @@ const tabs = [
 ]
 
 const activeTab = ref('ALL')
+const selectedCampaignId = ref('')
 const loadingContent = ref(false)
 const modalMedia = ref(null)
 const modalMediaIsVideo = ref(false)
@@ -241,7 +266,12 @@ const { data: influencersData, pending: loadingMeta } = await useFetch('/api/inf
   key: 'plotline-content-influencers',
 })
 
+const { data: campaignsData } = await useFetch('/api/campaigns', {
+  key: 'plotline-content-campaigns',
+})
+
 const influencers = computed(() => influencersData.value || [])
+const campaigns = computed(() => Array.isArray(campaignsData.value) ? campaignsData.value : [])
 const selectedInfluencer = computed(() => {
   return influencers.value.find((item) => item.id === activeInfluencerId.value) || influencers.value[0] || null
 })
@@ -256,7 +286,7 @@ const emptyStateLabel = computed(() => {
 })
 
 watch(
-  [selectedInfluencer, activeTab],
+  [selectedInfluencer, activeTab, selectedCampaignId],
   async ([influencer, tab]) => {
     const requestId = activeRequestId.value + 1
     activeRequestId.value = requestId
@@ -269,7 +299,8 @@ watch(
     loadingContent.value = true
     try {
       const statuses = getStatusesForTab(tab)
-      const response = await $fetch(`/api/influencers/${influencer.id}/content?statuses=${statuses}`)
+      const campaignQuery = selectedCampaignId.value ? `&campaignId=${encodeURIComponent(selectedCampaignId.value)}` : ''
+      const response = await $fetch(`/api/influencers/${influencer.id}/content?statuses=${statuses}${campaignQuery}`)
       if (activeRequestId.value === requestId) {
         contentItems.value = (response.contents || []).map((item) => normalizeItem(item, activeJobsByContentId.value))
       }
@@ -538,7 +569,8 @@ async function publishTwitter(item) {
 async function reloadContents() {
   if (selectedInfluencer.value?.id) {
     const statuses = getStatusesForTab(activeTab.value)
-    const response = await $fetch(`/api/influencers/${selectedInfluencer.value.id}/content?statuses=${statuses}`)
+    const campaignQuery = selectedCampaignId.value ? `&campaignId=${encodeURIComponent(selectedCampaignId.value)}` : ''
+    const response = await $fetch(`/api/influencers/${selectedInfluencer.value.id}/content?statuses=${statuses}${campaignQuery}`)
     contentItems.value = (response.contents || []).map((item) => normalizeItem(item))
   }
 }

@@ -15,6 +15,9 @@ const REQUIRED_INFLUENCER_COLUMNS = [
 const REQUIRED_GENERATED_CONTENT_COLUMNS = [
   'id',
   'influencerId',
+  'brandId',
+  'ambassadorId',
+  'campaignId',
   'format',
   'status',
   'imageUrl',

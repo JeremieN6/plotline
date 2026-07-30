@@ -78,7 +78,16 @@
                 {{ item }}
               </span>
             </div>
-            <p class="text-gray-500 text-sm mb-1">{{ influencer.style || '—' }}</p>
+            <div v-if="getStyleList(influencer.style).length" class="mb-2 flex flex-wrap gap-2">
+              <span
+                v-for="styleItem in getStyleList(influencer.style)"
+                :key="`${influencer.id}-style-${styleItem}`"
+                class="rounded-full bg-[#EEF3FF] px-2.5 py-1 text-xs font-semibold text-[#334B79]"
+              >
+                {{ styleItem }}
+              </span>
+            </div>
+            <p v-else class="text-gray-500 text-sm mb-1">—</p>
             <p class="text-gray-500 text-sm">
               Face ref : <strong class="text-gray-700">{{ influencer.faceRefPath ? 'Oui' : 'Non' }}</strong>
             </p>
@@ -144,6 +153,13 @@ function getNicheSummary(value) {
   return summarizeNiches(value)
 }
 
+function getStyleList(value) {
+  return String(value || '')
+    .split(/[,|]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
 function goNew() {
   router.push('/influencers/new')
 }
@@ -165,9 +181,15 @@ async function removeInfluencer(id) {
     return
   }
 
+  const target = influencers.value.find((item) => item.id === id)
+  const hasFaceRef = Boolean(String(target?.faceRefPath || '').trim())
+  const defaultMessage = hasFaceRef
+    ? 'Cette ambassadrice ne sera plus disponible pour les marques et campagnes associées.'
+    : 'Cette marque sera supprimée, les ambassadrices resteront disponibles.'
+
   const confirmed = await requestConfirmation({
     title: `Supprimer cette ${wording.value.ambassador} ?`,
-    message: 'Cette action retire aussi ses contenus générés liés.',
+    message: `${defaultMessage} Cette action retire aussi ses contenus générés liés.`,
     confirmLabel: 'Supprimer',
     cancelLabel: 'Annuler',
     tone: 'danger',
@@ -191,9 +213,10 @@ async function removeInfluencer(id) {
     })
   } catch (err) {
     console.error('Failed to delete influencer', err)
+    const message = err?.data?.statusMessage || err?.message || 'La suppression a échoué.'
     pushToast({
       title: 'Suppression impossible',
-      message: "La suppression a échoué.",
+      message,
       tone: 'error',
       duration: 4500,
     })

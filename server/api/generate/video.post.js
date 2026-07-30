@@ -157,7 +157,9 @@ export default defineEventHandler(async (event) => {
 
   const prompt = String(body?.prompt || '').trim();
   const influencerId = String(body?.influencerId || '').trim();
-  const withFaceRef = body?.withFaceRef !== false;
+  const ambassadorId = String(body?.ambassadorId || '').trim();
+  const campaignId = String(body?.campaignId || '').trim();
+  const withFaceRef = body?.withFaceRef === true;
 
   if (!prompt) {
     return sendError(event, createError({ statusCode: 400, statusMessage: 'prompt requis' }));
@@ -167,27 +169,77 @@ export default defineEventHandler(async (event) => {
     return sendError(event, createError({ statusCode: 400, statusMessage: 'influencerId requis' }));
   }
 
-  const influencer = await prisma.influencer.findFirst({
+  if (campaignId) {
+    const campaign = await prisma.campaign.findFirst({
+      where: {
+        id: campaignId,
+        userId: user.id,
+      },
+      select: { id: true },
+    });
+
+    if (!campaign) {
+      return sendError(event, createError({ statusCode: 404, statusMessage: 'Campagne introuvable' }));
+    }
+  }
+
+  const ownerProfile = await prisma.influencer.findFirst({
     where: {
       id: influencerId,
       userId: user.id,
     },
     select: {
       id: true,
-      faceRefPath: true,
     },
   });
 
-  if (!influencer) {
-    return sendError(event, createError({ statusCode: 404, statusMessage: 'Ambassadrice introuvable' }));
+  if (!ownerProfile) {
+    return sendError(event, createError({ statusCode: 404, statusMessage: 'Profil introuvable' }));
   }
 
-  if (withFaceRef && !String(influencer.faceRefPath || '').trim()) {
-    return sendError(event, createError({ statusCode: 409, statusMessage: 'Aucune face ref disponible pour cette ambassadrice' }));
+  const requestedAmbassadorId = withFaceRef ? (ambassadorId || influencerId) : '';
+  let influencer = ownerProfile;
+
+  if (requestedAmbassadorId) {
+    const ambassador = await prisma.influencer.findFirst({
+      where: {
+        id: requestedAmbassadorId,
+        userId: user.id,
+      },
+      select: {
+        id: true,
+        faceRefPath: true,
+      },
+    });
+
+    if (!ambassador) {
+      return sendError(event, createError({ statusCode: 404, statusMessage: 'Ambassadrice introuvable' }));
+    }
+
+    influencer = ambassador;
+  } else {
+    influencer = await prisma.influencer.findFirst({
+      where: {
+        id: influencerId,
+        userId: user.id,
+      },
+      select: {
+        id: true,
+      faceRefPath: true,
+    },
+  });
+  }
+
+  if (!influencer) {
+    return sendError(event, createError({ statusCode: 404, statusMessage: 'Profil introuvable' }));
   }
 
   const model = selectVideoModel(prompt);
   const runtimeConfig = useRuntimeConfig(event);
+
+  if (withFaceRef && !String(influencer.faceRefPath || '').trim()) {
+    return sendError(event, createError({ statusCode: 409, statusMessage: 'Aucune face ref disponible pour ce profil actif' }));
+  }
 
   if (model === 'veo') {
     const geminiApiKey = resolveGeminiApiKey(runtimeConfig);
@@ -206,6 +258,9 @@ export default defineEventHandler(async (event) => {
   const generatedContent = await prisma.generatedContent.create({
     data: {
       influencerId: influencer.id,
+      brandId: ownerProfile.id,
+      ambassadorId: withFaceRef ? influencer.id : null,
+      campaignId: campaignId || null,
       platform: 'TIKTOK',
       format: 'REEL',
       status: 'PROCESSING',

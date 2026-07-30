@@ -171,9 +171,13 @@ export default defineEventHandler(async (event) => {
   let errorContext = {};
   try {
     const prisma = await getPrisma();
+    const authModule = await import('../../utils/auth.js');
+    const user = await authModule.requireAuthUser(event);
     const body = await readBody(event);
     const {
       influencerId,
+      ambassadorId,
+      campaignId,
       contentType,
       workflowType,
       source,
@@ -182,6 +186,8 @@ export default defineEventHandler(async (event) => {
     } = body || {};
     errorContext = {
       influencerId,
+      ambassadorId,
+      campaignId,
       workflowType,
       contentType,
       source,
@@ -231,6 +237,20 @@ export default defineEventHandler(async (event) => {
       );
     }
 
+    if (campaignId) {
+      const campaign = await prisma.campaign.findFirst({
+        where: {
+          id: campaignId,
+          userId: user.id,
+        },
+        select: { id: true },
+      });
+
+      if (!campaign) {
+        return sendError(event, createError({ statusCode: 404, statusMessage: 'Campagne introuvable' }));
+      }
+    }
+
     if (isPinterestWorkflow && !String(keyword || '').trim()) {
       return sendError(
         event,
@@ -261,18 +281,53 @@ export default defineEventHandler(async (event) => {
       );
     }
 
-    const influencer = await prisma.influencer.findUnique({
-      where: { id: influencerId },
+    const ownerProfile = await prisma.influencer.findFirst({
+      where: {
+        id: influencerId,
+        userId: user.id,
+      },
       select: {
         id: true,
+        userId: true,
         name: true,
         faceRefPath: true,
         calendarStep: true,
       },
     });
 
-    if (!influencer) {
-      return sendError(event, createError({ statusCode: 404, statusMessage: 'Influencer not found' }));
+    if (!ownerProfile) {
+      return sendError(event, createError({ statusCode: 404, statusMessage: 'Profil introuvable' }));
+    }
+
+    const requestedAmbassadorId = String(ambassadorId || '').trim();
+    let influencer = ownerProfile;
+    let withFaceRef = false;
+
+    if (requestedAmbassadorId) {
+      const ambassador = await prisma.influencer.findFirst({
+        where: {
+          id: requestedAmbassadorId,
+          userId: user.id,
+        },
+        select: {
+          id: true,
+          userId: true,
+          name: true,
+          faceRefPath: true,
+          calendarStep: true,
+        },
+      });
+
+      if (!ambassador) {
+        return sendError(event, createError({ statusCode: 404, statusMessage: 'Ambassadrice introuvable' }));
+      }
+
+      if (!String(ambassador.faceRefPath || '').trim()) {
+        return sendError(event, createError({ statusCode: 409, statusMessage: 'Cette ambassadrice n a pas de face ref' }));
+      }
+
+      influencer = ambassador;
+      withFaceRef = true;
     }
 
     const explicitContentFormat = derivePlatformAndFormatFromContentType(normalizedContentType);
@@ -281,6 +336,9 @@ export default defineEventHandler(async (event) => {
     const generatedContent = await prisma.generatedContent.create({
       data: {
         influencerId: influencer.id,
+        brandId: ownerProfile.id,
+        ambassadorId: withFaceRef ? influencer.id : null,
+        campaignId: campaignId || null,
         platform,
         format,
         status: 'PROCESSING',
@@ -288,7 +346,7 @@ export default defineEventHandler(async (event) => {
     });
 
     const jobPayload = {
-      influencerId,
+      influencerId: influencer.id,
       location,
       outfit,
       pose,
@@ -301,6 +359,7 @@ export default defineEventHandler(async (event) => {
       keyword,
       prompt,
       contentId: generatedContent.id,
+      withFaceRef,
     };
 
     if (!shouldUseQueue()) {

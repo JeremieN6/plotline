@@ -26,6 +26,7 @@ export default defineEventHandler(async (event) => {
 
     const query = getQuery(event);
     const statusValue = query.statuses || query.status || 'PENDING';
+    const campaignId = String(query.campaignId || '').trim();
     const statuses = String(statusValue)
       .split(',')
       .map((status) => status.trim())
@@ -41,6 +42,10 @@ export default defineEventHandler(async (event) => {
     const where = {
       influencerId: id,
       status: statuses.length === 1 ? statuses[0] : { in: statuses },
+    }
+
+    if (campaignId) {
+      where.campaignId = campaignId;
     }
 
     let contents
@@ -60,6 +65,15 @@ export default defineEventHandler(async (event) => {
           publishedAt: true,
           twitterPublishedAt: true,
           createdAt: true,
+          campaignId: true,
+          campaign: {
+            select: {
+              id: true,
+              name: true,
+              objective: true,
+              channel: true,
+            },
+          },
         },
       })
     } catch (queryErr) {
@@ -81,6 +95,15 @@ export default defineEventHandler(async (event) => {
           scheduledAt: true,
           publishedAt: true,
           createdAt: true,
+          campaignId: true,
+          campaign: {
+            select: {
+              id: true,
+              name: true,
+              objective: true,
+              channel: true,
+            },
+          },
         },
       })
 

@@ -14,7 +14,11 @@
       </div>
 
       <div v-if="step === 1" class="mt-8 space-y-4">
-        <label class="block text-sm font-semibold">Ton prénom ou nom de marque</label>
+        <p class="rounded-[12px] border border-[#5B4332] bg-[#1A120D] px-4 py-3 text-xs leading-relaxed text-[#E9C9AE]">
+          Crée d'abord un profil de création (marque, activité ou persona de contenu). Tu pourras ensuite, si besoin, y rattacher une ambassadrice visuelle.
+        </p>
+
+        <label class="block text-sm font-semibold">Nom du profil</label>
         <input v-model="form.name" class="w-full rounded-[12px] border border-[#5B4332] bg-[#1A120D] px-4 py-3 text-white outline-none focus:border-[#E8873A]" placeholder="Ex : Jade Studio" />
 
         <label class="block text-sm font-semibold">Ta niche</label>
@@ -25,7 +29,7 @@
       </div>
 
       <div v-if="step === 2" class="mt-8 space-y-4">
-        <p class="text-sm text-[#F5D4B8]">Tu peux associer un visage cohérent à tes créations. Optionnel, tu peux le faire plus tard.</p>
+        <p class="text-sm text-[#F5D4B8]">Optionnel: ajoute une ambassadrice visuelle pour garder le même visage sur tes contenus.</p>
 
         <label class="flex items-center gap-3 rounded-[12px] border border-[#5B4332] bg-[#1A120D] px-4 py-3">
           <input v-model="addFaceRef" type="checkbox" class="h-4 w-4 accent-[#E8873A]" />
@@ -42,7 +46,7 @@
           <p v-if="generateError" class="text-sm text-red-300">{{ generateError }}</p>
 
           <button type="button" class="rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50" :disabled="!sourceImageBase64 || generatingRef" @click="generateFaceReference">
-            {{ generatingRef ? 'Generation en cours...' : 'Generer la face ref' }}
+            {{ generatingRef ? 'Génération en cours...' : 'Générer la face ref' }}
           </button>
 
           <img v-if="generatedImageDataUrl" :src="generatedImageDataUrl" alt="Face ref" class="max-h-64 rounded-[12px] border border-[#5B4332] object-cover" />
@@ -126,7 +130,7 @@ function readFileAsBase64(file) {
       const result = String(reader.result || '')
       const base64 = result.includes(',') ? result.split(',')[1] : ''
       if (!base64) {
-        reject(new Error('Impossible de lire l image source'))
+        reject(new Error('Impossible de lire l\'image source'))
         return
       }
       resolve(base64)

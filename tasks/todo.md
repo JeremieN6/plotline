@@ -42,6 +42,8 @@
 - [x] Refonte dashboard, contenu, calendrier et generation
 - [x] Ajouter la notification de jobs actifs et les routes schedule/active
 - [x] Verifier les routes, types et contrats API touches
+- [x] Ajouter la campagne sur les contenus generes, le filtrage dashboard/contenu et la suppression safe de campagne
+- [x] Replier le bloc ambassadrice du Studio dans un panneau repliable ouvert par defaut
 
 ## Fait
 - [x] Initialisation MCP memoire + structure projet

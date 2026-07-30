@@ -88,7 +88,7 @@
                   </div>
                   <div class="min-w-0 flex-1">
                     <p class="truncate text-sm font-semibold text-[#111111]">{{ influencer.name }}</p>
-                    <p class="truncate text-xs text-[#666666]">{{ summarizeNiches(influencer.niche) || 'Sans niche' }}</p>
+                    <p class="truncate text-xs text-[#666666]">{{ profileSecondaryLabel(influencer) }}</p>
                   </div>
                   <span
                     v-if="influencer.id === activeInfluencerId"
@@ -99,7 +99,44 @@
                 </button>
               </div>
               <div class="border-t border-[#E5E3DF] p-2">
+                <template v-if="isContentCreator">
+                  <NuxtLink
+                    to="/onboarding/content-creator"
+                    class="mb-2 flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#E8873A]/40 px-3 py-2 text-sm font-bold text-[#E8873A] transition-colors duration-150 hover:bg-[#FDF3EA]"
+                    @click="switcherOpen = false; mobileMenuOpen = false"
+                  >
+                    <span class="text-lg leading-none">+</span>
+                    Nouvelle marque
+                  </NuxtLink>
+                  <NuxtLink
+                    to="/influencers/new"
+                    class="flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#E5E3DF] px-3 py-2 text-sm font-bold text-[#111111] transition-colors duration-150 hover:bg-[#FAFAF8]"
+                    @click="switcherOpen = false; mobileMenuOpen = false"
+                  >
+                    <span class="text-lg leading-none">+</span>
+                    Nouvelle ambassadrice
+                  </NuxtLink>
+                </template>
+                <template v-else-if="isBrand">
+                  <NuxtLink
+                    to="/brand-studio?newCampaign=1"
+                    class="mb-2 flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#E8873A]/40 px-3 py-2 text-sm font-bold text-[#E8873A] transition-colors duration-150 hover:bg-[#FDF3EA]"
+                    @click="switcherOpen = false; mobileMenuOpen = false"
+                  >
+                    <span class="text-lg leading-none">+</span>
+                    Nouvelle campagne
+                  </NuxtLink>
+                  <NuxtLink
+                    to="/influencers/new"
+                    class="flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#E5E3DF] px-3 py-2 text-sm font-bold text-[#111111] transition-colors duration-150 hover:bg-[#FAFAF8]"
+                    @click="switcherOpen = false; mobileMenuOpen = false"
+                  >
+                    <span class="text-lg leading-none">+</span>
+                    Nouvelle ambassadrice
+                  </NuxtLink>
+                </template>
                 <NuxtLink
+                  v-else
                   to="/influencers/new"
                   class="flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#E8873A]/40 px-3 py-2 text-sm font-bold text-[#E8873A] transition-colors duration-150 hover:bg-[#FDF3EA]"
                   @click="switcherOpen = false; mobileMenuOpen = false"
@@ -265,13 +302,13 @@ const activeInfluencerInitial = computed(() => avatarLetter(activeInfluencer.val
 const userEmail = computed(() => String(user.value?.email || 'compte@plotline.local'))
 const userInitial = computed(() => avatarLetter(user.value?.email || 'U'))
 const switcherLabel = computed(() => {
-  if (isContentCreator.value) return 'Mes créations'
+  if (isContentCreator.value) return 'Profils de création'
   if (isBrand.value) return 'Mes ambassadrices'
   return 'Mes influenceuses'
 })
 const addAmbassadorLabel = computed(() => {
   if (isBrand.value) return 'Nouvelle ambassadrice'
-  if (isContentCreator.value) return 'Nouvelle ambassadrice'
+  if (isContentCreator.value) return 'Nouveau profil'
   return 'Nouvelle influenceuse'
 })
 const createAmbassadorLabel = computed(() => {
@@ -358,6 +395,15 @@ watch(mobileMenuOpen, (open) => {
 
 function avatarLetter(value) {
   return String(value || 'P').trim().charAt(0).toUpperCase() || 'P'
+}
+
+function profileSecondaryLabel(influencer) {
+  if (isContentCreator.value) {
+    const hasFaceRef = Boolean(String(influencer?.faceRefPath || '').trim())
+    return hasFaceRef ? 'Profil ambassadrice' : 'Profil marque'
+  }
+
+  return summarizeNiches(influencer?.niche) || 'Sans niche'
 }
 
 function buildInfluencerScopedPath(path, influencerId) {

@@ -54,9 +54,24 @@ model User {
   accountType  AccountType?
   createdAt    DateTime      @default(now())
   influencers  Influencer[]
+  campaigns    Campaign[]
   authSessions AuthSession[]
   passwordResetTokens PasswordResetToken[]
   emailChangeTokens   EmailChangeToken[]
+}
+
+model Campaign {
+  id         String   @id @default(cuid())
+  userId     String
+  name       String
+  objective  String?
+  channel    String?
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  generatedContents GeneratedContent[]
+
+  @@index([userId, createdAt])
 }
 
 model AuthSession {
@@ -128,6 +143,9 @@ model Influencer {
 model GeneratedContent {
   id            String         @id @default(cuid())
   influencerId  String
+  brandId       String?
+  ambassadorId  String?
+  campaignId    String?
   imageUrl      String?
   caption       String?
   errorMessage  String?
@@ -140,4 +158,5 @@ model GeneratedContent {
   createdAt     DateTime       @default(now())
 
   influencer    Influencer     @relation(fields: [influencerId], references: [id])
+  campaign      Campaign?      @relation(fields: [campaignId], references: [id], onDelete: SetNull)
 }

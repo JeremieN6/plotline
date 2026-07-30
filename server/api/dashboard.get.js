@@ -20,8 +20,25 @@ export default defineEventHandler(async (event) => {
   const userId = user.id;
   const now = new Date();
   const upcomingCutoff = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 45);
+  const query = getQuery(event);
+  const campaignId = String(query.campaignId || '').trim();
 
-  const [influencers, pendingContents, upcomingContents, publishedCount, validatedCount] = await Promise.all([
+  const campaignFilter = campaignId
+    ? { campaignId }
+    : {};
+
+  const [campaigns, influencers, pendingContents, upcomingContents, publishedCount, validatedCount] = await Promise.all([
+    prisma.campaign.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        name: true,
+        objective: true,
+        channel: true,
+        createdAt: true,
+      },
+    }),
     prisma.influencer.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
@@ -41,6 +58,7 @@ export default defineEventHandler(async (event) => {
       where: {
         status: { in: ['PENDING', 'PROCESSING'] },
         influencer: { is: { userId } },
+        ...campaignFilter,
       },
       orderBy: { createdAt: 'desc' },
       take: 8,
@@ -52,6 +70,15 @@ export default defineEventHandler(async (event) => {
         status: true,
         createdAt: true,
         influencerId: true,
+        campaignId: true,
+        campaign: {
+          select: {
+            id: true,
+            name: true,
+            objective: true,
+            channel: true,
+          },
+        },
         influencer: {
           select: {
             id: true,
@@ -68,6 +95,7 @@ export default defineEventHandler(async (event) => {
           lte: upcomingCutoff,
         },
         influencer: { is: { userId } },
+        ...campaignFilter,
       },
       orderBy: { scheduledAt: 'asc' },
       take: 5,
@@ -79,6 +107,15 @@ export default defineEventHandler(async (event) => {
         status: true,
         scheduledAt: true,
         influencerId: true,
+        campaignId: true,
+        campaign: {
+          select: {
+            id: true,
+            name: true,
+            objective: true,
+            channel: true,
+          },
+        },
         influencer: {
           select: {
             id: true,
@@ -91,12 +128,14 @@ export default defineEventHandler(async (event) => {
       where: {
         status: 'PUBLISHED',
         influencer: { is: { userId } },
+        ...campaignFilter,
       },
     }),
     prisma.generatedContent.count({
       where: {
         status: 'VALIDATED',
         influencer: { is: { userId } },
+        ...campaignFilter,
       },
     }),
   ]);
@@ -106,6 +145,7 @@ export default defineEventHandler(async (event) => {
   });
 
   return {
+    campaigns,
     influencers,
     pendingContents,
     upcomingContents,

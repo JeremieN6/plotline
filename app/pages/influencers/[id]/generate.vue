@@ -76,7 +76,7 @@
               :disabled="!canGenerate || generating || optimizingPrompt"
               @click="submitGeneration"
             >
-              {{ generating ? 'Generation en cours...' : 'Generer' }}
+              {{ generating ? 'Génération en cours...' : 'Générer' }}
             </button>
           </div>
         </section>
@@ -197,7 +197,7 @@
           :disabled="!canGenerate || generating"
           @click="submitGeneration"
         >
-          {{ generating ? 'Generation en cours...' : 'Lancer la génération' }}
+          {{ generating ? 'Génération en cours...' : 'Lancer la génération' }}
         </button>
       </aside>
 

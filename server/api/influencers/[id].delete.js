@@ -26,8 +26,10 @@ module.exports = defineEventHandler(async (event) => {
     }
 
     const store = useStorage('data');
-    const cachedInfluencer = await store.getItem(`influencer:${id}`);
     const prisma = await getPrisma();
+    const authModule = await import('../../utils/auth.js');
+    const user = await authModule.requireAuthUser(event);
+    const cachedInfluencer = await store.getItem(`influencer:${id}`);
 
     let influencer = null;
 
@@ -37,6 +39,7 @@ module.exports = defineEventHandler(async (event) => {
         select: {
           id: true,
           userId: true,
+          faceRefPath: true,
         },
       });
 
@@ -48,9 +51,51 @@ module.exports = defineEventHandler(async (event) => {
         return sendError(event, createError({ statusCode: 404, statusMessage: 'Influenceuse non trouvée' }));
       }
 
+      if (String(influencer.userId || '') !== String(user.id || '')) {
+        return sendError(event, createError({ statusCode: 403, statusMessage: 'Accès refusé' }));
+      }
+
+      const accountType = String(user.accountType || '').trim().toUpperCase();
+      const allProfiles = await prisma.influencer.findMany({
+        where: { userId: user.id },
+        select: {
+          id: true,
+          faceRefPath: true,
+        },
+      });
+
+      const isBrandProfile = !String(influencer.faceRefPath || '').trim();
+
+      if (accountType === 'BRAND' && isBrandProfile) {
+        return sendError(event, createError({
+          statusCode: 409,
+          statusMessage: 'Le profil marque principal ne peut pas être supprimé sur un compte BRAND.',
+        }));
+      }
+
+      const remainingProfiles = allProfiles.filter((item) => item.id !== influencer.id);
+      if (!remainingProfiles.length) {
+        return sendError(event, createError({
+          statusCode: 409,
+          statusMessage: 'Suppression bloquée: il faut conserver au moins une marque ou une ambassadrice pour utiliser Plotline.',
+        }));
+      }
+
       await prisma.generatedContent.deleteMany({
         where: { influencerId: id },
       });
+
+      if (String(influencer.faceRefPath || '').trim()) {
+        await prisma.generatedContent.updateMany({
+          where: {
+            ambassadorId: id,
+            influencer: { is: { userId: user.id } },
+          },
+          data: {
+            ambassadorId: null,
+          },
+        });
+      }
 
       await prisma.influencer.delete({
         where: { id },
@@ -62,7 +107,7 @@ module.exports = defineEventHandler(async (event) => {
 
       influencer = cachedInfluencer;
 
-      if (!influencer) {
+      if (!influencer || String(influencer.userId || '') !== String(user.id || '')) {
         return sendError(event, createError({ statusCode: 404, statusMessage: 'Influenceuse non trouvée' }));
       }
     }

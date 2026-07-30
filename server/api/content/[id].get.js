@@ -42,6 +42,15 @@ export default defineEventHandler(async (event) => {
           publishedAt: true,
           twitterPublishedAt: true,
           createdAt: true,
+          campaignId: true,
+          campaign: {
+            select: {
+              id: true,
+              name: true,
+              objective: true,
+              channel: true,
+            },
+          },
           influencer: {
             select: {
               id: true,
@@ -70,6 +79,15 @@ export default defineEventHandler(async (event) => {
           scheduledAt: true,
           publishedAt: true,
           createdAt: true,
+          campaignId: true,
+          campaign: {
+            select: {
+              id: true,
+              name: true,
+              objective: true,
+              channel: true,
+            },
+          },
           influencer: {
             select: {
               id: true,

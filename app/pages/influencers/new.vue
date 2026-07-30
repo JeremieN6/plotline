@@ -1,6 +1,14 @@
 <template>
   <div class="page">
     <div class="card">
+      <button
+        type="button"
+        class="close-btn"
+        @click="cancelWizard"
+      >
+        ✕
+      </button>
+
       <div class="progress-wrap">
         <div class="progress-track"></div>
         <div class="progress-fill" :style="{ width: filledWidth }"></div>
@@ -151,15 +159,15 @@
           >
             <span v-if="generatingRef" class="spinner-wrap">
               <span class="spinner" aria-hidden="true"></span>
-              <span>Generation en cours... (~30s)</span>
+              <span>Génération en cours... (~30s)</span>
             </span>
-            <span v-else>Generer l'image de reference</span>
+            <span v-else>Générer l'image de réfrénce</span>
           </button>
         </div>
 
         <div v-if="step === 3" class="step-content">
           <p class="step3-description">
-            Voici la fiche reference de ton influenceuse. Elle sera utilisee pour toutes tes generations.
+            Voici la fiche référence de ton influenceuse. Elle sera utilisée pour toutes tes générations.
           </p>
 
           <div class="generated-preview-wrap">
@@ -172,8 +180,8 @@
           </div>
 
           <div class="step3-actions">
-            <button type="button" class="btn outline-orange" @click="goBackToStep2">🔄 Regenerer</button>
-            <button type="button" class="btn primary" @click="validateReference">✓ Valider cette reference</button>
+            <button type="button" class="btn outline-orange" @click="goBackToStep2">🔄 Regénérer</button>
+            <button type="button" class="btn primary" @click="validateReference">✓ Valider cette référence</button>
           </div>
         </div>
 
@@ -183,7 +191,7 @@
             <div class="recap-row"><strong>Niche :</strong> <span>{{ form.niche }}</span></div>
             <div class="recap-row"><strong>Style :</strong> <span>{{ form.style }}</span></div>
             <div class="recap-row"><strong>Silhouette :</strong> <span>{{ selectedSilhouetteLabel }}</span></div>
-            <div class="recap-row"><strong>Image de reference :</strong> <span>{{ generatedImageDataUrl ? 'Oui' : 'Non' }}</span></div>
+            <div class="recap-row"><strong>Image de référence :</strong> <span>{{ generatedImageDataUrl ? 'Oui' : 'Non' }}</span></div>
           </div>
 
           <div v-if="generatedImageDataUrl" class="recap-thumb-wrap">
@@ -198,10 +206,10 @@
         <button
           type="button"
           class="btn secondary"
-          :disabled="step === 1 || loading || generatingRef"
-          @click="prevStep"
+          :disabled="loading || generatingRef"
+          @click="prevStepOrClose"
         >
-          Précédent
+          {{ step === 1 ? 'Fermer' : 'Précédent' }}
         </button>
 
         <button
@@ -233,6 +241,7 @@
 import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthSession } from '../../composables/useAuthSession'
+import { resolveAccountHomePath } from '~/composables/useAccountRouting'
 
 const router = useRouter()
 const { user, refreshAuth } = useAuthSession()
@@ -328,6 +337,7 @@ const subtitles = {
 
 const stepTitle = computed(() => titles[step.value])
 const stepSubtitle = computed(() => subtitles[step.value])
+const exitPath = computed(() => resolveAccountHomePath(user.value?.accountType))
 
 const filledWidth = computed(() => {
   const pct = ((step.value - 1) / (totalSteps - 1)) * 100
@@ -492,6 +502,20 @@ function prevStep() {
   }
 }
 
+function prevStepOrClose() {
+  if (step.value === 1) {
+    cancelWizard()
+    return
+  }
+
+  prevStep()
+}
+
+async function cancelWizard() {
+  if (loading.value || generatingRef.value) return
+  await router.push(exitPath.value || '/dashboard')
+}
+
 async function generateFaceReference() {
   if (!sourceImageBase64.value || generatingRef.value) return
 
@@ -614,6 +638,21 @@ onBeforeUnmount(() => {
   max-width: 760px;
   padding: 28px;
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.45);
+}
+
+.close-btn {
+  position: absolute;
+  top: -10px;
+  left: 42em;
+  z-index: 3;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(244, 205, 169, 0.24);
+  background: rgba(10, 7, 5, 0.7);
+  color: #f6d7bd;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .card::before {

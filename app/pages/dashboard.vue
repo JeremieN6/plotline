@@ -14,6 +14,24 @@
       </NuxtLink>
     </header>
 
+    <section class="flex flex-col gap-3 rounded-[20px] border border-[#E5E3DF] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p class="text-sm font-semibold text-[#111111]">Filtrer par campagne</p>
+        <p class="text-xs text-[#666666]">Le dashboard se cale sur une seule campagne si besoin.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <select v-model="selectedCampaignId" class="min-w-[220px] rounded-[12px] border border-[#E5E3DF] bg-white px-3 py-2 text-sm text-[#111111] outline-none focus:border-[#E8873A]">
+          <option value="">Toutes les campagnes</option>
+          <option v-for="campaign in dashboard.campaigns" :key="campaign.id" :value="campaign.id">
+            {{ campaign.name }}
+          </option>
+        </select>
+        <button type="button" class="rounded-[12px] border border-[#E5E3DF] bg-[#FAFAF8] px-3 py-2 text-xs font-bold text-[#111111]" @click="selectedCampaignId = ''">
+          Réinitialiser
+        </button>
+      </div>
+    </section>
+
     <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
       <article
         v-for="item in bentoStats"
@@ -61,6 +79,7 @@
               <div class="flex flex-wrap items-center gap-2">
                 <span class="rounded-full bg-[#FDE7D6] px-2 py-1 text-[11px] font-bold text-[#B45F1D]">{{ content.format }}</span>
                 <span class="text-xs text-[#666666]">{{ timeAgo(content.createdAt) }}</span>
+                <span v-if="content.campaign?.name" class="rounded-full bg-[#F4EFE8] px-2 py-1 text-[11px] font-bold text-[#B45F1D]">{{ content.campaign.name }}</span>
               </div>
               <p class="mt-1 truncate text-sm font-semibold text-[#111111]">{{ content.influencer?.name }}</p>
               <p class="truncate text-xs text-[#666666]">{{ content.caption || 'Contenu sans caption' }}</p>
@@ -132,6 +151,7 @@
             <span class="rounded-full bg-[#FDE7D6] px-2 py-1 text-[11px] font-bold text-[#B45F1D]">{{ item.format }}</span>
             <span class="text-xs text-[#666666]">{{ formatDate(item.scheduledAt) }}</span>
           </div>
+          <p v-if="item.campaign?.name" class="mt-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[#B45F1D]">{{ item.campaign.name }}</p>
           <p class="mt-3 text-sm font-bold text-[#111111]">{{ item.influencer?.name }}</p>
           <p class="mt-1 line-clamp-3 text-xs text-[#666666]">{{ item.caption || 'Publication planifiée sans caption' }}</p>
         </article>
@@ -143,16 +163,27 @@
 <script setup>
 const activeInfluencerId = useActiveInfluencer()
 const { wording } = useWording()
+const selectedCampaignId = ref('')
 
-const { data, pending: loading, refresh } = await useFetch('/api/dashboard', {
+const dashboardUrl = computed(() => {
+  const campaignQuery = selectedCampaignId.value ? `?campaignId=${encodeURIComponent(selectedCampaignId.value)}` : ''
+  return `/api/dashboard${campaignQuery}`
+})
+
+const { data, pending: loading, refresh } = await useFetch(dashboardUrl, {
   key: 'plotline-dashboard',
 })
 const { pushToast } = useUiFeedback()
 const dashboard = computed(() => data.value || {
+  campaigns: [],
   influencers: [],
   pendingContents: [],
   upcomingContents: [],
   stats: {},
+})
+
+watch(selectedCampaignId, () => {
+  refresh()
 })
 
 const activeGenerateHref = computed(() => {

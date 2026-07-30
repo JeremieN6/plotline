@@ -82,6 +82,7 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 - 2026-06-07: Ajout du workflow story video Pinterest, stockage local des MP4, lecture media .mp4 et publication Instagram video avec polling du container.
 - 2026-06-10: Healthcheck schema corrige (cast `information_schema.column_name`), 3 jobs `PROCESSING` orphelins marques `FAILED`, fallback Gemini durci avec retries transitoires et sanitisation plus large.
 - 2026-07-01: Refond du back office avec shell global sidebar, dashboard bento, calendrier mensuel, vue contenu 3 colonnes, hook de notifications jobs actifs et routes schedule/active.
+- 2026-07-30: Ajout du lien explicite `campaignId` sur les contenus, filtres campagne sur dashboard/contenu, suppression de campagne avec detachement des contenus, et panneau ambassadrice repliable dans le Studio.
 
 ---
 
