@@ -3,5 +3,5 @@ definePageMeta({
   middleware: ['auth'],
 })
 
-await navigateTo('/influencers/new')
+await navigateTo('/profiles/new')
 </script>

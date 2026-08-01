@@ -34,7 +34,7 @@ module.exports = defineEventHandler(async (event) => {
     let influencer = null;
 
     try {
-      influencer = await prisma.influencer.findUnique({
+      influencer = await prisma.profile.findUnique({
         where: { id },
         select: {
           id: true,
@@ -56,7 +56,7 @@ module.exports = defineEventHandler(async (event) => {
       }
 
       const accountType = String(user.accountType || '').trim().toUpperCase();
-      const allProfiles = await prisma.influencer.findMany({
+      const allProfiles = await prisma.profile.findMany({
         where: { userId: user.id },
         select: {
           id: true,
@@ -97,7 +97,7 @@ module.exports = defineEventHandler(async (event) => {
         });
       }
 
-      await prisma.influencer.delete({
+      await prisma.profile.delete({
         where: { id },
       });
     } catch (err) {

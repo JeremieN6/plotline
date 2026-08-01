@@ -39,7 +39,7 @@ function normalizeInfluencer(influencer) {
 
 async function findInfluencersCompatible(prisma, userId) {
   try {
-    const rows = await prisma.influencer.findMany({
+    const rows = await prisma.profile.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
       select: {
@@ -66,7 +66,7 @@ async function findInfluencersCompatible(prisma, userId) {
       throw err;
     }
 
-    const legacyRows = await prisma.influencer.findMany({
+    const legacyRows = await prisma.profile.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
       select: {

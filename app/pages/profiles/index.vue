@@ -161,19 +161,19 @@ function getStyleList(value) {
 }
 
 function goNew() {
-  router.push('/influencers/new')
+  router.push('/profiles/new')
 }
 
 function goEdit(id) {
-  router.push(`/influencers/${id}/edit`)
+  router.push(`/profiles/${id}/edit`)
 }
 
 function goDetail(id) {
-  router.push(`/influencers/${id}`)
+  router.push(`/profiles/${id}`)
 }
 
 function goGenerate(id) {
-  router.push(`/influencers/${id}/generate`)
+  router.push(`/profiles/${id}/generate`)
 }
 
 async function removeInfluencer(id) {

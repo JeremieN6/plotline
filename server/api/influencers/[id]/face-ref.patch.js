@@ -17,7 +17,7 @@ const LEGACY_FACE_REF_SELECT = {
 
 async function updateInfluencerFaceRefCompatible(id, data) {
   try {
-    return await prisma.influencer.update({
+    return await prisma.profile.update({
       where: { id },
       data,
       select: {
@@ -30,7 +30,7 @@ async function updateInfluencerFaceRefCompatible(id, data) {
       throw err;
     }
 
-    return await prisma.influencer.update({
+    return await prisma.profile.update({
       where: { id },
       data: { faceRefPath: data.faceRefPath },
       select: LEGACY_FACE_REF_SELECT,

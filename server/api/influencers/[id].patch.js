@@ -88,7 +88,7 @@ const LEGACY_INFLUENCER_SELECT = {
 
 async function updateInfluencerCompatible(prisma, id, data) {
   try {
-    return await prisma.influencer.update({
+    return await prisma.profile.update({
       where: { id },
       data,
       select: {
@@ -104,7 +104,7 @@ async function updateInfluencerCompatible(prisma, id, data) {
       throw err;
     }
 
-    return await prisma.influencer.update({
+    return await prisma.profile.update({
       where: { id },
       data,
       select: LEGACY_INFLUENCER_SELECT,

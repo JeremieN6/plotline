@@ -39,7 +39,7 @@ export default defineEventHandler(async (event) => {
         createdAt: true,
       },
     }),
-    prisma.influencer.findMany({
+    prisma.profile.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
       select: {

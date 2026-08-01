@@ -39,7 +39,7 @@ export function useJobNotifications() {
             tone: 'success',
             duration: 6000,
             actionLabel: 'Voir',
-            actionHref: `/influencers/${content.influencerId}`,
+            actionHref: `/profiles/${content.influencerId}`,
           })
         } else if (content?.status === 'FAILED') {
           pushToast({

@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
     const authModule = await import('../../../utils/auth.js');
     const user = await authModule.requireAuthUser(event);
 
-    const ownerMatch = await prisma.influencer.findFirst({
+    const ownerMatch = await prisma.profile.findFirst({
       where: {
         id,
         userId: user.id,
@@ -39,7 +39,7 @@ export default defineEventHandler(async (event) => {
     const { connectTwitter } = await import('../../../utils/twitterSession.js');
     const result = await connectTwitter(id);
 
-    const updated = await prisma.influencer.update({
+    const updated = await prisma.profile.update({
       where: { id },
       data: {
         twitterConnected: true,

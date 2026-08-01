@@ -53,10 +53,10 @@
           <input v-model="form.name" class="input" :placeholder="namePlaceholder" />
 
           <label class="field-label">Niche</label>
-          <input v-model="form.niche" class="input" placeholder="ex : lifestyle, fitness, travel" />
+          <input v-model="form.niche" class="input" :placeholder="nichePlaceholder" />
 
           <label class="field-label">Style</label>
-          <input v-model="form.style" class="input" placeholder="ex : californian blonde, parisian chic" />
+          <input v-model="form.style" class="input" :placeholder="stylePlaceholder" />
 
           <!-- Silhouette : persona uniquement -->
           <div v-if="form.profileType === 'persona'" class="field-group">
@@ -205,6 +205,24 @@
           </div>
         </div>
 
+        <div v-if="step === 2 && form.profileType !== 'persona'" class="step-content">
+          <div class="field-group">
+            <label class="field-label">Description courte (optionnel)</label>
+            <textarea
+              v-model="form.description"
+              class="input"
+              rows="3"
+              placeholder="ex : Ce que tu proposes, ton positionnement, ton univers..."
+            ></textarea>
+          </div>
+
+          <label class="field-label">Site web / lien (optionnel)</label>
+          <input v-model="form.website" class="input" placeholder="ex : https://..." />
+
+          <label class="field-label">{{ targetAudienceLabel }}</label>
+          <input v-model="form.targetAudience" class="input" :placeholder="targetAudiencePlaceholder" />
+        </div>
+
         <div v-if="step === totalSteps" class="step-content">
           <div class="recap">
             <div class="recap-row"><strong>Type :</strong> <span>{{ profileTypeLabel }}</span></div>
@@ -214,6 +232,11 @@
             <template v-if="form.profileType === 'persona'">
               <div class="recap-row"><strong>Silhouette :</strong> <span>{{ selectedSilhouetteLabel }}</span></div>
               <div class="recap-row"><strong>Image de référence :</strong> <span>{{ generatedTempImagePath ? 'Oui' : 'Non' }}</span></div>
+            </template>
+            <template v-else>
+              <div v-if="form.description.trim()" class="recap-row"><strong>Description :</strong> <span>{{ form.description }}</span></div>
+              <div v-if="form.website.trim()" class="recap-row"><strong>Site web :</strong> <span>{{ form.website }}</span></div>
+              <div v-if="form.targetAudience.trim()" class="recap-row"><strong>{{ form.profileType === 'activity' ? 'Zone d\'intervention' : 'Public cible' }} :</strong> <span>{{ form.targetAudience }}</span></div>
             </template>
           </div>
 
@@ -236,10 +259,10 @@
         </button>
 
         <button
-          v-if="step === 1"
+          v-if="step === 1 || (step === 2 && form.profileType !== 'persona')"
           type="button"
           class="btn primary"
-          :disabled="!canGoFromStep1 || loading || generatingRef"
+          :disabled="(step === 1 && !canGoFromStep1) || loading || generatingRef"
           @click="nextStep"
         >
           Suivant
@@ -298,6 +321,9 @@ const form = reactive({
   niche: '',
   style: '',
   silhouette: 'VOLUPTUOUS',
+  description: '',
+  website: '',
+  targetAudience: '',
 })
 
 const personalization = reactive({
@@ -320,7 +346,7 @@ const basePrompt = FACE_REF_BASE_PROMPT
 
 // --- Computeds dynamiques selon profileType ---
 
-const totalSteps = computed(() => (form.profileType === 'persona' ? 4 : 2))
+const totalSteps = computed(() => (form.profileType === 'persona' ? 4 : 3))
 
 const stepItems = computed(() => {
   if (form.profileType === 'persona') {
@@ -333,7 +359,8 @@ const stepItems = computed(() => {
   }
   return [
     { id: 1, label: 'Profil' },
-    { id: 2, label: 'Confirmation' },
+    { id: 2, label: 'Détails' },
+    { id: 3, label: 'Confirmation' },
   ]
 })
 
@@ -342,9 +369,9 @@ const stepTitles = computed(() => {
     return { 1: 'Identité', 2: 'Cohérence faciale', 3: 'Validation', 4: 'Confirmation' }
   }
   if (form.profileType === 'brand') {
-    return { 1: 'Ta marque', 2: 'Confirmation' }
+    return { 1: 'Ta marque', 2: 'Détails supplémentaires', 3: 'Confirmation' }
   }
-  return { 1: 'Ton activité', 2: 'Confirmation' }
+  return { 1: 'Ton activité', 2: 'Détails supplémentaires', 3: 'Confirmation' }
 })
 
 const stepSubtitles = computed(() => {
@@ -359,12 +386,14 @@ const stepSubtitles = computed(() => {
   if (form.profileType === 'brand') {
     return {
       1: 'Renseigne les informations de ta marque.',
-      2: 'Récapitulatif avant création.',
+      2: 'Précise le positionnement de ta marque.',
+      3: 'Récapitulatif avant création.',
     }
   }
   return {
     1: 'Renseigne les informations de ton activité.',
-    2: 'Récapitulatif avant création.',
+    2: 'Précise le positionnement de ton activité.',
+    3: 'Récapitulatif avant création.',
   }
 })
 
@@ -381,6 +410,26 @@ const namePlaceholder = computed(() => {
   if (form.profileType === 'brand') return 'Ex : Jade Paris, Luxe & Co...'
   if (form.profileType === 'activity') return 'Ex : Jade Coaching, Studio Créatif...'
   return 'ex : Luna'
+})
+
+const nichePlaceholder = computed(() => {
+  if (form.profileType === 'brand') return 'ex : mode, beauté, bien-être'
+  if (form.profileType === 'activity') return 'ex : coaching, consulting, formation'
+  return 'ex : lifestyle, fitness, travel'
+})
+
+const stylePlaceholder = computed(() => {
+  if (form.profileType === 'brand') return 'ex : minimaliste, premium, coloré'
+  if (form.profileType === 'activity') return 'ex : professionnel, chaleureux, moderne'
+  return 'ex : californian blonde, parisian chic'
+})
+
+const targetAudienceLabel = computed(() => {
+  return form.profileType === 'activity' ? 'Zone d\'intervention (optionnel)' : 'Public cible (optionnel)'
+})
+
+const targetAudiencePlaceholder = computed(() => {
+  return form.profileType === 'activity' ? 'ex : Paris et Île-de-France, en ligne...' : 'ex : femmes 25-40 ans, urbaines, CSP+...'
 })
 
 const profileTypeLabel = computed(() => {
@@ -534,6 +583,11 @@ function setEyeColor(option) {
 function nextStep() {
   if (step.value === 1 && canGoFromStep1.value) {
     step.value = 2
+    return
+  }
+
+  if (step.value === 2 && form.profileType !== 'persona') {
+    step.value = 3
   }
 }
 
@@ -613,6 +667,9 @@ async function submit() {
         niche: form.niche.trim(),
         style: form.style.trim(),
         silhouette: form.profileType === 'persona' ? form.silhouette : undefined,
+        description: form.profileType !== 'persona' ? form.description.trim() : undefined,
+        website: form.profileType !== 'persona' ? form.website.trim() : undefined,
+        targetAudience: form.profileType !== 'persona' ? form.targetAudience.trim() : undefined,
       },
     })
 

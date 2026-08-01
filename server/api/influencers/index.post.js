@@ -72,16 +72,23 @@ const LEGACY_INFLUENCER_SELECT = {
   createdAt: true,
 };
 
+const MODERN_INFLUENCER_SELECT = {
+  ...LEGACY_INFLUENCER_SELECT,
+  silhouette: true,
+  bodyPrompt: true,
+  hairPrompt: true,
+  identityProfile: true,
+};
+
 async function createInfluencerCompatible(prisma, data) {
   try {
-    return await prisma.influencer.create({
+    return await prisma.profile.create({
       data,
       select: {
-        ...LEGACY_INFLUENCER_SELECT,
-        silhouette: true,
-        bodyPrompt: true,
-        hairPrompt: true,
-        identityProfile: true,
+        ...MODERN_INFLUENCER_SELECT,
+        description: true,
+        website: true,
+        targetAudience: true,
       },
     });
   } catch (err) {
@@ -89,7 +96,22 @@ async function createInfluencerCompatible(prisma, data) {
       throw err;
     }
 
-    return await prisma.influencer.create({
+    const hasDetailFields = 'description' in data || 'website' in data || 'targetAudience' in data;
+    if (hasDetailFields) {
+      const { description, website, targetAudience, ...rest } = data;
+      try {
+        return await prisma.profile.create({
+          data: rest,
+          select: MODERN_INFLUENCER_SELECT,
+        });
+      } catch (innerErr) {
+        if (!isPrismaSchemaDriftError(innerErr)) {
+          throw innerErr;
+        }
+      }
+    }
+
+    return await prisma.profile.create({
       data: {
         userId: data.userId,
         name: data.name,
@@ -192,6 +214,9 @@ module.exports = defineEventHandler(async (event) => {
           style: body.style,
           silhouette: resolvedSilhouette,
           bodyPrompt: typeof body?.bodyPrompt === 'string' ? body.bodyPrompt.trim() || null : null,
+          description: typeof body?.description === 'string' ? body.description.trim() || null : null,
+          website: typeof body?.website === 'string' ? body.website.trim() || null : null,
+          targetAudience: typeof body?.targetAudience === 'string' ? body.targetAudience.trim() || null : null,
         }
       }.data);
     } catch (err) {

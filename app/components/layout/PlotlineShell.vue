@@ -101,7 +101,7 @@
               <div class="border-t border-[#E5E3DF] p-2">
                 <template v-if="isContentCreator">
                   <NuxtLink
-                    to="/influencers/new"
+                    to="/profiles/new"
                     class="flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#E8873A]/40 px-3 py-2 text-sm font-bold text-[#E8873A] transition-colors duration-150 hover:bg-[#FDF3EA]"
                     @click="switcherOpen = false; mobileMenuOpen = false"
                   >
@@ -119,7 +119,7 @@
                     Nouvelle campagne
                   </NuxtLink>
                   <NuxtLink
-                    to="/influencers/new"
+                    to="/profiles/new"
                     class="flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#E5E3DF] px-3 py-2 text-sm font-bold text-[#111111] transition-colors duration-150 hover:bg-[#FAFAF8]"
                     @click="switcherOpen = false; mobileMenuOpen = false"
                   >
@@ -129,7 +129,7 @@
                 </template>
                 <NuxtLink
                   v-else
-                  to="/influencers/new"
+                  to="/profiles/new"
                   class="flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#E8873A]/40 px-3 py-2 text-sm font-bold text-[#E8873A] transition-colors duration-150 hover:bg-[#FDF3EA]"
                   @click="switcherOpen = false; mobileMenuOpen = false"
                 >
@@ -242,7 +242,7 @@
 
                 <div class="mt-7 flex flex-col gap-3 sm:flex-row">
                   <NuxtLink
-                    to="/influencers/new"
+                    to="/profiles/new"
                     class="inline-flex flex-1 items-center justify-center rounded-[12px] bg-[#E8873A] px-4 py-3 text-sm font-bold text-white transition-all duration-150 hover:-translate-y-0.5 hover:bg-[#d4762f]"
                   >
                     {{ createAmbassadorLabel }}
@@ -319,13 +319,13 @@ const settingsNavLabel = computed(() => {
 const showOnboardingModal = computed(() => {
   if (!isInfluencerCreator.value) return false
   if (route.path.startsWith('/onboarding')) return false
-  if (route.path.startsWith('/influencers/new')) return false
+  if (route.path.startsWith('/profiles/new')) return false
   return influencers.value.length === 0
 })
 
 const routeInfluencerId = computed(() => {
   const segments = String(route.path || '').split('/').filter(Boolean)
-  if (segments[0] !== 'influencers') return ''
+  if (segments[0] !== 'profiles') return ''
   const rawId = segments[1] || ''
   if (!rawId || rawId === 'new') return ''
   return rawId
@@ -334,7 +334,7 @@ const routeInfluencerId = computed(() => {
 const navigation = computed(() => {
   const settingsItem = {
     label: settingsNavLabel.value,
-    to: activeInfluencer.value ? `/influencers/${activeInfluencer.value.id}/edit` : '/influencers/new',
+    to: activeInfluencer.value ? `/profiles/${activeInfluencer.value.id}/edit` : '/profiles/new',
     disabled: !activeInfluencer.value,
   }
 
@@ -353,7 +353,7 @@ const navigation = computed(() => {
     return [
       { label: 'Accueil', to: '/dashboard' },
       { label: 'Brand Studio', to: '/brand-studio' },
-      { label: 'Mes ambassadrices', to: '/influencers' },
+      { label: 'Mes ambassadrices', to: '/profiles' },
       { label: 'Calendrier', to: '/calendar' },
       { label: 'Analytics', to: '/analytics', badge: 'Bientôt', disabled: true },
       settingsItem,
@@ -362,7 +362,7 @@ const navigation = computed(() => {
 
   return [
     { label: 'Accueil', to: '/dashboard' },
-    { label: 'Générer', to: activeInfluencer.value ? `/influencers/${activeInfluencer.value.id}/generate` : '/influencers', disabled: !activeInfluencer.value },
+    { label: 'Générer', to: activeInfluencer.value ? `/profiles/${activeInfluencer.value.id}/generate` : '/profiles', disabled: !activeInfluencer.value },
     { label: 'Contenu', to: '/content' },
     { label: 'Calendrier', to: '/calendar' },
     { label: 'Analytics', to: '/analytics', badge: 'Bientôt', disabled: true },
@@ -418,7 +418,7 @@ function profileSecondaryLabel(influencer) {
 
 function buildInfluencerScopedPath(path, influencerId) {
   const segments = String(path || '').split('/').filter(Boolean)
-  if (segments[0] !== 'influencers') return null
+  if (segments[0] !== 'profiles') return null
   if (!segments[1] || segments[1] === 'new') return null
 
   segments[1] = influencerId

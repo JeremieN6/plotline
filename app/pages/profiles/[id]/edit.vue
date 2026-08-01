@@ -1,9 +1,12 @@
 <template>
   <div class="space-y-6">
     <header class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-      <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#E8873A]">Influenceuse</p>
-      <h1 class="mt-2 text-3xl font-bold tracking-tight text-[#111111]">Modifier le profil</h1>
-      <p class="mt-2 text-sm text-[#666666]">Ajoute plusieurs niches si besoin, et remplace la face ref depuis le même écran.</p>
+      <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#E8873A]">Paramètres</p>
+      <p v-if="influencer" class="mt-2 text-base font-bold text-[#111111]">
+        {{ influencer.name }} <span class="text-[#999999]">•</span> {{ profileTypeLabelDisplay }}
+      </p>
+      <h1 class="mt-1 text-3xl font-bold tracking-tight text-[#111111]">Modifier le profil</h1>
+      <p class="mt-2 text-sm text-[#666666]">{{ settingsDescription }}</p>
     </header>
 
       <div v-if="pending" class="space-y-3">
@@ -358,6 +361,16 @@ const isAmbassadorProfile = computed(() => {
   return Boolean(String(influencer.value?.faceRefPath || currentFaceRefPath.value || '').trim())
 })
 const profileTypeLabel = computed(() => (isAmbassadorProfile.value ? wording.value.ambassador : 'marque'))
+const profileTypeLabelDisplay = computed(() => {
+  const label = profileTypeLabel.value
+  return label.charAt(0).toUpperCase() + label.slice(1)
+})
+const settingsDescription = computed(() => {
+  if (isAmbassadorProfile.value) {
+    return 'Ajoute plusieurs niches si besoin, et remplace la face ref depuis le même écran.'
+  }
+  return 'Ajoute plusieurs niches et styles si besoin, et connecte tes réseaux sociaux depuis le même écran.'
+})
 const generatedImageDataUrl = computed(() => {
   if (!generatedImageBase64.value) return ''
   if (generatedImageBase64.value.startsWith('data:image/')) return generatedImageBase64.value

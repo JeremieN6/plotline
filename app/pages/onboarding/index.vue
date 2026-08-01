@@ -73,7 +73,7 @@ const cards = [
 
 const nextPathByType = {
   INFLUENCER_CREATOR: '/onboarding/influencer-creator',
-  CONTENT_CREATOR: '/influencers/new',
+  CONTENT_CREATOR: '/profiles/new',
   BRAND: '/onboarding/brand',
 }
 

@@ -86,7 +86,7 @@
 
           <div v-if="!hasAmbassadorProfiles" class="mt-3 rounded-[10px] border border-[#E5D8C9] bg-white px-3 py-3 text-xs text-[#7B5A3F]">
             <p>Aucune ambassadrice disponible pour le moment.</p>
-            <NuxtLink to="/influencers/new" class="mt-2 inline-flex rounded-[8px] border border-dashed border-[#E8873A]/45 px-2.5 py-1.5 text-xs font-bold text-[#B45F1D]">
+            <NuxtLink to="/profiles/new" class="mt-2 inline-flex rounded-[8px] border border-dashed border-[#E8873A]/45 px-2.5 py-1.5 text-xs font-bold text-[#B45F1D]">
               Créer une ambassadrice
             </NuxtLink>
           </div>

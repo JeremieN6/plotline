@@ -1,0 +1,4 @@
+ALTER TABLE "Influencer"
+  ADD COLUMN IF NOT EXISTS "description" TEXT,
+  ADD COLUMN IF NOT EXISTS "website" TEXT,
+  ADD COLUMN IF NOT EXISTS "targetAudience" TEXT;

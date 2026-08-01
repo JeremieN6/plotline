@@ -29,14 +29,14 @@ function isPrismaSchemaDriftError(err) {
 
 async function createGeneratedContentCompatible(prisma, data) {
   try {
-    return await prisma.generatedContent.create({ data });
+    return await prisma.generatedContent.create({ data, select: { id: true } });
   } catch (err) {
     if (!isPrismaSchemaDriftError(err) || !('prompt' in data)) {
       throw err;
     }
 
     const { prompt, ...rest } = data;
-    return await prisma.generatedContent.create({ data: rest });
+    return await prisma.generatedContent.create({ data: rest, select: { id: true } });
   }
 }
 
@@ -303,7 +303,7 @@ export default defineEventHandler(async (event) => {
       );
     }
 
-    const ownerProfile = await prisma.influencer.findFirst({
+    const ownerProfile = await prisma.profile.findFirst({
       where: {
         id: influencerId,
         userId: user.id,
@@ -326,7 +326,7 @@ export default defineEventHandler(async (event) => {
     let withFaceRef = false;
 
     if (requestedAmbassadorId) {
-      const ambassador = await prisma.influencer.findFirst({
+      const ambassador = await prisma.profile.findFirst({
         where: {
           id: requestedAmbassadorId,
           userId: user.id,

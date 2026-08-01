@@ -28,7 +28,7 @@ export default defineEventHandler(async (event) => {
     const authModule = await import('../../../utils/auth.js');
     const user = await authModule.requireAuthUser(event);
 
-    const ownerMatch = await prisma.influencer.findFirst({
+    const ownerMatch = await prisma.profile.findFirst({
       where: {
         id,
         userId: user.id,
@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 404, statusMessage: 'Influenceuse introuvable' }));
     }
 
-    const updated = await prisma.influencer.update({
+    const updated = await prisma.profile.update({
       where: { id },
       data: {
         instagramAccountId: instagramAccountId || null,

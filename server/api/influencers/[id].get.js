@@ -47,7 +47,7 @@ function normalizeInfluencer(influencer) {
 
 async function findInfluencerCompatible(prisma, id) {
   try {
-    return await prisma.influencer.findUnique({
+    return await prisma.profile.findUnique({
       where: { id },
       select: {
         id: true,
@@ -72,7 +72,7 @@ async function findInfluencerCompatible(prisma, id) {
       throw err;
     }
 
-    return prisma.influencer.findUnique({
+    return prisma.profile.findUnique({
       where: { id },
       select: {
         id: true,

@@ -55,7 +55,7 @@ const LEGACY_FACE_REF_SELECT = {
 
 async function updateInfluencerFaceRefCompatible(influencerId, data) {
   try {
-    return await prisma.influencer.update({
+    return await prisma.profile.update({
       where: { id: influencerId },
       data,
       select: {
@@ -68,7 +68,7 @@ async function updateInfluencerFaceRefCompatible(influencerId, data) {
       throw err;
     }
 
-    return await prisma.influencer.update({
+    return await prisma.profile.update({
       where: { id: influencerId },
       data: { faceRefPath: data.faceRefPath },
       select: LEGACY_FACE_REF_SELECT,
@@ -126,7 +126,7 @@ module.exports = defineEventHandler(async (event) => {
         return sendError(event, createError({ statusCode: 400, statusMessage: 'influencerId et tempImagePath requis' }));
       }
 
-      const influencer = await prisma.influencer.findUnique({
+      const influencer = await prisma.profile.findUnique({
         where: { id: influencerId },
         select: { id: true },
       });
@@ -171,7 +171,7 @@ module.exports = defineEventHandler(async (event) => {
     const isTemporary = influencerId.startsWith('temp-');
 
     if (!isTemporary) {
-      const influencer = await prisma.influencer.findUnique({
+      const influencer = await prisma.profile.findUnique({
         where: { id: influencerId },
         select: { id: true }
       });

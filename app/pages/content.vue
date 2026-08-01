@@ -26,7 +26,7 @@
       <div class="flex flex-wrap gap-2">
         <NuxtLink
           v-if="selectedInfluencer"
-          :to="`/influencers/${selectedInfluencer.id}/generate`"
+          :to="`/profiles/${selectedInfluencer.id}/generate`"
           class="rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white transition-all duration-150 hover:bg-[#d4762f]"
         >
           Générer
@@ -47,7 +47,7 @@
       </button>
     </div>
 
-    <div v-if="!isContentCreator" class="flex flex-col gap-3 rounded-[16px] border border-[#E5E3DF] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)] sm:flex-row sm:items-center sm:justify-between">
+    <div v-if="isBrand" class="flex flex-col gap-3 rounded-[16px] border border-[#E5E3DF] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)] sm:flex-row sm:items-center sm:justify-between">
       <div>
         <p class="text-sm font-semibold text-[#111111]">Filtrer par campagne</p>
         <p class="text-xs text-[#666666]">Affiche uniquement les contenus liés à une campagne précise.</p>
@@ -82,7 +82,7 @@
     <div v-else-if="!selectedInfluencer" class="rounded-[20px] border border-dashed border-[#E5E3DF] bg-white px-6 py-16 text-center">
       <p class="text-base font-semibold text-[#111111]">Aucune {{ wording.ambassador }} sélectionnée</p>
       <p class="mt-2 text-sm text-[#666666]">Crée une {{ wording.ambassador }} ou sélectionne-en une depuis la sidebar.</p>
-      <NuxtLink to="/influencers/new" class="mt-5 inline-flex rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#d4762f]">
+      <NuxtLink to="/profiles/new" class="mt-5 inline-flex rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#d4762f]">
         Nouvelle {{ wording.ambassador }}
       </NuxtLink>
     </div>

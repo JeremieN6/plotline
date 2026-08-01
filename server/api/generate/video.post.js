@@ -110,7 +110,7 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const ownerProfile = await prisma.influencer.findFirst({
+  const ownerProfile = await prisma.profile.findFirst({
     where: {
       id: influencerId,
       userId: user.id,
@@ -128,7 +128,7 @@ export default defineEventHandler(async (event) => {
   let influencer = ownerProfile;
 
   if (requestedAmbassadorId) {
-    const ambassador = await prisma.influencer.findFirst({
+    const ambassador = await prisma.profile.findFirst({
       where: {
         id: requestedAmbassadorId,
         userId: user.id,
@@ -145,7 +145,7 @@ export default defineEventHandler(async (event) => {
 
     influencer = ambassador;
   } else {
-    influencer = await prisma.influencer.findFirst({
+    influencer = await prisma.profile.findFirst({
       where: {
         id: influencerId,
         userId: user.id,

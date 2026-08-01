@@ -118,7 +118,7 @@
               <div v-if="!hasAmbassadorProfiles" class="mt-3 flex items-center justify-between gap-3 rounded-[10px] border border-dashed border-[#E5D8C9] bg-[#FAFAF8] px-3 py-2.5">
                 <p class="text-xs text-[#7B5A3F]">Aucune ambassadrice configurée.</p>
                 <NuxtLink
-                  to="/influencers/new"
+                  to="/profiles/new"
                   class="inline-flex items-center gap-1.5 rounded-[8px] bg-[#FDE7D6] px-2.5 py-1.5 text-xs font-bold text-[#B45F1D] transition-colors hover:bg-[#FAD9BE]"
                 >
                   <Icon name="lucide:plus" class="h-3 w-3" />

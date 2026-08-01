@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const influencerRows = await prisma.influencer.findMany({
+  const influencerRows = await prisma.profile.findMany({
     where: { userId: user.id },
     select: { id: true },
   });

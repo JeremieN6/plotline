@@ -29,6 +29,11 @@ export default defineNuxtConfig({
   modules: ['@nuxtjs/tailwindcss', '@nuxt/icon'],
   css: ['~/assets/css/main.css'],
   pages: true,
+  routeRules: {
+    // Legacy paths from before the /influencers -> /profiles route rename.
+    '/influencers': { redirect: '/profiles' },
+    '/influencers/**': { redirect: '/profiles/**' },
+  },
   devServer: {
     host: 'localhost',
     port: Number(process.env.PORT || 3000)

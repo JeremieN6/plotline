@@ -14,7 +14,7 @@
       </NuxtLink>
     </header>
 
-    <section v-if="!isContentCreator" class="flex flex-col gap-3 rounded-[20px] border border-[#E5E3DF] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sm:flex-row sm:items-center sm:justify-between">
+    <section v-if="isBrand" class="flex flex-col gap-3 rounded-[20px] border border-[#E5E3DF] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] sm:flex-row sm:items-center sm:justify-between">
       <div>
         <p class="text-sm font-semibold text-[#111111]">Filtrer par campagne</p>
         <p class="text-xs text-[#666666]">Le dashboard se cale sur une seule campagne si besoin.</p>
@@ -121,7 +121,7 @@
                   Générer
                 </NuxtLink>
                 <NuxtLink
-                  :to="`/influencers/${influencer.id}`"
+                  :to="`/profiles/${influencer.id}`"
                   class="inline-flex rounded-[12px] border border-[#E5E3DF] bg-white px-3 py-2 text-xs font-bold text-[#111111] transition-colors duration-150 hover:bg-[#FAFAF8]"
                 >
                   Contenu
@@ -155,7 +155,7 @@
                   Générer
                 </NuxtLink>
                 <NuxtLink
-                  :to="`/influencers/${influencer.id}`"
+                  :to="`/profiles/${influencer.id}`"
                   class="inline-flex rounded-[12px] border border-[#E5E3DF] bg-white px-3 py-2 text-xs font-bold text-[#111111] transition-colors duration-150 hover:bg-[#FAFAF8]"
                 >
                   Contenu
@@ -227,13 +227,13 @@ const activeGenerateHref = computed(() => {
   if (isBrand.value) return '/brand-studio'
   const firstInfluencer = data.value?.influencers?.[0]
   const influencerId = activeInfluencerId.value || firstInfluencer?.id
-  return influencerId ? `/influencers/${influencerId}/generate` : '/influencers/new'
+  return influencerId ? `/profiles/${influencerId}/generate` : '/profiles/new'
 })
 
 function generateHrefFor(influencer) {
   if (isContentCreator.value) return '/studio'
   if (isBrand.value) return '/brand-studio'
-  return `/influencers/${influencer.id}/generate`
+  return `/profiles/${influencer.id}/generate`
 }
 
 const ambassadorProfiles = computed(() => {

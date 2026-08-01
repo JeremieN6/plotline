@@ -6,7 +6,7 @@ const HOME_ROUTES = {
 
 const ONBOARDING_ROUTES = {
   INFLUENCER_CREATOR: '/onboarding/influencer-creator',
-  CONTENT_CREATOR: '/influencers/new',
+  CONTENT_CREATOR: '/profiles/new',
   BRAND: '/onboarding/brand',
 };
 

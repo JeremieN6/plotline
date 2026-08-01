@@ -668,7 +668,7 @@ function isUnknownFieldSelectError(err) {
 
 async function findInfluencerForGeneration(prisma, influencerId) {
   try {
-    return await prisma.influencer.findUnique({
+    return await prisma.profile.findUnique({
       where: { id: influencerId },
       select: {
         id: true,
@@ -685,7 +685,7 @@ async function findInfluencerForGeneration(prisma, influencerId) {
       throw err;
     }
 
-    const legacy = await prisma.influencer.findUnique({
+    const legacy = await prisma.profile.findUnique({
       where: { id: influencerId },
       select: {
         id: true,

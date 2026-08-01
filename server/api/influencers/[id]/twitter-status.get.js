@@ -23,7 +23,7 @@ export default defineEventHandler(async (event) => {
     const prisma = await getPrisma();
     const authModule = await import('../../../utils/auth.js');
     const user = await authModule.requireAuthUser(event);
-    const influencer = await prisma.influencer.findFirst({
+    const influencer = await prisma.profile.findFirst({
       where: {
         id,
         userId: user.id,
