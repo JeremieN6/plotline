@@ -137,7 +137,7 @@
           :disabled="loading || !canGenerate"
           @click="submit"
         >
-          {{ loading ? 'Envoi...' : (editingContentId ? 'Régénérer' : 'Générer') }}
+          {{ loading ? 'Génération en cours...' : (editingContentId ? 'Régénérer' : 'Générer') }}
         </button>
       </section>
 
@@ -158,6 +158,12 @@
           >
             Suivre dans Mes créations →
           </NuxtLink>
+        </div>
+
+        <!-- Génération en cours (soumission initiale, image ou avant le polling vidéo) -->
+        <div v-else-if="loading" class="mt-4 flex items-center gap-3 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] px-4 py-3">
+          <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[#E8873A] border-t-transparent" />
+          <span class="text-sm font-semibold text-[#111111]">Génération en cours...</span>
         </div>
 
         <!-- Résultat vidéo prêt -->

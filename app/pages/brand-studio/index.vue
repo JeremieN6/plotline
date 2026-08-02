@@ -100,7 +100,7 @@
           :disabled="loading || !canGenerate"
           @click="submit"
         >
-          {{ loading ? 'Génération...' : (editingContentId ? 'Régénérer' : 'Générer') }}
+          {{ loading ? 'Génération en cours...' : (editingContentId ? 'Régénérer' : 'Générer') }}
         </button>
       </section>
 
@@ -108,7 +108,12 @@
         <h2 class="text-lg font-bold text-[#111111]">Résultat</h2>
         <p class="mt-2 text-xs text-[#666666]">Le rendu apparaît ici après lancement.</p>
 
-        <div v-if="lastResult" class="mt-4 space-y-3 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-4 text-sm text-[#222]">
+        <div v-if="loading" class="mt-4 flex items-center gap-3 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] px-4 py-3">
+          <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[#E8873A] border-t-transparent" />
+          <span class="text-sm font-semibold text-[#111111]">Génération en cours...</span>
+        </div>
+
+        <div v-else-if="lastResult" class="mt-4 space-y-3 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-4 text-sm text-[#222]">
           <p><strong>Status :</strong> {{ lastResult.status || '-' }}</p>
           <p><strong>Content ID :</strong> {{ lastResult.contentId || '-' }}</p>
           <p><strong>Job ID :</strong> {{ lastResult.jobId || '-' }}</p>
