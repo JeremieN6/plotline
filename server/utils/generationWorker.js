@@ -995,6 +995,16 @@ export async function processGenerationJob(jobData, options = {}) {
       imageMime = inlineData.mimeType || 'image/jpeg';
       generatedBuffer = Buffer.from(inlineData.data, 'base64');
 
+      if (!useFaceRefForGeneration || normalizedWorkflow === 'free') {
+        // Pas de personne exigée quand: aucun ambassadeur/face ref n'est utilisé (profil
+        // marque/activité, ou mode "sans ambassadrice"), OU quand le prompt vient du
+        // workflow libre (Studio) — un prompt libre peut légitimement décrire une scène
+        // sans portrait unique (groupe, avant/après, produit, etc.), contrairement aux
+        // workflows structurés (pinterest, wizard) conçus pour un portrait de personnage.
+        validation = { pass: true, personCount: 0, upperBodyVisible: false, reason: '' };
+        break;
+      }
+
       validation = await validatePersonAndUpperBody(generatedBuffer, imageMime);
       if (validation.pass) {
         break;
