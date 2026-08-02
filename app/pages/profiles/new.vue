@@ -683,6 +683,7 @@ async function submit() {
       })
     }
 
+    await refreshNuxtData('plotline-shell-influencers')
     await router.push(exitPath.value || '/dashboard')
   } catch (err) {
     submitError.value = err?.data?.statusMessage || err?.message || String(err)

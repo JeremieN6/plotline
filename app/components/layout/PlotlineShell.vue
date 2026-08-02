@@ -219,7 +219,7 @@
         >
           <div
             v-if="showOnboardingModal"
-            class="fixed inset-0 z-[70] flex items-center justify-center bg-[#0E0B07]/55 p-5 backdrop-blur-[2px]"
+            class="fixed inset-0 z-[100] flex items-center justify-center bg-[#0E0B07]/55 p-5 backdrop-blur-[2px]"
           >
             <div class="relative w-full max-w-xl overflow-hidden rounded-[28px] border border-[#F4CDA9]/40 bg-[#19110A] text-[#FFF4E6] shadow-[0_28px_80px_rgba(0,0,0,0.45)]">
               <div class="absolute inset-0 bg-[radial-gradient(circle_at_18%_15%,rgba(232,135,58,0.28),transparent_48%),radial-gradient(circle_at_86%_4%,rgba(246,177,102,0.18),transparent_38%)]" />
