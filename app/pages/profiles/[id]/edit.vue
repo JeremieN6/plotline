@@ -142,7 +142,7 @@
                 :disabled="generatingRef || applyingFaceRef"
                 @click="regenerateFaceReference"
               >
-                🔄 Régénérer
+                🔄 Regénérer
               </button>
               <button
                 type="button"

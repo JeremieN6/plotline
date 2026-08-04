@@ -86,11 +86,11 @@
 
         <div v-if="step === 2 && form.profileType === 'persona'" class="step-content">
           <p class="step2-description">
-            L'image de reference fixe le visage de ton influenceuse pour toujours. Toutes tes générations futures
+            L'image de référence fixe le visage de ton influenceuse pour toujours. Toutes tes générations futures
             utiliseront ce visage.
           </p>
 
-          <label class="field-label">Upload une photo source (visage degage, cadrage buste minimum)</label>
+          <label class="field-label">Upload une photo source (visage dégagé, cadrage buste minimum)</label>
           <div
             class="dropzone"
             :class="{ dragging: isDragging, invalid: fileError }"

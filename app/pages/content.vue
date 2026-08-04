@@ -144,7 +144,7 @@
           <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/0 to-black/0 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
           <div class="absolute left-3 right-3 top-3 flex items-start justify-between gap-2">
             <span class="rounded-full px-2.5 py-1 text-[11px] font-bold text-white" :class="statusClass(item.status)">{{ statusLabel(item.status) }}</span>
-            <span class="rounded-full border border-white/30 bg-black/35 px-2.5 py-1 text-[11px] font-bold text-white">{{ item.format }}</span>
+            <span class="rounded-full border border-white/30 bg-black/35 px-2.5 py-1 text-[11px] font-bold text-white">{{ formatLabel(item.format) }}</span>
           </div>
 
           <div class="absolute inset-x-0 bottom-0 flex gap-2 p-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
@@ -251,7 +251,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
 const activeInfluencerId = useActiveInfluencer()
 const { pushToast } = useUiFeedback()
-const { wording, accountType } = useWording()
+const { wording, accountType, formatLabel } = useWording()
 const isContentCreator = computed(() => accountType.value === 'CONTENT_CREATOR')
 const isBrand = computed(() => accountType.value === 'BRAND')
 

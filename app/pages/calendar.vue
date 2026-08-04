@@ -70,7 +70,7 @@
             <div>
               <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#E8873A]">Détail</p>
               <h2 class="mt-2 text-2xl font-bold text-[#111111]">{{ drawerContent.influencer?.name }}</h2>
-              <p class="mt-1 text-sm text-[#666666]">{{ drawerContent.format }} · {{ formatDate(drawerContent.scheduledAt) }}</p>
+              <p class="mt-1 text-sm text-[#666666]">{{ formatLabel(drawerContent.format) }} · {{ formatDate(drawerContent.scheduledAt) }}</p>
             </div>
             <button class="rounded-full border border-[#E5E3DF] bg-white px-3 py-1.5 text-sm font-bold text-[#111111]" @click="drawerContent = null">✕</button>
           </div>
@@ -98,6 +98,7 @@
 import { computed, ref, watch } from 'vue'
 
 const activeInfluencerId = useActiveInfluencer()
+const { formatLabel } = useWording()
 const currentMonth = ref(new Date())
 const drawerContent = ref(null)
 const weekLabels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']

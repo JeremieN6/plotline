@@ -8,14 +8,35 @@
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.9fr)]">
       <section class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-        <label for="studio-prompt" class="text-sm font-bold text-[#111111]">Décris ce que tu veux créer</label>
-        <textarea
-          id="studio-prompt"
-          v-model="prompt"
-          class="mt-3 w-full rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-4 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
-          style="min-height: 220px;"
-          placeholder="Colle ton prompt ici ou décris ta scène..."
-        />
+        <div
+          v-if="isEditingMode"
+          class="rounded-[14px] border border-[#F2CCAA] bg-[#FFF5EC] p-3"
+        >
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#B45F1D]">Mode modification</p>
+              <p class="mt-1 text-sm font-semibold text-[#111111]">Tu modifies une génération existante.</p>
+              <button
+                type="button"
+                class="mt-2 rounded-[10px] border border-[#E6B78E] bg-white px-3 py-1.5 text-xs font-bold text-[#B45F1D] transition-colors hover:bg-[#FFF2E6]"
+                @click="exitEditMode"
+              >
+                Quitter la modification
+              </button>
+            </div>
+            <div class="h-16 w-16 overflow-hidden rounded-[10px] border border-[#E6D7C8] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+              <img
+                v-if="editContentPreviewUrl"
+                :src="editContentPreviewUrl"
+                alt="Miniature du contenu en modification"
+                class="h-full w-full object-cover"
+              />
+              <div v-else class="flex h-full w-full items-center justify-center text-[10px] font-semibold text-[#B49A85]">
+                Aperçu
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div class="mt-4 flex flex-wrap items-center gap-4">
           <label class="inline-flex items-center gap-2 text-sm font-semibold text-[#111111]">
@@ -27,6 +48,89 @@
             🎬 Vidéo
           </label>
         </div>
+
+        <section
+          v-if="mode === 'image' && !editingContentId"
+          class="mt-4 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-3"
+        >
+          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#A37A58]">Type de génération</p>
+          <div class="mt-2 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              class="rounded-[10px] border px-3 py-2 text-sm font-semibold transition-colors"
+              :class="imageGenerationKind === 'single'
+                ? 'border-[#E8873A] bg-[#FDF3EA] text-[#111111]'
+                : 'border-[#E5E3DF] bg-white text-[#666666] hover:border-[#E8873A]/40'"
+              @click="imageGenerationKind = 'single'"
+            >
+              Post unique
+            </button>
+            <button
+              type="button"
+              class="rounded-[10px] border px-3 py-2 text-sm font-semibold transition-colors"
+              :class="imageGenerationKind === 'carousel'
+                ? 'border-[#E8873A] bg-[#FDF3EA] text-[#111111]'
+                : 'border-[#E5E3DF] bg-white text-[#666666] hover:border-[#E8873A]/40'"
+              @click="imageGenerationKind = 'carousel'"
+            >
+              Carrousel
+            </button>
+          </div>
+          <p class="mt-2 text-xs text-[#7B5A3F]">Le mode carrousel crée plusieurs images d'un coup (2 à 10 slides).</p>
+        </section>
+
+        <template v-if="mode === 'image' && imageGenerationKind === 'carousel' && !editingContentId">
+          <div class="mt-4 space-y-3">
+            <div class="flex items-center justify-between gap-3">
+              <label class="text-sm font-bold text-[#111111]">Prompts du carrousel</label>
+              <span class="text-xs font-semibold text-[#8A8A8A]">{{ carouselPrompts.length }}/{{ CAROUSEL_MAX_PROMPTS }} slides</span>
+            </div>
+
+            <div
+              v-for="(item, index) in carouselPrompts"
+              :key="item.id"
+              class="rounded-[12px] border border-[#E5E3DF] bg-[#FAFAF8] p-3"
+            >
+              <div class="mb-2 flex items-center justify-between gap-2">
+                <p class="text-xs font-bold uppercase tracking-[0.12em] text-[#9A9A9A]">Slide {{ index + 1 }}</p>
+                <button
+                  v-if="carouselPrompts.length > CAROUSEL_MIN_PROMPTS"
+                  type="button"
+                  class="text-xs font-semibold text-[#B45F1D] transition-colors hover:text-[#8E4B16]"
+                  @click="removeCarouselPrompt(item.id)"
+                >
+                  Supprimer
+                </button>
+              </div>
+              <textarea
+                v-model="item.prompt"
+                class="w-full rounded-[10px] border border-[#E5E3DF] bg-white p-3 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+                style="min-height: 120px;"
+                placeholder="Décris cette slide..."
+              />
+            </div>
+
+            <button
+              type="button"
+              class="rounded-[10px] border border-dashed border-[#D9C6B4] bg-white px-3 py-2 text-sm font-semibold text-[#B45F1D] transition-colors hover:bg-[#FFF6EE] disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="carouselPrompts.length >= CAROUSEL_MAX_PROMPTS"
+              @click="addCarouselPrompt"
+            >
+              + Ajouter un prompt
+            </button>
+          </div>
+        </template>
+
+        <template v-else>
+          <label for="studio-prompt" class="mt-4 block text-sm font-bold text-[#111111]">Décris ce que tu veux créer</label>
+          <textarea
+            id="studio-prompt"
+            v-model="prompt"
+            class="mt-3 w-full rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-4 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+            style="min-height: 220px;"
+            placeholder="Colle ton prompt ici ou décris ta scène..."
+          />
+        </template>
 
         <section class="mt-4 overflow-hidden rounded-[14px] border border-[#E5E3DF] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
           <button
@@ -191,9 +295,19 @@
 
         <!-- Résultat image -->
         <div v-else-if="lastResult && mode === 'image'" class="mt-4 space-y-3 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-4 text-sm text-[#222]">
-          <p><strong>Status :</strong> {{ lastResult.status || '-' }}</p>
-          <p><strong>Content ID :</strong> {{ lastResult.contentId || '-' }}</p>
-          <p v-if="lastResult.model"><strong>Modèle :</strong> {{ lastResult.model }}</p>
+          <template v-if="lastResult.mode === 'carousel'">
+            <p><strong>Mode :</strong> Carrousel</p>
+            <p><strong>Slides générées :</strong> {{ lastResult.generatedCount || 0 }} / {{ lastResult.total || 0 }}</p>
+            <p><strong>Status :</strong> {{ lastResult.status || '-' }}</p>
+            <p v-if="Array.isArray(lastResult.contentIds) && lastResult.contentIds.length">
+              <strong>Content IDs :</strong> {{ lastResult.contentIds.join(', ') }}
+            </p>
+          </template>
+          <template v-else>
+            <p><strong>Status :</strong> {{ lastResult.status || '-' }}</p>
+            <p><strong>Content ID :</strong> {{ lastResult.contentId || '-' }}</p>
+            <p v-if="lastResult.model"><strong>Modèle :</strong> {{ lastResult.model }}</p>
+          </template>
         </div>
 
         <p v-else class="mt-4 text-sm text-[#777]">Aucun résultat pour le moment.</p>
@@ -213,6 +327,7 @@ const route = useRoute()
 
 const prompt = ref('')
 const mode = ref('image')
+const imageGenerationKind = ref('single')
 const generationMode = ref('without-ambassador')
 const selectedAmbassadorId = ref('')
 const loading = ref(false)
@@ -221,6 +336,23 @@ const lastResult = ref(null)
 const showStudioHint = ref(true)
 const ambassadorPanelOpen = ref(true)
 const editingContentId = ref('')
+const editContentPreviewUrl = ref('')
+const CAROUSEL_MIN_PROMPTS = 2
+const CAROUSEL_MAX_PROMPTS = 10
+let carouselPromptKey = 0
+
+function createCarouselPrompt(initialValue = '') {
+  carouselPromptKey += 1
+  return {
+    id: `carousel-prompt-${carouselPromptKey}`,
+    prompt: initialValue,
+  }
+}
+
+const carouselPrompts = ref([
+  createCarouselPrompt(''),
+  createCarouselPrompt(''),
+])
 
 // Polling vidéo asynchrone
 const videoPolling = ref({ active: false, contentId: null, intervalId: null })
@@ -311,12 +443,39 @@ const ambassadorSummary = computed(() => {
   return 'Sélectionner une ambassadrice'
 })
 
+const isEditingMode = computed(() => Boolean(editingContentId.value))
+
+const trimmedCarouselPrompts = computed(() => (
+  carouselPrompts.value.map((item) => String(item?.prompt || '').trim())
+))
+
 const canGenerate = computed(() => {
-  if (!prompt.value.trim()) return false
+  if (mode.value === 'image' && imageGenerationKind.value === 'carousel' && !editingContentId.value) {
+    if (carouselPrompts.value.length < CAROUSEL_MIN_PROMPTS || carouselPrompts.value.length > CAROUSEL_MAX_PROMPTS) {
+      return false
+    }
+
+    if (trimmedCarouselPrompts.value.some((itemPrompt) => !itemPrompt)) {
+      return false
+    }
+  } else if (!prompt.value.trim()) {
+    return false
+  }
+
   if (!primaryInfluencerId.value) return false
   if (wantsAmbassador.value && !resolvedAmbassadorId.value) return false
   return true
 })
+
+function addCarouselPrompt() {
+  if (carouselPrompts.value.length >= CAROUSEL_MAX_PROMPTS) return
+  carouselPrompts.value.push(createCarouselPrompt(''))
+}
+
+function removeCarouselPrompt(promptId) {
+  if (carouselPrompts.value.length <= CAROUSEL_MIN_PROMPTS) return
+  carouselPrompts.value = carouselPrompts.value.filter((item) => item.id !== promptId)
+}
 
 watch(
   ambassadorProfiles,
@@ -350,12 +509,25 @@ watch(generationMode, (value) => {
   }
 })
 
+watch(mode, (value) => {
+  if (value !== 'image') {
+    imageGenerationKind.value = 'single'
+  }
+})
+
+function exitEditMode() {
+  editingContentId.value = ''
+  editContentPreviewUrl.value = ''
+  navigateTo(route.path || '/studio')
+}
+
 const editContentIdParam = String(route.query.edit || '').trim()
 if (editContentIdParam) {
   try {
     const editContent = await $fetch(`/api/content/${editContentIdParam}`)
     editingContentId.value = editContentIdParam
     prompt.value = String(editContent?.prompt || '')
+    editContentPreviewUrl.value = String(editContent?.imageUrl || '').trim()
     mode.value = String(editContent?.format || '').trim().toUpperCase() === 'REEL' ? 'video' : 'image'
 
     if (editContent?.ambassadorId) {
@@ -396,21 +568,67 @@ async function submit() {
     const isEditing = Boolean(editingContentId.value)
 
     if (mode.value === 'image') {
-      lastResult.value = isEditing
-        ? await $fetch(`/api/content/${editingContentId.value}/regenerate`, {
-            method: 'POST',
-            body: { prompt: prompt.value.trim() },
-          })
-        : await $fetch('/api/generate/image', {
-            method: 'POST',
-            body: {
-              influencerId: primaryInfluencerId.value,
-              ambassadorId: resolvedAmbassadorId.value || null,
-              workflowType: 'free',
-              prompt: prompt.value.trim(),
-              contentType: 'feed',
-            },
-          })
+      if (isEditing) {
+        lastResult.value = await $fetch(`/api/content/${editingContentId.value}/regenerate`, {
+          method: 'POST',
+          body: { prompt: prompt.value.trim() },
+        })
+      } else if (imageGenerationKind.value === 'carousel') {
+        const prompts = trimmedCarouselPrompts.value
+        const successIds = []
+        const failures = []
+
+        for (let index = 0; index < prompts.length; index += 1) {
+          try {
+            const response = await $fetch('/api/generate/image', {
+              method: 'POST',
+              body: {
+                influencerId: primaryInfluencerId.value,
+                ambassadorId: resolvedAmbassadorId.value || null,
+                workflowType: 'free',
+                prompt: prompts[index],
+                contentType: 'feed',
+              },
+            })
+
+            if (response?.contentId) {
+              successIds.push(response.contentId)
+            }
+          } catch (err) {
+            failures.push({
+              index,
+              message: err?.data?.statusMessage || err?.message || 'Erreur inconnue',
+            })
+          }
+        }
+
+        lastResult.value = {
+          mode: 'carousel',
+          status: failures.length ? (successIds.length ? 'partial' : 'failed') : 'processing',
+          generatedCount: successIds.length,
+          total: prompts.length,
+          contentIds: successIds,
+        }
+
+        if (!successIds.length) {
+          throw new Error(failures[0]?.message || 'Aucune image du carrousel n a pu être générée.')
+        }
+
+        if (failures.length) {
+          errorMessage.value = `${failures.length} slide(s) sur ${prompts.length} ont échoué. Tu peux relancer après correction des prompts.`
+        }
+      } else {
+        lastResult.value = await $fetch('/api/generate/image', {
+          method: 'POST',
+          body: {
+            influencerId: primaryInfluencerId.value,
+            ambassadorId: resolvedAmbassadorId.value || null,
+            workflowType: 'free',
+            prompt: prompt.value.trim(),
+            contentType: 'feed',
+          },
+        })
+      }
     } else {
       const result = isEditing
         ? await $fetch(`/api/content/${editingContentId.value}/regenerate`, {
@@ -441,12 +659,17 @@ async function submit() {
     if (mode.value === 'image') {
       pushToast({
         title: isEditing ? 'Régénération lancée' : 'Génération lancée',
-        message: isEditing ? 'Le contenu a bien été renvoyé au pipeline.' : 'Le contenu a bien été envoyé au pipeline.',
+        message: isEditing
+          ? 'Le contenu a bien été renvoyé au pipeline.'
+          : (imageGenerationKind.value === 'carousel'
+              ? `Le carrousel est parti en génération (${lastResult.value?.generatedCount || 0} slide(s)).`
+              : 'Le contenu a bien été envoyé au pipeline.'),
         tone: 'success',
       })
     }
 
     editingContentId.value = ''
+    editContentPreviewUrl.value = ''
   } catch (err) {
     errorMessage.value = err?.data?.statusMessage || err?.message || 'Generation impossible.'
   } finally {

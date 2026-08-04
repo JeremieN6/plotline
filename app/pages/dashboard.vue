@@ -73,11 +73,11 @@
             <div class="flex h-44 w-full shrink-0 items-center justify-center overflow-hidden rounded-[14px] bg-[#F2EEE8] sm:h-16 sm:w-16">
               <img v-if="content.imageUrl && !isVideoContent(content)" :src="content.imageUrl" class="h-full w-full object-cover" alt="Aperçu" />
               <video v-else-if="content.imageUrl" :src="content.imageUrl" class="h-full w-full object-cover" muted playsinline preload="metadata" />
-              <span v-else class="text-xs font-bold text-[#666666]">{{ content.format }}</span>
+              <span v-else class="text-xs font-bold text-[#666666]">{{ formatLabel(content.format) }}</span>
             </div>
             <div class="min-w-0 w-full flex-1">
               <div class="flex flex-wrap items-center gap-2">
-                <span class="rounded-full bg-[#FDE7D6] px-2 py-1 text-[11px] font-bold text-[#B45F1D]">{{ content.format }}</span>
+                <span class="rounded-full bg-[#FDE7D6] px-2 py-1 text-[11px] font-bold text-[#B45F1D]">{{ formatLabel(content.format) }}</span>
                 <span class="text-xs text-[#666666]">{{ timeAgo(content.createdAt) }}</span>
                 <span v-if="content.campaign?.name" class="rounded-full bg-[#F4EFE8] px-2 py-1 text-[11px] font-bold text-[#B45F1D]">{{ content.campaign.name }}</span>
               </div>
@@ -182,7 +182,7 @@
           class="rounded-[16px] border border-[#E5E3DF] bg-[#FAFAF8] p-4"
         >
           <div class="flex items-center justify-between gap-2">
-            <span class="rounded-full bg-[#FDE7D6] px-2 py-1 text-[11px] font-bold text-[#B45F1D]">{{ item.format }}</span>
+            <span class="rounded-full bg-[#FDE7D6] px-2 py-1 text-[11px] font-bold text-[#B45F1D]">{{ formatLabel(item.format) }}</span>
             <span class="text-xs text-[#666666]">{{ formatDate(item.scheduledAt) }}</span>
           </div>
           <p v-if="item.campaign?.name" class="mt-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[#B45F1D]">{{ item.campaign.name }}</p>
@@ -196,7 +196,7 @@
 
 <script setup>
 const activeInfluencerId = useActiveInfluencer()
-const { wording, accountType } = useWording()
+const { wording, accountType, formatLabel } = useWording()
 const isContentCreator = computed(() => accountType.value === 'CONTENT_CREATOR')
 const isBrand = computed(() => accountType.value === 'BRAND')
 const selectedCampaignId = ref('')
