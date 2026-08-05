@@ -5,6 +5,10 @@
       <p v-if="influencer" class="mt-2 text-base font-bold text-[#111111]">
         {{ influencer.name }} <span class="text-[#999999]">•</span> {{ profileTypeLabelDisplay }}
       </p>
+      <div v-if="linkedBrandLabel" class="mt-3 inline-flex items-center gap-2 rounded-full border border-[#E5E3DF] bg-[#FAFAF8] px-3 py-1.5 text-xs font-semibold text-[#666666]">
+        <span class="h-2 w-2 rounded-full bg-[#E8873A]"></span>
+        {{ linkedBrandLabel }}
+      </div>
       <h1 class="mt-1 text-3xl font-bold tracking-tight text-[#111111]">Modifier le profil</h1>
       <p class="mt-2 text-sm text-[#666666]">{{ settingsDescription }}</p>
     </header>
@@ -364,6 +368,18 @@ const profileTypeLabel = computed(() => (isAmbassadorProfile.value ? wording.val
 const profileTypeLabelDisplay = computed(() => {
   const label = profileTypeLabel.value
   return label.charAt(0).toUpperCase() + label.slice(1)
+})
+const linkedBrandLabel = computed(() => {
+  const brandName = String(influencer.value?.brandName || '').trim()
+  if (isAmbassadorProfile.value && brandName) {
+    return `${wording.value.ambassador} rattachée à la marque ${brandName}`
+  }
+
+  if (!isAmbassadorProfile.value && brandName) {
+    return `Influenceuse rattachée à la marque ${brandName}`
+  }
+
+  return ''
 })
 const settingsDescription = computed(() => {
   if (isAmbassadorProfile.value) {

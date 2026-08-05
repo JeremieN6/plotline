@@ -237,11 +237,23 @@ function generateHrefFor(influencer) {
 }
 
 const ambassadorProfiles = computed(() => {
-  return (dashboard.value.influencers || []).filter((item) => Boolean(String(item.faceRefPath || '').trim()))
+  return (dashboard.value.influencers || []).filter((item) => {
+    const profileType = String(item?.profileType || '').trim().toUpperCase()
+    if (profileType) {
+      return profileType === 'PERSONA'
+    }
+    return Boolean(String(item.faceRefPath || '').trim())
+  })
 })
 
 const brandProfiles = computed(() => {
-  return (dashboard.value.influencers || []).filter((item) => !String(item.faceRefPath || '').trim())
+  return (dashboard.value.influencers || []).filter((item) => {
+    const profileType = String(item?.profileType || '').trim().toUpperCase()
+    if (profileType) {
+      return profileType === 'BRAND' || profileType === 'ACTIVITY'
+    }
+    return !String(item.faceRefPath || '').trim()
+  })
 })
 
 const stats = computed(() => {

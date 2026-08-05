@@ -18,6 +18,12 @@ enum AccountType {
   BRAND
 }
 
+enum ProfileType {
+  PERSONA
+  BRAND
+  ACTIVITY
+}
+
 enum ContentPlatform {
   INSTAGRAM
   TIKTOK
@@ -123,7 +129,9 @@ model Profile {
   name                 String
   niche                String
   style                String
+  profileType          ProfileType?
   silhouette           SilhouetteType     @default(VOLUPTUOUS)
+  brandId              String?
   faceRefPath          String?
   bodyPrompt           String?
   hairPrompt           String?
@@ -140,6 +148,8 @@ model Profile {
   createdAt            DateTime           @default(now())
 
   user                 User               @relation(fields: [userId], references: [id])
+  brand                Profile?           @relation("ProfileBrand", fields: [brandId], references: [id], onDelete: SetNull)
+  brandInfluencers     Profile[]          @relation("ProfileBrand")
   generatedContents    GeneratedContent[]
 
   @@map("Influencer")

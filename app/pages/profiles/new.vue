@@ -58,6 +58,17 @@
           <label class="field-label">Style</label>
           <input v-model="form.style" class="input" :placeholder="stylePlaceholder" />
 
+          <div v-if="form.profileType === 'persona' && brandProfiles.length" class="field-group">
+            <label class="field-label">Marque liée (optionnel)</label>
+            <select v-model="form.brandId" class="input">
+              <option value="">Aucune marque liée</option>
+              <option v-for="brand in brandProfiles" :key="brand.id" :value="brand.id">
+                {{ brand.name }}
+              </option>
+            </select>
+            <p class="mt-2 text-xs text-gray-500">Associe cette influenceuse à une marque existante si nécessaire.</p>
+          </div>
+
           <!-- Silhouette : persona uniquement -->
           <div v-if="form.profileType === 'persona'" class="field-group">
             <label class="field-label">Silhouette</label>
@@ -230,6 +241,7 @@
             <div class="recap-row"><strong>Niche :</strong> <span>{{ form.niche }}</span></div>
             <div class="recap-row"><strong>Style :</strong> <span>{{ form.style }}</span></div>
             <template v-if="form.profileType === 'persona'">
+              <div v-if="linkedBrandName" class="recap-row"><strong>Marque liée :</strong> <span>{{ linkedBrandName }}</span></div>
               <div class="recap-row"><strong>Silhouette :</strong> <span>{{ selectedSilhouetteLabel }}</span></div>
               <div class="recap-row"><strong>Image de référence :</strong> <span>{{ generatedTempImagePath ? 'Oui' : 'Non' }}</span></div>
             </template>
@@ -324,6 +336,7 @@ const form = reactive({
   description: '',
   website: '',
   targetAudience: '',
+  brandId: '',
 })
 
 const personalization = reactive({
@@ -344,9 +357,18 @@ const eyeColorOptions = ['Bleus', 'Verts', 'Marrons', 'Noisette', 'Noirs', 'Autr
 
 const basePrompt = FACE_REF_BASE_PROMPT
 
+const { data: influencersData } = await useFetch('/api/influencers', {
+  key: 'profile-new-influencers',
+})
+
 // --- Computeds dynamiques selon profileType ---
 
 const totalSteps = computed(() => (form.profileType === 'persona' ? 4 : 3))
+
+const brandProfiles = computed(() => {
+  const list = Array.isArray(influencersData.value) ? influencersData.value : []
+  return list.filter((item) => String(item?.profileType || '').toUpperCase() === 'BRAND')
+})
 
 const stepItems = computed(() => {
   if (form.profileType === 'persona') {
@@ -437,6 +459,12 @@ const profileTypeLabel = computed(() => {
   return found?.label || form.profileType
 })
 
+const linkedBrandName = computed(() => {
+  if (!form.brandId) return ''
+  const found = brandProfiles.value.find((item) => item.id === form.brandId)
+  return found?.name || ''
+})
+
 const createLabel = computed(() => {
   if (form.profileType === 'brand') return 'Créer la marque'
   if (form.profileType === 'activity') return 'Créer l\'activité'
@@ -458,6 +486,16 @@ const canCreate = computed(() => {
   if (form.profileType === 'persona') return Boolean(generatedTempImagePath.value)
   return true
 })
+
+watch(
+  () => form.profileType,
+  (value) => {
+    if (value !== 'persona') {
+      form.brandId = ''
+    }
+  },
+  { immediate: true },
+)
 
 const step1ValidationMessage = computed(() => {
   if (canGoFromStep1.value) return ''
@@ -666,7 +704,9 @@ async function submit() {
         name: form.name.trim(),
         niche: form.niche.trim(),
         style: form.style.trim(),
+        profileType: form.profileType,
         silhouette: form.profileType === 'persona' ? form.silhouette : undefined,
+        brandId: form.profileType === 'persona' && form.brandId ? form.brandId : undefined,
         description: form.profileType !== 'persona' ? form.description.trim() : undefined,
         website: form.profileType !== 'persona' ? form.website.trim() : undefined,
         targetAudience: form.profileType !== 'persona' ? form.targetAudience.trim() : undefined,

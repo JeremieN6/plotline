@@ -309,6 +309,11 @@ const createAmbassadorLabel = computed(() => {
   return 'Créer une influenceuse'
 })
 const activeProfileTypeLabel = computed(() => {
+  const profileType = String(activeInfluencer.value?.profileType || '').trim().toUpperCase()
+  if (profileType === 'PERSONA') return wording.value.ambassador
+  if (profileType === 'BRAND') return 'marque'
+  if (profileType === 'ACTIVITY') return 'activité'
+
   const hasFaceRef = Boolean(String(activeInfluencer.value?.faceRefPath || '').trim())
   return hasFaceRef ? wording.value.ambassador : 'marque'
 })
@@ -408,6 +413,20 @@ function avatarLetter(value) {
 }
 
 function profileSecondaryLabel(influencer) {
+  const profileType = String(influencer?.profileType || '').trim().toUpperCase()
+
+  if (profileType === 'PERSONA') {
+    return `Profil ${wording.value.ambassador}`
+  }
+
+  if (profileType === 'BRAND') {
+    return 'Profil marque'
+  }
+
+  if (profileType === 'ACTIVITY') {
+    return 'Profil activité'
+  }
+
   if (isContentCreator.value || isBrand.value) {
     const hasFaceRef = Boolean(String(influencer?.faceRefPath || '').trim())
     return hasFaceRef ? `Profil ${wording.value.ambassador}` : 'Profil marque'

@@ -42,6 +42,8 @@ function normalizeInfluencer(influencer) {
     tiktokEnabled: Boolean(influencer.tiktokEnabled),
     calendarStep: influencer.calendarStep,
     createdAt: influencer.createdAt,
+    brandId: influencer.brandId || null,
+    brandName: String(influencer?.brand?.name || influencer?.brandName || '').trim(),
   };
 }
 
@@ -55,6 +57,8 @@ async function findInfluencerCompatible(prisma, id) {
         name: true,
         niche: true,
         style: true,
+        profileType: true,
+        brandId: true,
         silhouette: true,
         faceRefPath: true,
         bodyPrompt: true,
@@ -65,6 +69,13 @@ async function findInfluencerCompatible(prisma, id) {
         tiktokEnabled: true,
         calendarStep: true,
         createdAt: true,
+        brand: {
+          select: {
+            id: true,
+            name: true,
+            profileType: true,
+          },
+        },
       },
     });
   } catch (err) {
@@ -80,6 +91,7 @@ async function findInfluencerCompatible(prisma, id) {
         name: true,
         niche: true,
         style: true,
+        brandId: true,
         faceRefPath: true,
         instagramAccountId: true,
         instagramAccessToken: true,

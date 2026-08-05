@@ -1,5 +1,18 @@
 let prismaClient;
 
+function normalizeProfileType(profileType, faceRefPath) {
+  const normalized = String(profileType || '').trim().toUpperCase();
+  if (normalized === 'PERSONA' || normalized === 'BRAND' || normalized === 'ACTIVITY') {
+    return normalized;
+  }
+
+  if (String(faceRefPath || '').trim()) {
+    return 'PERSONA';
+  }
+
+  return 'BRAND';
+}
+
 function isTransientDbError(err) {
   const code = err?.code;
   return code === 'ETIMEDOUT' || code === 'P1001' || code === 'P1002';
@@ -25,7 +38,9 @@ function normalizeInfluencer(influencer) {
     name: influencer.name,
     niche: influencer.niche,
     style: influencer.style,
+    profileType: normalizeProfileType(influencer.profileType, influencer.faceRefPath),
     silhouette: String(influencer?.silhouette || 'VOLUPTUOUS'),
+    brandId: influencer.brandId || null,
     faceRefPath: influencer.faceRefPath,
     bodyPrompt: typeof influencer?.bodyPrompt === 'string' ? influencer.bodyPrompt : null,
     hairPrompt: typeof influencer?.hairPrompt === 'string' ? influencer.hairPrompt : null,
@@ -48,6 +63,8 @@ async function findInfluencersCompatible(prisma, userId) {
         name: true,
         niche: true,
         style: true,
+        profileType: true,
+        brandId: true,
         silhouette: true,
         faceRefPath: true,
         bodyPrompt: true,

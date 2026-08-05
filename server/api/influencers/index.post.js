@@ -74,11 +74,20 @@ const LEGACY_INFLUENCER_SELECT = {
 
 const MODERN_INFLUENCER_SELECT = {
   ...LEGACY_INFLUENCER_SELECT,
+  profileType: true,
+  brandId: true,
   silhouette: true,
   bodyPrompt: true,
   hairPrompt: true,
   identityProfile: true,
 };
+
+const PROFILE_TYPES = new Set(['PERSONA', 'BRAND', 'ACTIVITY']);
+
+function normalizeProfileType(value) {
+  const normalized = String(value || '').trim().toUpperCase();
+  return PROFILE_TYPES.has(normalized) ? normalized : '';
+}
 
 async function createInfluencerCompatible(prisma, data) {
   try {
@@ -96,13 +105,25 @@ async function createInfluencerCompatible(prisma, data) {
       throw err;
     }
 
+    const { profileType, brandId, ...restWithLegacyFields } = data;
+    try {
+      return await prisma.profile.create({
+        data: restWithLegacyFields,
+        select: LEGACY_INFLUENCER_SELECT,
+      });
+    } catch (innerErr) {
+      if (!isPrismaSchemaDriftError(innerErr)) {
+        throw innerErr;
+      }
+    }
+
     const hasDetailFields = 'description' in data || 'website' in data || 'targetAudience' in data;
     if (hasDetailFields) {
-      const { description, website, targetAudience, ...rest } = data;
+      const { description, website, targetAudience, profileType, brandId, ...rest } = data;
       try {
         return await prisma.profile.create({
           data: rest,
-          select: MODERN_INFLUENCER_SELECT,
+          select: LEGACY_INFLUENCER_SELECT,
         });
       } catch (innerErr) {
         if (!isPrismaSchemaDriftError(innerErr)) {
@@ -183,6 +204,8 @@ module.exports = defineEventHandler(async (event) => {
     const normalizedNiche = normalizeNicheValue(body.niche);
     const allowedSilhouettes = new Set(['SLIM', 'ATHLETIC', 'CURVY', 'VOLUPTUOUS']);
     const resolvedSilhouette = String(body?.silhouette || 'VOLUPTUOUS').trim().toUpperCase();
+    const resolvedProfileType = normalizeProfileType(body?.profileType);
+    const requestedBrandId = String(body?.brandId || '').trim();
     const store = useStorage('data');
     const storeKey = `influencers:${userId}`;
 
@@ -192,6 +215,10 @@ module.exports = defineEventHandler(async (event) => {
 
     if (!allowedSilhouettes.has(resolvedSilhouette)) {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'silhouette invalide' }));
+    }
+
+    if (requestedBrandId && resolvedProfileType !== 'PERSONA') {
+      return sendError(event, createError({ statusCode: 400, statusMessage: 'brandId ne peut être utilisé que pour un persona' }));
     }
 
     let influencer;
@@ -212,6 +239,8 @@ module.exports = defineEventHandler(async (event) => {
           name: body.name,
           niche: normalizedNiche,
           style: body.style,
+          profileType: resolvedProfileType || undefined,
+          brandId: requestedBrandId || undefined,
           silhouette: resolvedSilhouette,
           bodyPrompt: typeof body?.bodyPrompt === 'string' ? body.bodyPrompt.trim() || null : null,
           description: typeof body?.description === 'string' ? body.description.trim() || null : null,
