@@ -22,9 +22,92 @@ const POLL_MAX_ATTEMPTS = 90;
 const MAX_VIDEO_DURATION_SECONDS = 20;
 const MIN_KLING_WIDTH = 340;
 const MAX_KLING_WIDTH = 3850;
+const KLING_TEXT_PROMPT_MAX_CHARS = 2500;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function normalizePromptText(prompt) {
+  return String(prompt || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function takeFirstSentence(text) {
+  const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return '';
+  }
+
+  const sentenceMatch = normalized.match(/^(.+?[.!?])(?:\s|$)/);
+  return String(sentenceMatch?.[1] || normalized).trim();
+}
+
+function compressPromptSection(section) {
+  return normalizePromptText(section)
+    .split('\n')
+    .map((line) => line.replace(/^[-*]\s*/, '').trim())
+    .filter(Boolean)
+    .map((line) => takeFirstSentence(line))
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function prepareKlingTextPrompt(prompt) {
+  const normalized = normalizePromptText(prompt);
+  if (normalized.length <= KLING_TEXT_PROMPT_MAX_CHARS) {
+    return normalized;
+  }
+
+  const sections = normalized
+    .split(/\n{2,}/)
+    .map((section) => section.trim())
+    .filter(Boolean);
+
+  const compressedSections = sections
+    .map((section) => {
+      const lowerSection = section.toLowerCase();
+
+      if (
+        lowerSection.startsWith('sequence')
+        || lowerSection.startsWith('critical constraints')
+        || lowerSection.startsWith('style constraints')
+        || lowerSection.startsWith('camera')
+        || lowerSection.startsWith('strictly avoid')
+      ) {
+        return compressPromptSection(section);
+      }
+
+      return takeFirstSentence(section);
+    })
+    .filter(Boolean);
+
+  let compacted = compressedSections.join(' ').replace(/\s+/g, ' ').trim();
+
+  if (compacted.length <= KLING_TEXT_PROMPT_MAX_CHARS) {
+    return compacted;
+  }
+
+  compacted = sections
+    .flatMap((section) => section.split('\n'))
+    .map((line) => line.replace(/^[-*]\s*/, '').trim())
+    .filter(Boolean)
+    .map((line) => takeFirstSentence(line))
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (compacted.length <= KLING_TEXT_PROMPT_MAX_CHARS) {
+    return compacted;
+  }
+
+  return `${compacted.slice(0, KLING_TEXT_PROMPT_MAX_CHARS - 3).trimEnd()}...`;
 }
 
 function base64UrlEncode(input) {
@@ -397,7 +480,7 @@ async function submitTextToVideoTask({ prompt }) {
     },
     body: JSON.stringify({
       model_name: model,
-      prompt: String(prompt || '').trim(),
+      prompt: prepareKlingTextPrompt(prompt),
       mode: 'std',
     }),
   });
@@ -458,3 +541,5 @@ export async function generateVideoFromTextPrompt(prompt) {
     videoUrl: persisted.publicUrl,
   };
 }
+
+export { prepareKlingTextPrompt };
