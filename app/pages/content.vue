@@ -195,7 +195,16 @@
 
         <div class="space-y-3 p-4">
           <div class="flex items-center justify-between gap-2 text-xs text-[#666666]">
-            <span>{{ timeAgo(item.createdAt) }}</span>
+            <span class="inline-flex items-center gap-1.5">
+              {{ timeAgo(item.createdAt) }}
+              <span
+                v-if="item.generationModel"
+                class="rounded-full border border-[#EDE9E3] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[#A5A5A5]"
+                :title="`Modèle utilisé : ${item.generationModel}`"
+              >
+                {{ shortModelLabel(item.generationModel) }}
+              </span>
+            </span>
             <span v-if="item.campaign?.name" class="rounded-full bg-[#F4EFE8] px-2.5 py-1 text-[11px] font-bold text-[#B45F1D]">
               {{ item.campaign.name }}
             </span>
@@ -410,6 +419,16 @@ function statusLabel(status) {
   if (status === 'FAILED') return 'Erreur'
   if (status === 'PROCESSING') return 'En cours'
   return 'En attente'
+}
+
+function shortModelLabel(model) {
+  const normalized = String(model || '').trim().toLowerCase()
+  if (!normalized) return ''
+  if (normalized.startsWith('gemini')) return 'Gemini'
+  if (normalized.startsWith('veo')) return 'Veo'
+  if (normalized.startsWith('kling')) return 'Kling'
+  if (normalized.startsWith('seedance')) return 'Seedance'
+  return model
 }
 
 function statusClass(status) {
