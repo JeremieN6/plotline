@@ -44,6 +44,24 @@
               </div>
             </div>
           </div>
+
+          <div v-if="mode === 'video'" class="mt-3 border-t border-[#F0D9C4] pt-3">
+            <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#B45F1D]">
+              Modèle vidéo
+            </label>
+            <select
+              v-model="selectedVideoModel"
+              class="mt-1.5 w-full rounded-[10px] border border-[#E6B78E] bg-white px-3 py-2 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+            >
+              <option value="auto">Automatique (selon le prompt)</option>
+              <option value="veo">Veo</option>
+              <option value="kling">Kling</option>
+              <option value="seedance">Seedance</option>
+            </select>
+            <p class="mt-1.5 text-xs text-[#8A6647]">
+              Chaque régénération est conservée : compare les modèles en ouvrant le contenu dans Mes créations.
+            </p>
+          </div>
         </div>
 
         <div class="mt-4 flex flex-wrap items-center gap-4">
@@ -345,6 +363,8 @@ const showStudioHint = ref(true)
 const ambassadorPanelOpen = ref(true)
 const editingContentId = ref('')
 const editContentPreviewUrl = ref('')
+// Modele impose lors d une regeneration. "auto" conserve la detection par prompt.
+const selectedVideoModel = ref('auto')
 const CAROUSEL_MIN_PROMPTS = 2
 const CAROUSEL_MAX_PROMPTS = 10
 let carouselPromptKey = 0
@@ -526,6 +546,7 @@ watch(mode, (value) => {
 function exitEditMode() {
   editingContentId.value = ''
   editContentPreviewUrl.value = ''
+  selectedVideoModel.value = 'auto'
   navigateTo(route.path || '/studio')
 }
 
@@ -641,7 +662,7 @@ async function submit() {
       const result = isEditing
         ? await $fetch(`/api/content/${editingContentId.value}/regenerate`, {
             method: 'POST',
-            body: { prompt: prompt.value.trim() },
+            body: { prompt: prompt.value.trim(), model: selectedVideoModel.value },
           })
         : await $fetch('/api/generate/video', {
             method: 'POST',
