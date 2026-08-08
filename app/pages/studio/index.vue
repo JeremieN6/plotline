@@ -25,8 +25,16 @@
               </button>
             </div>
             <div class="h-16 w-16 overflow-hidden rounded-[10px] border border-[#E6D7C8] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+              <video
+                v-if="editContentPreviewUrl && mode === 'video'"
+                :src="editContentPreviewUrl"
+                class="h-full w-full object-cover"
+                muted
+                playsinline
+                preload="metadata"
+              />
               <img
-                v-if="editContentPreviewUrl"
+                v-else-if="editContentPreviewUrl"
                 :src="editContentPreviewUrl"
                 alt="Miniature du contenu en modification"
                 class="h-full w-full object-cover"
