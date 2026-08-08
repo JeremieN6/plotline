@@ -26,7 +26,7 @@
       <div class="flex flex-wrap gap-2">
         <NuxtLink
           v-if="selectedInfluencer"
-          :to="`/profiles/${selectedInfluencer.id}/generate`"
+          :to="generateHref"
           class="rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white transition-all duration-150 hover:bg-[#d4762f]"
         >
           Générer
@@ -122,6 +122,7 @@
                 muted
                 playsinline
                 preload="metadata"
+                @error="markImageMissing(item)"
               />
               <img
                 v-else
@@ -134,7 +135,9 @@
           </template>
 
           <template v-else-if="item._imageMissing">
-            <div class="flex h-full items-center justify-center p-5 text-sm text-[#666666]">Image indisponible sur ce poste.</div>
+            <div class="flex h-full items-center justify-center p-5 text-center text-sm text-[#666666]">
+              Média indisponible sur ce serveur.
+            </div>
           </template>
 
           <template v-else>
@@ -345,6 +348,14 @@ const versionIndex = ref(0)
 const restoringVersion = ref(false)
 const currentVersion = computed(() => modalVersions.value[versionIndex.value] || null)
 const hasSeveralVersions = computed(() => modalVersions.value.length > 1)
+
+// Le workflow Pinterest (/profiles/[id]/generate) est reserve au compte
+// influenceur. Les comptes marque et createur passent par leur studio.
+const generateHref = computed(() => {
+  if (isContentCreator.value) return '/studio'
+  if (isBrand.value) return '/brand-studio'
+  return selectedInfluencer.value ? `/profiles/${selectedInfluencer.value.id}/generate` : '/profiles'
+})
 const contentItems = ref([])
 const twitterConnecting = ref(false)
 const POLL_FAST_MS = 15_000

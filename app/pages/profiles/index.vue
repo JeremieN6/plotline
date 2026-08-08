@@ -104,7 +104,7 @@
               class="px-3 py-2 bg-[#E8873A] text-white font-bold text-sm rounded-lg hover:bg-[#d4762f] transition-colors"
               @click="goGenerate(influencer.id)"
             >
-              Générer une image
+              Générer
             </button>
                         <button
               class="px-3 py-2 bg-white border border-[#E5E3DF] text-gray-700 font-bold text-sm rounded-lg hover:bg-gray-50 transition-colors"
@@ -133,7 +133,10 @@ import { useRouter } from 'vue-router'
 const router = useRouter()
 const deletingIds = ref([])
 const { requestConfirmation, pushToast } = useUiFeedback()
-const { wording } = useWording()
+const { wording, accountType } = useWording()
+const isContentCreator = computed(() => accountType.value === 'CONTENT_CREATOR')
+const isBrand = computed(() => accountType.value === 'BRAND')
+const activeInfluencerId = useActiveInfluencer()
 
 const {
   data,
@@ -173,6 +176,14 @@ function goDetail(id) {
 }
 
 function goGenerate(id) {
+  // Le workflow Pinterest est reserve au compte influenceur: les comptes marque
+  // et createur sont rediriges vers leur studio, avec le profil rendu actif.
+  if (isContentCreator.value || isBrand.value) {
+    activeInfluencerId.value = id
+    router.push(isBrand.value ? '/brand-studio' : '/studio')
+    return
+  }
+
   router.push(`/profiles/${id}/generate`)
 }
 
