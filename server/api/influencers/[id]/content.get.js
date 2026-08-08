@@ -43,14 +43,33 @@ const CONTENT_SELECT = {
       channel: true,
     },
   },
+  // Modele ayant produit le rendu courant, remonte a plat pour l affichage.
+  versions: {
+    where: { isActive: true },
+    take: 1,
+    select: { generationModel: true },
+  },
 };
 
-// Colonnes recentes: si la base n'est pas encore migree, on les retire du select une a une
+// Champs recents: si la base n'est pas encore migree, on les retire du select un a un
 // et on renvoie null a la place, plutot que de faire echouer toute la liste.
-const OPTIONAL_SELECT_FIELDS = ['twitterPublishedAt'];
+// `match` couvre le nom que Postgres/Prisma remonte dans le message d erreur.
+const OPTIONAL_SELECT_FIELDS = [
+  { key: 'versions', match: ['contentversion'] },
+  { key: 'twitterPublishedAt', match: ['twitterpublishedat'] },
+];
+
+/** Aplatit la version active en un simple champ generationModel. */
+function normalizeContentRow(row) {
+  const { versions, ...rest } = row;
+  return {
+    ...rest,
+    generationModel: versions?.[0]?.generationModel || null,
+  };
+}
 
 async function findContents(prisma, where) {
-  let select = { ...CONTENT_SELECT };
+  const select = { ...CONTENT_SELECT };
   const missingFields = [];
 
   for (let attempt = 0; attempt <= OPTIONAL_SELECT_FIELDS.length; attempt += 1) {
@@ -61,23 +80,20 @@ async function findContents(prisma, where) {
         select,
       });
 
-      if (!missingFields.length) {
-        return rows;
-      }
-
       const nullPatch = Object.fromEntries(missingFields.map((field) => [field, null]));
-      return rows.map((item) => ({ ...item, ...nullPatch }));
+      return rows.map((row) => ({ ...normalizeContentRow(row), ...nullPatch }));
     } catch (queryErr) {
+      const message = String(queryErr?.message || '').toLowerCase();
       const missing = OPTIONAL_SELECT_FIELDS.find(
-        (field) => field in select && String(queryErr?.message || '').toLowerCase().includes(field.toLowerCase()),
+        (field) => field.key in select && field.match.some((needle) => message.includes(needle)),
       );
 
       if (!missing) {
         throw queryErr;
       }
 
-      delete select[missing];
-      missingFields.push(missing);
+      delete select[missing.key];
+      missingFields.push(missing.key === 'versions' ? 'generationModel' : missing.key);
     }
   }
 
