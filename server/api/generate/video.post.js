@@ -178,5 +178,15 @@ export default defineEventHandler(async (event) => {
   const generatedContent = await createGeneratedContentRecord(prisma, generatedContentData);
   const contentId = generatedContent.id;
 
-  return await runVideoGenerationJob({ prisma, runtimeConfig, contentId, prompt, model, influencerId, withFaceRef, influencer });
+  try {
+    return await runVideoGenerationJob({ prisma, runtimeConfig, contentId, prompt, model, influencerId, withFaceRef, influencer });
+  } catch (error) {
+    const errorMessage = error?.statusMessage || error?.message || 'Génération vidéo impossible';
+    await prisma.generatedContent.update({
+      where: { id: contentId },
+      data: { status: 'FAILED', errorMessage },
+    }).catch(() => {});
+
+    throw error;
+  }
 });

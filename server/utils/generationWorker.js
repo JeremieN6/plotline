@@ -2,13 +2,14 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import IORedis from 'ioredis';
-import { GoogleGenAI, Modality } from '@google/genai';
 import { Anthropic } from '@anthropic-ai/sdk';
 import { Worker } from 'bullmq';
 
 import { buildGenerationPrompt } from './buildGenerationPrompt.js';
-import { isAbsoluteHttpUrl, isBlobStorageEnabled, uploadPublicMediaBuffer } from './blobStorage.js';
+import { isBlobStorageEnabled, uploadPublicMediaBuffer } from './blobStorage.js';
 import { checkMinDuration, extractBestFrame } from './frameExtractor.js';
+import { readImageSourceBuffer, resolveFaceRefAbsolutePath } from './faceRefReader.js';
+import { generateImageFromGeminiWithSafetyFallback } from './geminiImageGeneration.js';
 import { imageToJson } from './imageToJson.js';
 import { describeHairFromImageSource } from './hairReference.js';
 import {
@@ -52,32 +53,11 @@ async function getPrisma() {
   return prismaClient;
 }
 
-function mimeFromExt(filePath) {
-  const ext = path.extname(filePath).toLowerCase();
-  if (ext === '.png') return 'image/png';
-  if (ext === '.webp') return 'image/webp';
-  if (ext === '.gif') return 'image/gif';
-  return 'image/jpeg';
-}
-
 function extFromMime(mimeType) {
   if (mimeType === 'image/png') return 'png';
   if (mimeType === 'image/webp') return 'webp';
   if (mimeType === 'image/gif') return 'gif';
   return 'jpg';
-}
-
-function normalizeContentTypeFromHeader(value) {
-  return String(value || '').split(';')[0].trim().toLowerCase();
-}
-
-async function fileExists(filePath) {
-  try {
-    await fs.access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 function formatSceneDescription(concept) {
@@ -402,248 +382,6 @@ function resolveFormatAndRatio(contentType) {
   }
 
   return { format: 'FEED', ratio: '4:5', contentType: 'feed' };
-}
-
-class ImageSafetyError extends Error {
-  constructor(message) {
-    super(message);
-    this.name = 'ImageSafetyError';
-  }
-}
-
-class GeminiNoPartsError extends Error {
-  constructor(message, options = {}) {
-    super(message);
-    this.name = 'GeminiNoPartsError';
-    this.finishReason = String(options.finishReason || '');
-  }
-}
-
-const SAFETY_REPLACEMENTS = [
-  ['Extremely large, very full breasts causing cleavage', 'Full, prominent bust'],
-  ['significantly enlarged breasts', 'full bust'],
-  ['very full breasts', 'full bust'],
-  ['visible cleavage', 'natural neckline'],
-  ['Voluptuous hourglass figure with significantly enlarged breasts', 'Hourglass figure with full bust'],
-  ['NON-NEGOTIABLE', 'important'],
-  ['stretching the top garment', 'filling the top garment'],
-  ['stretching the attire', 'filling the attire'],
-  ['filling the bikini top', 'complementing the attire'],
-  ['cleavage and stretching', 'fitting naturally'],
-  ['prominent glutes', 'balanced lower silhouette'],
-  ['rounded glutes', 'balanced lower silhouette'],
-  ['Pronounced hourglass', 'balanced silhouette'],
-  ['full bust', 'natural upper silhouette'],
-  ['Hourglass figure with full bust', 'balanced silhouette'],
-  ['extreme waist-to-hip ratio', 'balanced proportions'],
-  ['wide hips and rounded glutes', 'defined hips'],
-];
-
-function sanitizePromptForSafety(prompt) {
-  let sanitized = String(prompt || '');
-
-  for (const [from, to] of SAFETY_REPLACEMENTS) {
-    sanitized = sanitized.split(from).join(to);
-  }
-
-  sanitized = sanitized
-    .replace(/significantly enlarged breasts[^.\n]*/gi, 'full bust')
-    .replace(/extremely large[^.\n]*breasts[^.\n]*/gi, 'full bust')
-    .replace(/causing cleavage[^.\n]*/gi, 'filling the garment')
-    .replace(/stretching the (?!top garment)[\w][\w\s]+(?=[.,"\n])/gi, 'filling the attire')
-    .replace(/(?:fill|filling) the [\w][\w\s]+(?=[.,"\n])/gi, 'complementing the attire')
-    .replace(/voluptuous hourglass figure[^.\n]*/gi, 'balanced silhouette')
-    .replace(/full and rounded high-set glutes[^.\n]*/gi, 'rounded hips')
-    .replace(/\b(?:glutes?|butt|breasts?|cleavage|busty|buxom)\b/gi, 'silhouette')
-    .replace(/\b(?:voluptuous|hourglass|curvy)\b/gi, 'balanced')
-    .replace(/\b(?:extremely|very|significantly|prominent|huge|enlarged)\b/gi, 'natural');
-
-  return sanitized;
-}
-
-function isRetryableNoPartsFinishReason(finishReason) {
-  const normalized = String(finishReason || '').trim().toUpperCase();
-  return normalized.includes('IMAGE_OTHER');
-}
-
-function isTransientGeminiError(error) {
-  const message = String(error?.message || '').toUpperCase();
-  return (
-    message.includes('500 INTERNAL')
-    || message.includes('INTERNAL ERROR ENCOUNTERED')
-    || message.includes('503 UNAVAILABLE')
-    || message.includes('RESOURCE_EXHAUSTED')
-    || message.includes('OVERLOADED')
-    || message.includes('TRY AGAIN LATER')
-    || message.includes('HIGH DEMAND')
-    || message.includes('DEADLINE_EXCEEDED')
-  );
-}
-
-async function retryWithSanitizedPrompt(prompt, extraParts, error, reasonLabel) {
-  const sanitizedPrompt = sanitizePromptForSafety(prompt);
-  if (sanitizedPrompt === prompt) {
-    throw error;
-  }
-
-  console.warn(`[generation-worker] ${reasonLabel}, retrying with sanitized prompt.`);
-  return await generateImageFromGemini(sanitizedPrompt, extraParts);
-}
-
-function extractInlineDataFromResponse(imageResponse) {
-  const candidate = imageResponse?.candidates?.[0];
-  const parts = candidate?.content?.parts ?? [];
-
-  if (parts.length === 0) {
-    const finishReason = candidate?.finishReason;
-    const safetyRatings = JSON.stringify(candidate?.safetyRatings ?? []);
-
-    if (String(finishReason || '').toUpperCase().includes('IMAGE_SAFETY')) {
-      throw new ImageSafetyError(
-        `Gemini blocked generation for IMAGE_SAFETY. finishReason=${finishReason} safetyRatings=${safetyRatings}`,
-      );
-    }
-
-    throw new GeminiNoPartsError(
-      `Gemini returned no parts. finishReason=${finishReason} safetyRatings=${safetyRatings} rawKeys=${Object.keys(imageResponse ?? {}).join(',')}`,
-      { finishReason },
-    );
-  }
-
-  const imagePart = parts.find(
-    (part) => part?.inlineData?.data || part?.inline_data?.data,
-  );
-
-  if (!imagePart) {
-    const partsSummary = parts
-      .map((part, index) => `[${index}] keys=${Object.keys(part ?? {}).join(',')} text=${part?.text ? part.text.slice(0, 80) : ''}`)
-      .join(' | ');
-    throw new Error(`Gemini did not return an image part. Parts: ${partsSummary}`);
-  }
-
-  return imagePart.inlineData ?? imagePart.inline_data;
-}
-
-async function generateImageFromGemini(prompt, extraParts = []) {
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (!geminiKey || geminiKey.trim() === '...' || geminiKey.trim() === '') {
-    throw new Error('GEMINI_API_KEY non configuree dans .env');
-  }
-
-  const genai = new GoogleGenAI({ apiKey: geminiKey });
-  const imageResponse = await genai.models.generateContent({
-    model: 'gemini-3-pro-image-preview',
-    contents: [
-      {
-        role: 'user',
-        parts: [{ text: prompt }, ...extraParts],
-      },
-    ],
-    config: {
-      responseModalities: [Modality.TEXT, Modality.IMAGE],
-    },
-  });
-
-  return extractInlineDataFromResponse(imageResponse);
-}
-
-async function generateImageFromGeminiWithSafetyFallback(prompt, extraParts = []) {
-  try {
-    return await generateImageFromGemini(prompt, extraParts);
-  } catch (error) {
-    if (error instanceof ImageSafetyError) {
-      return await retryWithSanitizedPrompt(prompt, extraParts, error, 'IMAGE_SAFETY detected');
-    }
-
-    if (isTransientGeminiError(error)) {
-      console.warn('[generation-worker] transient Gemini error detected, retrying image generation once.');
-      return await generateImageFromGemini(prompt, extraParts);
-    }
-
-    if (!(error instanceof GeminiNoPartsError) || !isRetryableNoPartsFinishReason(error.finishReason)) {
-      throw error;
-    }
-
-    console.warn(`[generation-worker] ${error.finishReason || 'IMAGE_NO_PARTS'} detected, retrying image generation once.`);
-
-    try {
-      return await generateImageFromGemini(prompt, extraParts);
-    } catch (retryError) {
-      if (retryError instanceof ImageSafetyError) {
-        return await retryWithSanitizedPrompt(prompt, extraParts, retryError, 'IMAGE_SAFETY detected after no-parts retry');
-      }
-
-      if (retryError instanceof GeminiNoPartsError && isRetryableNoPartsFinishReason(retryError.finishReason)) {
-        return await retryWithSanitizedPrompt(prompt, extraParts, retryError, `${retryError.finishReason || 'IMAGE_NO_PARTS'} persisted`);
-      }
-
-      throw retryError;
-    }
-  }
-}
-
-async function resolveFaceRefAbsolutePath(faceRefPath) {
-  const rawPath = String(faceRefPath || '').trim();
-  if (!rawPath) {
-    throw new Error('Influencer face reference is missing. Upload a face ref first.');
-  }
-
-  const candidates = [];
-
-  if (path.isAbsolute(rawPath)) {
-    candidates.push(rawPath);
-  }
-
-  if (rawPath.startsWith('/uploads/')) {
-    candidates.push(path.join(process.cwd(), 'public', rawPath.replace(/^\/+/, '')));
-  }
-
-  candidates.push(path.join(process.cwd(), rawPath.replace(/^\/+/, '')));
-
-  const basename = path.basename(rawPath);
-  candidates.push(path.join(process.cwd(), 'public', 'uploads', 'face-refs', basename));
-  candidates.push(path.join(process.cwd(), 'storage', 'uploads', 'face-refs', basename));
-
-  for (const candidatePath of candidates) {
-    if (await fileExists(candidatePath)) {
-      return candidatePath;
-    }
-  }
-
-  throw new Error(`Face reference file not found: ${rawPath}`);
-}
-
-async function readImageSourceBuffer(imageSource) {
-  const source = String(imageSource || '').trim();
-  if (!source) {
-    throw new Error('Image source is missing');
-  }
-
-  if (isAbsoluteHttpUrl(source)) {
-    const response = await fetch(source);
-    if (!response.ok) {
-      throw new Error(`Unable to download image source: ${source}`);
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const mimeType = normalizeContentTypeFromHeader(response.headers.get('content-type')) || 'image/jpeg';
-
-    return {
-      buffer,
-      mimeType,
-      origin: source,
-    };
-  }
-
-  const absolutePath = await resolveFaceRefAbsolutePath(source);
-  const buffer = await fs.readFile(absolutePath);
-
-  return {
-    buffer,
-    mimeType: mimeFromExt(absolutePath),
-    origin: absolutePath,
-  };
 }
 
 async function resolveBodyPromptFromInfluencer(influencer) {

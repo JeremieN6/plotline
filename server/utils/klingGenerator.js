@@ -17,6 +17,7 @@ if (ffprobe?.path) {
 const KLING_API_BASE = 'https://api-singapore.klingai.com/v1';
 const KLING_MOTION_ENDPOINT = `${KLING_API_BASE}/videos/motion-control`;
 const KLING_TEXT_ENDPOINT = `${KLING_API_BASE}/videos/text2video`;
+const KLING_IMAGE_ENDPOINT = `${KLING_API_BASE}/videos/image2video`;
 const POLL_INTERVAL_MS = 10_000;
 const POLL_MAX_ATTEMPTS = 90;
 const MAX_VIDEO_DURATION_SECONDS = 20;
@@ -482,6 +483,7 @@ async function submitTextToVideoTask({ prompt }) {
       model_name: model,
       prompt: prepareKlingTextPrompt(prompt),
       mode: 'std',
+      aspect_ratio: '9:16',
     }),
   });
 
@@ -498,11 +500,41 @@ async function submitTextToVideoTask({ prompt }) {
   return String(taskId);
 }
 
-async function pollTextToVideoTask(taskId) {
+async function submitImageToVideoTask({ prompt, imageBase64 }) {
+  const { model } = getKlingConfig();
+  const response = await fetch(KLING_IMAGE_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${generateAuthToken()}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model_name: model,
+      image: imageBase64,
+      prompt: prepareKlingTextPrompt(prompt),
+      mode: 'std',
+      aspect_ratio: '9:16',
+    }),
+  });
+
+  const payload = await response.json();
+  if (!response.ok) {
+    throw new Error(`Kling image2video request failed: ${JSON.stringify(payload)}`);
+  }
+
+  const taskId = payload?.data?.task_id || payload?.task_id;
+  if (!taskId) {
+    throw new Error(`Kling image2video response did not include task_id: ${JSON.stringify(payload)}`);
+  }
+
+  return String(taskId);
+}
+
+async function pollKlingVideoTask(endpoint, taskId, label) {
   for (let attempt = 1; attempt <= POLL_MAX_ATTEMPTS; attempt += 1) {
     await sleep(POLL_INTERVAL_MS);
 
-    const response = await fetch(`${KLING_TEXT_ENDPOINT}/${taskId}`, {
+    const response = await fetch(`${endpoint}/${taskId}`, {
       headers: {
         Authorization: `Bearer ${generateAuthToken()}`,
       },
@@ -515,25 +547,39 @@ async function pollTextToVideoTask(taskId) {
     if (status === 'succeed') {
       const videoUrl = data?.task_result?.videos?.[0]?.url;
       if (!videoUrl) {
-        throw new Error(`Kling text2video succeeded without a video URL: ${JSON.stringify(data)}`);
+        throw new Error(`${label} succeeded without a video URL: ${JSON.stringify(data)}`);
       }
       return videoUrl;
     }
 
     if (status === 'failed' || status === 'error') {
-      throw new Error(data?.task_status_msg || data?.error_message || `Kling text2video failed with status ${status}`);
+      throw new Error(data?.task_status_msg || data?.error_message || `${label} failed with status ${status}`);
     }
   }
 
-  throw new Error(`Kling text2video polling timed out after ${POLL_MAX_ATTEMPTS} attempts`);
+  throw new Error(`${label} polling timed out after ${POLL_MAX_ATTEMPTS} attempts`);
 }
 
 export async function generateVideoFromTextPrompt(prompt) {
   const taskId = await submitTextToVideoTask({ prompt });
-  const generatedVideoUrl = await pollTextToVideoTask(taskId);
+  const generatedVideoUrl = await pollKlingVideoTask(KLING_TEXT_ENDPOINT, taskId, 'Kling text2video');
   const localPath = await downloadGeneratedVideo(generatedVideoUrl);
 
   const persisted = await copyIntoGeneratedDir(localPath, 'kling-text');
+  await fs.unlink(localPath).catch(() => {});
+
+  return {
+    taskId,
+    videoUrl: persisted.publicUrl,
+  };
+}
+
+export async function generateVideoFromImageAndPrompt({ prompt, imageBase64 }) {
+  const taskId = await submitImageToVideoTask({ prompt, imageBase64 });
+  const generatedVideoUrl = await pollKlingVideoTask(KLING_IMAGE_ENDPOINT, taskId, 'Kling image2video');
+  const localPath = await downloadGeneratedVideo(generatedVideoUrl);
+
+  const persisted = await copyIntoGeneratedDir(localPath, 'kling-image');
   await fs.unlink(localPath).catch(() => {});
 
   return {
