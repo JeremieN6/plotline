@@ -10,7 +10,7 @@ const CINEMATIC_KEYWORDS = [
 
 function containsKeyword(prompt, keywords) {
   const normalized = String(prompt || '').toLowerCase();
-  return keywords.some((keyword) => normalized.includes(keyword));
+  return keywords.some((keyword) => new RegExp(`\\b${keyword}\\b`).test(normalized));
 }
 
 export function selectVideoModel(prompt) {
