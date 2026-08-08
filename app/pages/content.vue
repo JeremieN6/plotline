@@ -239,17 +239,80 @@
     </div>
 
     <Teleport to="body">
-      <div v-if="modalMedia" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" @click.self="modalMedia = null">
-        <button type="button" class="absolute right-4 top-4 rounded-full bg-white/20 px-3 py-2 text-sm font-bold text-white hover:bg-white/30" @click="modalMedia = null">✕</button>
-        <video
-          v-if="modalMediaIsVideo"
-          :src="modalMedia"
-          class="max-h-full max-w-full rounded-[20px] object-contain shadow-2xl"
-          controls
-          autoplay
-          playsinline
-        />
-        <img v-else :src="modalMedia" class="max-h-full max-w-full rounded-[20px] object-contain shadow-2xl" alt="Aperçu" />
+      <div v-if="modalMedia" class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-black/80 p-4" @click.self="closeModal">
+        <button type="button" class="absolute right-4 top-4 rounded-full bg-white/20 px-3 py-2 text-sm font-bold text-white hover:bg-white/30" @click="closeModal">✕</button>
+
+        <div class="relative flex min-h-0 flex-1 items-center justify-center" @click.self="closeModal">
+          <button
+            v-if="hasSeveralVersions"
+            type="button"
+            class="absolute left-0 z-10 rounded-full bg-white/20 px-3 py-3 text-lg font-bold text-white backdrop-blur transition-colors hover:bg-white/35 disabled:opacity-30"
+            :disabled="versionIndex >= modalVersions.length - 1"
+            aria-label="Version précédente"
+            @click="goToVersion(versionIndex + 1)"
+          >
+            ‹
+          </button>
+
+          <video
+            v-if="modalMediaIsVideo"
+            :key="modalMedia"
+            :src="modalMedia"
+            class="max-h-full max-w-full rounded-[20px] object-contain shadow-2xl"
+            controls
+            autoplay
+            playsinline
+          />
+          <img v-else :src="modalMedia" class="max-h-full max-w-full rounded-[20px] object-contain shadow-2xl" alt="Aperçu" />
+
+          <button
+            v-if="hasSeveralVersions"
+            type="button"
+            class="absolute right-0 z-10 rounded-full bg-white/20 px-3 py-3 text-lg font-bold text-white backdrop-blur transition-colors hover:bg-white/35 disabled:opacity-30"
+            :disabled="versionIndex <= 0"
+            aria-label="Version suivante"
+            @click="goToVersion(versionIndex - 1)"
+          >
+            ›
+          </button>
+        </div>
+
+        <div v-if="hasSeveralVersions" class="flex shrink-0 flex-wrap items-center justify-center gap-3 rounded-[16px] bg-black/50 px-4 py-3 backdrop-blur">
+          <div class="flex items-center gap-1.5">
+            <button
+              v-for="(version, index) in modalVersions"
+              :key="version.id"
+              type="button"
+              class="h-2 w-2 rounded-full transition-all"
+              :class="index === versionIndex ? 'w-5 bg-white' : 'bg-white/40 hover:bg-white/70'"
+              :aria-label="`Version ${modalVersions.length - index}`"
+              @click="goToVersion(index)"
+            />
+          </div>
+
+          <p class="text-xs font-semibold text-white/90">
+            Version {{ modalVersions.length - versionIndex }} / {{ modalVersions.length }}
+            <span v-if="currentVersion?.generationModel" class="text-white/60">
+              · {{ shortModelLabel(currentVersion.generationModel) }}
+            </span>
+          </p>
+
+          <span
+            v-if="currentVersion?.isActive"
+            class="rounded-full bg-emerald-500/25 px-2.5 py-1 text-[11px] font-bold text-emerald-200"
+          >
+            Version actuelle
+          </span>
+          <button
+            v-else
+            type="button"
+            class="rounded-[10px] bg-[#E8873A] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#d4762f] disabled:opacity-60"
+            :disabled="restoringVersion"
+            @click="restoreVersion"
+          >
+            {{ restoringVersion ? 'Restauration...' : 'Utiliser cette version' }}
+          </button>
+        </div>
       </div>
     </Teleport>
   </div>
@@ -276,6 +339,12 @@ const selectedCampaignId = ref('')
 const loadingContent = ref(false)
 const modalMedia = ref(null)
 const modalMediaIsVideo = ref(false)
+const modalContent = ref(null)
+const modalVersions = ref([])
+const versionIndex = ref(0)
+const restoringVersion = ref(false)
+const currentVersion = computed(() => modalVersions.value[versionIndex.value] || null)
+const hasSeveralVersions = computed(() => modalVersions.value.length > 1)
 const contentItems = ref([])
 const twitterConnecting = ref(false)
 const POLL_FAST_MS = 15_000
@@ -472,9 +541,89 @@ function isTwitterPublished(item) {
   return Boolean(item?.twitterPublishedAt)
 }
 
-function openModal(item) {
+async function openModal(item) {
   modalMedia.value = item?.imageUrl || null
   modalMediaIsVideo.value = isVideoMedia(item)
+  modalContent.value = item
+  modalVersions.value = []
+  versionIndex.value = 0
+
+  if (!item?.id) return
+
+  try {
+    const response = await $fetch(`/api/content/${item.id}/versions`)
+    const versions = Array.isArray(response?.versions) ? response.versions : []
+    // Ne garde que les versions reellement affichables.
+    modalVersions.value = versions.filter((version) => String(version?.imageUrl || '').trim())
+
+    const activeIndex = modalVersions.value.findIndex((version) => version.isActive)
+    versionIndex.value = activeIndex >= 0 ? activeIndex : 0
+
+    if (modalVersions.value.length) {
+      applyVersionToModal(versionIndex.value)
+    }
+  } catch {
+    // Historique indisponible: la modale reste utilisable en simple apercu.
+  }
+}
+
+function closeModal() {
+  modalMedia.value = null
+  modalContent.value = null
+  modalVersions.value = []
+  versionIndex.value = 0
+}
+
+function applyVersionToModal(index) {
+  const version = modalVersions.value[index]
+  if (!version) return
+
+  modalMedia.value = version.imageUrl
+  modalMediaIsVideo.value = String(version.imageUrl || '').toLowerCase().endsWith('.mp4')
+    || isVideoMedia(modalContent.value)
+}
+
+function goToVersion(index) {
+  if (index < 0 || index >= modalVersions.value.length) return
+  versionIndex.value = index
+  applyVersionToModal(index)
+}
+
+async function restoreVersion() {
+  const version = currentVersion.value
+  const contentId = modalContent.value?.id
+
+  if (!version || !contentId || restoringVersion.value) return
+
+  restoringVersion.value = true
+  try {
+    await $fetch(`/api/content/${contentId}/restore-version`, {
+      method: 'POST',
+      body: { versionId: version.id },
+    })
+
+    modalVersions.value = modalVersions.value.map((item) => ({
+      ...item,
+      isActive: item.id === version.id,
+    }))
+
+    pushToast({
+      title: 'Version restaurée',
+      message: 'Ce rendu redevient la version courante du contenu.',
+      tone: 'success',
+    })
+
+    await reloadContents()
+  } catch (err) {
+    pushToast({
+      title: 'Restauration impossible',
+      message: err?.data?.statusMessage || err?.message || 'La version n a pas pu être restaurée.',
+      tone: 'error',
+      duration: 4500,
+    })
+  } finally {
+    restoringVersion.value = false
+  }
 }
 
 function timeAgo(dateValue) {

@@ -8,6 +8,7 @@ import { Worker } from 'bullmq';
 import { buildGenerationPrompt } from './buildGenerationPrompt.js';
 import { isBlobStorageEnabled, uploadPublicMediaBuffer } from './blobStorage.js';
 import { checkMinDuration, extractBestFrame } from './frameExtractor.js';
+import { finalizeContentWithVersion } from './contentVersions.js';
 import { readImageSourceBuffer, resolveFaceRefAbsolutePath } from './faceRefReader.js';
 import { generateImageFromGeminiWithSafetyFallback } from './geminiImageGeneration.js';
 import { imageToJson } from './imageToJson.js';
@@ -161,7 +162,14 @@ async function persistGeneratedVideo(localVideoPath) {
   };
 }
 
-async function persistContentRecord(prisma, contentId, data) {
+async function persistContentRecord(prisma, contentId, data, options = {}) {
+  // Passe par finalizeContentWithVersion pour qu un rendu reussi soit archive
+  // dans l historique et puisse etre repris si le suivant deplait.
+  if (data?.status === 'PENDING' && data?.imageUrl) {
+    await finalizeContentWithVersion(prisma, contentId, data, options);
+    return;
+  }
+
   await prisma.generatedContent.update({
     where: { id: contentId },
     data,
@@ -797,16 +805,18 @@ export async function processGenerationJob(jobData, options = {}) {
 
     await updateProgress(90);
 
-    await prisma.generatedContent.update({
-      where: { id: contentId },
-      data: {
+    await finalizeContentWithVersion(
+      prisma,
+      contentId,
+      {
         status: 'PENDING',
         format,
         imageUrl,
         caption,
         errorMessage: null,
       },
-    });
+      { generationModel: 'gemini-3-pro-image-preview' },
+    );
 
     await updateProgress(100);
 

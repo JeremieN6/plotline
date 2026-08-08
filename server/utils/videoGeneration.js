@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { GoogleGenAI } from '@google/genai';
 
+import { finalizeContentWithVersion } from './contentVersions.js';
 import { readImageSourceBuffer } from './faceRefReader.js';
 import { generateImageFromGeminiWithSafetyFallback } from './geminiImageGeneration.js';
 import { validatePersonAndUpperBody } from './imageValidation.js';
@@ -195,8 +196,19 @@ async function requestVeoVideo({ prompt, apiKey, faceRefImage }) {
   };
 }
 
-export function resolveVideoModelOrThrow({ prompt, withFaceRef, influencer, runtimeConfig }) {
-  const model = selectVideoModel(prompt);
+export const SUPPORTED_VIDEO_MODELS = ['veo', 'kling', 'seedance'];
+
+export function isSupportedVideoModel(value) {
+  return SUPPORTED_VIDEO_MODELS.includes(String(value || '').trim().toLowerCase());
+}
+
+export function resolveVideoModelOrThrow({ prompt, withFaceRef, influencer, runtimeConfig, forcedModel }) {
+  // Un modele impose (choisi depuis "Modifier") court-circuite la detection
+  // automatique par mots-cles, qui reste le comportement par defaut.
+  const normalizedForced = String(forcedModel || '').trim().toLowerCase();
+  const model = isSupportedVideoModel(normalizedForced)
+    ? normalizedForced
+    : selectVideoModel(prompt);
 
   if (withFaceRef && !String(influencer?.faceRefPath || '').trim()) {
     throw createError({ statusCode: 409, statusMessage: 'Aucune face ref disponible pour ce profil actif' });
@@ -286,10 +298,12 @@ export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, 
         const resolvedVideoUrl = String(providerResult?.videoUrl || '').trim();
 
         if (resolvedVideoUrl) {
-          await prisma.generatedContent.updateMany({
-            where: { id: contentId },
-            data: { imageUrl: resolvedVideoUrl, status: 'PENDING' },
-          }).catch(() => {});
+          await finalizeContentWithVersion(
+            prisma,
+            contentId,
+            { imageUrl: resolvedVideoUrl, status: 'PENDING' },
+            { generationModel: providerResult?.model || model },
+          ).catch(() => {});
         }
       } catch (error) {
         const errorMessage = normalizeErrorMessage(error);
@@ -350,10 +364,12 @@ export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, 
 
   const resolvedVideoUrl = String(providerResult?.videoUrl || '').trim();
   if (resolvedVideoUrl) {
-    await prisma.generatedContent.updateMany({
-      where: { id: contentId },
-      data: { imageUrl: resolvedVideoUrl, status: 'PENDING' },
-    });
+    await finalizeContentWithVersion(
+      prisma,
+      contentId,
+      { imageUrl: resolvedVideoUrl, status: 'PENDING' },
+      { generationModel: providerResult?.model || model },
+    );
   }
 
   return {

@@ -33,12 +33,17 @@ export default defineEventHandler(async (event) => {
           },
         },
       },
-      select: { id: true },
+      select: { id: true, imageUrl: true },
     });
 
     if (!existing) {
       return sendError(event, createError({ statusCode: 404, statusMessage: 'Contenu introuvable' }));
     }
+
+    // Les medias doivent partir avant la ligne: la cascade SQL efface les versions
+    // en base mais ne touche jamais aux fichiers, ce qui laissait des orphelins.
+    const { deleteAllContentMedia } = await import('../../utils/contentVersions.js');
+    await deleteAllContentMedia(prisma, id, existing.imageUrl);
 
     await prisma.generatedContent.delete({
       where: { id },

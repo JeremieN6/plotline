@@ -1,5 +1,5 @@
 import { processGenerationJob } from '../../../utils/generationWorker.js';
-import { resolveVideoModelOrThrow, runVideoGenerationJob } from '../../../utils/videoGeneration.js';
+import { isSupportedVideoModel, resolveVideoModelOrThrow, runVideoGenerationJob } from '../../../utils/videoGeneration.js';
 
 let prismaClient;
 
@@ -72,12 +72,19 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'prompt requis' }));
     }
 
+    // Modele impose depuis "Modifier". Vide ou "auto" = detection automatique.
+    const requestedModel = String(body?.model || '').trim().toLowerCase();
+    if (requestedModel && requestedModel !== 'auto' && !isSupportedVideoModel(requestedModel)) {
+      return sendError(event, createError({ statusCode: 400, statusMessage: 'Modele video invalide' }));
+    }
+
+    // On conserve imageUrl/caption jusqu a ce que le nouveau rendu aboutisse:
+    // en cas d echec, l ancien visuel reste affiche au lieu de disparaitre.
+    // La generation ecrasera ces champs elle-meme en cas de succes.
     await prisma.generatedContent.update({
       where: { id },
       data: {
         status: 'PROCESSING',
-        imageUrl: null,
-        caption: null,
         errorMessage: null,
         prompt: nextPrompt,
       },
@@ -94,6 +101,7 @@ export default defineEventHandler(async (event) => {
           withFaceRef,
           influencer: content.influencer,
           runtimeConfig,
+          forcedModel: requestedModel,
         });
 
         const result = await runVideoGenerationJob({

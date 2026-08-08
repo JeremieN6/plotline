@@ -175,4 +175,24 @@ model GeneratedContent {
 
   influencer    Profile        @relation(fields: [influencerId], references: [id])
   campaign      Campaign?      @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  versions      ContentVersion[]
+}
+
+/// Historique des rendus successifs d un contenu.
+/// GeneratedContent conserve toujours l etat courant (imageUrl/caption/prompt),
+/// ce qui evite de toucher au code de publication et de listing. ContentVersion
+/// stocke un instantane complet de chaque rendu pour permettre le retour arriere.
+model ContentVersion {
+  id              String   @id @default(cuid())
+  contentId       String
+  imageUrl        String?
+  caption         String?
+  prompt          String?
+  generationModel String?
+  isActive        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+
+  content         GeneratedContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@index([contentId, createdAt])
 }
