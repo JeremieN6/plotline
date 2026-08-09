@@ -1,18 +1,6 @@
+import { publishContentToInstagram } from '../../../utils/instagramPublisher.js';
+
 let prismaClient;
-
-function isAbsoluteHttpUrl(value) {
-  return /^https?:\/\//i.test(String(value || '').trim());
-}
-
-function resolvePublicImageUrl(imageUrl, baseUrl) {
-  const raw = String(imageUrl || '').trim();
-  const normalizedBase = String(baseUrl || '').replace(/\/$/, '');
-
-  if (!raw) return '';
-  if (isAbsoluteHttpUrl(raw)) return raw;
-  if (raw.startsWith('/')) return `${normalizedBase}${raw}`;
-  return `${normalizedBase}/api/media/${raw}`;
-}
 
 async function getPrisma() {
   if (prismaClient) return prismaClient;
@@ -27,36 +15,12 @@ async function getPrisma() {
   return prismaClient;
 }
 
-function isVideoContent(format) {
-  const normalized = String(format || '').trim().toUpperCase();
-  return normalized === 'STORY' || normalized === 'REEL';
-}
-
-async function waitForInstagramContainerReady({ instagramAccountId, containerId, accessToken }) {
-  for (let attempt = 1; attempt <= 20; attempt += 1) {
-    const containerStatus = await $fetch(`https://graph.facebook.com/v21.0/${instagramAccountId}/${containerId}`, {
-      method: 'GET',
-      query: {
-        fields: 'status_code',
-        access_token: accessToken,
-      },
-    });
-
-    if (containerStatus?.status_code === 'FINISHED') {
-      return containerStatus;
-    }
-
-    if (containerStatus?.status_code === 'ERROR') {
-      throw new Error('Instagram video container failed to process');
-    }
-
-    if (attempt < 20) {
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-    }
-  }
-
-  throw new Error('Instagram video container did not finish processing in time');
-}
+// Les echecs previsibles de la publication portent un code metier: on le traduit
+// en statut HTTP plutot que de tout remonter en 500.
+const ERROR_STATUS_BY_CODE = {
+  MISSING_CREDENTIALS: 400,
+  MISSING_MEDIA: 400,
+};
 
 export default defineEventHandler(async (event) => {
   try {
@@ -102,91 +66,23 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 403, statusMessage: 'Le contenu doit être validé avant publication' }));
     }
 
-    const instagramAccountId = content.influencer?.instagramAccountId;
-    const instagramAccessToken = content.influencer?.instagramAccessToken;
-
-    if (!instagramAccountId || !instagramAccessToken) {
-      return sendError(event, createError({ statusCode: 400, statusMessage: 'Credentials Instagram manquants' }));
-    }
-
-    if (!content.imageUrl) {
-      return sendError(event, createError({ statusCode: 400, statusMessage: 'Image manquante' }));
-    }
-
     const baseUrl = runtimeConfig.baseUrl || process.env.BASE_URL || 'http://localhost:3000';
-    const publicImageUrl = resolvePublicImageUrl(content.imageUrl, baseUrl);
-    const useVideoContainer = isVideoContent(content.format);
-    const createPayload = useVideoContainer
-      ? {
-          media_type: 'REELS',
-          video_url: publicImageUrl,
-          caption: content.caption || '',
-          access_token: instagramAccessToken,
-        }
-      : {
-          image_url: publicImageUrl,
-          caption: content.caption || '',
-          access_token: instagramAccessToken,
-        };
-
-    const createResponse = await $fetch(`https://graph.facebook.com/v21.0/${instagramAccountId}/media`, {
-      method: 'POST',
-      body: new URLSearchParams(createPayload),
-      headers: {
-        'content-type': 'application/x-www-form-urlencoded',
-      },
-    });
-
-    const creationId = createResponse?.creation_id || createResponse?.id;
-    if (!creationId) {
-      return sendError(event, createError({ statusCode: 500, statusMessage: 'Impossible de créer le container Instagram' }));
-    }
-
-    if (useVideoContainer) {
-      await waitForInstagramContainerReady({
-        instagramAccountId,
-        containerId: creationId,
-        accessToken: instagramAccessToken,
-      });
-    }
-
-    const publishResponse = await $fetch(`https://graph.facebook.com/v21.0/${instagramAccountId}/media_publish`, {
-      method: 'POST',
-      body: new URLSearchParams({
-        creation_id: creationId,
-        access_token: instagramAccessToken,
-      }),
-      headers: {
-        'content-type': 'application/x-www-form-urlencoded',
-      },
-    });
-
-    const updatedContent = await prisma.generatedContent.update({
-      where: { id },
-      data: {
-        status: 'PUBLISHED',
-        publishedAt: new Date(),
-      },
-      select: {
-        id: true,
-        status: true,
-        publishedAt: true,
-        imageUrl: true,
-        caption: true,
-        platform: true,
-        format: true,
-      },
-    });
+    const result = await publishContentToInstagram({ prisma, content, baseUrl });
 
     return {
       success: true,
-      creationId,
-      publishResponse,
-      content: updatedContent,
+      creationId: result.creationId,
+      publishResponse: result.publishResponse,
+      content: result.content,
     };
   } catch (err) {
     if (err?.code === 'P2025') {
       return sendError(event, createError({ statusCode: 404, statusMessage: 'Contenu introuvable' }));
+    }
+
+    const mappedStatus = ERROR_STATUS_BY_CODE[String(err?.code || '')];
+    if (mappedStatus) {
+      return sendError(event, createError({ statusCode: mappedStatus, statusMessage: err.message }));
     }
 
     return sendError(

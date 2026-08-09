@@ -32,6 +32,29 @@ export default defineEventHandler(async (event) => {
     }
 
     const prisma = await getPrisma();
+
+    // Depuis que la date planifiee declenche une publication reelle, cette route
+    // ne peut plus rester ouverte: sans ce controle, n importe qui connaissant un
+    // identifiant de contenu pourrait provoquer une publication Instagram.
+    const authModule = await import('../../../utils/auth.js');
+    const user = await authModule.requireAuthUser(event);
+
+    const owned = await prisma.generatedContent.findFirst({
+      where: {
+        id,
+        influencer: {
+          is: {
+            userId: user.id,
+          },
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!owned) {
+      return sendError(event, createError({ statusCode: 404, statusMessage: 'Contenu introuvable' }));
+    }
+
     const updated = await prisma.generatedContent.update({
       where: { id },
       data: {
@@ -49,6 +72,11 @@ export default defineEventHandler(async (event) => {
       content: updated,
     };
   } catch (err) {
+    // Ne pas masquer le 401 de requireAuthUser derriere un 500 generique.
+    if (err?.statusCode) {
+      return sendError(event, err);
+    }
+
     if (err?.code === 'P2025') {
       return sendError(event, createError({ statusCode: 404, statusMessage: 'Contenu introuvable' }));
     }

@@ -48,14 +48,17 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 - [x] Campagnes, dashboard bento, calendrier mensuel, Studio
 - [x] Publication Instagram (Meta Graph API) et X/Twitter
 - [x] Script de nettoyage des medias orphelins (dry-run par defaut)
+- [x] Publication automatique des contenus a leur date planifiee (opt-in via `SCHEDULER_ENABLED`)
 
 ### Prochaines etapes :
 - [ ] Eprouver Seedance et Kling image2video sur de vraies generations
-- [ ] Implementer le scheduler multi-frequence (story/reel/feed)
+- [ ] Revoir le lien marque <-> ambassadrice (aujourd hui une ambassadrice n appartient qu a une seule marque)
 - [ ] Construire le content planner avec fallback deterministe
-- [ ] Integrer la publication TikTok
-- [ ] Integrer la queue de validation Telegram (publish/delete)
 - [ ] Ajouter mode dry-run + notifications d'erreur + logs structures
+
+### Ecarte pour l instant :
+- Publication TikTok automatique: la plateforme favorise les comptes qui postent depuis l application, une publication par API est contre-productive.
+- Validation Telegram: remplacee de fait par le flux in-app PENDING -> Valider -> Publier.
 
 ---
 

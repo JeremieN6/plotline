@@ -10,6 +10,13 @@ import {
   resolveGenerationType,
   resolveSeedanceApiBase,
 } from '../server/utils/seedanceGenerator.js';
+import {
+  describePublishFailure,
+  findDuePublications,
+  isRetryableFailure,
+  resolvePublishTarget,
+  runScheduledPublications,
+} from '../server/utils/scheduledPublisher.js';
 import { selectVideoModel } from '../server/utils/videoModelSelector.js';
 
 test('normalizeAccountType normalizes to uppercase', () => {
@@ -100,6 +107,137 @@ test('seedance: le corps de requete respecte le format attendu', () => {
   assert.equal(imageBody.input.generation_type, 'image-to-video');
   assert.deepEqual(imageBody.input.image_urls, ['https://blob/frame.jpg']);
   assert.equal(imageBody.input.aspect_ratio, '9:16');
+});
+
+// --- Publicateur planifie ---------------------------------------------------
+
+/**
+ * Reproduit le sous-ensemble de Prisma utilise par le publicateur planifie.
+ * `findMany` renvoie volontairement les objets d etat eux-memes, et non des
+ * copies: le publicateur vide `scheduledAt` en base pour prendre la main, donc
+ * ce faux prouve qu il ne relit pas cette valeur depuis l objet en memoire.
+ */
+function matchesWhere(row, where) {
+  for (const [key, condition] of Object.entries(where)) {
+    const value = row[key];
+
+    if (condition === null) {
+      if (value !== null && value !== undefined) return false;
+      continue;
+    }
+
+    if (condition && typeof condition === 'object' && !(condition instanceof Date)) {
+      if ('not' in condition) {
+        if (condition.not === null && (value === null || value === undefined)) return false;
+        if (condition.not !== null && value === condition.not) return false;
+      }
+      if ('lte' in condition && !(value instanceof Date && value <= condition.lte)) return false;
+      continue;
+    }
+
+    if (value !== condition) return false;
+  }
+
+  return true;
+}
+
+function createFakePrisma(rows) {
+  const state = new Map(rows.map((row) => [row.id, { ...row }]));
+
+  return {
+    state,
+    generatedContent: {
+      findMany: async ({ where, take }) => [...state.values()]
+        .filter((row) => matchesWhere(row, where))
+        .slice(0, take),
+      updateMany: async ({ where, data }) => {
+        const targets = [...state.values()].filter((row) => matchesWhere(row, where));
+        targets.forEach((row) => Object.assign(row, data));
+        return { count: targets.length };
+      },
+      update: async ({ where, data }) => {
+        const row = state.get(where.id);
+        if (!row) {
+          const error = new Error('Not found');
+          error.code = 'P2025';
+          throw error;
+        }
+        Object.assign(row, data);
+        return { ...row };
+      },
+    },
+  };
+}
+
+function makeScheduledContent(overrides = {}) {
+  return {
+    id: 'content-1',
+    status: 'VALIDATED',
+    platform: 'INSTAGRAM',
+    format: 'FEED',
+    caption: 'Hello',
+    imageUrl: 'https://blob/image.jpg',
+    publishedAt: null,
+    errorMessage: null,
+    scheduledAt: new Date('2026-08-10T09:00:00Z'),
+    influencer: { instagramAccountId: 'ig-1', instagramAccessToken: 'token' },
+    ...overrides,
+  };
+}
+
+test('planification: seules les publications echues et validees sont prises', async () => {
+  const now = new Date('2026-08-10T10:00:00Z');
+  const prisma = createFakePrisma([
+    makeScheduledContent({ id: 'due' }),
+    makeScheduledContent({ id: 'plus-tard', scheduledAt: new Date('2026-08-10T18:00:00Z') }),
+    makeScheduledContent({ id: 'pas-valide', status: 'PENDING' }),
+    makeScheduledContent({ id: 'deja-publie', publishedAt: new Date('2026-08-10T08:00:00Z') }),
+    makeScheduledContent({ id: 'non-planifie', scheduledAt: null }),
+  ]);
+
+  const due = await findDuePublications(prisma, now);
+  assert.deepEqual(due.map((row) => row.id), ['due']);
+});
+
+test('planification: TikTok est signale au lieu d attendre indefiniment', async () => {
+  const now = new Date('2026-08-10T10:00:00Z');
+  const prisma = createFakePrisma([makeScheduledContent({ platform: 'TIKTOK' })]);
+
+  const summary = await runScheduledPublications({ prisma, baseUrl: 'https://plotline.test', now });
+  const row = prisma.state.get('content-1');
+
+  assert.equal(summary.results[0].outcome, 'unsupported');
+  assert.equal(row.status, 'FAILED');
+  assert.match(row.errorMessage, /TikTok/);
+  // La date planifiee est restauree: le calendrier positionne les contenus dessus.
+  assert.deepEqual(row.scheduledAt, new Date('2026-08-10T09:00:00Z'));
+});
+
+test('planification: un contenu deja traite n est pas repris au passage suivant', async () => {
+  const now = new Date('2026-08-10T10:00:00Z');
+  const prisma = createFakePrisma([makeScheduledContent({ platform: 'TIKTOK' })]);
+
+  await runScheduledPublications({ prisma, baseUrl: 'https://plotline.test', now });
+  const second = await runScheduledPublications({ prisma, baseUrl: 'https://plotline.test', now });
+
+  assert.equal(second.results.length, 0);
+});
+
+test('planification: le ciblage de plateforme est explicite', () => {
+  assert.equal(resolvePublishTarget('INSTAGRAM').supported, true);
+  assert.equal(resolvePublishTarget('BOTH').supported, true);
+  assert.equal(resolvePublishTarget('TIKTOK').supported, false);
+  assert.equal(resolvePublishTarget('').supported, false);
+});
+
+test('planification: une config manquante ne se retente pas, une panne reseau oui', () => {
+  assert.equal(isRetryableFailure({ code: 'MISSING_CREDENTIALS' }), false);
+  assert.equal(isRetryableFailure({ code: 'MISSING_MEDIA' }), false);
+  assert.equal(isRetryableFailure({ code: 'CONTAINER_ERROR' }), false);
+  assert.equal(isRetryableFailure({ message: 'fetch failed' }), true);
+
+  assert.equal(describePublishFailure({ message: 'Boom' }), 'Boom');
+  assert.equal(describePublishFailure({}), 'Publication planifiee impossible');
 });
 
 test('seedance: taskId et url de video sont lus quelle que soit l enveloppe', () => {

@@ -55,6 +55,10 @@
 - [x] Rebrancher Seedance sur la vraie API seevio (tache asynchrone + image de depart par URL)
 - [x] Basculer les trois fournisseurs video en tache de fond (Kling bloquait la requete HTTP)
 - [x] Ajouter un script de nettoyage des medias orphelins (dry-run par defaut)
+- [x] Publier reellement les contenus a leur date planifiee (scheduledAt n etait jamais relu)
+- [x] Extraire la publication Instagram dans server/utils pour la partager route + planificateur
+- [x] Ajouter l'auth manquante sur PATCH /api/content/:id/schedule
+- [ ] Activer SCHEDULER_ENABLED=true sur le VPS uniquement (jamais en local: base partagee)
 - [ ] Passer la migration 20260810140000 (drop de la colonne morte GeneratedContent.generationModel)
 - [ ] Eprouver Seedance sur une vraie generation (format de requete valide par les tests uniquement)
 - [ ] Eprouver Kling image2video sur une vraie generation (jamais execute)
