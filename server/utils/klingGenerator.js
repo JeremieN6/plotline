@@ -284,6 +284,24 @@ async function copyIntoGeneratedDir(localPath, prefix) {
   };
 }
 
+/**
+ * Persiste la video generee pour l affichage. Passe par le Blob quand il est
+ * configure: sinon le fichier reste sur le disque de la machine qui genere et
+ * devient introuvable depuis un autre environnement partageant la meme base.
+ * A ne pas confondre avec copyIntoGeneratedDir, qui doit rester local pour
+ * exposer un fichier source a Kling via BASE_URL.
+ */
+async function persistVideoOutput(localPath, prefix) {
+  if (isBlobStorageEnabled()) {
+    const buffer = await fs.readFile(localPath);
+    const uploaded = await uploadPublicMediaBuffer('generated', 'mp4', buffer, 'video/mp4');
+    return { publicUrl: uploaded.url };
+  }
+
+  const persisted = await copyIntoGeneratedDir(localPath, prefix);
+  return { publicUrl: persisted.publicUrl };
+}
+
 async function exposeLocalFileViaBaseUrl(localPath, prefix) {
   const { baseUrl } = getKlingConfig();
   const cleanedBaseUrl = String(baseUrl || '').replace(/\/$/, '');
@@ -565,7 +583,7 @@ export async function generateVideoFromTextPrompt(prompt) {
   const generatedVideoUrl = await pollKlingVideoTask(KLING_TEXT_ENDPOINT, taskId, 'Kling text2video');
   const localPath = await downloadGeneratedVideo(generatedVideoUrl);
 
-  const persisted = await copyIntoGeneratedDir(localPath, 'kling-text');
+  const persisted = await persistVideoOutput(localPath, 'kling-text');
   await fs.unlink(localPath).catch(() => {});
 
   return {
@@ -579,7 +597,7 @@ export async function generateVideoFromImageAndPrompt({ prompt, imageBase64 }) {
   const generatedVideoUrl = await pollKlingVideoTask(KLING_IMAGE_ENDPOINT, taskId, 'Kling image2video');
   const localPath = await downloadGeneratedVideo(generatedVideoUrl);
 
-  const persisted = await copyIntoGeneratedDir(localPath, 'kling-image');
+  const persisted = await persistVideoOutput(localPath, 'kling-image');
   await fs.unlink(localPath).catch(() => {});
 
   return {

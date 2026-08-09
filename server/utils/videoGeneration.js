@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { GoogleGenAI } from '@google/genai';
 
+import { isBlobStorageEnabled, uploadPublicMediaBuffer } from './blobStorage.js';
 import { finalizeContentWithVersion } from './contentVersions.js';
 import { readImageSourceBuffer } from './faceRefReader.js';
 import { generateImageFromGeminiWithSafetyFallback } from './geminiImageGeneration.js';
@@ -45,7 +46,7 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export function normalizeErrorMessage(error) {
+export function normalizeErrorMessage(error, providerLabel = '') {
   if (!error) return 'Unknown error';
   if (typeof error === 'string') return error;
 
@@ -53,6 +54,15 @@ export function normalizeErrorMessage(error) {
   if (statusMessage) return statusMessage;
 
   const message = String(error?.message || '').trim();
+
+  // "fetch failed" ne dit pas quel service est injoignable: on le precise, avec
+  // la cause reseau sous-jacente quand elle est disponible.
+  if (message.toLowerCase() === 'fetch failed') {
+    const cause = String(error?.cause?.code || error?.cause?.message || '').trim();
+    const target = providerLabel ? ` (${providerLabel})` : '';
+    return `Service de generation video injoignable${target}${cause ? ` — ${cause}` : ''}`;
+  }
+
   if (message) return message;
 
   try {
@@ -111,6 +121,15 @@ async function downloadVeoVideoToGenerated(videoUri, apiKey) {
     }
 
     const buffer = Buffer.from(await response.arrayBuffer());
+
+    // Sans ce passage par le Blob, la video restait sur le disque de la machine
+    // qui genere: avec une base partagee entre local et prod, elle etait
+    // introuvable depuis l autre environnement.
+    if (isBlobStorageEnabled()) {
+      const uploaded = await uploadPublicMediaBuffer('generated', 'mp4', buffer, 'video/mp4');
+      return uploaded.url;
+    }
+
     const filename = `video_veo_${Date.now()}.mp4`;
     const outputPath = path.join(getGeneratedDir(), filename);
     await fs.writeFile(outputPath, buffer);
@@ -226,6 +245,15 @@ export function resolveVideoModelOrThrow({ prompt, withFaceRef, influencer, runt
     if (!seedanceApiKey) {
       throw createError({ statusCode: 500, statusMessage: 'SEEDANCE_API_KEY non configuree' });
     }
+
+    // L URL par defaut (api.seedance.ai) ne resout pas: sans URL explicite, on
+    // echoue tot avec un message clair plutot que sur un "fetch failed" opaque.
+    if (!String(process.env.SEEDANCE_API_URL || '').trim()) {
+      throw createError({
+        statusCode: 501,
+        statusMessage: 'Seedance n est pas configure: renseignez SEEDANCE_API_URL, ou choisissez Veo ou Kling.',
+      });
+    }
   }
 
   return model;
@@ -306,7 +334,7 @@ export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, 
           ).catch(() => {});
         }
       } catch (error) {
-        const errorMessage = normalizeErrorMessage(error);
+        const errorMessage = normalizeErrorMessage(error, model);
         await prisma.generatedContent.updateMany({
           where: { id: contentId },
           data: { status: 'FAILED', errorMessage },
@@ -349,7 +377,7 @@ export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, 
       });
     }
   } catch (error) {
-    const errorMessage = normalizeErrorMessage(error);
+    const errorMessage = normalizeErrorMessage(error, model);
 
     await prisma.generatedContent.updateMany({
       where: { id: contentId },
