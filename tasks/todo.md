@@ -59,6 +59,11 @@
 - [x] Extraire la publication Instagram dans server/utils pour la partager route + planificateur
 - [x] Ajouter l'auth manquante sur PATCH /api/content/:id/schedule
 - [ ] Activer SCHEDULER_ENABLED=true sur le VPS uniquement (jamais en local: base partagee)
+- [x] Passer le lien marque <-> ambassadrice en N-N (table BrandAmbassador)
+- [x] Permettre de modifier le rattachement aux marques apres creation du profil
+- [ ] Passer la migration 20260810160000 (table BrandAmbassador + typage reel des profils)
+- [ ] Rattacher Usagi, Melina et Madison a leurs marques depuis l'ecran d'edition
+- [ ] Supprimer la colonne Influencer.brandId une fois le N-N eprouve
 - [ ] Passer la migration 20260810140000 (drop de la colonne morte GeneratedContent.generationModel)
 - [ ] Eprouver Seedance sur une vraie generation (format de requete valide par les tests uniquement)
 - [ ] Eprouver Kling image2video sur une vraie generation (jamais execute)

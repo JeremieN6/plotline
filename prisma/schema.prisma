@@ -152,7 +152,27 @@ model Profile {
   brandInfluencers     Profile[]          @relation("ProfileBrand")
   generatedContents    GeneratedContent[]
 
+  /// Liens quand ce profil est la marque, puis quand il est l ambassadrice.
+  ambassadorLinks      BrandAmbassador[]  @relation("BrandLinkBrand")
+  brandLinks           BrandAmbassador[]  @relation("BrandLinkAmbassador")
+
   @@map("Influencer")
+}
+
+/// Rattachement marque <-> ambassadrice. Une ambassadrice represente souvent
+/// plusieurs marques: la colonne `Profile.brandId`, limitee a une seule, est
+/// conservee en repli le temps que la migration soit passee partout.
+model BrandAmbassador {
+  id           String   @id @default(cuid())
+  brandId      String
+  ambassadorId String
+  createdAt    DateTime @default(now())
+
+  brand        Profile  @relation("BrandLinkBrand", fields: [brandId], references: [id], onDelete: Cascade)
+  ambassador   Profile  @relation("BrandLinkAmbassador", fields: [ambassadorId], references: [id], onDelete: Cascade)
+
+  @@unique([brandId, ambassadorId])
+  @@index([ambassadorId])
 }
 
 model GeneratedContent {

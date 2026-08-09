@@ -162,6 +162,49 @@
 
         <div v-if="isAmbassadorProfile" class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
           <div>
+            <h2 class="text-base font-bold text-gray-900">Marques représentées</h2>
+            <p class="mt-1 text-sm text-gray-500">
+              Une même {{ wording.ambassador }} peut représenter plusieurs marques. Coche celles pour lesquelles elle peut générer du contenu.
+            </p>
+          </div>
+
+          <div v-if="!brandOptions.length" class="mt-4 rounded-xl border border-dashed border-[#E5D8C9] bg-white px-3 py-3 text-sm text-[#7B5A3F]">
+            Aucune marque n'existe encore sur ce compte.
+          </div>
+
+          <div v-else class="mt-4 grid gap-2 sm:grid-cols-2">
+            <label
+              v-for="brand in brandOptions"
+              :key="brand.id"
+              class="flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2.5 transition-colors"
+              :class="selectedBrandIds.includes(brand.id) ? 'border-[#E8873A] bg-orange-50' : 'border-[#E5E3DF] bg-white hover:bg-gray-50'"
+            >
+              <input
+                type="checkbox"
+                :value="brand.id"
+                :checked="selectedBrandIds.includes(brand.id)"
+                class="h-4 w-4 accent-[#E8873A]"
+                @change="toggleBrand(brand.id)"
+              >
+              <span class="text-sm font-semibold text-gray-900">{{ brand.name }}</span>
+            </label>
+          </div>
+
+          <div v-if="brandOptions.length" class="mt-3 flex items-center gap-3">
+            <button
+              type="button"
+              class="rounded-[10px] bg-[#E8873A] px-3.5 py-2 text-sm font-bold text-white transition-colors hover:bg-[#D97A2F] disabled:opacity-60"
+              :disabled="savingBrands"
+              @click="saveBrandLinks"
+            >
+              {{ savingBrands ? 'Enregistrement...' : 'Enregistrer les marques' }}
+            </button>
+            <p v-if="brandLinksMessage" class="text-xs text-[#7B5A3F]">{{ brandLinksMessage }}</p>
+          </div>
+        </div>
+
+        <div v-if="isAmbassadorProfile" class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
+          <div>
             <h2 class="text-base font-bold text-gray-900">Silhouette</h2>
             <p class="mt-1 text-sm text-gray-500">Définis le gabarit de base qui sera utilisé par ton persona. Tu peux également le laisser par défaut.</p>
           </div>
@@ -359,6 +402,62 @@ const { data, pending, error, refresh } = await useFetch(() => `/api/influencers
 })
 
 const influencer = computed(() => data.value ?? null)
+
+// Rattachement aux marques: une ambassadrice peut en representer plusieurs, et
+// jusqu ici rien ne permettait de modifier ce lien une fois le profil cree.
+const { data: allProfiles, refresh: refreshProfiles } = await useFetch('/api/influencers', {
+  key: 'influencer-edit-profiles',
+})
+const savingBrands = ref(false)
+const brandLinksMessage = ref('')
+const selectedBrandIds = ref([])
+
+const brandOptions = computed(() => {
+  const list = Array.isArray(allProfiles.value) ? allProfiles.value : []
+  return list.filter((item) => item?.id !== id.value && item?.profileType === 'BRAND')
+})
+
+watch(
+  [allProfiles, id],
+  () => {
+    const list = Array.isArray(allProfiles.value) ? allProfiles.value : []
+    const current = list.find((item) => item?.id === id.value)
+    const linked = Array.isArray(current?.brandIds) && current.brandIds.length
+      ? current.brandIds
+      : (current?.brandId ? [current.brandId] : [])
+    selectedBrandIds.value = [...linked]
+  },
+  { immediate: true },
+)
+
+function toggleBrand(brandId) {
+  const current = selectedBrandIds.value
+  selectedBrandIds.value = current.includes(brandId)
+    ? current.filter((value) => value !== brandId)
+    : [...current, brandId]
+  brandLinksMessage.value = ''
+}
+
+async function saveBrandLinks() {
+  savingBrands.value = true
+  brandLinksMessage.value = ''
+
+  try {
+    await $fetch(`/api/influencers/${id.value}/brands`, {
+      method: 'PUT',
+      body: { brandIds: selectedBrandIds.value },
+    })
+    await refreshProfiles()
+    brandLinksMessage.value = selectedBrandIds.value.length
+      ? 'Marques enregistrées.'
+      : 'Plus aucune marque rattachée.'
+  } catch (err) {
+    brandLinksMessage.value = err?.statusMessage || 'Enregistrement impossible.'
+  } finally {
+    savingBrands.value = false
+  }
+}
+
 const nicheItems = computed(() => splitNiches(form.niche))
 const styleItems = computed(() => splitNiches(form.style))
 const isAmbassadorProfile = computed(() => {

@@ -2,14 +2,22 @@
  * Ambassadrices selectionnables pour une generation, partagees par le Studio et
  * le Studio marque, qui embarquaient jusqu ici la meme logique en double.
  *
- * Le rattachement a une marque (`brandId`) existe en base mais n etait consulte
- * nulle part: toutes les ambassadrices du compte apparaissaient dans la meme
- * liste, sans qu on puisse voir laquelle represente le profil courant.
+ * Une ambassadrice peut representer plusieurs marques: le rattachement se lit
+ * dans `brandIds`, avec repli sur l ancien `brandId` tant que la migration des
+ * liens n est pas passee.
  *
  * On ne retire personne de la liste. Filtrer strictement la viderait pour les
- * profils existants, dont aucun n a de rattachement: on rend l appartenance
- * visible, et le regroupement s active de lui-meme des qu un lien existe.
+ * profils sans rattachement: on rend l appartenance visible, et le regroupement
+ * s active de lui-meme des qu un lien existe.
  */
+function brandIdsOf(profile) {
+  if (Array.isArray(profile?.brandIds) && profile.brandIds.length) {
+    return profile.brandIds
+  }
+
+  return profile?.brandId ? [profile.brandId] : []
+}
+
 export function useAmbassadorSelection(profiles, activeProfileId) {
   const ambassadors = computed(() => {
     const list = unref(profiles)
@@ -23,7 +31,7 @@ export function useAmbassadorSelection(profiles, activeProfileId) {
     const activeId = String(unref(activeProfileId) || '')
     const list = ambassadors.value
     const attached = activeId
-      ? list.filter((item) => item?.brandId && item.brandId === activeId)
+      ? list.filter((item) => brandIdsOf(item).includes(activeId))
       : []
 
     // Aucun rattachement: une seule liste, sans intitule de groupe, pour ne pas

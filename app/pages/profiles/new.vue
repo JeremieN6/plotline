@@ -59,14 +59,37 @@
           <input v-model="form.style" class="input" :placeholder="stylePlaceholder" />
 
           <div v-if="form.profileType === 'persona' && brandProfiles.length" class="field-group">
-            <label class="field-label">Marque liée (optionnel)</label>
-            <select v-model="form.brandId" class="input">
-              <option value="">Aucune marque liée</option>
-              <option v-for="brand in brandProfiles" :key="brand.id" :value="brand.id">
-                {{ brand.name }}
-              </option>
-            </select>
-            <p class="mt-2 text-xs text-gray-500">Associe cette influenceuse à une marque existante si nécessaire.</p>
+            <label class="field-label">Marques représentées (optionnel)</label>
+            <div ref="brandSelectRef" class="brand-select">
+              <button
+                type="button"
+                class="brand-trigger"
+                :class="{ open: brandMenuOpen }"
+                @click="brandMenuOpen = !brandMenuOpen"
+              >
+                <span class="brand-trigger-text" :class="{ placeholder: !form.brandIds.length }">
+                  {{ brandSelectionLabel }}
+                </span>
+                <span class="brand-caret" :class="{ open: brandMenuOpen }">▾</span>
+              </button>
+
+              <div v-if="brandMenuOpen" class="brand-menu">
+                <button
+                  v-for="brand in brandProfiles"
+                  :key="brand.id"
+                  type="button"
+                  class="brand-option"
+                  :class="{ selected: form.brandIds.includes(brand.id) }"
+                  @click="toggleBrand(brand.id)"
+                >
+                  <span class="brand-check" :class="{ checked: form.brandIds.includes(brand.id) }">
+                    <span v-if="form.brandIds.includes(brand.id)">✓</span>
+                  </span>
+                  <span class="brand-option-name">{{ brand.name }}</span>
+                </button>
+              </div>
+            </div>
+            <p class="brand-hint">Une même influenceuse peut représenter plusieurs marques.</p>
           </div>
 
           <!-- Silhouette : persona uniquement -->
@@ -336,8 +359,28 @@ const form = reactive({
   description: '',
   website: '',
   targetAudience: '',
-  brandId: '',
+  brandIds: [],
 })
+
+const brandMenuOpen = ref(false)
+const brandSelectRef = ref(null)
+
+function toggleBrand(brandId) {
+  form.brandIds = form.brandIds.includes(brandId)
+    ? form.brandIds.filter((value) => value !== brandId)
+    : [...form.brandIds, brandId]
+}
+
+// Le menu se referme au clic exterieur. Pas de dependance ajoutee pour si peu:
+// un ecouteur sur le document suffit, retire au demontage.
+function closeBrandMenuOnOutsideClick(event) {
+  if (!brandMenuOpen.value) return
+  if (brandSelectRef.value?.contains(event.target)) return
+  brandMenuOpen.value = false
+}
+
+onMounted(() => document.addEventListener('click', closeBrandMenuOnOutsideClick))
+onBeforeUnmount(() => document.removeEventListener('click', closeBrandMenuOnOutsideClick))
 
 const personalization = reactive({
   eyeColor: '',
@@ -459,10 +502,17 @@ const profileTypeLabel = computed(() => {
   return found?.label || form.profileType
 })
 
-const linkedBrandName = computed(() => {
-  if (!form.brandId) return ''
-  const found = brandProfiles.value.find((item) => item.id === form.brandId)
-  return found?.name || ''
+const selectedBrandNames = computed(() => form.brandIds
+  .map((brandId) => brandProfiles.value.find((item) => item.id === brandId)?.name)
+  .filter(Boolean))
+
+const linkedBrandName = computed(() => selectedBrandNames.value.join(', '))
+
+const brandSelectionLabel = computed(() => {
+  const names = selectedBrandNames.value
+  if (!names.length) return 'Aucune marque liée'
+  if (names.length <= 2) return names.join(', ')
+  return `${names.length} marques sélectionnées`
 })
 
 const createLabel = computed(() => {
@@ -491,7 +541,7 @@ watch(
   () => form.profileType,
   (value) => {
     if (value !== 'persona') {
-      form.brandId = ''
+      form.brandIds = []
     }
   },
   { immediate: true },
@@ -706,12 +756,21 @@ async function submit() {
         style: form.style.trim(),
         profileType: form.profileType,
         silhouette: form.profileType === 'persona' ? form.silhouette : undefined,
-        brandId: form.profileType === 'persona' && form.brandId ? form.brandId : undefined,
+        brandId: form.profileType === 'persona' && form.brandIds.length ? form.brandIds[0] : undefined,
         description: form.profileType !== 'persona' ? form.description.trim() : undefined,
         website: form.profileType !== 'persona' ? form.website.trim() : undefined,
         targetAudience: form.profileType !== 'persona' ? form.targetAudience.trim() : undefined,
       },
     })
+
+    // Le POST ne porte qu une seule marque: les rattachements multiples passent
+    // par la table de liaison, une fois le profil cree.
+    if (form.profileType === 'persona' && form.brandIds.length) {
+      await $fetch(`/api/influencers/${created.id}/brands`, {
+        method: 'PUT',
+        body: { brandIds: form.brandIds },
+      }).catch(() => {})
+    }
 
     if (generatedTempImagePath.value) {
       await $fetch('/api/upload/face-ref', {
@@ -932,6 +991,136 @@ onBeforeUnmount(() => {
   color: var(--text);
   box-sizing: border-box;
   font-size: 14px;
+}
+
+/* Selection multiple des marques: reprend les tokens de la popup (fond sombre,
+   liseres ambres, accent orange) pour ne pas trancher avec le reste du wizard. */
+.brand-select {
+  position: relative;
+}
+
+.brand-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(244, 205, 169, 0.16);
+  border-radius: 8px;
+  background: rgba(10, 7, 5, 0.9);
+  color: var(--text);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.brand-trigger:hover {
+  border-color: rgba(232, 135, 58, 0.45);
+}
+
+.brand-trigger.open {
+  border-color: #ff9a57;
+  box-shadow: 0 0 0 1px rgba(255, 154, 87, 0.32);
+}
+
+.brand-trigger-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brand-trigger-text.placeholder {
+  color: rgba(243, 205, 176, 0.55);
+}
+
+.brand-caret {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 12px;
+  transition: transform 0.2s ease;
+}
+
+.brand-caret.open {
+  transform: rotate(180deg);
+}
+
+.brand-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid rgba(244, 205, 169, 0.2);
+  border-radius: 10px;
+  background: rgba(16, 11, 7, 0.98);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.55);
+}
+
+.brand-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.brand-option:hover {
+  background: rgba(232, 135, 58, 0.12);
+}
+
+.brand-option.selected {
+  border-color: rgba(255, 154, 87, 0.45);
+  background: rgba(232, 135, 58, 0.14);
+}
+
+.brand-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  border: 1px solid rgba(244, 205, 169, 0.32);
+  border-radius: 5px;
+  background: rgba(10, 7, 5, 0.9);
+  color: #1a1008;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.brand-check.checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.brand-option-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brand-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  opacity: 0.75;
 }
 
 .dropzone {

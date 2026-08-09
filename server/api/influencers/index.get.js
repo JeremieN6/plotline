@@ -150,6 +150,15 @@ module.exports = defineEventHandler(async (event) => {
       throw lastError;
     }
 
+    // Marques rattachees: une ambassadrice peut en representer plusieurs, donc
+    // `brandId` seul ne suffit plus a decrire le rattachement.
+    const linksModule = await import('../../utils/brandAmbassadorLinks.js');
+    const brandIdsByAmbassador = await linksModule.readBrandIdsByAmbassador(prisma, influencers);
+    influencers = influencers.map((influencer) => ({
+      ...influencer,
+      brandIds: brandIdsByAmbassador.get(influencer.id) || [],
+    }));
+
     await store.setItem(storeKey, influencers);
     return influencers;
   } catch (err) {

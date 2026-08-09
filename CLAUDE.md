@@ -89,6 +89,8 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 | 2026-08-09 | Une slide de carrousel reste un contenu autonome, regroupe par carouselId | Permettre de modifier une seule slide sans regenerer les autres |
 | 2026-08-10 | Aucun appel de generation media n est attendu dans une requete HTTP | Les fournisseurs prennent plusieurs minutes: la requete serait coupee par le proxy avant la fin |
 | 2026-08-10 | Le workflow Pinterest est reserve aux comptes influenceur | Il n a pas de sens editorial pour une marque ou un createur de contenu |
+| 2026-08-10 | Une ambassadrice peut representer plusieurs marques (table BrandAmbassador) | C est la realite du metier, et une ambassadrice est un actif coûteux qu on ne veut pas recreer par marque |
+| 2026-08-10 | Le type de profil est ecrit en base au lieu d etre devine depuis la face ref | L inference cassait silencieusement des qu une marque aurait eu une face ref |
 
 ---
 
