@@ -239,9 +239,18 @@
                   class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] shadow-[0_1px_2px_rgba(0,0,0,0.04)] outline-none focus:border-[#E8873A] focus:shadow-[0_0_0_3px_rgba(232,135,58,0.10)]"
                 >
                   <option value="">Choisir une ambassadrice...</option>
-                  <option v-for="ambassador in ambassadorProfiles" :key="ambassador.id" :value="ambassador.id">
-                    {{ ambassador.name }}
-                  </option>
+                  <template v-for="group in ambassadorGroups" :key="group.key">
+                    <optgroup v-if="group.label" :label="group.label">
+                      <option v-for="ambassador in group.items" :key="ambassador.id" :value="ambassador.id">
+                        {{ ambassador.name }}
+                      </option>
+                    </optgroup>
+                    <template v-else>
+                      <option v-for="ambassador in group.items" :key="ambassador.id" :value="ambassador.id">
+                        {{ ambassador.name }}
+                      </option>
+                    </template>
+                  </template>
                 </select>
               </div>
 
@@ -441,11 +450,11 @@ const selectedProfile = computed(() => {
 
 const primaryInfluencerId = computed(() => selectedProfile.value?.id || '')
 const isContentCreator = computed(() => String(user.value?.accountType || '').toUpperCase() === 'CONTENT_CREATOR')
-const ambassadorProfiles = computed(() => {
-  const list = Array.isArray(influencersData.value) ? influencersData.value : []
-  return list.filter((item) => Boolean(String(item?.faceRefPath || '').trim()))
-})
-const hasAmbassadorProfiles = computed(() => ambassadorProfiles.value.length > 0)
+const {
+  ambassadors: ambassadorProfiles,
+  hasAmbassadors: hasAmbassadorProfiles,
+  groups: ambassadorGroups,
+} = useAmbassadorSelection(influencersData, activeInfluencerId)
 const activeAmbassadorId = computed(() => {
   const activeId = String(activeInfluencerId.value || '')
   if (!activeId) return ''
