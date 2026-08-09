@@ -11,37 +11,8 @@ import { validatePersonAndUpperBody } from './imageValidation.js';
 import { generateVideoFromImageAndPrompt, generateVideoFromTextPrompt } from './klingGenerator.js';
 import { getGeneratedDir, toMediaUrl } from './mediaStorage.js';
 import { resolveAspectRatio } from './aspectRatio.js';
+import { generateSeedanceVideo } from './seedanceGenerator.js';
 import { selectVideoModel } from './videoModelSelector.js';
-
-export async function requestSeedanceVideo({ prompt, influencerId, withFaceRef, faceRefImage, apiKey, aspectRatio }) {
-  const endpoint = process.env.SEEDANCE_API_URL || 'https://api.seedance.ai/v1/videos';
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      prompt,
-      influencerId,
-      withFaceRef,
-      faceRefImage: withFaceRef && faceRefImage ? { data: faceRefImage.base64, mimeType: faceRefImage.mimeType } : null,
-      aspect_ratio: aspectRatio,
-    }),
-  });
-
-  const payload = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(`Seedance request failed: ${JSON.stringify(payload)}`);
-  }
-
-  return {
-    jobId: String(payload?.jobId || payload?.id || payload?.data?.id || ''),
-    videoUrl: String(payload?.videoUrl || payload?.data?.videoUrl || ''),
-    status: String(payload?.status || payload?.data?.status || 'processing'),
-  };
-}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -246,15 +217,6 @@ export function resolveVideoModelOrThrow({ prompt, withFaceRef, influencer, runt
     if (!seedanceApiKey) {
       throw createError({ statusCode: 500, statusMessage: 'SEEDANCE_API_KEY non configuree' });
     }
-
-    // L URL par defaut (api.seedance.ai) ne resout pas: sans URL explicite, on
-    // echoue tot avec un message clair plutot que sur un "fetch failed" opaque.
-    if (!String(process.env.SEEDANCE_API_URL || '').trim()) {
-      throw createError({
-        statusCode: 501,
-        statusMessage: 'Seedance n est pas configure: renseignez SEEDANCE_API_URL, ou choisissez Veo ou Kling.',
-      });
-    }
   }
 
   return model;
@@ -318,20 +280,27 @@ async function prepareVideoStartFrame({ influencer, prompt }) {
   return await generateCleanStartFrame({ prompt, faceRefImage });
 }
 
-export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, prompt, model, influencerId, withFaceRef, influencer }) {
+// Veo et Seedance sont des generations longues (une a plusieurs minutes) que leur
+// API traite en tache de fond. On ne bloque donc pas la requete HTTP: on repond
+// "processing" et le frontend suit l avancement via /api/content/:id/status.
+const BACKGROUND_VIDEO_MODELS = new Set(['veo', 'seedance']);
+
+export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, prompt, model, withFaceRef, influencer }) {
   // Le cadrage demande dans le prompt fait foi. Le repli ne s applique que si
   // le prompt ne se prononce pas: aucun format n est impose a la place de l auteur.
   const aspectRatio = resolveAspectRatio(prompt);
 
-  // Veo est une opération longue (~60s). On la lance en arrière-plan et on répond
-  // immédiatement avec status "processing". Le frontend poll /api/content/:id/status.
-  if (model === 'veo') {
-    const geminiApiKey = resolveGeminiApiKey(runtimeConfig);
+  if (BACKGROUND_VIDEO_MODELS.has(model)) {
+    const geminiApiKey = model === 'veo' ? resolveGeminiApiKey(runtimeConfig) : '';
 
     (async () => {
       try {
-        const faceRefImage = withFaceRef ? await prepareVideoStartFrame({ influencer, prompt }) : null;
-        const providerResult = await requestVeoVideo({ prompt, apiKey: geminiApiKey, faceRefImage, aspectRatio });
+        const startFrame = withFaceRef ? await prepareVideoStartFrame({ influencer, prompt }) : null;
+
+        const providerResult = model === 'veo'
+          ? await requestVeoVideo({ prompt, apiKey: geminiApiKey, faceRefImage: startFrame, aspectRatio })
+          : await generateSeedanceVideo({ prompt, aspectRatio, startFrame, runtimeConfig });
+
         const resolvedVideoUrl = String(providerResult?.videoUrl || '').trim();
 
         if (resolvedVideoUrl) {
@@ -359,33 +328,19 @@ export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, 
     };
   }
 
-  // Providers synchrones (kling, seedance)
   let providerResult;
 
   try {
     const faceRefImage = withFaceRef ? await prepareVideoStartFrame({ influencer, prompt }) : null;
 
-    if (model === 'kling') {
-      providerResult = faceRefImage
-        ? await generateVideoFromImageAndPrompt({ prompt, imageBase64: faceRefImage.base64, aspectRatio })
-        : await generateVideoFromTextPrompt(prompt, aspectRatio);
-      providerResult = {
-        jobId: providerResult?.taskId || '',
-        videoUrl: providerResult?.videoUrl || '',
-        status: providerResult?.videoUrl ? 'completed' : 'processing',
-      };
-    } else {
-      const seedanceApiKey = String(runtimeConfig.seedanceApiKey || process.env.SEEDANCE_API_KEY || '').trim();
-
-      providerResult = await requestSeedanceVideo({
-        prompt,
-        influencerId,
-        withFaceRef,
-        faceRefImage,
-        apiKey: seedanceApiKey,
-        aspectRatio,
-      });
-    }
+    providerResult = faceRefImage
+      ? await generateVideoFromImageAndPrompt({ prompt, imageBase64: faceRefImage.base64, aspectRatio })
+      : await generateVideoFromTextPrompt(prompt, aspectRatio);
+    providerResult = {
+      jobId: providerResult?.taskId || '',
+      videoUrl: providerResult?.videoUrl || '',
+      status: providerResult?.videoUrl ? 'completed' : 'processing',
+    };
   } catch (error) {
     const errorMessage = normalizeErrorMessage(error, model);
 
