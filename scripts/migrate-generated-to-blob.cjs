@@ -28,6 +28,11 @@ function mimeFromExtension(ext) {
   if (normalized === '.png') return 'image/png';
   if (normalized === '.webp') return 'image/webp';
   if (normalized === '.gif') return 'image/gif';
+  // Sans ces types video, un mp4 etait servi en image/jpeg par le Blob et le
+  // lecteur du navigateur refusait de le lire.
+  if (normalized === '.mp4') return 'video/mp4';
+  if (normalized === '.webm') return 'video/webm';
+  if (normalized === '.mov') return 'video/quicktime';
   return 'image/jpeg';
 }
 
@@ -106,9 +111,11 @@ async function main() {
 
   const { put } = await import('@vercel/blob');
   const { PrismaClient } = require('@prisma/client');
-  const { PrismaPg } = require('@prisma/adapter-pg');
+  // Meme adaptateur que l application (WebSockets sur 443): l adaptateur pg
+  // passe par le port 5432, bloque sur certains reseaux.
+  const { PrismaNeon } = await import('@prisma/adapter-neon');
 
-  const adapter = new PrismaPg({ connectionString: databaseUrl });
+  const adapter = new PrismaNeon({ connectionString: databaseUrl });
   const prisma = new PrismaClient({ adapter });
 
   const stats = {
@@ -174,6 +181,17 @@ async function main() {
           where: { id: item.id },
           data: { imageUrl: uploaded.url },
         });
+
+        // L historique des versions pointe sur les memes fichiers locaux: sans
+        // cette mise a jour, le retour arriere restaurerait une URL morte.
+        try {
+          await prisma.contentVersion.updateMany({
+            where: { contentId: item.id, imageUrl: rawImageUrl },
+            data: { imageUrl: uploaded.url },
+          });
+        } catch (versionError) {
+          console.warn(`[versions] ${item.id}: ${versionError?.message || versionError}`);
+        }
 
         stats.migrated += 1;
         console.log(`[migrated] ${item.id} -> ${uploaded.url}`);
