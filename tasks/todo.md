@@ -44,6 +44,20 @@
 - [x] Verifier les routes, types et contrats API touches
 - [x] Ajouter la campagne sur les contenus generes, le filtrage dashboard/contenu et la suppression safe de campagne
 - [x] Replier le bloc ambassadrice du Studio dans un panneau repliable ouvert par defaut
+- [x] Faire sortir les generations en PENDING (en attente -> valider -> publier)
+- [x] Ajouter "Modifier" pour regenerer un contenu depuis un prompt edite (BRAND + CONTENT_CREATOR)
+- [x] Renommer les routes /influencers -> /profiles et le modele Prisma Influencer -> Profile
+- [x] Ajouter l'historique des versions avec retour arriere sans perte de media (5 images / 2 videos)
+- [x] Corriger la regeneration destructive qui ecrasait le rendu precedent
+- [x] Nettoyer les medias d'un contenu supprime
+- [x] Regrouper les slides d'un carrousel (carouselId + position) avec navigation dans la visionneuse
+- [x] Faire decider le format par le prompt au lieu d'un 9:16 en dur
+- [x] Rebrancher Seedance sur la vraie API seevio (tache asynchrone + image de depart par URL)
+- [x] Basculer les trois fournisseurs video en tache de fond (Kling bloquait la requete HTTP)
+- [x] Ajouter un script de nettoyage des medias orphelins (dry-run par defaut)
+- [ ] Passer la migration 20260810140000 (drop de la colonne morte GeneratedContent.generationModel)
+- [ ] Eprouver Seedance sur une vraie generation (format de requete valide par les tests uniquement)
+- [ ] Eprouver Kling image2video sur une vraie generation (jamais execute)
 
 ## Fait
 - [x] Initialisation MCP memoire + structure projet

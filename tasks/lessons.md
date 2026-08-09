@@ -19,6 +19,36 @@
 
 <!-- Les entrees seront ajoutees ici au fil du temps -->
 
+### 2026-08-10 Generation video attendue dans la requete HTTP
+**Probleme** : Kling sondait son API jusqu'a 90 fois toutes les 10s (soit 15 minutes) a l'interieur de la requete HTTP. En local ca passe; derriere un proxy la requete est coupee bien avant, l'utilisateur voit une erreur et le contenu reste bloque en `PROCESSING` alors que la video aboutit correctement cote fournisseur.
+**Cause racine** : Veo avait ete passe en tache de fond parce qu'il etait "lent" (~60s), mais Kling, encore plus lent, etait reste sur le chemin synchrone. Le critere retenu etait la lenteur constatee au lieu de la nature de l'operation.
+**Solution** : Faire passer les trois fournisseurs (Veo, Kling, Seedance) par le meme chemin: reponse immediate `processing`, generation en tache de fond, suivi par le frontend via `/api/content/:id/status`. Ajout d'un echec explicite quand le fournisseur repond sans URL, sinon le contenu restait en `PROCESSING` indefiniment.
+**Regle** : Un appel a une API de generation media ne s'attend JAMAIS dans une requete HTTP, quelle que soit sa duree observee en local. Le declencheur repond tout de suite, le resultat arrive par polling ou webhook.
+
+### 2026-08-09 Champ ajoute au schema Prisma avant la migration
+**Probleme** : Tous les profils ont perdu l'affichage de leurs contenus en production.
+**Cause racine** : Un champ scalaire (`generationModel`) a ete ajoute a `schema.prisma` puis `prisma generate` lance, alors que la colonne n'existait pas encore en base. Le client genere selectionne toutes les colonnes du modele: chaque `findFirst`/`update` sans `select` explicite echouait donc en P2022, pas seulement les requetes touchant le nouveau champ.
+**Solution** : Retirer le champ du schema, puis reconstruire la fonctionnalite via une relation (`ContentVersion`) — un champ de relation n'ajoute aucune colonne SQL et reste donc sans effet tant que la table n'existe pas.
+**Regle** : Ne jamais ajouter un champ SCALAIRE au schema Prisma avant que la migration soit appliquee sur toutes les bases cibles. Verifier la presence des colonnes en base (lecture seule) AVANT de toucher au schema. Un champ de relation est sans risque, un champ scalaire casse tout le modele.
+
+### 2026-08-08 Collision d'auto-import Nitro sur un symbole exporte
+**Probleme** : Le serveur de dev tombait sur `The symbol ImageSafetyError has already been declared`, alors que le fichier ne declarait la classe qu'une seule fois.
+**Cause racine** : Nitro auto-importe tout ce qui est exporte depuis `server/utils/`, y compris DANS le fichier qui declare le symbole: l'import injecte entre en collision avec la declaration locale.
+**Solution** : Ne pas exporter les classes utilisees uniquement a l'interieur de leur propre module.
+**Regle** : Dans `server/utils/`, n'exporter que ce qui est reellement consomme ailleurs. Un test isole en esbuild ne prouve rien ici: il court-circuite justement l'auto-import qui provoque la panne, donc la verification doit se faire sur le vrai serveur de dev.
+
+### 2026-08-07 Video ecrite sur le disque local malgre le Blob configure
+**Probleme** : Les videos generees etaient invisibles en production alors que le token Blob etait bien present.
+**Cause racine** : Les chemins de sortie Veo et Kling ecrivaient directement dans `storage/uploads/generated/` sans consulter `isBlobStorageEnabled()`. La lecon de 2026-06-06 avait ete appliquee aux images mais pas aux videos ajoutees ensuite.
+**Solution** : Faire passer toutes les sorties video par le Blob quand il est actif, avec repli local sinon. Attention a ne pas confondre avec `copyIntoGeneratedDir`, qui doit rester local car il sert a exposer un fichier source A Kling via `BASE_URL`.
+**Regle** : Chaque nouveau type de media doit passer par le meme point de persistance partage. Quand une regle de stockage existe, verifier qu'elle couvre les formats ajoutes apres coup.
+
+### 2026-08-09 Validation "exactement une personne" trop stricte
+**Probleme** : Des generations echouaient sur des scenes parfaitement legitimes (une estheticienne et sa cliente, par exemple).
+**Cause racine** : La validation exigeait `personCount === 1`. La regle avait deja ete corrigee sur le flux image, puis reintroduite telle quelle en recopiant le code dans le flux video.
+**Solution** : Verifier `personCount >= 1 && upperBodyVisible`: on controle qu'un sujet est bien rendu, pas qu'il soit seul.
+**Regle** : Une validation de contenu genere doit verifier ce qui est necessaire, pas ce qui est typique. Quand du code de validation est recopie d'un flux vers un autre, verifier qu'on ne reimporte pas une contrainte deja corrigee ailleurs.
+
 ### 2026-07-30 Campagnes et contenus relies
 **Probleme** : La suppression d'une campagne pouvait casser la lecture des contenus lies, et la vue contenu/dashboard ne montrait pas clairement la provenance campagne.
 **Cause racine** : La campagne n'etait pas persistee comme relation explicite sur les contenus generes, et les routes de lecture n'exposaient pas les donnees campagne.

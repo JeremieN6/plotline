@@ -280,95 +280,72 @@ async function prepareVideoStartFrame({ influencer, prompt }) {
   return await generateCleanStartFrame({ prompt, faceRefImage });
 }
 
-// Veo et Seedance sont des generations longues (une a plusieurs minutes) que leur
-// API traite en tache de fond. On ne bloque donc pas la requete HTTP: on repond
-// "processing" et le frontend suit l avancement via /api/content/:id/status.
-const BACKGROUND_VIDEO_MODELS = new Set(['veo', 'seedance']);
+/** Appelle le fournisseur choisi et normalise sa reponse. */
+async function requestProviderVideo({ model, prompt, aspectRatio, startFrame, runtimeConfig }) {
+  if (model === 'veo') {
+    return await requestVeoVideo({
+      prompt,
+      apiKey: resolveGeminiApiKey(runtimeConfig),
+      faceRefImage: startFrame,
+      aspectRatio,
+    });
+  }
+
+  if (model === 'seedance') {
+    return await generateSeedanceVideo({ prompt, aspectRatio, startFrame, runtimeConfig });
+  }
+
+  const klingResult = startFrame
+    ? await generateVideoFromImageAndPrompt({ prompt, imageBase64: startFrame.base64, aspectRatio })
+    : await generateVideoFromTextPrompt(prompt, aspectRatio);
+
+  return {
+    jobId: klingResult?.taskId || '',
+    videoUrl: klingResult?.videoUrl || '',
+  };
+}
 
 export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, prompt, model, withFaceRef, influencer }) {
   // Le cadrage demande dans le prompt fait foi. Le repli ne s applique que si
   // le prompt ne se prononce pas: aucun format n est impose a la place de l auteur.
   const aspectRatio = resolveAspectRatio(prompt);
 
-  if (BACKGROUND_VIDEO_MODELS.has(model)) {
-    const geminiApiKey = model === 'veo' ? resolveGeminiApiKey(runtimeConfig) : '';
+  // Aucun fournisseur video n est attendu dans la requete HTTP: tous demandent
+  // d une a plusieurs minutes, et Kling sonde jusqu a quinze minutes. Derriere un
+  // proxy la requete serait coupee bien avant la fin, laissant le contenu bloque
+  // en PROCESSING alors que la video aboutit cote fournisseur. On repond donc
+  // "processing" tout de suite, et le frontend suit via /api/content/:id/status.
+  (async () => {
+    try {
+      const startFrame = withFaceRef ? await prepareVideoStartFrame({ influencer, prompt }) : null;
+      const providerResult = await requestProviderVideo({ model, prompt, aspectRatio, startFrame, runtimeConfig });
+      const resolvedVideoUrl = String(providerResult?.videoUrl || '').trim();
 
-    (async () => {
-      try {
-        const startFrame = withFaceRef ? await prepareVideoStartFrame({ influencer, prompt }) : null;
-
-        const providerResult = model === 'veo'
-          ? await requestVeoVideo({ prompt, apiKey: geminiApiKey, faceRefImage: startFrame, aspectRatio })
-          : await generateSeedanceVideo({ prompt, aspectRatio, startFrame, runtimeConfig });
-
-        const resolvedVideoUrl = String(providerResult?.videoUrl || '').trim();
-
-        if (resolvedVideoUrl) {
-          await finalizeContentWithVersion(
-            prisma,
-            contentId,
-            { imageUrl: resolvedVideoUrl, status: 'PENDING' },
-            { generationModel: providerResult?.model || model },
-          ).catch(() => {});
-        }
-      } catch (error) {
-        const errorMessage = normalizeErrorMessage(error, model);
-        await prisma.generatedContent.updateMany({
-          where: { id: contentId },
-          data: { status: 'FAILED', errorMessage },
-        }).catch(() => {});
+      // Sans URL exploitable, le contenu resterait en PROCESSING indefiniment:
+      // on le marque en echec pour que l utilisateur puisse relancer.
+      if (!resolvedVideoUrl) {
+        throw new Error('Le fournisseur a repondu sans URL de video exploitable');
       }
-    })();
 
-    return {
-      model,
-      jobId: null,
-      contentId,
-      status: 'processing',
-    };
-  }
-
-  let providerResult;
-
-  try {
-    const faceRefImage = withFaceRef ? await prepareVideoStartFrame({ influencer, prompt }) : null;
-
-    providerResult = faceRefImage
-      ? await generateVideoFromImageAndPrompt({ prompt, imageBase64: faceRefImage.base64, aspectRatio })
-      : await generateVideoFromTextPrompt(prompt, aspectRatio);
-    providerResult = {
-      jobId: providerResult?.taskId || '',
-      videoUrl: providerResult?.videoUrl || '',
-      status: providerResult?.videoUrl ? 'completed' : 'processing',
-    };
-  } catch (error) {
-    const errorMessage = normalizeErrorMessage(error, model);
-
-    await prisma.generatedContent.updateMany({
-      where: { id: contentId },
-      data: { status: 'FAILED', errorMessage },
-    }).catch(() => {});
-
-    throw createError({
-      statusCode: 500,
-      statusMessage: errorMessage,
-    });
-  }
-
-  const resolvedVideoUrl = String(providerResult?.videoUrl || '').trim();
-  if (resolvedVideoUrl) {
-    await finalizeContentWithVersion(
-      prisma,
-      contentId,
-      { imageUrl: resolvedVideoUrl, status: 'PENDING' },
-      { generationModel: providerResult?.model || model },
-    );
-  }
+      await finalizeContentWithVersion(
+        prisma,
+        contentId,
+        { imageUrl: resolvedVideoUrl, status: 'PENDING' },
+        { generationModel: providerResult?.model || model },
+      );
+    } catch (error) {
+      const errorMessage = normalizeErrorMessage(error, model);
+      await prisma.generatedContent.updateMany({
+        where: { id: contentId },
+        data: { status: 'FAILED', errorMessage },
+      }).catch(() => {});
+    }
+  })();
 
   return {
-    model: providerResult?.model || model,
-    jobId: providerResult?.jobId || null,
+    model,
+    jobId: null,
     contentId,
-    status: resolvedVideoUrl ? 'completed' : (providerResult?.status || 'processing'),
+    status: 'processing',
   };
 }
