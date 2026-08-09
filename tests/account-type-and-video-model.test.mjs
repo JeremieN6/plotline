@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { isAccountType, normalizeAccountType } from '../server/utils/accountType.js';
+import { detectAspectRatioFromPrompt, resolveAspectRatio } from '../server/utils/aspectRatio.js';
 import { selectVideoModel } from '../server/utils/videoModelSelector.js';
 
 test('normalizeAccountType normalizes to uppercase', () => {
@@ -44,4 +45,24 @@ test('selectVideoModel ne renvoie jamais seedance par defaut', () => {
   for (const prompt of prompts) {
     assert.notEqual(selectVideoModel(prompt), 'seedance');
   }
+});
+
+test('le ratio ecrit dans le prompt fait foi', () => {
+  assert.equal(detectAspectRatioFromPrompt('Horizontal 16:9 format, beauty institute'), '16:9');
+  assert.equal(detectAspectRatioFromPrompt('Vertical 9:16 portrait format video'), '9:16');
+  assert.equal(detectAspectRatioFromPrompt('format 16/9 pour youtube'), '16:9');
+  assert.equal(detectAspectRatioFromPrompt('square format product shot'), '1:1');
+});
+
+test('un decor ou un style ne sont pas pris pour un cadrage', () => {
+  // "landscape" au sens paysage et "portrait" au sens photo de visage ne
+  // doivent pas imposer un format: seule une mention qualifiee compte.
+  assert.equal(detectAspectRatioFromPrompt('A cinematic landscape at sunset'), null);
+  assert.equal(detectAspectRatioFromPrompt('Professional portrait photography'), null);
+  assert.equal(detectAspectRatioFromPrompt('Une estheticienne tend un flacon'), null);
+});
+
+test('repli seulement quand le prompt ne dit rien', () => {
+  assert.equal(resolveAspectRatio('Une scene simple'), '9:16');
+  assert.equal(resolveAspectRatio('Horizontal 16:9 format'), '16:9');
 });

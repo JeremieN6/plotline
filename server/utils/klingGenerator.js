@@ -7,6 +7,7 @@ import ffmpegPath from 'ffmpeg-static';
 import ffprobe from 'ffprobe-static';
 
 import { isBlobStorageEnabled, uploadPublicMediaBuffer } from './blobStorage.js';
+import { DEFAULT_ASPECT_RATIO } from './aspectRatio.js';
 import { getGeneratedDir, toMediaUrl } from './mediaStorage.js';
 
 ffmpeg.setFfmpegPath(ffmpegPath);
@@ -489,7 +490,7 @@ export async function generateVideoMotionControl(imagePath, videoPath, motionPro
   }
 }
 
-async function submitTextToVideoTask({ prompt }) {
+async function submitTextToVideoTask({ prompt, aspectRatio }) {
   const { model } = getKlingConfig();
   const response = await fetch(KLING_TEXT_ENDPOINT, {
     method: 'POST',
@@ -501,7 +502,7 @@ async function submitTextToVideoTask({ prompt }) {
       model_name: model,
       prompt: prepareKlingTextPrompt(prompt),
       mode: 'std',
-      aspect_ratio: '9:16',
+      aspect_ratio: aspectRatio,
     }),
   });
 
@@ -518,7 +519,7 @@ async function submitTextToVideoTask({ prompt }) {
   return String(taskId);
 }
 
-async function submitImageToVideoTask({ prompt, imageBase64 }) {
+async function submitImageToVideoTask({ prompt, imageBase64, aspectRatio }) {
   const { model } = getKlingConfig();
   const response = await fetch(KLING_IMAGE_ENDPOINT, {
     method: 'POST',
@@ -531,7 +532,7 @@ async function submitImageToVideoTask({ prompt, imageBase64 }) {
       image: imageBase64,
       prompt: prepareKlingTextPrompt(prompt),
       mode: 'std',
-      aspect_ratio: '9:16',
+      aspect_ratio: aspectRatio,
     }),
   });
 
@@ -578,8 +579,8 @@ async function pollKlingVideoTask(endpoint, taskId, label) {
   throw new Error(`${label} polling timed out after ${POLL_MAX_ATTEMPTS} attempts`);
 }
 
-export async function generateVideoFromTextPrompt(prompt) {
-  const taskId = await submitTextToVideoTask({ prompt });
+export async function generateVideoFromTextPrompt(prompt, aspectRatio = DEFAULT_ASPECT_RATIO) {
+  const taskId = await submitTextToVideoTask({ prompt, aspectRatio });
   const generatedVideoUrl = await pollKlingVideoTask(KLING_TEXT_ENDPOINT, taskId, 'Kling text2video');
   const localPath = await downloadGeneratedVideo(generatedVideoUrl);
 
@@ -592,8 +593,8 @@ export async function generateVideoFromTextPrompt(prompt) {
   };
 }
 
-export async function generateVideoFromImageAndPrompt({ prompt, imageBase64 }) {
-  const taskId = await submitImageToVideoTask({ prompt, imageBase64 });
+export async function generateVideoFromImageAndPrompt({ prompt, imageBase64, aspectRatio = DEFAULT_ASPECT_RATIO }) {
+  const taskId = await submitImageToVideoTask({ prompt, imageBase64, aspectRatio });
   const generatedVideoUrl = await pollKlingVideoTask(KLING_IMAGE_ENDPOINT, taskId, 'Kling image2video');
   const localPath = await downloadGeneratedVideo(generatedVideoUrl);
 

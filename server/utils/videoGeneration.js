@@ -10,9 +10,10 @@ import { generateImageFromGeminiWithSafetyFallback } from './geminiImageGenerati
 import { validatePersonAndUpperBody } from './imageValidation.js';
 import { generateVideoFromImageAndPrompt, generateVideoFromTextPrompt } from './klingGenerator.js';
 import { getGeneratedDir, toMediaUrl } from './mediaStorage.js';
+import { resolveAspectRatio } from './aspectRatio.js';
 import { selectVideoModel } from './videoModelSelector.js';
 
-export async function requestSeedanceVideo({ prompt, influencerId, withFaceRef, faceRefImage, apiKey }) {
+export async function requestSeedanceVideo({ prompt, influencerId, withFaceRef, faceRefImage, apiKey, aspectRatio }) {
   const endpoint = process.env.SEEDANCE_API_URL || 'https://api.seedance.ai/v1/videos';
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -25,7 +26,7 @@ export async function requestSeedanceVideo({ prompt, influencerId, withFaceRef, 
       influencerId,
       withFaceRef,
       faceRefImage: withFaceRef && faceRefImage ? { data: faceRefImage.base64, mimeType: faceRefImage.mimeType } : null,
-      aspect_ratio: '9:16',
+      aspect_ratio: aspectRatio,
     }),
   });
 
@@ -139,7 +140,7 @@ async function downloadVeoVideoToGenerated(videoUri, apiKey) {
   throw new Error(`Veo video download failed (status ${lastStatus})`);
 }
 
-async function requestVeoVideo({ prompt, apiKey, faceRefImage }) {
+async function requestVeoVideo({ prompt, apiKey, faceRefImage, aspectRatio }) {
   const ai = new GoogleGenAI({ apiKey });
   const modelCandidates = [
     'veo-3.1-generate-001',
@@ -161,7 +162,7 @@ async function requestVeoVideo({ prompt, apiKey, faceRefImage }) {
           ? { imageBytes: faceRefImage.base64, mimeType: faceRefImage.mimeType }
           : undefined,
         config: {
-          aspectRatio: '9:16',
+          aspectRatio,
           durationSeconds: 8,
         },
       });
@@ -271,7 +272,7 @@ async function generateCleanStartFrame({ prompt, faceRefImage }) {
   let inlineData;
   let imageMime = 'image/jpeg';
   let generatedBuffer = null;
-  let validation = { pass: false, reason: '' };
+  let validation = { personCount: 0, upperBodyVisible: false, reason: '' };
 
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     inlineData = await generateImageFromGeminiWithSafetyFallback(framePrompt, [
@@ -281,13 +282,17 @@ async function generateCleanStartFrame({ prompt, faceRefImage }) {
     generatedBuffer = Buffer.from(inlineData.data, 'base64');
 
     validation = await validatePersonAndUpperBody(generatedBuffer, imageMime);
-    if (validation.pass) {
+
+    // On verifie qu un sujet est bien rendu, pas qu il soit seul: une scene peut
+    // legitimement comporter plusieurs personnes (une estheticienne et sa cliente,
+    // par exemple). Exiger "exactement une personne" faisait echouer ces prompts.
+    if (validation.personCount >= 1 && validation.upperBodyVisible) {
       break;
     }
 
     if (attempt === 3) {
       throw new Error(
-        `Impossible de générer une image de départ nette pour la vidéo (personne non détectée clairement). Raison: ${validation.reason || 'inconnue'}`,
+        `Impossible de générer une image de départ nette pour la vidéo : aucun sujet clairement visible après 3 essais. Raison: ${validation.reason || 'inconnue'}`,
       );
     }
   }
@@ -314,6 +319,10 @@ async function prepareVideoStartFrame({ influencer, prompt }) {
 }
 
 export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, prompt, model, influencerId, withFaceRef, influencer }) {
+  // Le cadrage demande dans le prompt fait foi. Le repli ne s applique que si
+  // le prompt ne se prononce pas: aucun format n est impose a la place de l auteur.
+  const aspectRatio = resolveAspectRatio(prompt);
+
   // Veo est une opération longue (~60s). On la lance en arrière-plan et on répond
   // immédiatement avec status "processing". Le frontend poll /api/content/:id/status.
   if (model === 'veo') {
@@ -322,7 +331,7 @@ export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, 
     (async () => {
       try {
         const faceRefImage = withFaceRef ? await prepareVideoStartFrame({ influencer, prompt }) : null;
-        const providerResult = await requestVeoVideo({ prompt, apiKey: geminiApiKey, faceRefImage });
+        const providerResult = await requestVeoVideo({ prompt, apiKey: geminiApiKey, faceRefImage, aspectRatio });
         const resolvedVideoUrl = String(providerResult?.videoUrl || '').trim();
 
         if (resolvedVideoUrl) {
@@ -358,8 +367,8 @@ export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, 
 
     if (model === 'kling') {
       providerResult = faceRefImage
-        ? await generateVideoFromImageAndPrompt({ prompt, imageBase64: faceRefImage.base64 })
-        : await generateVideoFromTextPrompt(prompt);
+        ? await generateVideoFromImageAndPrompt({ prompt, imageBase64: faceRefImage.base64, aspectRatio })
+        : await generateVideoFromTextPrompt(prompt, aspectRatio);
       providerResult = {
         jobId: providerResult?.taskId || '',
         videoUrl: providerResult?.videoUrl || '',
@@ -374,6 +383,7 @@ export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, 
         withFaceRef,
         faceRefImage,
         apiKey: seedanceApiKey,
+        aspectRatio,
       });
     }
   } catch (error) {
