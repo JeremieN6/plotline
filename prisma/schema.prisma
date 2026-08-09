@@ -165,6 +165,10 @@ model GeneratedContent {
   caption       String?
   prompt        String?
   errorMessage  String?
+  /// Regroupe les slides d un meme carrousel. Chaque slide reste un contenu
+  /// autonome, avec son propre historique de versions et sa propre modification.
+  carouselId       String?
+  carouselPosition Int?
   platform      ContentPlatform @default(INSTAGRAM)
   format        ContentFormat
   status        ContentStatus   @default(PENDING)

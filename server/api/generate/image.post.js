@@ -31,12 +31,23 @@ async function createGeneratedContentCompatible(prisma, data) {
   try {
     return await prisma.generatedContent.create({ data, select: { id: true } });
   } catch (err) {
-    if (!isPrismaSchemaDriftError(err) || !('prompt' in data)) {
+    if (!isPrismaSchemaDriftError(err)) {
       throw err;
     }
 
-    const { prompt, ...rest } = data;
-    return await prisma.generatedContent.create({ data: rest, select: { id: true } });
+    // Retire une a une les colonnes optionnelles absentes d une base pas encore
+    // migree, plutot que de perdre la generation entiere.
+    if ('carouselId' in data || 'carouselPosition' in data) {
+      const { carouselId, carouselPosition, ...rest } = data;
+      return await createGeneratedContentCompatible(prisma, rest);
+    }
+
+    if ('prompt' in data) {
+      const { prompt, ...rest } = data;
+      return await createGeneratedContentCompatible(prisma, rest);
+    }
+
+    throw err;
   }
 }
 
@@ -355,6 +366,9 @@ export default defineEventHandler(async (event) => {
     const explicitContentFormat = derivePlatformAndFormatFromContentType(normalizedContentType);
     const { platform, format } = explicitContentFormat || derivePlatformAndFormat(influencer.calendarStep);
 
+    const normalizedCarouselId = String(body?.carouselId || '').trim();
+    const rawCarouselPosition = Number(body?.carouselPosition);
+
     const generatedContent = await createGeneratedContentCompatible(prisma, {
       influencerId: influencer.id,
       brandId: ownerProfile.id,
@@ -364,6 +378,10 @@ export default defineEventHandler(async (event) => {
       format,
       status: 'PROCESSING',
       prompt: prompt || null,
+      carouselId: normalizedCarouselId || null,
+      carouselPosition: normalizedCarouselId && Number.isFinite(rawCarouselPosition)
+        ? rawCarouselPosition
+        : null,
     });
 
     const jobPayload = {

@@ -147,7 +147,13 @@
           <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/0 to-black/0 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
           <div class="absolute left-3 right-3 top-3 flex items-start justify-between gap-2">
             <span class="rounded-full px-2.5 py-1 text-[11px] font-bold text-white" :class="statusClass(item.status)">{{ statusLabel(item.status) }}</span>
-            <span class="rounded-full border border-white/30 bg-black/35 px-2.5 py-1 text-[11px] font-bold text-white">{{ formatLabel(item.format) }}</span>
+            <span
+              v-if="carouselSlidesOf(item).length > 1"
+              class="rounded-full border border-white/30 bg-black/45 px-2.5 py-1 text-[11px] font-bold text-white"
+            >
+              ▦ Carrousel · {{ carouselSlidesOf(item).length }}
+            </span>
+            <span v-else class="rounded-full border border-white/30 bg-black/35 px-2.5 py-1 text-[11px] font-bold text-white">{{ formatLabel(item.format) }}</span>
           </div>
 
           <div class="absolute inset-x-0 bottom-0 flex gap-2 p-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
@@ -280,6 +286,42 @@
           </button>
         </div>
 
+        <div v-if="hasSeveralSlides" class="flex shrink-0 flex-wrap items-center justify-center gap-3 rounded-[16px] bg-black/60 px-4 py-3 backdrop-blur">
+          <button
+            type="button"
+            class="rounded-[10px] bg-white/15 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-white/25 disabled:opacity-30"
+            :disabled="slideIndex <= 0"
+            @click="goToSlide(slideIndex - 1)"
+          >
+            ‹ Slide
+          </button>
+
+          <div class="flex items-center gap-1.5">
+            <button
+              v-for="(slide, index) in modalSlides"
+              :key="slide.id"
+              type="button"
+              class="h-2 rounded-full transition-all"
+              :class="index === slideIndex ? 'w-6 bg-[#E8873A]' : 'w-2 bg-white/40 hover:bg-white/70'"
+              :aria-label="`Slide ${index + 1}`"
+              @click="goToSlide(index)"
+            />
+          </div>
+
+          <p class="text-xs font-semibold text-white/90">
+            Slide {{ slideIndex + 1 }} / {{ modalSlides.length }}
+          </p>
+
+          <button
+            type="button"
+            class="rounded-[10px] bg-white/15 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-white/25 disabled:opacity-30"
+            :disabled="slideIndex >= modalSlides.length - 1"
+            @click="goToSlide(slideIndex + 1)"
+          >
+            Slide ›
+          </button>
+        </div>
+
         <div v-if="hasSeveralVersions" class="flex shrink-0 flex-wrap items-center justify-center gap-3 rounded-[16px] bg-black/50 px-4 py-3 backdrop-blur">
           <div class="flex items-center gap-1.5">
             <button
@@ -348,6 +390,9 @@ const versionIndex = ref(0)
 const restoringVersion = ref(false)
 const currentVersion = computed(() => modalVersions.value[versionIndex.value] || null)
 const hasSeveralVersions = computed(() => modalVersions.value.length > 1)
+const modalSlides = ref([])
+const slideIndex = ref(0)
+const hasSeveralSlides = computed(() => modalSlides.value.length > 1)
 
 // Le workflow Pinterest (/profiles/[id]/generate) est reserve au compte
 // influenceur. Les comptes marque et createur passent par leur studio.
@@ -382,7 +427,42 @@ const selectedInfluencer = computed(() => {
 const nicheChips = computed(() => splitNiches(selectedInfluencer.value?.niche))
 const styleChips = computed(() => splitNiches(selectedInfluencer.value?.style))
 
-const displayedContents = computed(() => contentItems.value)
+// Un carrousel occupe une seule carte: on affiche sa premiere slide comme
+// couverture et les autres restent accessibles en faisant defiler dans la
+// visionneuse. Les contenus simples sont laisses tels quels.
+const displayedContents = computed(() => {
+  const shown = []
+  const seenCarousels = new Set()
+
+  for (const item of contentItems.value) {
+    const carouselId = String(item?.carouselId || '').trim()
+
+    if (!carouselId) {
+      shown.push(item)
+      continue
+    }
+
+    if (seenCarousels.has(carouselId)) continue
+    seenCarousels.add(carouselId)
+
+    const slides = contentItems.value
+      .filter((row) => String(row?.carouselId || '').trim() === carouselId)
+      .sort((a, b) => Number(a.carouselPosition || 0) - Number(b.carouselPosition || 0))
+
+    shown.push(slides[0] || item)
+  }
+
+  return shown
+})
+
+function carouselSlidesOf(item) {
+  const carouselId = String(item?.carouselId || '').trim()
+  if (!carouselId) return []
+
+  return contentItems.value
+    .filter((row) => String(row?.carouselId || '').trim() === carouselId)
+    .sort((a, b) => Number(a.carouselPosition || 0) - Number(b.carouselPosition || 0))
+}
 
 const emptyStateLabel = computed(() => {
   if (activeTab.value === 'PENDING') return 'Aucun contenu en attente pour l’instant.'
@@ -553,6 +633,16 @@ function isTwitterPublished(item) {
 }
 
 async function openModal(item) {
+  // Un carrousel s ouvre sur sa premiere slide, les autres restent atteignables
+  // par les fleches. Un contenu simple n a qu une seule "slide": lui-meme.
+  const slides = carouselSlidesOf(item)
+  modalSlides.value = slides
+  slideIndex.value = Math.max(0, slides.findIndex((slide) => slide.id === item?.id))
+
+  await showContentInModal(item)
+}
+
+async function showContentInModal(item) {
   modalMedia.value = item?.imageUrl || null
   modalMediaIsVideo.value = isVideoMedia(item)
   modalContent.value = item
@@ -578,7 +668,17 @@ async function openModal(item) {
   }
 }
 
+async function goToSlide(index) {
+  const slide = modalSlides.value[index]
+  if (!slide || index === slideIndex.value) return
+
+  slideIndex.value = index
+  await showContentInModal(slide)
+}
+
 function closeModal() {
+  modalSlides.value = []
+  slideIndex.value = 0
   modalMedia.value = null
   modalContent.value = null
   modalVersions.value = []

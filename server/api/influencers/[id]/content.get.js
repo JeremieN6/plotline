@@ -35,6 +35,8 @@ const CONTENT_SELECT = {
   twitterPublishedAt: true,
   createdAt: true,
   campaignId: true,
+  carouselId: true,
+  carouselPosition: true,
   campaign: {
     select: {
       id: true,
@@ -57,6 +59,8 @@ const CONTENT_SELECT = {
 const OPTIONAL_SELECT_FIELDS = [
   { key: 'versions', match: ['contentversion'] },
   { key: 'twitterPublishedAt', match: ['twitterpublishedat'] },
+  { key: 'carouselId', match: ['carouselid'] },
+  { key: 'carouselPosition', match: ['carouselposition'] },
 ];
 
 /** Aplatit la version active en un simple champ generationModel. */

@@ -606,6 +606,9 @@ async function submit() {
         const prompts = trimmedCarouselPrompts.value
         const successIds = []
         const failures = []
+        // Identifiant partage par toutes les slides: c est lui qui permet de les
+        // regrouper ensuite dans Mes creations et de les faire defiler.
+        const carouselId = `car_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
 
         for (let index = 0; index < prompts.length; index += 1) {
           try {
@@ -617,6 +620,8 @@ async function submit() {
                 workflowType: 'free',
                 prompt: prompts[index],
                 contentType: 'feed',
+                carouselId,
+                carouselPosition: index + 1,
               },
             })
 
