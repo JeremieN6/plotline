@@ -3,7 +3,7 @@
     <header class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
       <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#E8873A]">Studio</p>
       <h1 class="mt-2 text-3xl font-bold tracking-tight text-[#111111]">Studio</h1>
-      <p class="mt-2 text-sm text-[#666666]">Crée rapidement des visuels et vidéos IA pour ton activité.</p>
+      <p class="mt-2 text-sm text-[#666666]">Crée rapidement des visuels et vidéos pour ton activité.</p>
     </header>
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.9fr)]">

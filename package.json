@@ -10,7 +10,9 @@
     "test": "node --test tests/*.test.mjs",
     "migrate:generated:blob:dry": "node scripts/migrate-generated-to-blob.cjs --dry-run",
     "migrate:generated:blob": "node scripts/migrate-generated-to-blob.cjs",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "cleanup:orphans": "node scripts/cleanup-orphan-media.cjs",
+    "cleanup:orphans:delete": "node scripts/cleanup-orphan-media.cjs --delete"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.98.0",
