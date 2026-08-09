@@ -22,5 +22,9 @@ export function selectVideoModel(prompt) {
     return 'veo';
   }
 
-  return 'seedance';
+  // Veo par defaut: il gere nativement le 9:16 et c est le seul fournisseur
+  // verifie de bout en bout. Seedance reste selectionnable explicitement, mais
+  // ne peut plus etre choisi par defaut: son endpoint par defaut n existe pas
+  // (api.seedance.ai ne resout pas), ce qui produisait un "fetch failed".
+  return 'veo';
 }

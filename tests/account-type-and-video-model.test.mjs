@@ -27,7 +27,21 @@ test('selectVideoModel chooses veo for cinematic prompt', () => {
   assert.equal(model, 'veo');
 });
 
-test('selectVideoModel defaults to seedance', () => {
+test('selectVideoModel defaults to veo', () => {
   const model = selectVideoModel('Create a clean product shot with studio lighting');
-  assert.equal(model, 'seedance');
+  assert.equal(model, 'veo');
+});
+
+test('selectVideoModel ne renvoie jamais seedance par defaut', () => {
+  // L endpoint Seedance par defaut n existe pas: le selectionner automatiquement
+  // faisait echouer la generation avec un "fetch failed" opaque.
+  const prompts = [
+    'Create a clean product shot with studio lighting',
+    'Une femme prepare un cafe dans sa cuisine',
+    '',
+  ];
+
+  for (const prompt of prompts) {
+    assert.notEqual(selectVideoModel(prompt), 'seedance');
+  }
 });
