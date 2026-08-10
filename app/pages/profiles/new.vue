@@ -400,7 +400,7 @@ const eyeColorOptions = ['Bleus', 'Verts', 'Marrons', 'Noisette', 'Noirs', 'Autr
 
 const basePrompt = FACE_REF_BASE_PROMPT
 
-const { data: influencersData } = await useFetch('/api/influencers', {
+const { data: influencersData } = await useFetch('/api/profiles', {
   key: 'profile-new-influencers',
 })
 
@@ -747,7 +747,7 @@ async function submit() {
   try {
     await refreshAuth()
 
-    const created = await $fetch('/api/influencers', {
+    const created = await $fetch('/api/profiles', {
       method: 'POST',
       body: {
         userId: user.value?.id || undefined,
@@ -766,7 +766,7 @@ async function submit() {
     // Le POST ne porte qu une seule marque: les rattachements multiples passent
     // par la table de liaison, une fois le profil cree.
     if (form.profileType === 'persona' && form.brandIds.length) {
-      await $fetch(`/api/influencers/${created.id}/brands`, {
+      await $fetch(`/api/profiles/${created.id}/brands`, {
         method: 'PUT',
         body: { brandIds: form.brandIds },
       }).catch(() => {})

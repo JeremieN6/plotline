@@ -258,7 +258,7 @@ async function submit() {
   submitError.value = ''
 
   try {
-    const created = await $fetch('/api/influencers', {
+    const created = await $fetch('/api/profiles', {
       method: 'POST',
       body: {
         name: form.name.trim(),

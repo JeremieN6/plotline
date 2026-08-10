@@ -143,7 +143,7 @@ const {
   pending: loading,
   error,
   refresh,
-} = await useFetch('/api/influencers', {
+} = await useFetch('/api/profiles', {
   key: 'influencers',
 })
 const influencers = computed(() => data.value ?? [])
@@ -213,7 +213,7 @@ async function removeInfluencer(id) {
   deletingIds.value = [...deletingIds.value, id]
 
   try {
-    await $fetch(`/api/influencers/${id}`, {
+    await $fetch(`/api/profiles/${id}`, {
       method: 'DELETE',
     })
     await refresh()

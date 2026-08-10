@@ -340,7 +340,7 @@ async function submit() {
       `Palette secondaire: ${form.secondaryColors.join(', ')}`,
     ]
 
-    const created = await $fetch('/api/influencers', {
+    const created = await $fetch('/api/profiles', {
       method: 'POST',
       body: {
         name: form.brandName.trim(),

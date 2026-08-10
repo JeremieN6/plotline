@@ -397,7 +397,7 @@ const instagramForm = reactive({
   instagramAccessToken: '',
 })
 
-const { data, pending, error, refresh } = await useFetch(() => `/api/influencers/${id.value}`, {
+const { data, pending, error, refresh } = await useFetch(() => `/api/profiles/${id.value}`, {
   key: computed(() => `influencer-edit-${id.value}`),
 })
 
@@ -405,7 +405,7 @@ const influencer = computed(() => data.value ?? null)
 
 // Rattachement aux marques: une ambassadrice peut en representer plusieurs, et
 // jusqu ici rien ne permettait de modifier ce lien une fois le profil cree.
-const { data: allProfiles, refresh: refreshProfiles } = await useFetch('/api/influencers', {
+const { data: allProfiles, refresh: refreshProfiles } = await useFetch('/api/profiles', {
   key: 'influencer-edit-profiles',
 })
 const savingBrands = ref(false)
@@ -443,7 +443,7 @@ async function saveBrandLinks() {
   brandLinksMessage.value = ''
 
   try {
-    await $fetch(`/api/influencers/${id.value}/brands`, {
+    await $fetch(`/api/profiles/${id.value}/brands`, {
       method: 'PUT',
       body: { brandIds: selectedBrandIds.value },
     })
@@ -727,7 +727,7 @@ async function saveInstagramCredentials() {
 
   savingInstagram.value = true
   try {
-    await $fetch(`/api/influencers/${id.value}/instagram`, {
+    await $fetch(`/api/profiles/${id.value}/instagram`, {
       method: 'PATCH',
       body: {
         instagramAccountId: instagramForm.instagramAccountId,
@@ -757,7 +757,7 @@ async function saveInstagramCredentials() {
 async function loadTwitterStatus(influencerId) {
   twitterStatusLoading.value = true
   try {
-    const response = await $fetch(`/api/influencers/${influencerId}/twitter-status`)
+    const response = await $fetch(`/api/profiles/${influencerId}/twitter-status`)
     twitterConnected.value = Boolean(response?.connected)
     twitterUsername.value = String(response?.username || '').trim()
   } catch {
@@ -775,7 +775,7 @@ async function connectTwitter() {
 
   twitterConnecting.value = true
   try {
-    const response = await $fetch(`/api/influencers/${id.value}/twitter-connect`, { method: 'POST' })
+    const response = await $fetch(`/api/profiles/${id.value}/twitter-connect`, { method: 'POST' })
     twitterConnected.value = Boolean(response?.connected ?? response?.success)
     twitterUsername.value = String(response?.username || '').trim()
 
@@ -823,7 +823,7 @@ async function submit() {
       patchBody.silhouette = form.silhouette
     }
 
-    await $fetch(`/api/influencers/${id.value}`, {
+    await $fetch(`/api/profiles/${id.value}`, {
       method: 'PATCH',
       body: patchBody,
     })
@@ -872,7 +872,7 @@ async function deleteProfile() {
 
   deleting.value = true
   try {
-    await $fetch(`/api/influencers/${id.value}`, { method: 'DELETE' })
+    await $fetch(`/api/profiles/${id.value}`, { method: 'DELETE' })
 
     if (activeInfluencerId.value === id.value) {
       activeInfluencerId.value = ''

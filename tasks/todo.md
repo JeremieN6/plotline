@@ -70,7 +70,7 @@
 - [x] Afficher le vrai fournisseur video dans le toast et le panneau (le libelle etait fige sur Veo)
 - [x] Supprimer les routes mortes /api/personas et la page /test
 - [x] Mutualiser shouldUseQueue dans server/utils
-- [ ] Renommer /api/influencers en /api/profiles (les pages sont deja sur /profiles)
+- [x] Renommer /api/influencers en /api/profiles (les pages etaient deja sur /profiles)
 - [ ] Eprouver Seedance sur une vraie generation (format de requete valide par les tests uniquement)
 - [ ] Eprouver Kling image2video sur une vraie generation (jamais execute)
 

@@ -410,7 +410,7 @@ const activeJobsByContentId = ref({})
 let activeJobsTimer = null
 let currentPollInterval = POLL_FAST_MS
 
-const { data: influencersData, pending: loadingMeta } = await useFetch('/api/influencers', {
+const { data: influencersData, pending: loadingMeta } = await useFetch('/api/profiles', {
   key: 'plotline-content-influencers',
 })
 
@@ -486,7 +486,7 @@ watch(
     try {
       const statuses = getStatusesForTab(tab)
       const campaignQuery = selectedCampaignId.value ? `&campaignId=${encodeURIComponent(selectedCampaignId.value)}` : ''
-      const response = await $fetch(`/api/influencers/${influencer.id}/content?statuses=${statuses}${campaignQuery}`)
+      const response = await $fetch(`/api/profiles/${influencer.id}/content?statuses=${statuses}${campaignQuery}`)
       if (activeRequestId.value === requestId) {
         contentItems.value = (response.contents || []).map((item) => normalizeItem(item, activeJobsByContentId.value))
       }
@@ -808,7 +808,7 @@ async function connectTwitter() {
 
   twitterConnecting.value = true
   try {
-    const response = await $fetch(`/api/influencers/${influencerId}/twitter-connect`, { method: 'POST' })
+    const response = await $fetch(`/api/profiles/${influencerId}/twitter-connect`, { method: 'POST' })
     const username = String(response?.username || '').trim()
 
     pushToast({
@@ -875,7 +875,7 @@ async function reloadContents() {
   if (selectedInfluencer.value?.id) {
     const statuses = getStatusesForTab(activeTab.value)
     const campaignQuery = selectedCampaignId.value ? `&campaignId=${encodeURIComponent(selectedCampaignId.value)}` : ''
-    const response = await $fetch(`/api/influencers/${selectedInfluencer.value.id}/content?statuses=${statuses}${campaignQuery}`)
+    const response = await $fetch(`/api/profiles/${selectedInfluencer.value.id}/content?statuses=${statuses}${campaignQuery}`)
     contentItems.value = (response.contents || []).map((item) => normalizeItem(item))
   }
 }

@@ -196,7 +196,7 @@ const campaignForm = reactive({
   channel: '',
 })
 
-const { data: influencersData } = await useFetch('/api/influencers', {
+const { data: influencersData } = await useFetch('/api/profiles', {
   key: 'brand-studio-influencers',
 })
 

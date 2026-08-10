@@ -70,6 +70,8 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 - Les migrations ne sont JAMAIS executees depuis le projet: on ecrit le SQL dans `prisma/migrations/`, et il est passe a la main via l'editeur SQL de Neon. Le port 5432 est bloque sur le reseau, la connexion passe par WebSocket (`@prisma/adapter-neon`, port 443).
 - Ne jamais ajouter un champ scalaire au schema Prisma avant que la migration soit appliquee: le client selectionne toutes les colonnes du modele et toutes les lectures cassent. Voir tasks/lessons.md.
 - Le workflow Pinterest est interdit aux comptes BRAND et CONTENT_CREATOR.
+- Un compte INFLUENCER_CREATOR se lit comme une agence d influenceurs virtuels: beaucoup d influenceurs, peu de marques.
+- Le rattachement marque <-> ambassadrice est volontairement limite a un seul compte. On ne relie jamais deux profils de comptes differents.
 - Aucune generation media ne doit etre attendue dans une requete HTTP: reponse immediate en `processing`, suivi par polling.
 
 ---

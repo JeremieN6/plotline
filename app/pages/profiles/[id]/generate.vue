@@ -279,7 +279,7 @@ const optimizingPrompt = ref(false)
 const formError = ref('')
 const lastResult = ref(null)
 
-const { data: influencerData } = await useFetch(() => `/api/influencers/${id.value}`, {
+const { data: influencerData } = await useFetch(() => `/api/profiles/${id.value}`, {
   key: computed(() => `influencer-generate-${id.value}`),
 })
 

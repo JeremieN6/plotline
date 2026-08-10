@@ -276,7 +276,7 @@ const activeInfluencerId = useActiveInfluencer()
 const switcherOpen = ref(false)
 const mobileMenuOpen = ref(false)
 
-const { data: influencersData } = await useFetch('/api/influencers', {
+const { data: influencersData } = await useFetch('/api/profiles', {
   key: 'plotline-shell-influencers',
 })
 

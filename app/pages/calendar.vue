@@ -103,7 +103,7 @@ const currentMonth = ref(new Date())
 const drawerContent = ref(null)
 const weekLabels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
-const { data, pending: loading, refresh } = await useFetch('/api/influencers', {
+const { data, pending: loading, refresh } = await useFetch('/api/profiles', {
   key: 'plotline-calendar-source',
 })
 
@@ -121,7 +121,7 @@ watch(
       return
     }
 
-    const response = await $fetch(`/api/influencers/${value.id}/content?statuses=PENDING,VALIDATED,PUBLISHED,PROCESSING`)
+    const response = await $fetch(`/api/profiles/${value.id}/content?statuses=PENDING,VALIDATED,PUBLISHED,PROCESSING`)
     contents.value = response.contents || []
   },
   { immediate: true },
