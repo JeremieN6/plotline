@@ -45,6 +45,12 @@ enum ContentStatus {
   FAILED
 }
 
+enum PlanStatus {
+  DRAFT
+  APPROVED
+  DISCARDED
+}
+
 enum SilhouetteType {
   SLIM
   ATHLETIC
@@ -76,6 +82,7 @@ model Campaign {
 
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   generatedContents GeneratedContent[]
+  contentPlans      ContentPlan[]
 
   @@index([userId, createdAt])
 }
@@ -144,7 +151,13 @@ model Profile {
   twitterConnected     Boolean            @default(false)
   twitterUsername      String?
   tiktokEnabled        Boolean            @default(false)
+  /// Position courante dans la rotation des formats, avancee a chaque plan.
   calendarStep         Int                @default(1)
+  /// Cadence editoriale du profil: dans un compte agence, chaque influenceur a
+  /// son propre rythme, independamment des campagnes.
+  postsPerWeek         Int                @default(3)
+  formatRotation       String             @default("FEED,STORY,REEL")
+  publishHour          Int                @default(18)
   createdAt            DateTime           @default(now())
 
   user                 User               @relation(fields: [userId], references: [id])
@@ -155,6 +168,7 @@ model Profile {
   /// Liens quand ce profil est la marque, puis quand il est l ambassadrice.
   ambassadorLinks      BrandAmbassador[]  @relation("BrandLinkBrand")
   brandLinks           BrandAmbassador[]  @relation("BrandLinkAmbassador")
+  contentPlans         ContentPlan[]
 
   @@map("Influencer")
 }
@@ -200,6 +214,49 @@ model GeneratedContent {
   influencer    Profile        @relation(fields: [influencerId], references: [id])
   campaign      Campaign?      @relation(fields: [campaignId], references: [id], onDelete: SetNull)
   versions      ContentVersion[]
+  planItems     ContentPlanItem[]
+}
+
+/// Plan editorial: une liste d idees datees, relues AVANT que le moindre media
+/// soit produit. Valider un texte coute une requete Claude, valider apres
+/// generation coute autant de videos que d idees.
+model ContentPlan {
+  id         String     @id @default(cuid())
+  profileId  String
+  campaignId String?
+  status     PlanStatus @default(DRAFT)
+  startDate  DateTime
+  days       Int        @default(7)
+  createdAt  DateTime   @default(now())
+
+  profile    Profile    @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  campaign   Campaign?  @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  items      ContentPlanItem[]
+
+  @@index([profileId, createdAt])
+}
+
+/// Une idee du plan. `keep` permet de l ecarter a la revue sans la detruire,
+/// `contentId` relie l idee au contenu produit une fois le plan approuve: on
+/// sait ainsi ce qui a deja ete genere et on ne le refait pas deux fois.
+model ContentPlanItem {
+  id          String          @id @default(cuid())
+  planId      String
+  position    Int
+  prompt      String
+  caption     String?
+  hashtags    String?
+  platform    ContentPlatform @default(INSTAGRAM)
+  format      ContentFormat
+  scheduledAt DateTime
+  keep        Boolean         @default(true)
+  contentId   String?
+  createdAt   DateTime        @default(now())
+
+  plan        ContentPlan       @relation(fields: [planId], references: [id], onDelete: Cascade)
+  content     GeneratedContent? @relation(fields: [contentId], references: [id], onDelete: SetNull)
+
+  @@index([planId, position])
 }
 
 /// Historique des rendus successifs d un contenu.

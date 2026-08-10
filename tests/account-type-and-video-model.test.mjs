@@ -12,6 +12,7 @@ import {
   platformForFormat,
 } from '../server/utils/contentPlanner.js';
 import { markGenerationFailure } from '../server/utils/contentVersions.js';
+import { mergeIdeasIntoSlots, parsePlanIdeas } from '../server/utils/planIdeaGenerator.js';
 import {
   buildSeedanceRequestBody,
   extractSeedanceTaskId,
@@ -226,6 +227,42 @@ test('planner: l idee de repli s appuie sur le profil', () => {
   assert.match(idea.prompt, /beauté/);
   assert.match(idea.prompt, /épuré/);
   assert.equal(idea.isFallback, true);
+});
+
+test('planner: le JSON de Claude est isole meme entoure de texte', () => {
+  const wrapped = 'Voici le plan :\n```json\n[{"position":1,"prompt":"Une scene","caption":"Bonjour","hashtags":"#a #b"}]\n```';
+  const ideas = parsePlanIdeas(wrapped);
+
+  assert.equal(ideas.length, 1);
+  assert.equal(ideas[0].position, 1);
+  assert.equal(ideas[0].prompt, 'Une scene');
+
+  // Une reponse inexploitable ne doit pas lever, juste ne rien produire.
+  assert.deepEqual(parsePlanIdeas('pas du json'), []);
+  assert.deepEqual(parsePlanIdeas(''), []);
+  // Une idee sans prompt n a aucune valeur: on l ecarte.
+  assert.deepEqual(parsePlanIdeas('[{"position":1,"prompt":""}]'), []);
+});
+
+test('planner: un creneau sans idee recoit le repli deterministe', () => {
+  const slots = [
+    { position: 1, format: 'FEED', platform: 'INSTAGRAM', scheduledAt: new Date('2026-08-10T18:00:00') },
+    { position: 2, format: 'REEL', platform: 'TIKTOK', scheduledAt: new Date('2026-08-12T18:00:00') },
+  ];
+
+  const merged = mergeIdeasIntoSlots(
+    slots,
+    [{ position: 1, prompt: 'Idee de Claude', caption: 'Legende', hashtags: '#x' }],
+    { name: 'Mélina', niche: 'beauté', style: 'épuré' },
+  );
+
+  assert.equal(merged[0].prompt, 'Idee de Claude');
+  assert.equal(merged[0].isFallback, false);
+
+  // Le second creneau n a pas d idee: il reste rempli et editable.
+  assert.equal(merged[1].isFallback, true);
+  assert.match(merged[1].prompt, /Mélina/);
+  assert.equal(merged[1].format, 'REEL');
 });
 
 // --- Echec de generation ----------------------------------------------------

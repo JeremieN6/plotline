@@ -88,9 +88,10 @@
 ## Planificateur editorial (en cours)
 - [x] Supprimer le planner d origine, ecrit pour prisma.persona/prisma.batch (modeles disparus)
 - [x] Ecrire la cadence pure et testable: creneaux dates, rotation des formats, repli deterministe
-- [ ] Passer la migration 20260810200000 (cadence sur le profil + ContentPlan + ContentPlanItem)
-- [ ] Ajouter ContentPlan/ContentPlanItem au schema Prisma (APRES la migration: colonnes scalaires sur Influencer)
-- [ ] Generer les idees du plan avec Claude, avec repli sur buildFallbackIdea
+- [x] Passer la migration 20260810200000 (cadence sur le profil + ContentPlan + ContentPlanItem)
+- [x] Ajouter ContentPlan/ContentPlanItem au schema Prisma (migration verifiee en base au prealable)
+- [x] Generer les idees du plan avec Claude, avec repli sur buildFallbackIdea
+- [x] Endpoints: creer un plan, le relire, ajuster ou ecarter une idee
 - [ ] Ecran de revue du plan (ajuster, ecarter, approuver)
 - [ ] Bascule plan approuve -> generation des medias -> flux PENDING existant
 - [ ] Eprouver Kling image2video sur une vraie generation (jamais execute)
