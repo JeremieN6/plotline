@@ -84,6 +84,15 @@
 - [x] Mettre Seedance hors service (credits a zero) via SEEDANCE_ENABLED, code conserve
 - [ ] Si les credits Seedance sont recharges un jour: valider `duration` (jamais eprouvee, prochain 400 probable)
 - [ ] Eprouver Seedance de bout en bout (aucune generation n a jamais abouti)
+
+## Planificateur editorial (en cours)
+- [x] Supprimer le planner d origine, ecrit pour prisma.persona/prisma.batch (modeles disparus)
+- [x] Ecrire la cadence pure et testable: creneaux dates, rotation des formats, repli deterministe
+- [ ] Passer la migration 20260810200000 (cadence sur le profil + ContentPlan + ContentPlanItem)
+- [ ] Ajouter ContentPlan/ContentPlanItem au schema Prisma (APRES la migration: colonnes scalaires sur Influencer)
+- [ ] Generer les idees du plan avec Claude, avec repli sur buildFallbackIdea
+- [ ] Ecran de revue du plan (ajuster, ecarter, approuver)
+- [ ] Bascule plan approuve -> generation des medias -> flux PENDING existant
 - [ ] Eprouver Kling image2video sur une vraie generation (jamais execute)
 
 ## Fait

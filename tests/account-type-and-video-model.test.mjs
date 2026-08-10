@@ -3,6 +3,14 @@ import assert from 'node:assert/strict';
 
 import { isAccountType, normalizeAccountType } from '../server/utils/accountType.js';
 import { detectAspectRatioFromPrompt, resolveAspectRatio } from '../server/utils/aspectRatio.js';
+import {
+  buildFallbackIdea,
+  buildPlanSlots,
+  countSlots,
+  normalizePublishHour,
+  parseFormatRotation,
+  platformForFormat,
+} from '../server/utils/contentPlanner.js';
 import { markGenerationFailure } from '../server/utils/contentVersions.js';
 import {
   buildSeedanceRequestBody,
@@ -138,6 +146,86 @@ test('seedance: en image-to-video le ratio doit valoir adaptive', () => {
 
   const textBody = buildSeedanceRequestBody({ prompt: 'Une scene', aspectRatio: '16:9' });
   assert.equal(textBody.input.aspect_ratio, '16:9');
+});
+
+// --- Planificateur editorial ------------------------------------------------
+
+test('planner: la rotation de formats ecarte les valeurs inconnues', () => {
+  assert.deepEqual(parseFormatRotation('FEED,REEL'), ['FEED', 'REEL']);
+  assert.deepEqual(parseFormatRotation('feed | story'), ['FEED', 'STORY']);
+  // Une valeur inconnue ne doit pas faire echouer toute la planification.
+  assert.deepEqual(parseFormatRotation('FEED,PODCAST'), ['FEED']);
+  assert.deepEqual(parseFormatRotation(''), ['FEED', 'STORY', 'REEL']);
+  assert.deepEqual(parseFormatRotation('PODCAST'), ['FEED', 'STORY', 'REEL']);
+});
+
+test('planner: le format decide de la plateforme', () => {
+  assert.equal(platformForFormat('REEL'), 'TIKTOK');
+  assert.equal(platformForFormat('FEED'), 'INSTAGRAM');
+  assert.equal(platformForFormat('STORY'), 'INSTAGRAM');
+});
+
+test('planner: le nombre de creneaux suit la cadence', () => {
+  assert.equal(countSlots(7, 3), 3);
+  assert.equal(countSlots(14, 3), 6);
+  assert.equal(countSlots(30, 3), 13);
+  // Une periode courte doit quand meme produire un creneau.
+  assert.equal(countSlots(1, 1), 1);
+  assert.equal(countSlots(0, 0), 1);
+});
+
+test('planner: les publications sont reparties, pas groupees', () => {
+  const slots = buildPlanSlots({
+    startDate: new Date('2026-08-10T00:00:00'),
+    days: 7,
+    postsPerWeek: 3,
+    publishHour: 18,
+  });
+
+  assert.equal(slots.length, 3);
+
+  const days = slots.map((slot) => slot.scheduledAt.getDate());
+  assert.deepEqual(days, [10, 12, 15]);
+
+  // Toutes a l heure de publication demandee.
+  for (const slot of slots) {
+    assert.equal(slot.scheduledAt.getHours(), 18);
+  }
+});
+
+test('planner: la rotation reprend ou le profil l avait laissee', () => {
+  const base = { startDate: new Date('2026-08-10T00:00:00'), days: 7, postsPerWeek: 3 };
+
+  const fromStart = buildPlanSlots(base).map((slot) => slot.format);
+  assert.deepEqual(fromStart, ['FEED', 'STORY', 'REEL']);
+
+  const resumed = buildPlanSlots({ ...base, rotationOffset: 1 }).map((slot) => slot.format);
+  assert.deepEqual(resumed, ['STORY', 'REEL', 'FEED']);
+
+  // La plateforme suit le format, creneau par creneau.
+  const slots = buildPlanSlots({ ...base, rotationOffset: 2 });
+  assert.deepEqual(slots.map((slot) => slot.platform), ['TIKTOK', 'INSTAGRAM', 'INSTAGRAM']);
+});
+
+test('planner: une heure de publication invalide retombe sur la valeur par defaut', () => {
+  assert.equal(normalizePublishHour(25), 18);
+  assert.equal(normalizePublishHour(-1), 18);
+  assert.equal(normalizePublishHour('abc'), 18);
+  assert.equal(normalizePublishHour(9), 9);
+  assert.equal(normalizePublishHour(0), 0);
+});
+
+test('planner: l idee de repli s appuie sur le profil', () => {
+  const idea = buildFallbackIdea({
+    profile: { name: 'Mélina', niche: 'beauté, skincare', style: 'épuré, premium' },
+    format: 'REEL',
+    position: 1,
+  });
+
+  assert.match(idea.prompt, /Mélina/);
+  assert.match(idea.prompt, /beauté/);
+  assert.match(idea.prompt, /épuré/);
+  assert.equal(idea.isFallback, true);
 });
 
 // --- Echec de generation ----------------------------------------------------
