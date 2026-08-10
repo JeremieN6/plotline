@@ -53,7 +53,8 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 ### Prochaines etapes :
 - [ ] Eprouver Kling image2video sur une vraie generation
 - [ ] Revoir le lien marque <-> ambassadrice (aujourd hui une ambassadrice n appartient qu a une seule marque)
-- [ ] Construire le content planner avec fallback deterministe
+- [x] Planificateur editorial: cadence par profil, idees redigees par Claude avec repli deterministe, revue avant generation
+- [ ] Ecran de reglage de la cadence et liste des plans passes
 - [ ] Ajouter mode dry-run + notifications d'erreur + logs structures
 
 ### Ecarte pour l instant :
@@ -94,6 +95,8 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 | 2026-08-10 | Le workflow Pinterest est reserve aux comptes influenceur | Il n a pas de sens editorial pour une marque ou un createur de contenu |
 | 2026-08-10 | Une ambassadrice peut representer plusieurs marques (table BrandAmbassador) | C est la realite du metier, et une ambassadrice est un actif coûteux qu on ne veut pas recreer par marque |
 | 2026-08-10 | Le type de profil est ecrit en base au lieu d etre devine depuis la face ref | L inference cassait silencieusement des qu une marque aurait eu une face ref |
+| 2026-08-10 | Un plan editorial est relu avant que le moindre media soit produit | Valider un texte coute une requete Claude, valider apres generation coute autant de videos que d idees |
+| 2026-08-10 | La cadence est deterministe, Claude n ecrit que le texte des idees | Le rythme doit rester previsible meme quand l IA est indisponible |
 
 ---
 

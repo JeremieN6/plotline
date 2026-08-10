@@ -13,6 +13,42 @@
       </div>
     </header>
 
+    <!-- Point d entree du planificateur: c est ici qu on pense "planifier". -->
+    <section class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-bold text-[#111111]">Planifier une période</h2>
+          <p class="mt-1 text-sm text-[#666666]">
+            Claude propose des idées datées selon la cadence du profil. Tu les relis avant qu'aucun média ne soit produit.
+          </p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <select
+            v-model.number="planDays"
+            class="rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2 text-sm font-semibold text-[#111111] outline-none focus:border-[#E8873A]"
+          >
+            <option :value="7">7 jours</option>
+            <option :value="14">14 jours</option>
+            <option :value="30">30 jours</option>
+          </select>
+          <button
+            type="button"
+            class="rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#D97A2F] disabled:cursor-not-allowed disabled:opacity-60"
+            :disabled="creatingPlan || !selectedInfluencer"
+            @click="createPlan"
+          >
+            {{ creatingPlan ? 'Préparation...' : 'Préparer un plan' }}
+          </button>
+        </div>
+      </div>
+
+      <p v-if="planError" class="mt-3 text-sm text-[#A33A3A]">{{ planError }}</p>
+      <p v-else-if="!selectedInfluencer" class="mt-3 text-sm text-[#8A8A8A]">
+        Sélectionne un profil actif pour préparer un plan.
+      </p>
+    </section>
+
     <section class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
       <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
@@ -112,6 +148,35 @@ const selectedInfluencer = computed(() => {
 })
 
 const contents = ref([])
+
+// Preparation d un plan editorial pour le profil actif.
+const router = useRouter()
+const planDays = ref(7)
+const creatingPlan = ref(false)
+const planError = ref('')
+
+async function createPlan() {
+  if (!selectedInfluencer.value) return
+
+  creatingPlan.value = true
+  planError.value = ''
+
+  try {
+    const result = await $fetch('/api/plans', {
+      method: 'POST',
+      body: {
+        profileId: selectedInfluencer.value.id,
+        days: planDays.value,
+      },
+    })
+
+    await router.push(`/plans/${result.plan.id}`)
+  } catch (err) {
+    planError.value = err?.statusMessage || 'Préparation du plan impossible.'
+  } finally {
+    creatingPlan.value = false
+  }
+}
 
 watch(
   selectedInfluencer,

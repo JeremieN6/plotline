@@ -92,8 +92,12 @@
 - [x] Ajouter ContentPlan/ContentPlanItem au schema Prisma (migration verifiee en base au prealable)
 - [x] Generer les idees du plan avec Claude, avec repli sur buildFallbackIdea
 - [x] Endpoints: creer un plan, le relire, ajuster ou ecarter une idee
-- [ ] Ecran de revue du plan (ajuster, ecarter, approuver)
-- [ ] Bascule plan approuve -> generation des medias -> flux PENDING existant
+- [x] Ecran de revue du plan (ajuster, ecarter, approuver)
+- [x] Bascule plan approuve -> generation des medias -> flux PENDING existant
+- [x] Point d entree depuis le calendrier ("Preparer un plan")
+- [ ] Eprouver le planificateur de bout en bout sur un vrai profil
+- [ ] Ecran de reglage de la cadence (postsPerWeek / formatRotation / publishHour ne sont modifiables qu en base)
+- [ ] Liste des plans passes (aujourd hui on ne retrouve un plan que par son URL)
 - [ ] Eprouver Kling image2video sur une vraie generation (jamais execute)
 
 ## Fait
