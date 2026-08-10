@@ -1,3 +1,4 @@
+import { markGenerationFailure } from '../../../utils/contentVersions.js';
 import { processGenerationJob } from '../../../utils/generationWorker.js';
 import { shouldUseQueue } from '../../../utils/queueMode.js';
 import { isSupportedVideoModel, resolveVideoModelOrThrow, runVideoGenerationJob } from '../../../utils/videoGeneration.js';
@@ -109,6 +110,9 @@ export default defineEventHandler(async (event) => {
           influencerId: content.influencerId,
           withFaceRef,
           influencer: content.influencer,
+          // Statut a rendre au contenu si la generation echoue: sans lui, une
+          // modification ratee enterrait un rendu pourtant toujours valide.
+          previousStatus: content.status,
         });
 
         return { contentId: id, status: result.status === 'completed' ? 'completed' : 'processing' };
@@ -137,11 +141,12 @@ export default defineEventHandler(async (event) => {
 
       return { contentId: id, status: 'processing' };
     } catch (err) {
-      const errorMessage = err?.statusMessage || err?.message || 'Régénération impossible';
-      await prisma.generatedContent.update({
-        where: { id },
-        data: { status: 'FAILED', errorMessage },
-      }).catch(() => {});
+      // Meme regle que pour la video: tant que le rendu precedent est en base,
+      // le contenu reprend son statut et reste visible dans les listes.
+      await markGenerationFailure(prisma, id, {
+        errorMessage: err?.statusMessage || err?.message || 'Régénération impossible',
+        previousStatus: content.status,
+      });
 
       throw err;
     }

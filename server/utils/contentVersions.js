@@ -121,6 +121,37 @@ export async function finalizeContentWithVersion(prisma, contentId, data, { gene
   return updated;
 }
 
+/**
+ * Enregistre l echec d une generation sans faire disparaitre un rendu valide.
+ *
+ * Une regeneration ratee basculait le contenu en FAILED alors que l ancien media
+ * etait toujours en base: il sortait des listes et paraissait perdu. Tant qu un
+ * media reste attache, on rend au contenu son statut precedent et l erreur n est
+ * qu une information affichee a cote.
+ */
+export async function markGenerationFailure(prisma, contentId, { errorMessage, previousStatus } = {}) {
+  const existing = await prisma.generatedContent
+    .findUnique({ where: { id: contentId }, select: { imageUrl: true } })
+    .catch(() => null);
+
+  const hasUsableRender = Boolean(String(existing?.imageUrl || '').trim());
+
+  // PROCESSING n est qu un etat de passage: on ne peut pas y revenir.
+  const restoredStatus = previousStatus && previousStatus !== 'PROCESSING'
+    ? previousStatus
+    : 'PENDING';
+
+  await prisma.generatedContent.updateMany({
+    where: { id: contentId },
+    data: {
+      status: hasUsableRender ? restoredStatus : 'FAILED',
+      errorMessage: errorMessage || null,
+    },
+  }).catch(() => {});
+
+  return { keptPreviousRender: hasUsableRender };
+}
+
 export async function purgeExcessVersions(prisma, contentId, { format, imageUrl } = {}) {
   const cap = versionCapFor(format, imageUrl);
 

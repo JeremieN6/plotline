@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { isAccountType, normalizeAccountType } from '../server/utils/accountType.js';
 import { detectAspectRatioFromPrompt, resolveAspectRatio } from '../server/utils/aspectRatio.js';
+import { markGenerationFailure } from '../server/utils/contentVersions.js';
 import {
   buildSeedanceRequestBody,
   extractSeedanceTaskId,
@@ -124,6 +125,67 @@ test('seedance: en image-to-video le ratio doit valoir adaptive', () => {
 
   const textBody = buildSeedanceRequestBody({ prompt: 'Une scene', aspectRatio: '16:9' });
   assert.equal(textBody.input.aspect_ratio, '16:9');
+});
+
+// --- Echec de generation ----------------------------------------------------
+
+test('un echec ne fait pas disparaitre un rendu encore valide', async () => {
+  const rows = new Map([['c1', { id: 'c1', status: 'PROCESSING', imageUrl: 'https://blob/video.mp4' }]]);
+  const prisma = {
+    generatedContent: {
+      findUnique: async ({ where }) => rows.get(where.id) || null,
+      updateMany: async ({ where, data }) => {
+        Object.assign(rows.get(where.id), data);
+        return { count: 1 };
+      },
+    },
+  };
+
+  const result = await markGenerationFailure(prisma, 'c1', {
+    errorMessage: 'Seedance a refuse la requete',
+    previousStatus: 'PENDING',
+  });
+
+  assert.equal(result.keptPreviousRender, true);
+  assert.equal(rows.get('c1').status, 'PENDING');
+  assert.equal(rows.get('c1').errorMessage, 'Seedance a refuse la requete');
+});
+
+test('un echec sans aucun rendu reste bien en FAILED', async () => {
+  const rows = new Map([['c2', { id: 'c2', status: 'PROCESSING', imageUrl: null }]]);
+  const prisma = {
+    generatedContent: {
+      findUnique: async ({ where }) => rows.get(where.id) || null,
+      updateMany: async ({ where, data }) => {
+        Object.assign(rows.get(where.id), data);
+        return { count: 1 };
+      },
+    },
+  };
+
+  const result = await markGenerationFailure(prisma, 'c2', {
+    errorMessage: 'Fournisseur injoignable',
+    previousStatus: 'PENDING',
+  });
+
+  assert.equal(result.keptPreviousRender, false);
+  assert.equal(rows.get('c2').status, 'FAILED');
+});
+
+test('on ne restaure jamais le statut de passage PROCESSING', async () => {
+  const rows = new Map([['c3', { id: 'c3', status: 'PROCESSING', imageUrl: 'https://blob/v.mp4' }]]);
+  const prisma = {
+    generatedContent: {
+      findUnique: async ({ where }) => rows.get(where.id) || null,
+      updateMany: async ({ where, data }) => {
+        Object.assign(rows.get(where.id), data);
+        return { count: 1 };
+      },
+    },
+  };
+
+  await markGenerationFailure(prisma, 'c3', { errorMessage: 'Boom', previousStatus: 'PROCESSING' });
+  assert.equal(rows.get('c3').status, 'PENDING');
 });
 
 // --- Publicateur planifie ---------------------------------------------------

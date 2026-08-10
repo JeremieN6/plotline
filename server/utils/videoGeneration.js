@@ -4,7 +4,7 @@ import path from 'node:path';
 import { GoogleGenAI } from '@google/genai';
 
 import { isBlobStorageEnabled, uploadPublicMediaBuffer } from './blobStorage.js';
-import { finalizeContentWithVersion } from './contentVersions.js';
+import { finalizeContentWithVersion, markGenerationFailure } from './contentVersions.js';
 import { readImageSourceBuffer } from './faceRefReader.js';
 import { generateImageFromGeminiWithSafetyFallback } from './geminiImageGeneration.js';
 import { validatePersonAndUpperBody } from './imageValidation.js';
@@ -305,7 +305,7 @@ async function requestProviderVideo({ model, prompt, aspectRatio, startFrame, ru
   };
 }
 
-export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, prompt, model, withFaceRef, influencer }) {
+export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, prompt, model, withFaceRef, influencer, previousStatus }) {
   // Le cadrage demande dans le prompt fait foi. Le repli ne s applique que si
   // le prompt ne se prononce pas: aucun format n est impose a la place de l auteur.
   const aspectRatio = resolveAspectRatio(prompt);
@@ -334,11 +334,12 @@ export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, 
         { generationModel: providerResult?.model || model },
       );
     } catch (error) {
-      const errorMessage = normalizeErrorMessage(error, model);
-      await prisma.generatedContent.updateMany({
-        where: { id: contentId },
-        data: { status: 'FAILED', errorMessage },
-      }).catch(() => {});
+      // Une generation ratee ne doit pas emporter le rendu precedent: s il est
+      // toujours la, le contenu retrouve son statut et reste visible.
+      await markGenerationFailure(prisma, contentId, {
+        errorMessage: normalizeErrorMessage(error, model),
+        previousStatus,
+      });
     }
   })();
 

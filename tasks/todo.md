@@ -71,6 +71,10 @@
 - [x] Supprimer les routes mortes /api/personas et la page /test
 - [x] Mutualiser shouldUseQueue dans server/utils
 - [x] Renommer /api/influencers en /api/profiles (les pages etaient deja sur /profiles)
+- [x] Une generation ratee ne fait plus disparaitre le rendu precedent (statut restaure au lieu de FAILED)
+- [ ] Passer la migration 20260810180000 (rendre visibles les contenus FAILED qui ont encore leur media)
+- [ ] Rendre le rattachement aux marques decouvrable (entree depuis la liste des profils et depuis la marque)
+- [ ] Masquer les messages d erreur techniques aux clients (garder le detail cote logs) -- volontairement remis a plus tard
 - [ ] Eprouver Seedance sur une vraie generation (format de requete valide par les tests uniquement)
 - [ ] Eprouver Kling image2video sur une vraie generation (jamais execute)
 
