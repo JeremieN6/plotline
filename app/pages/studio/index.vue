@@ -56,7 +56,7 @@
               <option value="auto">Automatique (selon le prompt)</option>
               <option value="veo">Veo</option>
               <option value="kling">Kling</option>
-              <option value="seedance">Seedance</option>
+              <option v-if="seedanceEnabled" value="seedance">Seedance</option>
             </select>
             <p class="mt-1.5 text-xs text-[#8A6647]">
               Chaque régénération est conservée : compare les modèles en ouvrant le contenu dans Mes créations.
@@ -374,6 +374,9 @@ const editingContentId = ref('')
 const editContentPreviewUrl = ref('')
 // Modele impose pour la generation video. "auto" conserve la detection par prompt.
 const selectedVideoModel = ref('auto')
+
+// Seedance n est propose que si le compte est credite (voir SEEDANCE_ENABLED).
+const seedanceEnabled = computed(() => Boolean(useRuntimeConfig().public?.seedanceEnabled))
 
 const VIDEO_PROVIDER_LABELS = { veo: 'Veo', kling: 'Kling', seedance: 'Seedance' }
 

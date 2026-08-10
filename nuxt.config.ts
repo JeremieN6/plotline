@@ -49,5 +49,13 @@ export default defineNuxtConfig({
     klingModel: process.env.KLINGAI_MODEL || process.env.KLING_MODEL,
     redisUrl: process.env.REDIS_URL,
     baseUrl: process.env.BASE_URL,
+    public: {
+      // Seedance est desactive par defaut: credits prepayes epuises et chemin
+      // complet jamais abouti. Un seul interrupteur pilote l offre cote studio
+      // et l acceptation cote serveur.
+      seedanceEnabled: ['true', '1', 'yes'].includes(
+        String(process.env.SEEDANCE_ENABLED || '').trim().toLowerCase(),
+      ),
+    },
   }
 })

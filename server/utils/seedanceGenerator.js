@@ -37,6 +37,19 @@ export function resolveSeedanceApiBase(rawValue) {
   }
 }
 
+/**
+ * Seedance fonctionne avec des credits prepayes, aujourd hui a zero, et le
+ * chemin complet n a jamais abouti une seule fois: trois valeurs de `input`
+ * ont ete figees au jugé, deux se sont revelees fausses (aspect_ratio,
+ * resolution) et `duration` n a jamais ete validee. On le laisse hors service
+ * tant que le compte n est pas recredite, plutot que d offrir un choix qui
+ * echoue. Remettre SEEDANCE_ENABLED=true pour le reactiver.
+ */
+export function isSeedanceEnabled() {
+  const raw = String(process.env.SEEDANCE_ENABLED || '').trim().toLowerCase();
+  return ['true', '1', 'yes'].includes(raw);
+}
+
 /** L API distingue les deux modes; la presence d une image de depart tranche. */
 export function resolveGenerationType(imageUrls) {
   return Array.isArray(imageUrls) && imageUrls.length ? 'image-to-video' : 'text-to-video';
@@ -81,28 +94,50 @@ export function buildSeedanceRequestBody({
   };
 }
 
-/** Le taskId ne se trouve pas au meme endroit selon les reponses observees. */
+/**
+ * Le taskId est cherche a plusieurs emplacements, faute d avoir jamais vu une
+ * reponse reussie. Le premier chemin est celui de la documentation: emprunter
+ * un repli signale que le contrat differe de ce qu on croit, et merite d etre
+ * remonte au lieu de passer inapercu.
+ */
 export function extractSeedanceTaskId(payload) {
-  return String(
-    payload?.taskId
-    || payload?.task_id
+  const primary = String(payload?.taskId || '').trim();
+  if (primary) return primary;
+
+  const fallback = String(
+    payload?.task_id
     || payload?.id
     || payload?.data?.taskId
     || payload?.data?.task_id
     || payload?.data?.id
     || ''
   ).trim();
+
+  if (fallback) {
+    console.warn('[seedance] taskId absent de `taskId`, lu depuis un emplacement de repli. Verifier le contrat d API.');
+  }
+
+  return fallback;
 }
 
 export function extractSeedanceVideoUrl(payload) {
   const data = payload?.data || payload || {};
   const firstResult = Array.isArray(data?.results) ? data.results[0] : null;
 
+  // Chemin documente: data.results[0].
   const candidate = typeof firstResult === 'string'
     ? firstResult
     : firstResult?.url || firstResult?.videoUrl || firstResult?.video_url;
 
-  return String(candidate || data?.videoUrl || data?.video_url || '').trim();
+  const documented = String(candidate || '').trim();
+  if (documented) return documented;
+
+  const fallback = String(data?.videoUrl || data?.video_url || '').trim();
+  if (fallback) {
+    console.warn('[seedance] URL video absente de `data.results[0]`, lue depuis un emplacement de repli. Verifier le contrat d API.');
+  }
+
+  return fallback;
 }
 
 function getSeedanceConfig(runtimeConfig = {}) {

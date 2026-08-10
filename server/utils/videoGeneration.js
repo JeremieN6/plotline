@@ -11,7 +11,7 @@ import { validatePersonAndUpperBody } from './imageValidation.js';
 import { generateVideoFromImageAndPrompt, generateVideoFromTextPrompt } from './klingGenerator.js';
 import { getGeneratedDir, toMediaUrl } from './mediaStorage.js';
 import { resolveAspectRatio } from './aspectRatio.js';
-import { generateSeedanceVideo } from './seedanceGenerator.js';
+import { generateSeedanceVideo, isSeedanceEnabled } from './seedanceGenerator.js';
 import { selectVideoModel } from './videoModelSelector.js';
 
 function sleep(ms) {
@@ -213,6 +213,15 @@ export function resolveVideoModelOrThrow({ prompt, withFaceRef, influencer, runt
   }
 
   if (model === 'seedance') {
+    // Garde serveur meme si le studio ne propose plus le choix: une requete
+    // forgee ne doit pas partir consommer des credits qui n existent pas.
+    if (!isSeedanceEnabled()) {
+      throw createError({
+        statusCode: 503,
+        statusMessage: 'Seedance est hors service (credits epuises). Choisissez Veo ou Kling.',
+      });
+    }
+
     const seedanceApiKey = String(runtimeConfig.seedanceApiKey || process.env.SEEDANCE_API_KEY || '').trim();
     if (!seedanceApiKey) {
       throw createError({ statusCode: 500, statusMessage: 'SEEDANCE_API_KEY non configuree' });

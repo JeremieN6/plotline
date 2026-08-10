@@ -81,7 +81,9 @@
 - [x] Signaler un echec meme quand le rendu precedent est conserve (il s annoncait comme un succes)
 - [x] Reparer la barre laterale: la deconnexion sortait de l ecran (flex-1 sans min-h-0)
 - [x] Une seule entree de menu active a la fois (la plus specifique gagne)
-- [ ] Eprouver Seedance sur une vraie generation (les deux contraintes 400 sont levees, jamais abouti)
+- [x] Mettre Seedance hors service (credits a zero) via SEEDANCE_ENABLED, code conserve
+- [ ] Si les credits Seedance sont recharges un jour: valider `duration` (jamais eprouvee, prochain 400 probable)
+- [ ] Eprouver Seedance de bout en bout (aucune generation n a jamais abouti)
 - [ ] Eprouver Kling image2video sur une vraie generation (jamais execute)
 
 ## Fait

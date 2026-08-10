@@ -51,12 +51,13 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 - [x] Publication automatique des contenus a leur date planifiee (opt-in via `SCHEDULER_ENABLED`)
 
 ### Prochaines etapes :
-- [ ] Eprouver Seedance et Kling image2video sur de vraies generations
+- [ ] Eprouver Kling image2video sur une vraie generation
 - [ ] Revoir le lien marque <-> ambassadrice (aujourd hui une ambassadrice n appartient qu a une seule marque)
 - [ ] Construire le content planner avec fallback deterministe
 - [ ] Ajouter mode dry-run + notifications d'erreur + logs structures
 
 ### Ecarte pour l instant :
+- Seedance: credits prepayes epuises et generation jamais aboutie. Hors service via `SEEDANCE_ENABLED`, code conserve. Veo et Kling suffisent.
 - Publication TikTok automatique: la plateforme favorise les comptes qui postent depuis l application, une publication par API est contre-productive.
 - Validation Telegram: remplacee de fait par le flux in-app PENDING -> Valider -> Publier.
 
