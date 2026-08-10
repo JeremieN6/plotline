@@ -10,7 +10,9 @@ const GENERATION_PATH = '/v1/videos/generations';
 const TASK_PATH = '/v1/tasks';
 const DEFAULT_MODEL = 'seedance-2-5';
 const DEFAULT_DURATION_SECONDS = 8;
-const DEFAULT_RESOLUTION = '1080p';
+// Seedance 2.5 refuse la requete en 400 au-dela: seuls 480p et 720p existent.
+const SUPPORTED_RESOLUTIONS = ['480p', '720p'];
+const DEFAULT_RESOLUTION = '720p';
 const POLL_INTERVAL_MS = 10_000;
 const POLL_MAX_ATTEMPTS = 90;
 
@@ -50,6 +52,12 @@ export function resolveSeedanceAspectRatio(generationType, aspectRatio) {
   return generationType === 'image-to-video' ? 'adaptive' : aspectRatio;
 }
 
+/** Toute valeur hors 480p/720p fait echouer la requete en 400. */
+export function resolveSeedanceResolution(resolution) {
+  const normalized = String(resolution || '').trim().toLowerCase();
+  return SUPPORTED_RESOLUTIONS.includes(normalized) ? normalized : DEFAULT_RESOLUTION;
+}
+
 export function buildSeedanceRequestBody({
   prompt,
   aspectRatio = DEFAULT_ASPECT_RATIO,
@@ -67,7 +75,7 @@ export function buildSeedanceRequestBody({
       generation_type: generationType,
       duration,
       aspect_ratio: resolveSeedanceAspectRatio(generationType, aspectRatio),
-      resolution,
+      resolution: resolveSeedanceResolution(resolution),
       ...(generationType === 'image-to-video' ? { image_urls: imageUrls } : {}),
     },
   };

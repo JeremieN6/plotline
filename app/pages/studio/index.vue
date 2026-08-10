@@ -425,10 +425,18 @@ async function pollVideoStatus(contentId) {
       clearVideoPolling()
       videoResult.value = status
 
-      if (status.status === 'PENDING' || status.status === 'VALIDATED' || status.status === 'PUBLISHED') {
+      // Un contenu peut revenir en PENDING tout en portant une erreur: la
+      // generation a echoue et l ancien rendu a ete conserve. Sans ce test, cet
+      // echec s annoncait comme un succes.
+      if (status.failed) {
+        const detail = status.errorMessage || 'Génération vidéo échouée.'
+        pushToast({
+          title: 'Génération échouée',
+          message: status.keptPreviousRender ? `${detail} Ton rendu précédent est conservé.` : detail,
+          tone: 'error',
+        })
+      } else {
         pushToast({ title: 'Vidéo prête !', message: 'Ta vidéo est disponible dans Mes créations.', tone: 'success' })
-      } else if (status.status === 'FAILED') {
-        pushToast({ title: 'Erreur', message: status.errorMessage || 'Génération vidéo échouée.', tone: 'error' })
       }
     }
   } catch {

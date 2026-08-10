@@ -73,9 +73,15 @@
 - [x] Renommer /api/influencers en /api/profiles (les pages etaient deja sur /profiles)
 - [x] Une generation ratee ne fait plus disparaitre le rendu precedent (statut restaure au lieu de FAILED)
 - [ ] Passer la migration 20260810180000 (rendre visibles les contenus FAILED qui ont encore leur media)
-- [ ] Rendre le rattachement aux marques decouvrable (entree depuis la liste des profils et depuis la marque)
+- [x] Ajouter "Mes profils" au menu pour les trois types de compte (la page n etait atteignable qu en tapant l URL)
+- [x] Separer ambassadrices et marques sur /profiles, et y montrer le rattachement dans les deux sens
+- [x] Supprimer la pastille de niche redondante avec les chips juste en dessous
 - [ ] Masquer les messages d erreur techniques aux clients (garder le detail cote logs) -- volontairement remis a plus tard
-- [ ] Eprouver Seedance sur une vraie generation (format de requete valide par les tests uniquement)
+- [x] Corriger la resolution Seedance (2.5 n accepte que 480p ou 720p, on envoyait 1080p)
+- [x] Signaler un echec meme quand le rendu precedent est conserve (il s annoncait comme un succes)
+- [x] Reparer la barre laterale: la deconnexion sortait de l ecran (flex-1 sans min-h-0)
+- [x] Une seule entree de menu active a la fois (la plus specifique gagne)
+- [ ] Eprouver Seedance sur une vraie generation (les deux contraintes 400 sont levees, jamais abouti)
 - [ ] Eprouver Kling image2video sur une vraie generation (jamais execute)
 
 ## Fait

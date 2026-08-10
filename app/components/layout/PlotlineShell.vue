@@ -140,7 +140,9 @@
             </div>
           </div>
 
-          <nav class="flex flex-1 flex-col gap-2">
+          <!-- min-h-0 + overflow: sans quoi la liste ne peut pas retrecir et
+               pousse le bloc compte (et sa deconnexion) hors de l ecran. -->
+          <nav class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
             <template v-for="item in navigation" :key="item.to">
               <button
                 v-if="item.disabled"
@@ -176,7 +178,7 @@
             </template>
           </nav>
 
-          <div class="mt-6 border-t border-[#E5E3DF] pt-4">
+          <div class="mt-6 shrink-0 border-t border-[#E5E3DF] pt-4">
             <div class="rounded-[12px] border border-[#E5E3DF] bg-[#FAFAF8] p-3">
               <NuxtLink
                 to="/settings"
@@ -343,11 +345,17 @@ const navigation = computed(() => {
     disabled: !activeInfluencer.value,
   }
 
+  // La liste des profils n etait atteignable que depuis le menu des comptes
+  // marque: ailleurs, il fallait taper l URL a la main. Elle est desormais
+  // presente pour les trois types de compte.
+  const profilesItem = { label: 'Mes profils', to: '/profiles' }
+
   if (isContentCreator.value) {
     return [
       { label: 'Accueil', to: '/dashboard' },
       { label: 'Studio', to: '/studio' },
       { label: 'Mes créations', to: '/content' },
+      profilesItem,
       { label: 'Calendrier', to: '/calendar' },
       { label: 'Analytics', to: '/analytics', badge: 'Bientôt', disabled: true },
       settingsItem,
@@ -358,7 +366,7 @@ const navigation = computed(() => {
     return [
       { label: 'Accueil', to: '/dashboard' },
       { label: 'Brand Studio', to: '/brand-studio' },
-      { label: 'Mes ambassadrices', to: '/profiles' },
+      profilesItem,
       { label: 'Calendrier', to: '/calendar' },
       { label: 'Analytics', to: '/analytics', badge: 'Bientôt', disabled: true },
       settingsItem,
@@ -369,6 +377,7 @@ const navigation = computed(() => {
     { label: 'Accueil', to: '/dashboard' },
     { label: 'Générer', to: activeInfluencer.value ? `/profiles/${activeInfluencer.value.id}/generate` : '/profiles', disabled: !activeInfluencer.value },
     { label: 'Contenu', to: '/content' },
+    profilesItem,
     { label: 'Calendrier', to: '/calendar' },
     { label: 'Analytics', to: '/analytics', badge: 'Bientôt', disabled: true },
     settingsItem,
@@ -461,12 +470,28 @@ async function logout() {
   await router.push('/auth/login')
 }
 
+/**
+ * Une seule entree peut etre active: la plus specifique qui corresponde.
+ * Un simple `startsWith` allumait "Mes profils" (/profiles) en meme temps que
+ * "Reglages" (/profiles/:id/edit), puisque le second est un descendant du premier.
+ */
+const activeNavTo = computed(() => {
+  const matches = navigation.value.filter((item) => {
+    if (item.disabled || !item.to) return false
+    return route.path === item.to || route.path.startsWith(`${item.to}/`)
+  })
+
+  if (!matches.length) return ''
+
+  return matches.reduce((best, item) => (item.to.length > best.to.length ? item : best)).to
+})
+
 function navClass(item) {
-  const isActive = route.path === item.to || route.path.startsWith(`${item.to}/`)
   if (item.disabled) {
     return 'cursor-not-allowed border border-transparent text-[#111111] opacity-50 hover:bg-transparent'
   }
-  return isActive
+
+  return item.to === activeNavTo.value
     ? 'bg-[#111111] text-white shadow-[0_1px_3px_rgba(0,0,0,0.10)]'
     : 'text-[#111111] hover:bg-[#FAFAF8] hover:text-[#111111]'
 }

@@ -11,6 +11,7 @@ import {
   resolveGenerationType,
   resolveSeedanceApiBase,
   resolveSeedanceAspectRatio,
+  resolveSeedanceResolution,
 } from '../server/utils/seedanceGenerator.js';
 import {
   describePublishFailure,
@@ -108,6 +109,18 @@ test('seedance: le corps de requete respecte le format attendu', () => {
   const imageBody = buildSeedanceRequestBody({ prompt: 'Une scene', imageUrls: ['https://blob/frame.jpg'] });
   assert.equal(imageBody.input.generation_type, 'image-to-video');
   assert.deepEqual(imageBody.input.image_urls, ['https://blob/frame.jpg']);
+});
+
+test('seedance: la resolution est ramenee a une valeur supportee', () => {
+  // Seedance 2.5 refuse la requete en 400 hors 480p/720p; 1080p etait envoye.
+  assert.equal(resolveSeedanceResolution('1080p'), '720p');
+  assert.equal(resolveSeedanceResolution('4k'), '720p');
+  assert.equal(resolveSeedanceResolution(''), '720p');
+  assert.equal(resolveSeedanceResolution('480p'), '480p');
+  assert.equal(resolveSeedanceResolution('720p'), '720p');
+
+  const body = buildSeedanceRequestBody({ prompt: 'Une scene', resolution: '1080p' });
+  assert.equal(body.input.resolution, '720p');
 });
 
 test('seedance: en image-to-video le ratio doit valoir adaptive', () => {
