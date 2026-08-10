@@ -162,7 +162,17 @@ export default defineEventHandler(async (event) => {
   }
 
   const runtimeConfig = useRuntimeConfig(event);
-  const model = resolveVideoModelOrThrow({ prompt, withFaceRef, influencer, runtimeConfig });
+
+  // Le modele choisi dans le Studio n etait pris en compte que sur "Modifier":
+  // une premiere generation retombait toujours sur la detection par mots-cles,
+  // donc choisir Seedance ou Kling n avait aucun effet.
+  const model = resolveVideoModelOrThrow({
+    prompt,
+    withFaceRef,
+    influencer,
+    runtimeConfig,
+    forcedModel: String(body?.model || '').trim(),
+  });
 
   const generatedContentData = {
     influencerId: influencer.id,

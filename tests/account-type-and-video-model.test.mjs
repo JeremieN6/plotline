@@ -9,6 +9,7 @@ import {
   extractSeedanceVideoUrl,
   resolveGenerationType,
   resolveSeedanceApiBase,
+  resolveSeedanceAspectRatio,
 } from '../server/utils/seedanceGenerator.js';
 import {
   describePublishFailure,
@@ -106,7 +107,23 @@ test('seedance: le corps de requete respecte le format attendu', () => {
   const imageBody = buildSeedanceRequestBody({ prompt: 'Une scene', imageUrls: ['https://blob/frame.jpg'] });
   assert.equal(imageBody.input.generation_type, 'image-to-video');
   assert.deepEqual(imageBody.input.image_urls, ['https://blob/frame.jpg']);
-  assert.equal(imageBody.input.aspect_ratio, '9:16');
+});
+
+test('seedance: en image-to-video le ratio doit valoir adaptive', () => {
+  // L API refuse en 400 toute autre valeur dans ce mode: le cadrage vient de
+  // l image de depart, elle-meme generee au format demande par le prompt.
+  assert.equal(resolveSeedanceAspectRatio('image-to-video', '16:9'), 'adaptive');
+  assert.equal(resolveSeedanceAspectRatio('text-to-video', '16:9'), '16:9');
+
+  const imageBody = buildSeedanceRequestBody({
+    prompt: 'Une scene',
+    aspectRatio: '16:9',
+    imageUrls: ['https://blob/frame.jpg'],
+  });
+  assert.equal(imageBody.input.aspect_ratio, 'adaptive');
+
+  const textBody = buildSeedanceRequestBody({ prompt: 'Une scene', aspectRatio: '16:9' });
+  assert.equal(textBody.input.aspect_ratio, '16:9');
 });
 
 // --- Publicateur planifie ---------------------------------------------------

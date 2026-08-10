@@ -40,6 +40,16 @@ export function resolveGenerationType(imageUrls) {
   return Array.isArray(imageUrls) && imageUrls.length ? 'image-to-video' : 'text-to-video';
 }
 
+/**
+ * En image-to-video, Seedance 2.5 n accepte que `adaptive` et refuse la requete
+ * en 400 sur toute autre valeur: le cadrage est repris de l image de depart.
+ * Ce n est pas une entorse a la regle "le prompt decide du format" — l image de
+ * depart est elle-meme generee au format demande par le prompt.
+ */
+export function resolveSeedanceAspectRatio(generationType, aspectRatio) {
+  return generationType === 'image-to-video' ? 'adaptive' : aspectRatio;
+}
+
 export function buildSeedanceRequestBody({
   prompt,
   aspectRatio = DEFAULT_ASPECT_RATIO,
@@ -56,7 +66,7 @@ export function buildSeedanceRequestBody({
       prompt: String(prompt || '').trim(),
       generation_type: generationType,
       duration,
-      aspect_ratio: aspectRatio,
+      aspect_ratio: resolveSeedanceAspectRatio(generationType, aspectRatio),
       resolution,
       ...(generationType === 'image-to-video' ? { image_urls: imageUrls } : {}),
     },

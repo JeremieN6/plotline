@@ -1,4 +1,5 @@
 import { processGenerationJob } from '../../../utils/generationWorker.js';
+import { shouldUseQueue } from '../../../utils/queueMode.js';
 import { isSupportedVideoModel, resolveVideoModelOrThrow, runVideoGenerationJob } from '../../../utils/videoGeneration.js';
 
 let prismaClient;
@@ -14,11 +15,6 @@ async function getPrisma() {
   }
 
   return prismaClient;
-}
-
-function shouldUseQueue() {
-  const rawValue = String(process.env.USE_QUEUE || '').trim().toLowerCase();
-  return rawValue === 'true' || rawValue === '1' || rawValue === 'yes';
 }
 
 export default defineEventHandler(async (event) => {

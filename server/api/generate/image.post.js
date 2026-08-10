@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { processGenerationJob } from '../../utils/generationWorker.js';
+import { shouldUseQueue } from '../../utils/queueMode.js';
 
 let prismaClient;
 let variablesCache;
@@ -180,11 +181,6 @@ async function resolveConceptFromPinterestPayload(body) {
     lighting: randomItem(lighting),
     tagCategory: resolvedTagCategory,
   };
-}
-
-function shouldUseQueue() {
-  const rawValue = String(process.env.USE_QUEUE || '').trim().toLowerCase();
-  return rawValue === 'true' || rawValue === '1' || rawValue === 'yes';
 }
 
 function logGenerationError(err, context = {}) {

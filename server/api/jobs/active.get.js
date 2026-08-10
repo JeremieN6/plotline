@@ -1,3 +1,5 @@
+import { shouldUseQueue } from '../../utils/queueMode.js';
+
 let prismaClient;
 
 async function getPrisma() {
@@ -11,11 +13,6 @@ async function getPrisma() {
   }
 
   return prismaClient;
-}
-
-function shouldUseQueue() {
-  const rawValue = String(process.env.USE_QUEUE || '').trim().toLowerCase();
-  return rawValue === 'true' || rawValue === '1' || rawValue === 'yes';
 }
 
 async function buildProgressByContentId(contentIds) {

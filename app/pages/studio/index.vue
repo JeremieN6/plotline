@@ -290,7 +290,7 @@
             <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[#E8873A] border-t-transparent" />
             <span class="text-sm font-semibold text-[#111111]">Génération vidéo en cours...</span>
           </div>
-          <p class="text-xs text-[#888]">La vidéo est générée par Veo (~60–90 s). Elle apparaîtra ici automatiquement.</p>
+          <p class="text-xs text-[#888]">La vidéo est générée par {{ videoProviderLabel }} (~60–90 s). Elle apparaîtra ici automatiquement.</p>
           <NuxtLink
             to="/content"
             class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#E8873A] hover:underline"
@@ -372,8 +372,22 @@ const showStudioHint = ref(true)
 const ambassadorPanelOpen = ref(true)
 const editingContentId = ref('')
 const editContentPreviewUrl = ref('')
-// Modele impose lors d une regeneration. "auto" conserve la detection par prompt.
+// Modele impose pour la generation video. "auto" conserve la detection par prompt.
 const selectedVideoModel = ref('auto')
+
+const VIDEO_PROVIDER_LABELS = { veo: 'Veo', kling: 'Kling', seedance: 'Seedance' }
+
+/**
+ * Nom du fournisseur reellement retenu. Le libelle etait fige sur "Veo", donc
+ * choisir Seedance affichait quand meme Veo dans le toast et le panneau.
+ */
+const videoProviderLabel = computed(() => {
+  const fromResult = String(lastResult.value?.model || '').toLowerCase()
+  const matched = Object.keys(VIDEO_PROVIDER_LABELS).find((key) => fromResult.startsWith(key))
+  if (matched) return VIDEO_PROVIDER_LABELS[matched]
+
+  return VIDEO_PROVIDER_LABELS[selectedVideoModel.value] || 'Le modèle choisi'
+})
 const CAROUSEL_MIN_PROMPTS = 2
 const CAROUSEL_MAX_PROMPTS = 10
 let carouselPromptKey = 0
@@ -685,6 +699,7 @@ async function submit() {
               influencerId: primaryInfluencerId.value,
               ambassadorId: resolvedAmbassadorId.value || null,
               withFaceRef: wantsAmbassador.value,
+              model: selectedVideoModel.value,
             },
           })
       lastResult.value = result
@@ -693,7 +708,7 @@ async function submit() {
         startVideoPolling(result.contentId)
         pushToast({
           title: isEditing ? 'Régénération lancée' : 'Génération lancée',
-          message: isEditing ? 'Veo régénère ta vidéo. Résultat ici dans ~60s.' : 'Veo génère ta vidéo. Résultat ici dans ~60s.',
+          message: `${videoProviderLabel.value} ${isEditing ? 'régénère' : 'génère'} ta vidéo. Résultat ici dans ~60s.`,
           tone: 'success',
         })
       }

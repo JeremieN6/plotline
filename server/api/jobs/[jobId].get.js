@@ -1,7 +1,4 @@
-function shouldUseQueue() {
-  const rawValue = String(process.env.USE_QUEUE || '').trim().toLowerCase();
-  return rawValue === 'true' || rawValue === '1' || rawValue === 'yes';
-}
+import { shouldUseQueue } from '../../utils/queueMode.js';
 
 function mapJobStatus(state) {
   if (state === 'completed') return 'completed';
