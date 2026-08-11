@@ -140,6 +140,28 @@ module.exports = defineEventHandler(async (event) => {
         return sendError(event, createError({ statusCode: 404, statusMessage: 'Image temporaire introuvable' }));
       }
 
+      const blobModule = await import('../../utils/blobStorage.js');
+
+      // La face ref produite par le pipeline restait sur le disque de la machine
+      // qui l a generee, alors que la base est partagee: elle devenait
+      // introuvable depuis tout autre environnement, et la generation echouait
+      // avec "Face reference file not found". L upload manuel, lui, passait deja
+      // par le Blob. Les deux branches suivent desormais la meme regle.
+      if (blobModule.isBlobStorageEnabled()) {
+        const fileBuffer = fs.readFileSync(absoluteTempPath);
+        const uploaded = await blobModule.uploadPublicMediaBuffer(
+          `face-refs/${influencerId}`,
+          'jpg',
+          fileBuffer,
+          'image/jpeg',
+        );
+
+        fs.unlinkSync(absoluteTempPath);
+        await upsertFaceRefOnInfluencer(influencerId, uploaded.url);
+
+        return { path: uploaded.url, url: uploaded.url };
+      }
+
       const uploadDir = path.join(process.cwd(), 'storage', 'uploads', 'face-refs');
       fs.mkdirSync(uploadDir, { recursive: true });
 

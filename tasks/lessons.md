@@ -37,6 +37,12 @@
 **Solution** : Ne pas exporter les classes utilisees uniquement a l'interieur de leur propre module.
 **Regle** : Dans `server/utils/`, n'exporter que ce qui est reellement consomme ailleurs. Un test isole en esbuild ne prouve rien ici: il court-circuite justement l'auto-import qui provoque la panne, donc la verification doit se faire sur le vrai serveur de dev.
 
+### 2026-08-10 Face ref ecrite sur le disque local malgre le Blob (recidive)
+**Probleme** : Une regeneration echouait avec `Face reference file not found: storage/uploads/face-refs/....jpg`, alors que le fichier existait bien sur le poste de dev.
+**Cause racine** : `server/api/upload/face-ref.post.js` a DEUX branches. Celle de l upload manuel consultait `isBlobStorageEnabled()`; celle du pipeline de generation (photo normale -> fiche 3 panneaux), ajoutee plus tard, ecrivait toujours en local. La face ref restait donc sur la machine qui l avait generee, avec une base pourtant partagee. C est exactement la lecon du 2026-08-07 sur les videos, reproduite ailleurs deux jours plus tard.
+**Solution** : Faire passer la branche du pipeline par le Blob quand il est actif, et rapatrier l existant avec `scripts/migrate-face-refs-to-blob.cjs` (dry-run par defaut).
+**Regle** : Quand un fichier peut etre ecrit par plusieurs chemins, corriger UN chemin ne corrige pas la regle. Apres avoir repare un cas, faire un grep de tous les points d ecriture du meme type de media et verifier chacun. Une regle de stockage se verifie exhaustivement, pas au cas par cas.
+
 ### 2026-08-07 Video ecrite sur le disque local malgre le Blob configure
 **Probleme** : Les videos generees etaient invisibles en production alors que le token Blob etait bien present.
 **Cause racine** : Les chemins de sortie Veo et Kling ecrivaient directement dans `storage/uploads/generated/` sans consulter `isBlobStorageEnabled()`. La lecon de 2026-06-06 avait ete appliquee aux images mais pas aux videos ajoutees ensuite.

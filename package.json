@@ -11,6 +11,8 @@
     "migrate:generated:blob:dry": "node scripts/migrate-generated-to-blob.cjs --dry-run",
     "migrate:generated:blob": "node scripts/migrate-generated-to-blob.cjs",
     "postinstall": "nuxt prepare",
+    "migrate:facerefs:blob:dry": "node scripts/migrate-face-refs-to-blob.cjs",
+    "migrate:facerefs:blob": "node scripts/migrate-face-refs-to-blob.cjs --upload",
     "cleanup:orphans": "node scripts/cleanup-orphan-media.cjs",
     "cleanup:orphans:delete": "node scripts/cleanup-orphan-media.cjs --delete"
   },
