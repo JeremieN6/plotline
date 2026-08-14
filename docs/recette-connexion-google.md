@@ -46,6 +46,62 @@ peuvent se connecter.
 > `/api` oublie, barre oblique finale en trop, ou `https` au lieu de `http` en
 > local. L'URI envoyee doit correspondre **exactement**.
 
+### Verification avant le premier essai
+
+Ne pas deviner l'URI : afficher celle que le code enverra reellement, et la
+coller telle quelle dans la console.
+
+```bash
+node -e "const b=(process.env.BASE_URL||'http://localhost:3000').trim().replace(/\/+$/,'');console.log(b+'/api/auth/google/callback')"
+```
+
+Cette seule commande evite l'aller-retour le plus frequent de toute la recette.
+
+---
+
+## 2 bis. Reutiliser les memes identifiants sur plusieurs projets
+
+**Techniquement, oui.** Un meme client OAuth accepte plusieurs URI de
+redirection : il suffit de toutes les declarer.
+
+```
+http://localhost:3000/api/auth/google/callback
+http://localhost:3001/api/auth/google/callback
+https://projet-a.fr/api/auth/google/callback
+https://projet-b.fr/api/auth/google/callback
+```
+
+**Mais l'ecran de consentement est unique et porte un seul nom.** Un client
+nomme « Plotline » affichera « Se connecter a **Plotline** » a quelqu'un qui
+s'inscrit sur Tifo. Le logo, la politique de confidentialite et les conditions
+d'utilisation sont eux aussi communs.
+
+Trois consequences a peser :
+
+| Point | Client partage | Un client par projet |
+|---|---|---|
+| Nom vu par l'utilisateur | celui du client, pour tous | celui du projet |
+| Mise en production | une verification Google vaut pour tous | a refaire par projet |
+| Fuite du secret | tous les projets exposes | un seul projet expose |
+
+**Recommandation** : un **client OAuth par projet**, tous ranges dans le meme
+projet Google Cloud. La creation prend deux minutes et supprime le probleme de
+marque. Reserver le client partage aux cas ou les sites sont explicitement des
+sous-marques d'une meme entite, et ou l'utilisateur comprend le nom affiche.
+
+### Le piege du localhost
+
+Les cookies **ne sont pas isoles par port**. Deux projets tournant en meme temps
+sur `localhost:3000` et `localhost:3001` partagent leurs cookies : le cookie de
+`state` de l'un ecrase celui de l'autre, et la connexion echoue avec
+« Requete Google invalide ».
+
+Donner un **nom de cookie propre a chaque projet** :
+
+```js
+export const GOOGLE_STATE_COOKIE = 'tifo_google_state'; // et non 'app_google_state'
+```
+
 ---
 
 ## 3. Variables d'environnement
@@ -381,6 +437,21 @@ C'est le role de `assertUsableProfile`. Ne pas l'enlever.
 - **Ecran de reglages** : ne pas exiger un « mot de passe actuel » quand il n'y
   en a pas.
 
+### Le parcours d'inscription va etre reellement exerce
+
+C'est l'effet de bord le moins evident. Ajouter Google rend l'inscription si
+rapide qu'on cree enfin des **comptes neufs**, alors que le developpement se
+fait d'ordinaire sur des comptes existants.
+
+Tout le chemin « compte vierge → onboarding → premier profil » se retrouve donc
+parcouru, parfois pour la premiere fois depuis des mois. Sur Plotline, cela a
+revele une page d'onboarding qui declarait `middleware: ['auth']` alors que le
+projet n'a qu'un `auth.global.ts` — **un middleware global ne peut pas etre
+appele par son nom**, et Nuxt levait `Unknown route middleware: 'auth'`.
+
+Avant de livrer, parcourir soi-meme l'inscription de bout en bout avec une
+adresse jamais utilisee, et emprunter **chaque** branche de l'onboarding.
+
 ---
 
 ## 8. Les quatre tests qui comptent
@@ -406,3 +477,22 @@ Le test 3 est celui qui decide si l'implementation est correcte.
 | Doublon de compte apres changement d'email Google | Identification sur l'email au lieu de `sub` |
 | Connexion Google qui echoue en production seulement | Variables d'environnement ou seconde URI absentes du serveur |
 | Prise de controle de compte | Rattachement sans verifier `email_verified` |
+| « Requete Google invalide » avec deux projets en local | Cookie de `state` partage entre ports : lui donner un nom par projet |
+| Nom d'une autre app sur l'ecran de consentement | Client OAuth partage entre projets |
+| Erreur d'onboarding jamais vue avant | Le parcours compte neuf est enfin emprunte (voir section 7) |
+
+---
+
+## 10. Memo de reprise
+
+Sur un nouveau projet, dans cet ordre :
+
+1. Rendre `passwordHash` nullable si ce n'est pas deja le cas.
+2. Creer le client OAuth (un par projet, cf. section 2 bis) et declarer les URI.
+3. Poser les deux variables d'environnement, en local **et** sur le serveur.
+4. Passer la migration `googleId`, puis seulement apres toucher au schema.
+5. Copier les trois fichiers de la section 5, en adaptant l'import de session et
+   **le nom du cookie de `state`**.
+6. Ajouter le bouton sur connexion et inscription.
+7. Verifier l'URI avec la commande de la section 2.
+8. Jouer les quatre tests de la section 8, le troisieme decide de tout.
