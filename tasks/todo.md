@@ -85,6 +85,15 @@
 - [ ] Si les credits Seedance sont recharges un jour: valider `duration` (jamais eprouvee, prochain 400 probable)
 - [ ] Eprouver Seedance de bout en bout (aucune generation n a jamais abouti)
 
+## Connexion Google
+- [x] Colonne User.googleId (migration passee, schema Prisma ensuite)
+- [x] Echange OAuth ecrit a la main, sans module apportant sa propre session
+- [x] Rattachement d un compte existant uniquement si Google verifie l email
+- [x] Boutons Google sur connexion et inscription
+- [ ] Ajouter GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET sur le VPS
+- [ ] Tester les 4 cas: inscription neuve, reconnexion, collision, connexion mot de passe
+- [ ] Afficher "Connecte via Google" dans les Reglages (cosmetique, non fait)
+
 ## Planificateur editorial (en cours)
 - [x] Supprimer le planner d origine, ecrit pour prisma.persona/prisma.batch (modeles disparus)
 - [x] Ecrire la cadence pure et testable: creneaux dates, rotation des formats, repli deterministe

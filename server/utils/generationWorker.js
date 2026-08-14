@@ -35,6 +35,9 @@ import {
 
 let prismaClient;
 let generationWorker;
+
+// Au-dela, on considere que la file est inutilisable et on arrete le worker.
+const MAX_CONSECUTIVE_WORKER_ERRORS = 20;
 const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
 
 function getAnthropicModel() {
@@ -847,8 +850,35 @@ export function startGenerationWorker() {
     },
   );
 
+  // Une panne definitive (quota Redis epuise, identifiants refuses) ne se resout
+  // pas en reessayant: BullMQ relance sa lecture bloquante en boucle et inonde
+  // les logs — 11 000 lignes identiques observees en quelques minutes. On coupe
+  // le worker et on le dit une fois, au lieu de masquer le reste du terminal.
+  let consecutiveErrors = 0;
+
   generationWorker.on('error', (error) => {
-    console.error('[generation-worker] Worker error:', error);
+    const message = String(error?.message || error);
+    const isFatal = /max requests limit exceeded|WRONGPASS|NOAUTH|invalid password/i.test(message);
+
+    consecutiveErrors += 1;
+
+    if (isFatal || consecutiveErrors >= MAX_CONSECUTIVE_WORKER_ERRORS) {
+      console.error(
+        `[generation-worker] Arret du worker apres une erreur ${isFatal ? 'definitive' : 'repetee'}: ${message}`,
+      );
+      console.error('[generation-worker] La generation continue sans file d attente. Mettre USE_QUEUE=false pour ne plus demarrer le worker.');
+
+      const stopping = generationWorker;
+      generationWorker = null;
+      stopping?.close().catch(() => {});
+      return;
+    }
+
+    console.error('[generation-worker] Worker error:', message);
+  });
+
+  generationWorker.on('completed', () => {
+    consecutiveErrors = 0;
   });
 
   generationWorker.on('failed', (job, error) => {

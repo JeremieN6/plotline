@@ -12,6 +12,13 @@ import {
   platformForFormat,
 } from '../server/utils/contentPlanner.js';
 import { markGenerationFailure } from '../server/utils/contentVersions.js';
+import {
+  assertUsableProfile,
+  buildGoogleAuthUrl,
+  buildRedirectUri,
+  createOAuthState,
+  normalizeGoogleProfile,
+} from '../server/utils/googleOAuth.js';
 import { mergeIdeasIntoSlots, parsePlanIdeas } from '../server/utils/planIdeaGenerator.js';
 import {
   buildSeedanceRequestBody,
@@ -147,6 +154,64 @@ test('seedance: en image-to-video le ratio doit valoir adaptive', () => {
 
   const textBody = buildSeedanceRequestBody({ prompt: 'Une scene', aspectRatio: '16:9' });
   assert.equal(textBody.input.aspect_ratio, '16:9');
+});
+
+// --- Connexion Google -------------------------------------------------------
+
+test('google: l URI de redirection est stable quel que soit le format du BASE_URL', () => {
+  // Google refuse l echange si l URI ne correspond pas au caractere pres.
+  assert.equal(buildRedirectUri('http://localhost:3000'), 'http://localhost:3000/api/auth/google/callback');
+  assert.equal(buildRedirectUri('http://localhost:3000/'), 'http://localhost:3000/api/auth/google/callback');
+  assert.equal(buildRedirectUri('https://plotline.sassify.fr//'), 'https://plotline.sassify.fr/api/auth/google/callback');
+});
+
+test('google: l URL d autorisation porte les parametres attendus', () => {
+  const url = new URL(buildGoogleAuthUrl({
+    clientId: 'abc.apps.googleusercontent.com',
+    redirectUri: 'http://localhost:3000/api/auth/google/callback',
+    state: 'xyz',
+  }));
+
+  assert.equal(url.origin + url.pathname, 'https://accounts.google.com/o/oauth2/v2/auth');
+  assert.equal(url.searchParams.get('client_id'), 'abc.apps.googleusercontent.com');
+  assert.equal(url.searchParams.get('response_type'), 'code');
+  assert.equal(url.searchParams.get('state'), 'xyz');
+  assert.equal(url.searchParams.get('scope'), 'openid email profile');
+});
+
+test('google: deux states successifs ne se repetent pas', () => {
+  assert.notEqual(createOAuthState(), createOAuthState());
+});
+
+test('google: le profil est normalise, y compris email_verified en chaine', () => {
+  const profile = normalizeGoogleProfile({
+    sub: '12345',
+    email: 'Jeremie@Example.COM',
+    email_verified: 'true',
+    name: 'Jeremie',
+  });
+
+  assert.equal(profile.googleId, '12345');
+  assert.equal(profile.email, 'jeremie@example.com');
+  assert.equal(profile.emailVerified, true);
+
+  assert.equal(normalizeGoogleProfile({ email_verified: false }).emailVerified, false);
+  assert.equal(normalizeGoogleProfile({}).emailVerified, false);
+});
+
+test('google: un email non verifie est refuse', () => {
+  // C est la condition qui empeche une prise de controle de compte par
+  // rattachement sur un email homonyme.
+  assert.throws(
+    () => assertUsableProfile({ googleId: '1', email: 'a@b.c', emailVerified: false }),
+    /non verifiee/,
+  );
+
+  assert.throws(() => assertUsableProfile({ email: 'a@b.c', emailVerified: true }), /identifiant manquant/);
+  assert.throws(() => assertUsableProfile({ googleId: '1', emailVerified: true }), /email manquante/);
+
+  const valid = { googleId: '1', email: 'a@b.c', emailVerified: true };
+  assert.equal(assertUsableProfile(valid), valid);
 });
 
 // --- Planificateur editorial ------------------------------------------------

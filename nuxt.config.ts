@@ -49,6 +49,9 @@ export default defineNuxtConfig({
     klingModel: process.env.KLINGAI_MODEL || process.env.KLING_MODEL,
     redisUrl: process.env.REDIS_URL,
     baseUrl: process.env.BASE_URL,
+    // Jamais dans `public`: le secret ne doit pas partir dans le bundle client.
+    googleClientId: process.env.GOOGLE_OAUTH_CLIENT_ID,
+    googleClientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET,
     public: {
       // Seedance est desactive par defaut: credits prepayes epuises et chemin
       // complet jamais abouti. Un seul interrupteur pilote l offre cote studio
