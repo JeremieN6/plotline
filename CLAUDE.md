@@ -32,11 +32,12 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 
 ## Etat Actuel du Projet
 **Phase** : Produit fonctionnel en production, consolidation du pipeline de generation
-**Derniere session** : 2026-08-10
-**Progression globale** : 65%
+**Derniere session** : 2026-08-14
+**Progression globale** : 72%
 
 ### Ce qui est fait :
 - [x] Socle technique: Nuxt 3, Prisma + Neon, auth complete (session, reset mot de passe, changement email)
+- [x] Connexion et inscription via Google OAuth (echange fait a la main, sans module tiers ; recette complete dans `docs/recette-connexion-google.md`)
 - [x] Multi-profils avec trois types de compte: INFLUENCER_CREATOR, CONTENT_CREATOR, BRAND
 - [x] Identity lock: face ref 3 panneaux, prompts corps/cheveux verrouillables
 - [x] Generation image (Gemini) et video (Veo, Kling, Seedance) avec selection de modele
@@ -49,11 +50,11 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 - [x] Publication Instagram (Meta Graph API) et X/Twitter
 - [x] Script de nettoyage des medias orphelins (dry-run par defaut)
 - [x] Publication automatique des contenus a leur date planifiee (opt-in via `SCHEDULER_ENABLED`)
+- [x] Lien marque <-> ambassadrice en plusieurs-a-plusieurs (table `BrandAmbassador`), rattachement editable depuis la fiche du profil
+- [x] Planificateur editorial: cadence par profil, idees redigees par Claude avec repli deterministe, revue avant generation
 
 ### Prochaines etapes :
 - [ ] Eprouver Kling image2video sur une vraie generation
-- [ ] Revoir le lien marque <-> ambassadrice (aujourd hui une ambassadrice n appartient qu a une seule marque)
-- [x] Planificateur editorial: cadence par profil, idees redigees par Claude avec repli deterministe, revue avant generation
 - [ ] Ecran de reglage de la cadence et liste des plans passes
 - [ ] Ajouter mode dry-run + notifications d'erreur + logs structures
 
@@ -75,6 +76,7 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 - Un compte INFLUENCER_CREATOR se lit comme une agence d influenceurs virtuels: beaucoup d influenceurs, peu de marques.
 - Le rattachement marque <-> ambassadrice est volontairement limite a un seul compte. On ne relie jamais deux profils de comptes differents.
 - Aucune generation media ne doit etre attendue dans une requete HTTP: reponse immediate en `processing`, suivi par polling.
+- Le cookie de `state` OAuth Google (`GOOGLE_STATE_COOKIE`) n'est pas isole par port: deux projets Nuxt en local sur des ports differents partagent leurs cookies et se font ecraser leur `state` mutuellement. Voir `docs/recette-connexion-google.md` avant de reactiver du dev local en parallele d'un autre projet ayant aussi du Google OAuth.
 
 ---
 
@@ -97,6 +99,9 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 | 2026-08-10 | Le type de profil est ecrit en base au lieu d etre devine depuis la face ref | L inference cassait silencieusement des qu une marque aurait eu une face ref |
 | 2026-08-10 | Un plan editorial est relu avant que le moindre media soit produit | Valider un texte coute une requete Claude, valider apres generation coute autant de videos que d idees |
 | 2026-08-10 | La cadence est deterministe, Claude n ecrit que le texte des idees | Le rythme doit rester previsible meme quand l IA est indisponible |
+| 2026-08-14 | OAuth Google implemente a la main (~150 lignes, aucune dependance) plutot qu avec un module tiers (nuxt-auth-utils et consorts) | Un module tiers installe sa propre session en parallele de celle du projet: deux mecanismes d authentification, dont un seul est revocable |
+| 2026-08-14 | Rattachement automatique d un compte Google a un compte mot de passe existant, uniquement si Google declare `email_verified: true` | Rattacher sur la seule correspondance d email est une prise de controle de compte: n importe qui creant un compte Google avec l adresse d un tiers recupererait son compte |
+| 2026-08-14 | Identification de l utilisateur Google par `sub` (googleId), jamais par l email | Un utilisateur peut changer l adresse de son compte Google; l identifier par email le rendrait inconnu du jour au lendemain et creerait un doublon silencieux |
 
 ---
 
@@ -109,6 +114,8 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 - 2026-07-01: Refond du back office avec shell global sidebar, dashboard bento, calendrier mensuel, vue contenu 3 colonnes, hook de notifications jobs actifs et routes schedule/active.
 - 2026-07-30: Ajout du lien explicite `campaignId` sur les contenus, filtres campagne sur dashboard/contenu, suppression de campagne avec detachement des contenus, et panneau ambassadrice repliable dans le Studio.
 - 2026-08-10: Sprints historique + carrousel + fiabilisation video. Historique des versions avec retour arriere sans perte de media, correction de la regeneration destructive, nettoyage des medias a la suppression. Regroupement des slides de carrousel avec navigation et modification isolee. Format decide par le prompt au lieu d'un 9:16 en dur. Seedance rebranche sur la vraie API seevio (tache asynchrone, image de depart par URL Blob). Les trois fournisseurs video passent en tache de fond: Kling bloquait la requete HTTP jusqu'a 15 minutes. Rapatriement ponctuel de 6 medias vers le Blob et script de nettoyage des orphelins. Colonne morte `GeneratedContent.generationModel` supprimee par migration.
+- 2026-08-11 / 08-12: Fiabilisation du planificateur et du stockage. Les modifications d une idee sont desormais enregistrees avant de lancer la generation: une scene reecrite puis envoyee directement partait avec l ancien texte et brulait des credits pour un contenu abandonne. Correction d une recidive du bug de stockage local: la route d upload de face ref avait deux branches, celle du pipeline de generation ecrivait toujours sur le disque sans consulter le Blob, rendant la face ref introuvable depuis tout autre environnement. Script `scripts/migrate-face-refs-to-blob.cjs` ajoute pour rapatrier l existant.
+- 2026-08-14: Connexion et inscription Google ajoutees (echange OAuth a la main, `googleId` nullable/unique sur `User`, rattachement automatique si `email_verified`). Documentation complete ecrite en recette reutilisable (`docs/recette-connexion-google.md`) pour reappliquer le meme flux sur un autre projet: pieges de la console Google, du cookie `state` partage entre ports en local, et effet de bord du parcours d'inscription enfin exerce. Correction d'une page d'onboarding qui referencait un middleware nomme `auth` inexistant (le seul middleware du projet est global, `auth.global.ts`, non appelable par son nom) — la protection etait deja assuree par le middleware global, la ligne fautive a simplement ete retiree.
 
 ---
 
@@ -116,3 +123,8 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 > Voir tasks/lessons.md pour le detail des corrections et patterns a eviter.
 
 - Respect strict de la consigne utilisateur: ne rien creer hors instruction explicite.
+
+---
+
+## Regle de memoire narrative
+Apres toute session impliquant une decision business, un pivot, un changement de statut, ou un apprentissage terrain significatif (pas les changements purement techniques), mettre a jour /STORY.md en consequence, en plus des notes de session habituelles.

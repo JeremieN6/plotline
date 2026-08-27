@@ -203,3 +203,9 @@
 **Cause racine** : Les fetchs externes du pipeline video etaient executes sans reprise sur erreur transitoire ni timeout explicite.
 **Solution** : Ajouter un wrapper de fetch avec timeout et retries sur les erreurs reseau transientes pour submit/poll/download Kling et l'upload tmpfiles.
 **Regle** : Tout appel media externe critique doit gerer `ECONNRESET`/timeouts comme des pannes transitoires et non comme des erreurs fatales immediates.
+
+### 2026-08-14 Middleware nomme reference alors qu il n existe pas
+**Probleme** : La page `onboarding/influencer-creator.vue` declarait `definePageMeta({ middleware: ['auth'] })`. Nuxt levait `Unknown route middleware: 'auth'`.
+**Cause racine** : Le seul middleware du projet est `auth.global.ts`, un middleware GLOBAL. Un middleware global s'applique automatiquement a toutes les routes et ne peut pas etre reference par son nom dans `definePageMeta`. Le nom `'auth'` ne correspondait donc a rien.
+**Solution** : Retirer la declaration `middleware: ['auth']` de la page. La protection etait deja assuree par le middleware global, qui redirige tout visiteur non authentifie vers la connexion sur toutes les routes sans exception.
+**Regle** : Sur ce projet, ne jamais referencer un middleware par son nom dans `definePageMeta`: le seul middleware existant est global et s'applique deja partout. Si un jour un middleware nomme (non global) est ajoute, verifier son nom exact dans `server/middleware` ou `app/middleware` avant de le referencer -- ce genre d'erreur ne se revele que quand la route concernee est reellement visitee (voir aussi : le parcours d'inscription neuve est rarement emprunte pendant le developpement courant, cf. `docs/recette-connexion-google.md` section 7).
