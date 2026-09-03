@@ -5,6 +5,16 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Deux pushes rapproches declenchaient deux deploiements en parallele sur la
+# meme VPS: le second ecrasait .output pendant que le premier y ecrivait
+# encore, produisant un build incomplet servi en production (chunks
+# manquants, 500 en boucle). Un seul deploiement a la fois; le suivant
+# attend son tour au lieu d etre annule, pour ne jamais interrompre un
+# npm run build a mi-chemin.
+concurrency:
+  group: deploy-plotline
+  cancel-in-progress: false
+
 env:
   REMOTE_DIR: /srv/saas/plotline
 
