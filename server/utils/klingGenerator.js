@@ -3,17 +3,13 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import ffmpeg from 'fluent-ffmpeg';
-import ffmpegPath from 'ffmpeg-static';
-import ffprobe from 'ffprobe-static';
 
 import { isBlobStorageEnabled, uploadPublicMediaBuffer } from './blobStorage.js';
 import { DEFAULT_ASPECT_RATIO } from './aspectRatio.js';
+import { configureFfmpeg } from './ffmpegBinaries.js';
 import { getGeneratedDir, toMediaUrl } from './mediaStorage.js';
 
-ffmpeg.setFfmpegPath(ffmpegPath);
-if (ffprobe?.path) {
-  ffmpeg.setFfprobePath(ffprobe.path);
-}
+configureFfmpeg(ffmpeg);
 
 const KLING_API_BASE = 'https://api-singapore.klingai.com/v1';
 const KLING_MOTION_ENDPOINT = `${KLING_API_BASE}/videos/motion-control`;

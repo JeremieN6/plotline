@@ -19,6 +19,18 @@
 
 <!-- Les entrees seront ajoutees ici au fil du temps -->
 
+### 2026-09-03 Le deploiement detruisait la version en service avant de construire
+**Probleme** : deux deploiements consecutifs ont echoue et la production est restee cassee, servant des 500 sur les chunks JS (`Failed to fetch dynamically imported module`), page blanche sur /dashboard.
+**Cause racine** : le workflow enchainait `rm -rf .output` PUIS `npm run build`, sous `set -euo pipefail`. Des que le build echouait, la sortie precedente etait deja supprimee et le processus pm2 continuait de servir un `index.html` referencant des fichiers disparus. L echec du build ne cassait donc pas seulement le deploiement, il cassait le site en ligne.
+**Solution** : deplacer `.output` vers `.output.prev` avant de construire, ne le supprimer qu apres un build reussi, et le restaurer si le build echoue. Ajout d une reprise sur `git fetch`, dont l echec (limitation ponctuelle de GitHub) avait fait rater un premier deploiement.
+**Regle** : un deploiement ne supprime jamais la version en service avant que la nouvelle soit prete. Construire d abord, basculer ensuite. Un `rm -rf` suivi d une etape faillible transforme n importe quelle erreur de build en panne de production.
+
+### 2026-09-03 Scripts d installation npm bloques en production
+**Probleme** : `npm run build` echouait sur le VPS avec `File node_modules/ffmpeg-static/ffmpeg does not exist`, alors que le build local passait.
+**Cause racine** : npm bloque desormais par defaut les scripts d installation non couverts par une liste d autorisation. Le `postinstall` de `ffmpeg-static`, qui telecharge le binaire, ne s executait plus. Nitro trace ce binaire au build (`plugin-node-externals`) et echoue s il est absent. Rien dans le code du projet n avait change a ce sujet: c est l environnement du serveur qui a evolue.
+**Solution** : supprimer la dependance au binaire AU BUILD. `ffmpeg-static` et `ffprobe-static` ne sont plus importes statiquement: `server/utils/ffmpegBinaries.js` les resout a l execution, via un specificateur non litteral que l analyse statique ne peut pas suivre, avec trois sources dans l ordre — `FFMPEG_PATH`/`FFPROBE_PATH`, le paquet npm si son script a tourne, puis le binaire systeme via le PATH. Effet mesure: la sortie de build passe de 183 Mo a 37 Mo, le binaire n y etant plus embarque.
+**Regle** : une dependance dont le binaire est telecharge par un script d installation est un point de rupture silencieux entre local et production. Ne jamais l importer statiquement dans du code trace au build: la resoudre a l execution, avec un repli sur le binaire systeme. Et quand un build echoue uniquement sur le serveur, lire les avertissements de `npm ci` avant de suspecter le code.
+
 ### 2026-09-03 Repli silencieux sur localhost en production
 **Probleme** : depuis plotline.sassify.fr, le bouton Google renvoyait vers `http://localhost:3000/api/auth/google/callback`, donc vers la machine de l utilisateur, avec un `ERR_CONNECTION_REFUSED`. Le message accusait a tort la configuration de la console Google.
 **Cause racine** : l URI de redirection etait construite depuis `BASE_URL`, avec un repli `|| 'http://localhost:3000'`. La variable etant absente du VPS, la production a demande a Google une redirection vers localhost. Comme localhost est declare dans la console, Google a obei sans erreur.

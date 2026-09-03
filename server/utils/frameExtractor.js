@@ -2,14 +2,11 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import ffmpeg from 'fluent-ffmpeg';
-import ffmpegPath from 'ffmpeg-static';
-import ffprobe from 'ffprobe-static';
 import sharp from 'sharp';
 
-ffmpeg.setFfmpegPath(ffmpegPath);
-if (ffprobe?.path) {
-  ffmpeg.setFfprobePath(ffprobe.path);
-}
+import { configureFfmpeg } from './ffmpegBinaries.js';
+
+configureFfmpeg(ffmpeg);
 
 const MIN_DURATION_SECONDS = 3;
 const SCAN_PERCENTAGES = [0.1, 0.25, 0.45, 0.65, 0.85];

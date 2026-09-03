@@ -33,12 +33,42 @@ jobs:
           ssh -o StrictHostKeyChecking=yes ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
           set -euo pipefail
           cd /srv/saas/plotline || exit 1
-          git fetch --all --prune
+          # GitHub limite ponctuellement les telechargements non authentifies:
+          # un echec ici est transitoire et ne justifie pas de rater un deploiement.
+          for attempt in 1 2 3; do
+            if git fetch --all --prune; then
+              break
+            fi
+            echo "git fetch echoue (tentative $attempt/3)"
+            if [ "$attempt" = "3" ]; then
+              exit 1
+            fi
+            sleep 15
+          done
           git reset --hard origin/main
           npm ci
           npx prisma generate
-          rm -rf .output
-          npm run build
+
+          # Le build precedent est conserve tant que le nouveau n a pas abouti.
+          # Supprimer .output avant de construire laissait la production sans
+          # fichiers des que le build echouait: pm2 continuait de servir un
+          # index.html referencant des chunks disparus, d ou des 500 en cascade.
+          rm -rf .output.prev
+          if [ -d .output ]; then
+            mv .output .output.prev
+          fi
+
+          if npm run build; then
+            rm -rf .output.prev
+          else
+            echo "Build echoue: restauration de la version precedente"
+            rm -rf .output
+            if [ -d .output.prev ]; then
+              mv .output.prev .output
+            fi
+            exit 1
+          fi
+
           if pm2 describe plotline > /dev/null 2>&1; then
             pm2 reload plotline --update-env
           else
