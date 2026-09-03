@@ -32,7 +32,7 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 
 ## Etat Actuel du Projet
 **Phase** : Produit fonctionnel en production, consolidation du pipeline de generation
-**Derniere session** : 2026-08-14
+**Derniere session** : 2026-09-03
 **Progression globale** : 72%
 
 ### Ce qui est fait :
@@ -68,7 +68,7 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 ## Blocages et Points d Attention
 - Le dossier cible initial n'etait pas vide; un sous-dossier plotline etait deja initialise. Le projet actif est a la racine actuelle.
 - La coherence visuelle repose sur un identity lock par reference fixe, sans seed/fine-tune.
-- Ne jamais publier automatiquement sans validation humaine explicite.
+- Aucune publication automatique sans validation humaine explicite. C est une regle d etape, pas un principe definitif: l automatisation pourra etre ouverte plus tard, mais uniquement sur decision explicite du proprietaire du produit, apres un volume de publications manuelles jugees majoritairement de qualite. Aucun seuil automatique, aucune proposition du produit, et aucun agent ne leve cette regle de sa propre initiative. Elle est appliquee dans le code par `scheduledPublisher`, qui ne publie que les contenus VALIDATED.
 - Toujours separer clairement generation et publication.
 - Les migrations ne sont JAMAIS executees depuis le projet: on ecrit le SQL dans `prisma/migrations/`, et il est passe a la main via l'editeur SQL de Neon. Le port 5432 est bloque sur le reseau, la connexion passe par WebSocket (`@prisma/adapter-neon`, port 443).
 - Ne jamais ajouter un champ scalaire au schema Prisma avant que la migration soit appliquee: le client selectionne toutes les colonnes du modele et toutes les lectures cassent. Voir tasks/lessons.md.
@@ -102,6 +102,7 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 | 2026-08-14 | OAuth Google implemente a la main (~150 lignes, aucune dependance) plutot qu avec un module tiers (nuxt-auth-utils et consorts) | Un module tiers installe sa propre session en parallele de celle du projet: deux mecanismes d authentification, dont un seul est revocable |
 | 2026-08-14 | Rattachement automatique d un compte Google a un compte mot de passe existant, uniquement si Google declare `email_verified: true` | Rattacher sur la seule correspondance d email est une prise de controle de compte: n importe qui creant un compte Google avec l adresse d un tiers recupererait son compte |
 | 2026-08-14 | Identification de l utilisateur Google par `sub` (googleId), jamais par l email | Un utilisateur peut changer l adresse de son compte Google; l identifier par email le rendrait inconnu du jour au lendemain et creerait un doublon silencieux |
+| 2026-09-03 | La validation humaine avant publication est une regle d etape, pas un principe definitif | L automatisation sera ouverte quand le proprietaire du produit le decidera, apres assez de publications manuelles jugees majoritairement de qualite; ni seuil automatique, ni proposition du produit |
 
 ---
 
@@ -116,6 +117,7 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 - 2026-08-10: Sprints historique + carrousel + fiabilisation video. Historique des versions avec retour arriere sans perte de media, correction de la regeneration destructive, nettoyage des medias a la suppression. Regroupement des slides de carrousel avec navigation et modification isolee. Format decide par le prompt au lieu d'un 9:16 en dur. Seedance rebranche sur la vraie API seevio (tache asynchrone, image de depart par URL Blob). Les trois fournisseurs video passent en tache de fond: Kling bloquait la requete HTTP jusqu'a 15 minutes. Rapatriement ponctuel de 6 medias vers le Blob et script de nettoyage des orphelins. Colonne morte `GeneratedContent.generationModel` supprimee par migration.
 - 2026-08-11 / 08-12: Fiabilisation du planificateur et du stockage. Les modifications d une idee sont desormais enregistrees avant de lancer la generation: une scene reecrite puis envoyee directement partait avec l ancien texte et brulait des credits pour un contenu abandonne. Correction d une recidive du bug de stockage local: la route d upload de face ref avait deux branches, celle du pipeline de generation ecrivait toujours sur le disque sans consulter le Blob, rendant la face ref introuvable depuis tout autre environnement. Script `scripts/migrate-face-refs-to-blob.cjs` ajoute pour rapatrier l existant.
 - 2026-08-14: Connexion et inscription Google ajoutees (echange OAuth a la main, `googleId` nullable/unique sur `User`, rattachement automatique si `email_verified`). Documentation complete ecrite en recette reutilisable (`docs/recette-connexion-google.md`) pour reappliquer le meme flux sur un autre projet: pieges de la console Google, du cookie `state` partage entre ports en local, et effet de bord du parcours d'inscription enfin exerce. Correction d'une page d'onboarding qui referencait un middleware nomme `auth` inexistant (le seul middleware du projet est global, `auth.global.ts`, non appelable par son nom) — la protection etait deja assuree par le middleware global, la ligne fautive a simplement ete retiree.
+- 2026-09-03: Connexion Google eprouvee en production. Correction de la construction de l URI de redirection, qui partait de `BASE_URL` avec un repli silencieux sur localhost: la variable etant absente du VPS, la production renvoyait les utilisateurs vers leur propre machine (`ERR_CONNECTION_REFUSED`), en laissant croire a une mauvaise configuration Google. L origine de la requete prime desormais sur `BASE_URL`. Modale d onboarding conditionnee au chargement effectif de la liste des profils: elle s ouvrait sur un compte pourtant pourvu de trois profils. Toast de bienvenue supprime avec son composable. Arret du worker BullMQ sur erreur definitive, apres une inondation de logs due au quota Redis epuise.
 
 ---
 

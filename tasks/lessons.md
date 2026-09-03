@@ -19,6 +19,18 @@
 
 <!-- Les entrees seront ajoutees ici au fil du temps -->
 
+### 2026-09-03 Repli silencieux sur localhost en production
+**Probleme** : depuis plotline.sassify.fr, le bouton Google renvoyait vers `http://localhost:3000/api/auth/google/callback`, donc vers la machine de l utilisateur, avec un `ERR_CONNECTION_REFUSED`. Le message accusait a tort la configuration de la console Google.
+**Cause racine** : l URI de redirection etait construite depuis `BASE_URL`, avec un repli `|| 'http://localhost:3000'`. La variable etant absente du VPS, la production a demande a Google une redirection vers localhost. Comme localhost est declare dans la console, Google a obei sans erreur.
+**Solution** : faire primer l origine reelle de la requete sur `BASE_URL`. Se fier a l en-tete Host est sans danger ici, la console Google refusant toute URI non declaree: c est elle la frontiere de securite.
+**Regle** : un repli sur `localhost` ne doit jamais etre silencieux dans du code qui tourne aussi en production. Soit on derive la valeur de la requete reelle, soit on echoue bruyamment. Un repli qui produit une URL valide mais fausse est pire qu une absence de valeur: il deplace l enquete au mauvais endroit.
+
+### 2026-09-03 Une liste vide n est pas une liste chargee
+**Probleme** : apres connexion, l assistant de creation de profil s ouvrait sur un compte possedant deja trois profils. Le probleme ne se reproduisait pas a la deuxieme connexion.
+**Cause racine** : `const influencers = computed(() => influencersData.value || [])`. Tant que la requete n avait pas repondu, ou si elle echouait, la liste valait `[]`, et la condition d affichage de la modale (`length === 0`) concluait "compte vide". A la deuxieme connexion, la donnee etait deja en cache: pas de fenetre vide, donc pas de modale.
+**Solution** : recuperer `pending` et `error` de `useFetch`, et n afficher la modale que lorsque la liste est reellement chargee, sans erreur, et sous forme de tableau.
+**Regle** : toute decision d interface fondee sur l ABSENCE de donnees doit verifier que le chargement est termine et sans erreur, jamais seulement la longueur du tableau. Un bug de ce type se cache derriere un cache: il n apparait qu au premier chargement, ce qui le rend facile a prendre pour un hasard.
+
 ### 2026-08-10 Generation video attendue dans la requete HTTP
 **Probleme** : Kling sondait son API jusqu'a 90 fois toutes les 10s (soit 15 minutes) a l'interieur de la requete HTTP. En local ca passe; derriere un proxy la requete est coupee bien avant, l'utilisateur voit une erreur et le contenu reste bloque en `PROCESSING` alors que la video aboutit correctement cote fournisseur.
 **Cause racine** : Veo avait ete passe en tache de fond parce qu'il etait "lent" (~60s), mais Kling, encore plus lent, etait reste sur le chemin synchrone. Le critere retenu etait la lenteur constatee au lieu de la nature de l'operation.
