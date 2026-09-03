@@ -6,17 +6,17 @@
 
 ## En cours
 - [x] Corriger le middleware auth pour laisser passer forgot/reset/confirmation email
-- [ ] Verifier sur VPS que la migration tokens auth est appliquee a la base active
+- [x] Verifier sur VPS que la migration tokens auth est appliquee a la base active
 - [x] Ajouter un systeme auth complet (signup/login/session cookie)
 - [x] Proteger les routes back-office via middleware Nuxt (redirect vers /auth/login)
 - [x] Ajouter pages Auth avec nouvelle DA (connexion + inscription)
 - [x] Brancher les API serveur sur l utilisateur de session (retirer user-test hardcode)
 - [x] Afficher onboarding modal si aucun influenceur pour l utilisateur connecte
 - [x] Harmoniser la DA de l onboarding modal avec la refonte back-office
-- [ ] Verifier le flux complet (non connecte -> login -> dashboard vide -> modal creation)
+- [x] Verifier le flux complet (non connecte -> login -> dashboard vide -> modal creation)
 - [x] Ajouter reset mot de passe par email (API + ecrans forgot/reset + template mail)
 - [x] Ajouter changement d'email avec confirmation par lien (API + ecran settings)
-- [ ] Appliquer la migration Prisma tokens auth sur la base Neon active
+- [x] Appliquer la migration Prisma tokens auth sur la base Neon active
 - [x] Durcir le scraper Pinterest image contre les pins sans visage
 - [x] Verifier la validation Gemini du scraper sur le flux Node
 - [x] Basculer la logique body sur fallback global + override par influenceuse
@@ -37,7 +37,7 @@
 - [x] Supprimer le backend body ref residuel et preparer la migration schema
 - [x] Ajouter un check runtime de drift schema Prisma/Neon
 - [x] Ajouter un endpoint de diagnostic pipeline feed/story/reel
-- [ ] Valider en execution reelle avec un run de generation
+- [x] Valider en execution reelle avec un run de generation
 - [x] Poser le shell global avec sidebar et navigation
 - [x] Refonte dashboard, contenu, calendrier et generation
 - [x] Ajouter la notification de jobs actifs et les routes schedule/active
@@ -58,10 +58,10 @@
 - [x] Publier reellement les contenus a leur date planifiee (scheduledAt n etait jamais relu)
 - [x] Extraire la publication Instagram dans server/utils pour la partager route + planificateur
 - [x] Ajouter l'auth manquante sur PATCH /api/content/:id/schedule
-- [ ] Activer SCHEDULER_ENABLED=true sur le VPS uniquement (jamais en local: base partagee)
+- [x] Activer SCHEDULER_ENABLED=true sur le VPS uniquement (jamais en local: base partagee)
 - [x] Passer le lien marque <-> ambassadrice en N-N (table BrandAmbassador)
 - [x] Permettre de modifier le rattachement aux marques apres creation du profil
-- [ ] Passer la migration 20260810160000 (table BrandAmbassador + typage reel des profils)
+- [x] Passer la migration 20260810160000 (table BrandAmbassador + typage reel des profils)
 - [ ] Rattacher Usagi, Melina et Madison a leurs marques depuis l'ecran d'edition
 - [ ] Supprimer la colonne Influencer.brandId une fois le N-N eprouve
 - [ ] Passer la migration 20260810140000 (drop de la colonne morte GeneratedContent.generationModel)
@@ -72,7 +72,7 @@
 - [x] Mutualiser shouldUseQueue dans server/utils
 - [x] Renommer /api/influencers en /api/profiles (les pages etaient deja sur /profiles)
 - [x] Une generation ratee ne fait plus disparaitre le rendu precedent (statut restaure au lieu de FAILED)
-- [ ] Passer la migration 20260810180000 (rendre visibles les contenus FAILED qui ont encore leur media)
+- [x] Migration 20260810180000 devenue sans objet: le seul contenu FAILED restant a bien un media vide
 - [x] Ajouter "Mes profils" au menu pour les trois types de compte (la page n etait atteignable qu en tapant l URL)
 - [x] Separer ambassadrices et marques sur /profiles, et y montrer le rattachement dans les deux sens
 - [x] Supprimer la pastille de niche redondante avec les chips juste en dessous
@@ -90,8 +90,8 @@
 - [x] Echange OAuth ecrit a la main, sans module apportant sa propre session
 - [x] Rattachement d un compte existant uniquement si Google verifie l email
 - [x] Boutons Google sur connexion et inscription
-- [ ] Ajouter GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET sur le VPS
-- [ ] Tester les 4 cas: inscription neuve, reconnexion, collision, connexion mot de passe
+- [x] Ajouter GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET sur le VPS
+- [x] Tester les 4 cas: inscription neuve, reconnexion, collision, connexion mot de passe
 - [ ] Afficher "Connecte via Google" dans les Reglages (cosmetique, non fait)
 
 ## Planificateur editorial (en cours)

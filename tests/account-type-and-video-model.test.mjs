@@ -166,18 +166,24 @@ test('google: l URI de redirection est stable quel que soit le format du BASE_UR
   assert.equal(buildRedirectUri('https://plotline.sassify.fr//'), 'https://plotline.sassify.fr/api/auth/google/callback');
 });
 
-test('google: l origine de la requete prime sur BASE_URL', () => {
-  // BASE_URL absente ou restee sur localhost cote serveur renvoyait les
-  // utilisateurs de production vers leur propre machine.
+test('google: BASE_URL renseignee fait foi sur l origine de la requete', () => {
+  // Derriere un proxy, l origine peut valoir l adresse interne du serveur:
+  // une BASE_URL explicite doit alors l emporter.
   assert.equal(
-    pickOAuthBaseUrl({ requestOrigin: 'https://plotline.sassify.fr', configuredBaseUrl: 'http://localhost:3000' }),
+    pickOAuthBaseUrl({ requestOrigin: 'http://127.0.0.1:3000', configuredBaseUrl: 'https://plotline.sassify.fr' }),
     'https://plotline.sassify.fr',
   );
 
-  // Sans origine disponible, on retombe sur la configuration.
+  // Sans BASE_URL, on repart de l hote demande.
   assert.equal(
-    pickOAuthBaseUrl({ requestOrigin: '', configuredBaseUrl: 'https://plotline.sassify.fr' }),
+    pickOAuthBaseUrl({ requestOrigin: 'https://plotline.sassify.fr', configuredBaseUrl: '' }),
     'https://plotline.sassify.fr',
+  );
+
+  // Une valeur non absolue ne doit jamais etre prise pour une base valide.
+  assert.equal(
+    pickOAuthBaseUrl({ requestOrigin: 'https://a.fr', configuredBaseUrl: 'plotline.sassify.fr' }),
+    'https://a.fr',
   );
 
   assert.equal(pickOAuthBaseUrl({}), 'http://localhost:3000');

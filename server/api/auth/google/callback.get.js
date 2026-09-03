@@ -114,7 +114,8 @@ export default defineEventHandler(async (event) => {
 
   try {
     const baseUrl = pickOAuthBaseUrl({
-      requestOrigin: getRequestURL(event).origin,
+      // Derriere un proxy, sans ces options l origine vaut l adresse interne.
+    requestOrigin: getRequestURL(event, { xForwardedHost: true, xForwardedProto: true }).origin,
       configuredBaseUrl: runtimeConfig.baseUrl || process.env.BASE_URL,
     });
 

@@ -27,23 +27,40 @@ export function resolveGoogleCredentials(runtimeConfig = {}) {
   };
 }
 
+function isHttpUrl(value) {
+  return /^https?:\/\//i.test(String(value || '').trim());
+}
+
 /**
  * Base a utiliser pour l URI de redirection.
  *
- * L origine de la requete prime sur `BASE_URL`: l utilisateur doit revenir sur
- * l hote qu il vient de quitter. Se fier a `BASE_URL` seul faisait renvoyer les
- * utilisateurs de production vers `http://localhost:3000` quand la variable
- * manquait sur le serveur, avec un `ERR_CONNECTION_REFUSED` incomprehensible.
+ * `BASE_URL` fait foi quand elle est renseignee: c est une configuration
+ * explicite et deterministe. A defaut seulement, on repart de l hote demande.
  *
- * Se fier a l en-tete Host est sans danger ici: Google refuse toute URI de
- * redirection absente de la console, qui reste donc la frontiere de securite.
+ * Les deux pieges rencontres, dans cet ordre:
+ *  - `BASE_URL` absente du serveur: le repli renvoyait les utilisateurs de
+ *    production vers `http://localhost:3000`, donc vers leur propre machine.
+ *  - l origine de la requete prise sans lire les en-tetes `X-Forwarded-*`:
+ *    derriere un proxy, elle vaut l adresse interne du serveur, que Google
+ *    refuse avec `redirect_uri_mismatch`.
  */
 export function pickOAuthBaseUrl({ requestOrigin, configuredBaseUrl } = {}) {
-  const origin = String(requestOrigin || '').trim().replace(/\/+$/, '');
-  if (origin) return origin;
-
+  // `BASE_URL`, quand elle est renseignee et absolue, fait foi: c est la
+  // configuration voulue par l exploitant, et elle est deterministe.
   const configured = String(configuredBaseUrl || '').trim().replace(/\/+$/, '');
-  return configured || 'http://localhost:3000';
+  if (isHttpUrl(configured)) {
+    return configured;
+  }
+
+  // Sinon on repart de l hote reellement demande. Derriere un proxy, cela
+  // suppose que l appelant ait lu les en-tetes X-Forwarded-*: sans eux, on
+  // obtient l adresse interne du serveur, que Google refuse.
+  const origin = String(requestOrigin || '').trim().replace(/\/+$/, '');
+  if (isHttpUrl(origin)) {
+    return origin;
+  }
+
+  return 'http://localhost:3000';
 }
 
 /**
