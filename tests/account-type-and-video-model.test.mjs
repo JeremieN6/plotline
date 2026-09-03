@@ -18,6 +18,7 @@ import {
   buildRedirectUri,
   createOAuthState,
   normalizeGoogleProfile,
+  pickOAuthBaseUrl,
 } from '../server/utils/googleOAuth.js';
 import { mergeIdeasIntoSlots, parsePlanIdeas } from '../server/utils/planIdeaGenerator.js';
 import {
@@ -165,6 +166,23 @@ test('google: l URI de redirection est stable quel que soit le format du BASE_UR
   assert.equal(buildRedirectUri('https://plotline.sassify.fr//'), 'https://plotline.sassify.fr/api/auth/google/callback');
 });
 
+test('google: l origine de la requete prime sur BASE_URL', () => {
+  // BASE_URL absente ou restee sur localhost cote serveur renvoyait les
+  // utilisateurs de production vers leur propre machine.
+  assert.equal(
+    pickOAuthBaseUrl({ requestOrigin: 'https://plotline.sassify.fr', configuredBaseUrl: 'http://localhost:3000' }),
+    'https://plotline.sassify.fr',
+  );
+
+  // Sans origine disponible, on retombe sur la configuration.
+  assert.equal(
+    pickOAuthBaseUrl({ requestOrigin: '', configuredBaseUrl: 'https://plotline.sassify.fr' }),
+    'https://plotline.sassify.fr',
+  );
+
+  assert.equal(pickOAuthBaseUrl({}), 'http://localhost:3000');
+  assert.equal(pickOAuthBaseUrl({ requestOrigin: 'https://a.fr//' }), 'https://a.fr');
+});
 test('google: l URL d autorisation porte les parametres attendus', () => {
   const url = new URL(buildGoogleAuthUrl({
     clientId: 'abc.apps.googleusercontent.com',

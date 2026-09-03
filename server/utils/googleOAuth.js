@@ -28,6 +28,25 @@ export function resolveGoogleCredentials(runtimeConfig = {}) {
 }
 
 /**
+ * Base a utiliser pour l URI de redirection.
+ *
+ * L origine de la requete prime sur `BASE_URL`: l utilisateur doit revenir sur
+ * l hote qu il vient de quitter. Se fier a `BASE_URL` seul faisait renvoyer les
+ * utilisateurs de production vers `http://localhost:3000` quand la variable
+ * manquait sur le serveur, avec un `ERR_CONNECTION_REFUSED` incomprehensible.
+ *
+ * Se fier a l en-tete Host est sans danger ici: Google refuse toute URI de
+ * redirection absente de la console, qui reste donc la frontiere de securite.
+ */
+export function pickOAuthBaseUrl({ requestOrigin, configuredBaseUrl } = {}) {
+  const origin = String(requestOrigin || '').trim().replace(/\/+$/, '');
+  if (origin) return origin;
+
+  const configured = String(configuredBaseUrl || '').trim().replace(/\/+$/, '');
+  return configured || 'http://localhost:3000';
+}
+
+/**
  * L URI de redirection doit correspondre au caractere pres a celle declaree
  * dans la console Google, sinon Google refuse l echange avec `redirect_uri_mismatch`.
  */

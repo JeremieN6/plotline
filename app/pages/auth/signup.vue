@@ -83,7 +83,6 @@ async function submit() {
     });
 
     await refreshAuth({ force: true });
-    markWelcomePending({ reason: 'signup', waitForAccountType: true });
     await router.push('/onboarding');
   } catch (err) {
     error.value = err?.data?.statusMessage || err?.message || 'Inscription impossible';

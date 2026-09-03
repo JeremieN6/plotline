@@ -3,6 +3,7 @@ import {
   buildGoogleAuthUrl,
   buildRedirectUri,
   createOAuthState,
+  pickOAuthBaseUrl,
   resolveGoogleCredentials,
 } from '../../utils/googleOAuth.js';
 
@@ -32,7 +33,10 @@ export default defineEventHandler(async (event) => {
     maxAge: STATE_MAX_AGE_SECONDS,
   });
 
-  const baseUrl = runtimeConfig.baseUrl || process.env.BASE_URL || 'http://localhost:3000';
+  const baseUrl = pickOAuthBaseUrl({
+    requestOrigin: getRequestURL(event).origin,
+    configuredBaseUrl: runtimeConfig.baseUrl || process.env.BASE_URL,
+  });
 
   return sendRedirect(event, buildGoogleAuthUrl({
     clientId,

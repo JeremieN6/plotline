@@ -278,9 +278,20 @@ const activeInfluencerId = useActiveInfluencer()
 const switcherOpen = ref(false)
 const mobileMenuOpen = ref(false)
 
-const { data: influencersData } = await useFetch('/api/profiles', {
+// `pending` et `error` sont indispensables ici: sans eux, une liste vide pendant
+// le chargement ou apres un echec est indiscernable d un compte sans profil, et
+// l assistant de creation s ouvre sur quelqu un qui en a deja.
+const {
+  data: influencersData,
+  pending: influencersPending,
+  error: influencersError,
+} = await useFetch('/api/profiles', {
   key: 'plotline-shell-influencers',
 })
+
+const influencersLoaded = computed(
+  () => !influencersPending.value && !influencersError.value && Array.isArray(influencersData.value),
+)
 
 const influencers = computed(() => influencersData.value || [])
 const activeInfluencer = computed(() => {
@@ -325,6 +336,8 @@ const settingsNavLabel = computed(() => {
 })
 const showOnboardingModal = computed(() => {
   if (!isInfluencerCreator.value) return false
+  // Ne rien affirmer tant que la liste n est pas reellement chargee.
+  if (!influencersLoaded.value) return false
   if (route.path.startsWith('/onboarding')) return false
   if (route.path.startsWith('/profiles/new')) return false
   return influencers.value.length === 0

@@ -5,6 +5,7 @@ import {
   buildRedirectUri,
   exchangeCodeForToken,
   fetchGoogleProfile,
+  pickOAuthBaseUrl,
   resolveGoogleCredentials,
 } from '../../../utils/googleOAuth.js';
 
@@ -112,7 +113,10 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const baseUrl = runtimeConfig.baseUrl || process.env.BASE_URL || 'http://localhost:3000';
+    const baseUrl = pickOAuthBaseUrl({
+      requestOrigin: getRequestURL(event).origin,
+      configuredBaseUrl: runtimeConfig.baseUrl || process.env.BASE_URL,
+    });
 
     const accessToken = await exchangeCodeForToken({
       code,

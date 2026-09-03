@@ -84,7 +84,6 @@ async function submit() {
     });
 
     await refreshAuth({ force: true });
-    markWelcomePending({ reason: 'login', waitForAccountType: false });
     await router.push(redirectTarget.value);
   } catch (err) {
     error.value = err?.data?.statusMessage || err?.message || 'Connexion impossible';
