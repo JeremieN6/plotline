@@ -32,7 +32,7 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 
 ## Etat Actuel du Projet
 **Phase** : Produit fonctionnel en production, consolidation du pipeline de generation
-**Derniere session** : 2026-09-03
+**Derniere session** : 2026-09-05
 **Progression globale** : 72%
 
 ### Ce qui est fait :
@@ -122,6 +122,7 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 - 2026-09-03: Connexion Google eprouvee en production. Correction de la construction de l URI de redirection, qui partait de `BASE_URL` avec un repli silencieux sur localhost: la variable etant absente du VPS, la production renvoyait les utilisateurs vers leur propre machine (`ERR_CONNECTION_REFUSED`), en laissant croire a une mauvaise configuration Google. Premiere correction: l origine de la requete prime sur `BASE_URL`. Modale d onboarding conditionnee au chargement effectif de la liste des profils: elle s ouvrait sur un compte pourtant pourvu de trois profils. Toast de bienvenue supprime avec son composable. Arret du worker BullMQ sur erreur definitive, apres une inondation de logs due au quota Redis epuise.
 - 2026-09-03 (suite): Deux deploiements echoues ont laisse la production hors service. Le workflow supprimait `.output` AVANT de construire: un build rate detruisait donc la version en ligne au lieu de la laisser intacte. Le build est desormais realise a cote, l ancienne sortie n est supprimee qu apres succes et restauree en cas d echec, et `git fetch` est retente trois fois (une limitation ponctuelle de GitHub avait fait rater un deploiement). Cause du build rate lui-meme: npm bloque les scripts d installation non autorises, donc le binaire de `ffmpeg-static` n etait plus telecharge, et Nitro echoue en le tracant.
 - 2026-09-03 (re-suite): la premiere correction Google du jour a provoque une recidive, `redirect_uri_mismatch` cette fois: derriere le reverse proxy du VPS, l origine de requete sans en-tetes forwarded vaut l adresse interne du serveur, pas `plotline.sassify.fr`. `BASE_URL` (deja posee sur le VPS) refait foi en priorite, l origine de requete n est plus qu un repli lisant desormais `X-Forwarded-Host`/`X-Forwarded-Proto`. Un log trace l URI de redirection envoyee pour rendre tout futur mismatch immediat a diagnostiquer. Un helper `isHttpUrl()` reference mais efface lors d une edition precedente a ete restaure au passage.
+- 2026-09-05 (branche `fix/seo-meta-titles`): Correction SEO. `robots.txt` autorisait l exploration de tout le site alors que la quasi-totalite des pages exige une connexion: Google avait indexe des URLs qui ne menent qu a l ecran de connexion (repere via un lien `/_nuxt` -- dossier d assets techniques, jamais une page -- indexe puis redirigeant vers `/auth/login`). `robots.txt` interdit desormais l exploration de tout ce qui est derriere l authentification, ne laissant que l accueil, la connexion et l inscription. Seule la page d accueil posait un titre (`useSeoMeta`); toutes les autres remontaient "Sans titre" dans les resultats de recherche -- un titre de repli global ("Plotline") est ajoute dans `nuxt.config.ts` (`app.head.titleTemplate`), et connexion/inscription recoivent chacune un titre complet. Titre de l accueil corrige au passage: melangeait anglais et francais ("Face Consistency automatique pour influenceuses IA").
 
 ---
 
