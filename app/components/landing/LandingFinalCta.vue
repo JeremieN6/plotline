@@ -4,7 +4,7 @@
       <div class="final-cta-inner">
         <h2 class="final-cta-title">Ton influenceuse mérite un vrai visage stable.</h2>
         <p class="final-cta-sub">
-          Rejoins les créateurs qui ont arrêté de corriger manuellement la cohérence visuelle de leurs modèle virtuelle.
+          Rejoins les créateurs qui ont arrêté de corriger manuellement la cohérence visuelle de leurs modèles virtuels.
         </p>
         <a class="cta-primary cta-large" href="#pricing">
           Essayer gratuitement • 3 générations offertes - sans CB

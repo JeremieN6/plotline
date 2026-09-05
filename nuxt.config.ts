@@ -26,6 +26,15 @@ loadEnvFile(path.resolve(cwd, '.env.local'));
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  // Filet de securite: sans titre propre, une page indexee remonte "Sans
+  // titre" dans Google. Les pages publiques (accueil, connexion, inscription)
+  // posent leur propre titre complet via useSeoMeta; celui-ci ne sert que de
+  // repli pour tout le reste (dashboard, studio...), qui n en a jamais eu.
+  app: {
+    head: {
+      titleTemplate: (titleChunk) => titleChunk || 'Plotline',
+    },
+  },
   modules: ['@nuxtjs/tailwindcss', '@nuxt/icon'],
   css: ['~/assets/css/main.css'],
   pages: true,

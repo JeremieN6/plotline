@@ -1,2 +1,15 @@
-User-Agent: *
-Disallow:
+User-agent: *
+Disallow: /_nuxt/
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /studio
+Disallow: /brand-studio
+Disallow: /content
+Disallow: /calendar
+Disallow: /settings
+Disallow: /profiles
+Disallow: /plans
+Disallow: /onboarding
+Disallow: /auth/forgot-password
+Disallow: /auth/reset-password
+Disallow: /auth/confirm-email-change

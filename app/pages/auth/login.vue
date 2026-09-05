@@ -49,6 +49,11 @@
 <script setup>
 import { reactive, ref } from 'vue';
 
+useSeoMeta({
+  title: 'Connexion - Plotline',
+  description: 'Connecte-toi a ton back-office Plotline pour gerer tes influenceurs IA.',
+});
+
 const route = useRoute();
 const router = useRouter();
 const { refreshAuth } = useAuthSession();

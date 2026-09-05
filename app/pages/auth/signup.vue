@@ -51,6 +51,11 @@
 <script setup>
 import { reactive, ref } from 'vue';
 
+useSeoMeta({
+  title: 'Inscription - Plotline',
+  description: 'Cree ton compte Plotline et lance la gestion de tes influenceurs IA sur Instagram et TikTok.',
+});
+
 const router = useRouter();
 const { refreshAuth } = useAuthSession();
 
