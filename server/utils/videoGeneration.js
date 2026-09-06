@@ -289,6 +289,26 @@ async function prepareVideoStartFrame({ influencer, prompt }) {
   return await generateCleanStartFrame({ prompt, faceRefImage });
 }
 
+// generateCleanStartFrame() ne connait deja que "une image + un prompt", sans
+// notion de persona: seule prepareVideoStartFrame() est couplee a
+// influencer.faceRefPath. Cette variante sert les widgets sans persona (ex.
+// FOOD_AD), dont la reference vient d'un upload ponctuel plutot que d'une
+// PersonaBible.
+async function prepareVideoStartFrameFromUrl({ imageUrl, prompt }) {
+  const url = String(imageUrl || '').trim();
+  if (!url) {
+    return null;
+  }
+
+  const asset = await readImageSourceBuffer(url);
+  const referenceImage = {
+    base64: asset.buffer.toString('base64'),
+    mimeType: asset.mimeType,
+  };
+
+  return await generateCleanStartFrame({ prompt, faceRefImage: referenceImage });
+}
+
 /** Appelle le fournisseur choisi et normalise sa reponse. */
 async function requestProviderVideo({ model, prompt, aspectRatio, startFrame, runtimeConfig }) {
   if (model === 'veo') {
@@ -314,7 +334,7 @@ async function requestProviderVideo({ model, prompt, aspectRatio, startFrame, ru
   };
 }
 
-export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, prompt, model, withFaceRef, influencer, previousStatus }) {
+export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, prompt, model, withFaceRef, influencer, previousStatus, customReferenceImageUrl }) {
   // Le cadrage demande dans le prompt fait foi. Le repli ne s applique que si
   // le prompt ne se prononce pas: aucun format n est impose a la place de l auteur.
   const aspectRatio = resolveAspectRatio(prompt);
@@ -326,7 +346,11 @@ export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, 
   // "processing" tout de suite, et le frontend suit via /api/content/:id/status.
   (async () => {
     try {
-      const startFrame = withFaceRef ? await prepareVideoStartFrame({ influencer, prompt }) : null;
+      const startFrame = customReferenceImageUrl
+        ? await prepareVideoStartFrameFromUrl({ imageUrl: customReferenceImageUrl, prompt })
+        : withFaceRef
+          ? await prepareVideoStartFrame({ influencer, prompt })
+          : null;
       const providerResult = await requestProviderVideo({ model, prompt, aspectRatio, startFrame, runtimeConfig });
       const resolvedVideoUrl = String(providerResult?.videoUrl || '').trim();
 

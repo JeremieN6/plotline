@@ -32,8 +32,8 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 
 ## Etat Actuel du Projet
 **Phase** : Produit fonctionnel en production, consolidation du pipeline de generation
-**Derniere session** : 2026-09-05
-**Progression globale** : 72%
+**Derniere session** : 2026-09-06
+**Progression globale** : 73%
 
 ### Ce qui est fait :
 - [x] Socle technique: Nuxt 3, Prisma + Neon, auth complete (session, reset mot de passe, changement email)
@@ -52,8 +52,10 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 - [x] Publication automatique des contenus a leur date planifiee (opt-in via `SCHEDULER_ENABLED`)
 - [x] Lien marque <-> ambassadrice en plusieurs-a-plusieurs (table `BrandAmbassador`), rattachement editable depuis la fiche du profil
 - [x] Planificateur editorial: cadence par profil, idees redigees par Claude avec repli deterministe, revue avant generation
+- [x] Genre du persona (Femme/Homme) avec silhouettes et descriptions corporelles masculines dediees dans la generation d'image
 
 ### Prochaines etapes :
+- [ ] Terminer et fusionner le systeme de widgets Studio (branche `feature/studio-widgets`): prompts pre-remplis par template pour 4 cas d usage (portrait, vlog, food ad, UGC produit)
 - [ ] Eprouver Kling image2video sur une vraie generation
 - [ ] Ecran de reglage de la cadence et liste des plans passes
 - [ ] Ajouter mode dry-run + notifications d'erreur + logs structures
@@ -79,6 +81,7 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 - Les binaires ffmpeg/ffprobe sont resolus a l EXECUTION (`server/utils/ffmpegBinaries.js`), jamais importes statiquement: npm bloque les scripts d installation, et un import statique faisait echouer tout le build sur le serveur. Ordre de resolution: `FFMPEG_PATH`/`FFPROBE_PATH`, puis le paquet npm, puis le binaire systeme. ffmpeg ne sert qu au workflow Reel Pinterest.
 - Le cookie de `state` OAuth Google (`GOOGLE_STATE_COOKIE`) n'est pas isole par port: deux projets Nuxt en local sur des ports differents partagent leurs cookies et se font ecraser leur `state` mutuellement. Voir `docs/recette-connexion-google.md` avant de reactiver du dev local en parallele d'un autre projet ayant aussi du Google OAuth.
 - L URI de redirection Google (`server/utils/googleOAuth.js`, `pickOAuthBaseUrl`) doit toujours faire primer `BASE_URL` sur l origine de la requete: derriere le reverse proxy du VPS, lire l origine sans `xForwardedHost`/`xForwardedProto` renvoie l adresse interne du serveur, que Google refuse (`redirect_uri_mismatch`). Ne pas re-inverser cette priorite sans relire tasks/lessons.md (2026-09-03, deja fait une fois par erreur).
+- `getBodyBlock(silhouette, gender, topGarment)` (`server/utils/injectBody.js`) prend le genre en 2e argument depuis le 2026-09-06. Toute nouvelle fonction qui l appelle doit passer le genre du profil, sinon la description corporelle retombe au feminin par defaut.
 
 ---
 
@@ -105,6 +108,8 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 | 2026-08-14 | Rattachement automatique d un compte Google a un compte mot de passe existant, uniquement si Google declare `email_verified: true` | Rattacher sur la seule correspondance d email est une prise de controle de compte: n importe qui creant un compte Google avec l adresse d un tiers recupererait son compte |
 | 2026-08-14 | Identification de l utilisateur Google par `sub` (googleId), jamais par l email | Un utilisateur peut changer l adresse de son compte Google; l identifier par email le rendrait inconnu du jour au lendemain et creerait un doublon silencieux |
 | 2026-09-03 | La validation humaine avant publication est une regle d etape, pas un principe definitif | L automatisation sera ouverte quand le proprietaire du produit le decidera, apres assez de publications manuelles jugees majoritairement de qualite; ni seuil automatique, ni proposition du produit |
+| 2026-09-06 | Ajout d un genre (Femme/Homme) au persona, avec silhouettes et textes de generation masculins dedies plutot qu un reemploi des silhouettes feminines | La creation de persona etait entierement pensee au feminin (placeholders, silhouettes a base de tour de poitrine); Plotline se presente comme une agence d influenceurs virtuels, pas seulement d influenceuses |
+| 2026-09-06 | Le picker de silhouette (duplique dans 3 ecrans) devient un select natif alimente par une seule source (`usePersonaOptions.js`), sans badge ni coche personnalisee | Un vrai menu deroulant ne peut pas afficher de badge sur ses options; le caractere "par defaut" est indique dans le libelle lui-meme |
 
 ---
 
@@ -123,6 +128,8 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 - 2026-09-03 (suite): Deux deploiements echoues ont laisse la production hors service. Le workflow supprimait `.output` AVANT de construire: un build rate detruisait donc la version en ligne au lieu de la laisser intacte. Le build est desormais realise a cote, l ancienne sortie n est supprimee qu apres succes et restauree en cas d echec, et `git fetch` est retente trois fois (une limitation ponctuelle de GitHub avait fait rater un deploiement). Cause du build rate lui-meme: npm bloque les scripts d installation non autorises, donc le binaire de `ffmpeg-static` n etait plus telecharge, et Nitro echoue en le tracant.
 - 2026-09-03 (re-suite): la premiere correction Google du jour a provoque une recidive, `redirect_uri_mismatch` cette fois: derriere le reverse proxy du VPS, l origine de requete sans en-tetes forwarded vaut l adresse interne du serveur, pas `plotline.sassify.fr`. `BASE_URL` (deja posee sur le VPS) refait foi en priorite, l origine de requete n est plus qu un repli lisant desormais `X-Forwarded-Host`/`X-Forwarded-Proto`. Un log trace l URI de redirection envoyee pour rendre tout futur mismatch immediat a diagnostiquer. Un helper `isHttpUrl()` reference mais efface lors d une edition precedente a ete restaure au passage.
 - 2026-09-05 (branche `fix/seo-meta-titles`): Correction SEO. `robots.txt` autorisait l exploration de tout le site alors que la quasi-totalite des pages exige une connexion: Google avait indexe des URLs qui ne menent qu a l ecran de connexion (repere via un lien `/_nuxt` -- dossier d assets techniques, jamais une page -- indexe puis redirigeant vers `/auth/login`). `robots.txt` interdit desormais l exploration de tout ce qui est derriere l authentification, ne laissant que l accueil, la connexion et l inscription. Seule la page d accueil posait un titre (`useSeoMeta`); toutes les autres remontaient "Sans titre" dans les resultats de recherche -- un titre de repli global ("Plotline") est ajoute dans `nuxt.config.ts` (`app.head.titleTemplate`), et connexion/inscription recoivent chacune un titre complet. Titre de l accueil corrige au passage: melangeait anglais et francais ("Face Consistency automatique pour influenceuses IA").
+- 2026-09-06 (branche `feature/persona-gender`, fusionnee sur `main`): Ajout du genre a la creation/edition de persona. Nouvelle colonne `Profile.gender` (`FEMALE`/`MALE`, defaut `FEMALE` pour ne rien changer aux personas existantes) et deux nouvelles valeurs d enum `SilhouetteType` (`MUSCULAR`, `STOCKY`). `injectBody.js` genere desormais un texte corporel reellement masculin (epaules, torse) pour les personas homme, au lieu de reutiliser les descriptions feminines existantes. Le picker de silhouette, duplique a l identique dans 3 ecrans (creation, edition, onboarding marque), est remplace par un select natif alimente par une seule source (`usePersonaOptions.js`). Question ouverte, non tranchee: ajouter une option non-binaire (extension naturelle du meme systeme) et/ou une option "mascotte" (produit different: pas un genre humain, pas de silhouette applicable, chantier separe si retenu).
+- 2026-09-06 (suite, branche `feature/studio-widgets`): la branche des widgets Studio, mise en pause avant le travail sur le genre, a ete rebasee sur `main` (fast-forward propre, deux conflits mineurs resolus a la main dans `edit.vue` et le fichier de tests -- les deux fonctionnalites ajoutaient chacune leur propre bloc au meme endroit). `server/utils/personaDescription.js`, ecrit avant le changement de signature de `getBodyBlock`, appelait encore l ancienne forme -- corrige, et un second appel manquant trouve au passage: `server/api/widgets/resolve.post.js` ne selectionnait pas encore `gender` en base.
 
 ---
 

@@ -212,6 +212,7 @@ export default defineEventHandler(async (event) => {
       source,
       keyword,
       prompt,
+      extraReferenceImageUrl,
     } = body || {};
     errorContext = {
       influencerId,
@@ -395,6 +396,7 @@ export default defineEventHandler(async (event) => {
       prompt,
       contentId: generatedContent.id,
       withFaceRef,
+      extraReferenceImageUrl: String(extraReferenceImageUrl || '').trim() || undefined,
     };
 
     if (!shouldUseQueue()) {

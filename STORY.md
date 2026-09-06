@@ -125,6 +125,25 @@ Google atteste que l'adresse est verifiee.
 disparait, puisque Google l'a deja faite. La demarche a ete documentee comme
 recette reutilisable, le meme besoin existant sur les autres projets de l'auteur.
 
+### 2026-09-06 -- Le persona n'est plus implicitement feminin
+
+**Contexte** : la creation de persona, le vocabulaire de l'interface et les
+textes de generation d'image etaient entierement construits en pensant a une
+influenceuse. Le sujet est remonte a l'usage : plusieurs photos candidates pour
+une nouvelle identite, dont certaines masculines, ont revele qu'aucune
+description corporelle masculine credible n'existait dans le systeme.
+
+**Decision** : ajouter un genre explicite au persona (Femme/Homme), avec des
+silhouettes et des textes de generation reellement ecrits pour un corps
+masculin plutot qu'un reemploi des memes descriptions feminines renommees.
+
+**Resultat** : le produit peut desormais representer un persona homme avec la
+meme rigueur de coherence visuelle qu'une persona femme. Question laissee
+ouverte a ce stade, non tranchee : une option non-binaire (extension naturelle
+du meme systeme de genre) et une option "mascotte" (un persona qui ne serait
+pas un corps humain du tout) ont ete evoquees comme pistes distinctes pour une
+iteration future.
+
 ---
 
 ## Ce que la cible attend / a appris
@@ -176,6 +195,8 @@ suivantes s'appliquent a tout contenu produit a partir de ce fichier :
 ---
 
 ## Derniere mise a jour
+
+2026-09-06 -- Ajout du pivot sur le genre du persona.
 
 2026-08-27 -- Creation du fichier.
 

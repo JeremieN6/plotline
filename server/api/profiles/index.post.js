@@ -89,6 +89,9 @@ const MODERN_INFLUENCER_SELECT = {
   bodyPrompt: true,
   hairPrompt: true,
   identityProfile: true,
+  eyeColor: true,
+  ethnicity: true,
+  particularities: true,
 };
 
 const PROFILE_TYPES = new Set(['PERSONA', 'BRAND', 'ACTIVITY']);
@@ -260,6 +263,9 @@ module.exports = defineEventHandler(async (event) => {
           silhouette: resolvedSilhouette,
           gender: resolvedGender,
           bodyPrompt: typeof body?.bodyPrompt === 'string' ? body.bodyPrompt.trim() || null : null,
+          eyeColor: typeof body?.eyeColor === 'string' ? body.eyeColor.trim() || null : null,
+          ethnicity: typeof body?.ethnicity === 'string' ? body.ethnicity.trim() || null : null,
+          particularities: typeof body?.particularities === 'string' ? body.particularities.trim() || null : null,
           description: typeof body?.description === 'string' ? body.description.trim() || null : null,
           website: typeof body?.website === 'string' ? body.website.trim() || null : null,
           targetAudience: typeof body?.targetAudience === 'string' ? body.targetAudience.trim() || null : null,

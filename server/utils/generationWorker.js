@@ -518,6 +518,7 @@ export async function processGenerationJob(jobData, options = {}) {
       keyword,
         prompt: freePrompt,
         withFaceRef,
+        extraReferenceImageUrl,
   } = jobData || {};
   const updateProgress = typeof options.updateProgress === 'function'
     ? options.updateProgress
@@ -704,6 +705,20 @@ export async function processGenerationJob(jobData, options = {}) {
             },
           ]
         : [];
+
+      // Widgets comme UGC_PRODUIT ont besoin d'une seconde reference (packshot
+      // produit) en plus de la face ref persona: generateImageFromGeminiWithSafetyFallback
+      // accepte deja un tableau de parts, on y ajoute simplement celle-ci.
+      const extraReferenceUrl = String(extraReferenceImageUrl || '').trim();
+      if (extraReferenceUrl) {
+        const extraAsset = await readImageSourceBuffer(extraReferenceUrl);
+        geminiParts.push({
+          inlineData: {
+            mimeType: extraAsset.mimeType,
+            data: extraAsset.buffer.toString('base64'),
+          },
+        });
+      }
 
       sceneDescriptionConcept = {
         location: freePromptText,

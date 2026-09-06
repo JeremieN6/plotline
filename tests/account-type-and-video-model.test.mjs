@@ -39,6 +39,9 @@ import {
 } from '../server/utils/scheduledPublisher.js';
 import { selectVideoModel } from '../server/utils/videoModelSelector.js';
 import { getBodyBlock, injectBody } from '../server/utils/injectBody.js';
+import { buildPersonaDescription } from '../server/utils/personaDescription.js';
+import { resolveWidgetPrompt } from '../server/utils/widgetEngine.js';
+import { getWidgetById, getWidgets } from '../server/data/widgets.js';
 
 test('normalizeAccountType normalizes to uppercase', () => {
   assert.equal(normalizeAccountType(' brand '), 'BRAND');
@@ -584,4 +587,90 @@ test('injectBody: le repli de description suit le genre', () => {
 
   const female = injectBody({}, { silhouette: 'VOLUPTUOUS' });
   assert.equal(female.subject.description, 'A woman matching the attached reference image.');
+});
+
+test('persona.description: assemble les champs structures disponibles', () => {
+  const description = buildPersonaDescription({
+    name: 'Luna',
+    silhouette: 'SLIM',
+    eyeColor: 'Bleus',
+    ethnicity: 'origine scandinave',
+    particularities: 'taches de rousseur',
+    hairPrompt: 'long wavy blonde hair',
+  });
+
+  assert.match(description, /^Luna,/);
+  assert.match(description, /Bleus eyes/);
+  assert.match(description, /origine scandinave ethnicity/);
+  assert.match(description, /Slender and lean build/);
+  assert.match(description, /long wavy blonde hair/);
+  assert.match(description, /distinguishing features: taches de rousseur/);
+});
+
+test('persona.description: fonctionne sans aucun champ optionnel rempli', () => {
+  const description = buildPersonaDescription({ name: 'Iris' });
+  assert.match(description, /^Iris,/);
+  assert.match(description, /Voluptuous hourglass figure/);
+});
+
+test('persona.description: madison est enrichie par le profil d identite connu', () => {
+  const description = buildPersonaDescription({ name: 'Madison', silhouette: 'VOLUPTUOUS' });
+  assert.match(description, /californian aesthetic/);
+});
+
+test('persona.description: un persona homme recoit une description corporelle masculine', () => {
+  const description = buildPersonaDescription({ name: 'Lucas', gender: 'MALE', silhouette: 'MUSCULAR' });
+  assert.match(description, /Muscular athletic build/);
+  assert.doesNotMatch(description, /\bbust\b|breast|hourglass/);
+});
+
+test('widgets: les 4 definitions V1 sont bien exposees', () => {
+  const ids = getWidgets().map((widget) => widget.id);
+  assert.deepEqual(ids.sort(), ['FOOD_AD', 'PORTRAIT_STUDIO', 'UGC_PRODUIT', 'VLOG_LIFESTYLE'].sort());
+  assert.equal(getWidgetById('portrait_studio')?.id, 'PORTRAIT_STUDIO');
+  assert.equal(getWidgetById('inconnu'), null);
+});
+
+test('widgetEngine: substitue les variables et ajoute le negative prompt', () => {
+  const widget = getWidgetById('PORTRAIT_STUDIO');
+  const { finalPrompt } = resolveWidgetPrompt(widget, {
+    personaDescription: 'Luna, blue eyes',
+    inputs: {
+      cadrage: 'close-up',
+      tenue: 'a red dress',
+      decor: 'a studio',
+      lumiere: 'soft light',
+      style_photo: 'editorial',
+      aspect_ratio: '4:5',
+    },
+  });
+
+  assert.match(finalPrompt, /close-up portrait of Luna, blue eyes/);
+  assert.match(finalPrompt, /wearing a red dress/);
+  assert.match(finalPrompt, /editorial aesthetic, 4:5 composition/);
+  assert.match(finalPrompt, /Avoid: identity change, plastic skin/);
+  assert.doesNotMatch(finalPrompt, /\{\{/);
+});
+
+test('widgetEngine: une variable input manquante est substituee par du vide, pas laissee telle quelle', () => {
+  const widget = getWidgetById('PORTRAIT_STUDIO');
+  const { finalPrompt } = resolveWidgetPrompt(widget, { personaDescription: 'Luna', inputs: {} });
+  assert.doesNotMatch(finalPrompt, /\{\{/);
+});
+
+test('widgetEngine: FOOD_AD substitue la reference upload par une mention textuelle generique', () => {
+  const widget = getWidgetById('FOOD_AD');
+  const { finalPrompt } = resolveWidgetPrompt(widget, {
+    inputs: {
+      duree: '15',
+      cuisine: 'italian',
+      sequence_preparation: 'chopping tomatoes',
+      langue_locale: 'italien',
+      repliques: 'Buonissimo!',
+      plat_final: 'pasta',
+    },
+  });
+
+  assert.match(finalPrompt, /using the attached reference image as the exact reference/);
+  assert.doesNotMatch(finalPrompt, /\{\{/);
 });

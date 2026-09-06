@@ -102,6 +102,9 @@ async function updateInfluencerCompatible(prisma, id, data) {
         bodyPrompt: true,
         hairPrompt: true,
         identityProfile: true,
+        eyeColor: true,
+        ethnicity: true,
+        particularities: true,
       },
     });
   } catch (err) {
@@ -174,6 +177,21 @@ module.exports = defineEventHandler(async (event) => {
     if (typeof body?.hairPrompt === 'string') {
       const normalizedHairPrompt = body.hairPrompt.trim();
       payload.hairPrompt = normalizedHairPrompt ? normalizedHairPrompt : null;
+    }
+
+    if (typeof body?.eyeColor === 'string') {
+      const normalizedEyeColor = body.eyeColor.trim();
+      payload.eyeColor = normalizedEyeColor ? normalizedEyeColor : null;
+    }
+
+    if (typeof body?.ethnicity === 'string') {
+      const normalizedEthnicity = body.ethnicity.trim();
+      payload.ethnicity = normalizedEthnicity ? normalizedEthnicity : null;
+    }
+
+    if (typeof body?.particularities === 'string') {
+      const normalizedParticularities = body.particularities.trim();
+      payload.particularities = normalizedParticularities ? normalizedParticularities : null;
     }
 
     if (!payload.name || !payload.niche || !payload.style) {
