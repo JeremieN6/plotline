@@ -24,6 +24,10 @@ function buildMissingColumnMessage(payload) {
     return 'La colonne silhouette est absente de la base active. Appliquez la migration silhouette sur Neon puis reessayez.';
   }
 
+  if ('gender' in payload) {
+    return 'La colonne gender est absente de la base active. Appliquez la migration add_persona_gender sur Neon puis reessayez.';
+  }
+
   if ('identityProfile' in payload) {
     return 'La colonne identityProfile est absente de la base active. Appliquez la migration add_identity_profile sur Neon puis reessayez.';
   }
@@ -94,6 +98,7 @@ async function updateInfluencerCompatible(prisma, id, data) {
       select: {
         ...LEGACY_INFLUENCER_SELECT,
         silhouette: true,
+        gender: true,
         bodyPrompt: true,
         hairPrompt: true,
         identityProfile: true,
@@ -146,13 +151,24 @@ module.exports = defineEventHandler(async (event) => {
 
     if (typeof body?.silhouette === 'string' && body.silhouette.trim()) {
       const normalizedSilhouette = String(body.silhouette).trim().toUpperCase();
-      const allowedSilhouettes = new Set(['SLIM', 'ATHLETIC', 'CURVY', 'VOLUPTUOUS']);
+      const allowedSilhouettes = new Set(['SLIM', 'ATHLETIC', 'CURVY', 'VOLUPTUOUS', 'MUSCULAR', 'STOCKY']);
 
       if (!allowedSilhouettes.has(normalizedSilhouette)) {
         return sendError(event, createError({ statusCode: 400, statusMessage: 'silhouette invalide' }));
       }
 
       payload.silhouette = normalizedSilhouette;
+    }
+
+    if (typeof body?.gender === 'string' && body.gender.trim()) {
+      const normalizedGender = String(body.gender).trim().toUpperCase();
+      const allowedGenders = new Set(['FEMALE', 'MALE']);
+
+      if (!allowedGenders.has(normalizedGender)) {
+        return sendError(event, createError({ statusCode: 400, statusMessage: 'gender invalide' }));
+      }
+
+      payload.gender = normalizedGender;
     }
 
     if (typeof body?.hairPrompt === 'string') {

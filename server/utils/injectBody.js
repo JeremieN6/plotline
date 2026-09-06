@@ -52,7 +52,7 @@ function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-const SILHOUETTE_TYPES = new Set(['SLIM', 'ATHLETIC', 'CURVY', 'VOLUPTUOUS']);
+const SILHOUETTE_TYPES = new Set(['SLIM', 'ATHLETIC', 'CURVY', 'VOLUPTUOUS', 'MUSCULAR', 'STOCKY']);
 
 function normalizeKey(value) {
   return String(value || '')
@@ -62,19 +62,73 @@ function normalizeKey(value) {
     .trim();
 }
 
-function normalizeSilhouetteType(value) {
-  const normalized = String(value || '').trim().toUpperCase();
-  if (SILHOUETTE_TYPES.has(normalized)) {
-    return normalized;
-  }
-  return 'VOLUPTUOUS';
+const MALE_SILHOUETTE_TYPES = new Set(['SLIM', 'ATHLETIC', 'MUSCULAR', 'STOCKY']);
+const FEMALE_SILHOUETTE_TYPES = new Set(['SLIM', 'ATHLETIC', 'CURVY', 'VOLUPTUOUS']);
+
+export function normalizeGender(value) {
+  return String(value || '').trim().toUpperCase() === 'MALE' ? 'MALE' : 'FEMALE';
 }
 
-export function getBodyBlock(silhouette = 'VOLUPTUOUS', topGarment = 'top garment') {
-  const safeTopGarment = String(topGarment || 'top garment').trim() || 'top garment';
-  const resolvedSilhouette = normalizeSilhouetteType(silhouette);
+function normalizeSilhouetteType(value) {
+  const normalized = String(value || '').trim().toUpperCase();
+  return SILHOUETTE_TYPES.has(normalized) ? normalized : '';
+}
 
-  if (resolvedSilhouette === 'SLIM') {
+function getMaleBodyBlock(silhouette, safeTopGarment) {
+  if (silhouette === 'SLIM') {
+    return {
+      physique: 'Slender and lean male build, narrow shoulders, flat chest, minimal muscle definition, long slim legs. Editorial and minimalist aesthetic.',
+      anatomy: {
+        shoulders: 'Narrow, proportional shoulders.',
+        waist: 'Narrow waist, straight torso.',
+        chest: `Flat, lean chest, natural fit in the ${safeTopGarment}.`,
+        hips: 'Narrow hips.',
+        build: 'Lean build, minimal muscle mass.',
+      },
+    };
+  }
+
+  if (silhouette === 'MUSCULAR') {
+    return {
+      physique: 'Muscular athletic build, broad shoulders, well-defined chest and arms, visible muscle tone, narrow waist. Fit and powerful aesthetic.',
+      anatomy: {
+        shoulders: 'Broad, well-defined shoulders.',
+        waist: 'Narrow, athletic waist.',
+        chest: `Well-defined, muscular chest filling the ${safeTopGarment}.`,
+        hips: 'Narrow hips.',
+        build: 'Visible muscle definition, low body fat.',
+      },
+    };
+  }
+
+  if (silhouette === 'STOCKY') {
+    return {
+      physique: 'Stocky, solidly built frame, broad shoulders and chest, thicker waist, sturdy legs. Robust and grounded aesthetic.',
+      anatomy: {
+        shoulders: 'Broad, heavy-set shoulders.',
+        waist: 'Thicker, solid waist.',
+        chest: `Broad, full chest filling the ${safeTopGarment}.`,
+        hips: 'Solid, sturdy hips.',
+        build: 'Heavier frame, sturdy build.',
+      },
+    };
+  }
+
+  // ATHLETIC: silhouette masculine par defaut.
+  return {
+    physique: 'Athletic male build, defined muscles without bulk, broad shoulders, narrow waist, toned legs. Fit and active aesthetic.',
+    anatomy: {
+      shoulders: 'Athletic, defined shoulders.',
+      waist: 'Narrow athletic waist.',
+      chest: `Toned, athletic chest, natural fit in the ${safeTopGarment}.`,
+      hips: 'Narrow hips.',
+      build: 'Athletic, well-proportioned muscle tone.',
+    },
+  };
+}
+
+function getFemaleBodyBlock(silhouette, safeTopGarment) {
+  if (silhouette === 'SLIM') {
     return {
       physique: 'Slender and lean build, minimal curves, small bust (A-B cup), narrow waist and hips, long slim legs. Editorial and minimalist aesthetic.',
       anatomy: {
@@ -87,7 +141,7 @@ export function getBodyBlock(silhouette = 'VOLUPTUOUS', topGarment = 'top garmen
     };
   }
 
-  if (resolvedSilhouette === 'ATHLETIC') {
+  if (silhouette === 'ATHLETIC') {
     return {
       physique: 'Athletic and toned build, defined muscles without bulk, moderate bust (B-C cup), narrow waist, firm glutes, long toned legs. Fit and active aesthetic.',
       anatomy: {
@@ -100,7 +154,7 @@ export function getBodyBlock(silhouette = 'VOLUPTUOUS', topGarment = 'top garmen
     };
   }
 
-  if (resolvedSilhouette === 'CURVY') {
+  if (silhouette === 'CURVY') {
     return {
       physique: 'Full figured with natural curves, soft hourglass shape, moderate bust (C-cup), defined waist, rounded hips and glutes. Feminine and natural.',
       anatomy: {
@@ -113,6 +167,7 @@ export function getBodyBlock(silhouette = 'VOLUPTUOUS', topGarment = 'top garmen
     };
   }
 
+  // VOLUPTUOUS: silhouette feminine par defaut.
   return {
     physique: `Voluptuous hourglass figure, large bust (DD-cup) filling the ${safeTopGarment}, narrow defined waist, wide hips, and rounded glutes.`,
     anatomy: {
@@ -123,6 +178,20 @@ export function getBodyBlock(silhouette = 'VOLUPTUOUS', topGarment = 'top garmen
       waist_to_hip_ratio: 'Pronounced hourglass.',
     },
   };
+}
+
+export function getBodyBlock(silhouette = 'VOLUPTUOUS', gender = 'FEMALE', topGarment = 'top garment') {
+  const safeTopGarment = String(topGarment || 'top garment').trim() || 'top garment';
+  const resolvedGender = normalizeGender(gender);
+  const requested = normalizeSilhouetteType(silhouette);
+
+  if (resolvedGender === 'MALE') {
+    const resolvedSilhouette = MALE_SILHOUETTE_TYPES.has(requested) ? requested : 'ATHLETIC';
+    return getMaleBodyBlock(resolvedSilhouette, safeTopGarment);
+  }
+
+  const resolvedSilhouette = FEMALE_SILHOUETTE_TYPES.has(requested) ? requested : 'VOLUPTUOUS';
+  return getFemaleBodyBlock(resolvedSilhouette, safeTopGarment);
 }
 
 function buildDefaultBodyInstruction(bodyTemplate) {
@@ -273,7 +342,7 @@ export function injectBody(sceneJson, silhouetteOrOptions = {}, maybeOptions = {
     enriched.subject = {};
   }
 
-  const fallbackBody = getBodyBlock(options.silhouette, topGarment);
+  const fallbackBody = getBodyBlock(options.silhouette, options.gender, topGarment);
   const customBodyPrompt = String(options.bodyPrompt || '').trim();
   const finalBodyInstruction = customBodyPrompt || buildDefaultBodyInstruction(fallbackBody);
 
@@ -290,7 +359,9 @@ export function injectBody(sceneJson, silhouetteOrOptions = {}, maybeOptions = {
     enriched.subject.face = clone(identityProfile.face);
   } else {
     if (!enriched.subject.description) {
-      enriched.subject.description = 'A woman matching the attached reference image.';
+      enriched.subject.description = normalizeGender(options.gender) === 'MALE'
+        ? 'A man matching the attached reference image.'
+        : 'A woman matching the attached reference image.';
     }
     delete enriched.subject.face;
   }

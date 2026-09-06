@@ -89,31 +89,40 @@
                 </button>
               </div>
             </div>
-            <p class="brand-hint">Une même influenceuse peut représenter plusieurs marques.</p>
+            <p class="brand-hint">Un même persona peut représenter plusieurs marques.</p>
           </div>
 
-          <!-- Silhouette : persona uniquement -->
+          <!-- Genre et silhouette : persona uniquement -->
           <div v-if="form.profileType === 'persona'" class="field-group">
-            <label class="field-label">Silhouette</label>
-            <div class="silhouette-grid">
+            <label class="field-label">Genre</label>
+            <div class="pill-row">
               <button
-                v-for="option in silhouetteOptions"
-                :key="option.value"
                 type="button"
-                class="silhouette-card"
-                :class="{ selected: form.silhouette === option.value }"
-                :aria-pressed="form.silhouette === option.value"
-                @click.stop="setSilhouette(option.value)"
+                class="pill"
+                :class="{ selected: form.gender === 'FEMALE' }"
+                @click="setGender('FEMALE')"
               >
-                <div class="silhouette-head">
-                  <span class="silhouette-emoji">{{ option.emoji }}</span>
-                  <span v-if="form.silhouette === option.value" class="silhouette-selected-mark">✓</span>
-                  <span v-if="option.isDefault" class="silhouette-badge">Par defaut</span>
-                </div>
-                <p class="silhouette-name">{{ option.label }}</p>
-                <p class="silhouette-description">{{ option.description }}</p>
+                Femme
+              </button>
+              <button
+                type="button"
+                class="pill"
+                :class="{ selected: form.gender === 'MALE' }"
+                @click="setGender('MALE')"
+              >
+                Homme
               </button>
             </div>
+          </div>
+
+          <div v-if="form.profileType === 'persona'" class="field-group">
+            <label class="field-label">Silhouette</label>
+            <select v-model="form.silhouette" class="input">
+              <option v-for="option in silhouetteOptions" :key="option.value" :value="option.value">
+                {{ option.label }}{{ option.isDefault ? ' (par defaut)' : '' }}
+              </option>
+            </select>
+            <p class="silhouette-description">{{ selectedSilhouetteDescription }}</p>
             <p v-if="step1ValidationMessage" class="step1-hint">{{ step1ValidationMessage }}</p>
           </div>
         </div>
@@ -355,7 +364,8 @@ const form = reactive({
   name: '',
   niche: '',
   style: '',
-  silhouette: 'VOLUPTUOUS',
+  gender: 'FEMALE',
+  silhouette: getDefaultSilhouette('FEMALE'),
   description: '',
   website: '',
   targetAudience: '',
@@ -389,12 +399,16 @@ const personalization = reactive({
   traits: '',
 })
 
-const silhouetteOptions = [
-  { value: 'SLIM', emoji: '🌿', label: 'Mince', description: 'Elancée, minimaliste, éditoriale', isDefault: false },
-  { value: 'ATHLETIC', emoji: '💪', label: 'Athletique', description: 'Tonique, sportive, fit', isDefault: false },
-  { value: 'VOLUPTUOUS', emoji: '🔥', label: 'Voluptueuse', description: 'Sablier prononcé, courbes marquées', isDefault: true },
-  { value: 'CURVY', emoji: '🫧', label: 'Harmonieuse', description: 'Courbes douces, taille dessinée, silhouette plus équilibrée', isDefault: false },
-]
+const silhouetteOptions = computed(() => getSilhouetteOptions(form.gender))
+const selectedSilhouetteDescription = computed(() => (
+  silhouetteOptions.value.find((option) => option.value === form.silhouette)?.description || ''
+))
+
+function setGender(gender) {
+  if (form.gender === gender) return
+  form.gender = gender
+  form.silhouette = getDefaultSilhouette(gender)
+}
 
 const eyeColorOptions = ['Bleus', 'Verts', 'Marrons', 'Noisette', 'Noirs', 'Autre']
 
@@ -474,7 +488,7 @@ const nameLabel = computed(() => {
 const namePlaceholder = computed(() => {
   if (form.profileType === 'brand') return 'Ex : Jade Paris, Luxe & Co...'
   if (form.profileType === 'activity') return 'Ex : Jade Coaching, Studio Créatif...'
-  return 'ex : Luna'
+  return getNamePlaceholder(form.gender)
 })
 
 const nichePlaceholder = computed(() => {
@@ -657,10 +671,6 @@ async function onDrop(event) {
   await setFile(file)
 }
 
-function setSilhouette(value) {
-  form.silhouette = value
-}
-
 function setEyeColor(option) {
   personalization.eyeColor = option
   if (option !== 'Autre') {
@@ -755,6 +765,7 @@ async function submit() {
         niche: form.niche.trim(),
         style: form.style.trim(),
         profileType: form.profileType,
+        gender: form.profileType === 'persona' ? form.gender : undefined,
         silhouette: form.profileType === 'persona' ? form.silhouette : undefined,
         brandId: form.profileType === 'persona' && form.brandIds.length ? form.brandIds[0] : undefined,
         description: form.profileType !== 'persona' ? form.description.trim() : undefined,
@@ -1219,76 +1230,6 @@ onBeforeUnmount(() => {
   border-color: var(--accent);
   background: var(--accent);
   color: #ffffff;
-}
-
-.silhouette-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.silhouette-card {
-  position: relative;
-  text-align: left;
-  border: 1px solid rgba(244, 205, 169, 0.16);
-  border-radius: 12px;
-  background: rgba(12, 8, 5, 0.88);
-  padding: 10px;
-  cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.silhouette-card:hover {
-  border-color: rgba(232, 135, 58, 0.45);
-  transform: translateY(-1px);
-}
-
-.silhouette-card.selected {
-  border-color: #ff9a57;
-  box-shadow: 0 0 0 1px rgba(255, 154, 87, 0.42), 0 12px 26px rgba(232, 135, 58, 0.28);
-  background: rgba(232, 135, 58, 0.1);
-}
-
-.silhouette-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.silhouette-emoji {
-  font-size: 18px;
-  line-height: 1;
-}
-
-.silhouette-badge {
-  font-size: 10px;
-  font-weight: 700;
-  color: #f6cfb0;
-  border: 1px solid rgba(244, 205, 169, 0.24);
-  background: rgba(232, 135, 58, 0.16);
-  border-radius: 999px;
-  padding: 2px 8px;
-}
-
-.silhouette-selected-mark {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 999px;
-  background: rgba(255, 153, 85, 0.24);
-  border: 1px solid rgba(255, 170, 109, 0.65);
-  color: #ffd9bd;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.silhouette-name {
-  margin: 8px 0 4px;
-  font-size: 14px;
-  font-weight: 700;
-  color: #fff4e6;
 }
 
 .silhouette-description {

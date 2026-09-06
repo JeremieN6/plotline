@@ -91,19 +91,34 @@
         </div>
 
         <div>
-          <label class="block text-sm font-semibold">Silhouette</label>
-          <div class="mt-2 grid gap-2 sm:grid-cols-2">
+          <label class="block text-sm font-semibold">Genre</label>
+          <div class="mt-2 flex gap-2">
             <button
-              v-for="option in silhouetteOptions"
-              :key="option.value"
               type="button"
-              class="rounded-[12px] border px-3 py-2 text-left text-sm"
-              :class="form.silhouette === option.value ? 'border-[#E8873A] bg-[#28170D]' : 'border-[#5B4332] bg-[#1A120D]'"
-              @click="form.silhouette = option.value"
+              class="rounded-[12px] border px-3 py-2 text-sm font-semibold"
+              :class="form.gender === 'FEMALE' ? 'border-[#E8873A] bg-[#28170D]' : 'border-[#5B4332] bg-[#1A120D]'"
+              @click="setGender('FEMALE')"
             >
-              {{ option.label }}
+              Femme
+            </button>
+            <button
+              type="button"
+              class="rounded-[12px] border px-3 py-2 text-sm font-semibold"
+              :class="form.gender === 'MALE' ? 'border-[#E8873A] bg-[#28170D]' : 'border-[#5B4332] bg-[#1A120D]'"
+              @click="setGender('MALE')"
+            >
+              Homme
             </button>
           </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-semibold">Silhouette</label>
+          <select v-model="form.silhouette" class="mt-2 w-full rounded-[12px] border border-[#5B4332] bg-[#1A120D] px-4 py-3 text-white">
+            <option v-for="option in silhouetteOptions" :key="option.value" :value="option.value">
+              {{ option.label }}{{ option.isDefault ? ' (par defaut)' : '' }}
+            </option>
+          </select>
         </div>
 
         <p v-if="fileError" class="text-sm text-red-300">{{ fileError }}</p>
@@ -159,12 +174,13 @@ const toneOptions = [
   'Professionnel & Expert',
 ]
 
-const silhouetteOptions = [
-  { value: 'SLIM', label: 'Mince' },
-  { value: 'ATHLETIC', label: 'Athletique' },
-  { value: 'VOLUPTUOUS', label: 'Voluptueuse' },
-  { value: 'CURVY', label: 'Harmonieuse' },
-]
+const silhouetteOptions = computed(() => getSilhouetteOptions(form.gender))
+
+function setGender(gender) {
+  if (form.gender === gender) return
+  form.gender = gender
+  form.silhouette = getDefaultSilhouette(gender)
+}
 
 const eyeColorOptions = ['Bleus', 'Verts', 'Marrons', 'Noisette', 'Noirs', 'Autre']
 
@@ -188,7 +204,8 @@ const form = reactive({
   tone: '',
   primaryColors: ['#e8873a', '#111111', '#f5d4b8'],
   secondaryColors: ['#5b4332', '#d4762f'],
-  silhouette: 'VOLUPTUOUS',
+  gender: 'FEMALE',
+  silhouette: getDefaultSilhouette('FEMALE'),
 })
 
 const personalization = reactive({
@@ -346,6 +363,7 @@ async function submit() {
         name: form.brandName.trim(),
         niche: form.sector.trim(),
         style: styleParts.join(' | '),
+        gender: form.gender,
         silhouette: form.silhouette,
       },
     })

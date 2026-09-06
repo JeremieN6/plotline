@@ -38,6 +38,7 @@ import {
   runScheduledPublications,
 } from '../server/utils/scheduledPublisher.js';
 import { selectVideoModel } from '../server/utils/videoModelSelector.js';
+import { getBodyBlock, injectBody } from '../server/utils/injectBody.js';
 
 test('normalizeAccountType normalizes to uppercase', () => {
   assert.equal(normalizeAccountType(' brand '), 'BRAND');
@@ -554,4 +555,33 @@ test('seedance: taskId et url de video sont lus quelle que soit l enveloppe', ()
   assert.equal(extractSeedanceVideoUrl({ data: { results: ['https://v/1.mp4'] } }), 'https://v/1.mp4');
   assert.equal(extractSeedanceVideoUrl({ data: { results: [{ url: 'https://v/2.mp4' }] } }), 'https://v/2.mp4');
   assert.equal(extractSeedanceVideoUrl({ data: { results: [] } }), '');
+});
+
+test('getBodyBlock: les silhouettes masculines ne referencent jamais la poitrine', () => {
+  for (const silhouette of ['SLIM', 'ATHLETIC', 'MUSCULAR', 'STOCKY']) {
+    const block = getBodyBlock(silhouette, 'MALE', 'shirt');
+    const serialized = JSON.stringify(block).toLowerCase();
+    assert.doesNotMatch(serialized, /\bbust\b|breast|cleavage|hourglass|glutes/);
+  }
+});
+
+test('getBodyBlock: une silhouette masculine inconnue retombe sur ATHLETIC', () => {
+  const block = getBodyBlock('CURVY', 'MALE', 'shirt');
+  assert.match(block.physique, /Athletic male build/);
+});
+
+test('getBodyBlock: le comportement feminin par defaut est inchange', () => {
+  const block = getBodyBlock('VOLUPTUOUS', 'FEMALE', 'dress');
+  assert.match(block.physique, /Voluptuous hourglass figure/);
+
+  const implicitFemale = getBodyBlock('VOLUPTUOUS', undefined, 'dress');
+  assert.deepEqual(implicitFemale, block);
+});
+
+test('injectBody: le repli de description suit le genre', () => {
+  const male = injectBody({}, { silhouette: 'ATHLETIC', gender: 'MALE' });
+  assert.equal(male.subject.description, 'A man matching the attached reference image.');
+
+  const female = injectBody({}, { silhouette: 'VOLUPTUOUS' });
+  assert.equal(female.subject.description, 'A woman matching the attached reference image.');
 });

@@ -205,25 +205,39 @@
 
         <div v-if="isAmbassadorProfile" class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
           <div>
-            <h2 class="text-base font-bold text-gray-900">Silhouette</h2>
-            <p class="mt-1 text-sm text-gray-500">Définis le gabarit de base qui sera utilisé par ton persona. Tu peux également le laisser par défaut.</p>
+            <h2 class="text-base font-bold text-gray-900">Genre et silhouette</h2>
+            <p class="mt-1 text-sm text-gray-500">Définit le gabarit de base qui sera utilisé par ton persona. Tu peux également le laisser par défaut.</p>
           </div>
 
-          <div class="mt-4 grid gap-2 sm:grid-cols-2">
+          <div class="mt-4 flex gap-2">
             <button
-              v-for="option in silhouetteOptions"
-              :key="option.value"
               type="button"
-              class="rounded-xl border px-3 py-3 text-left transition-colors"
-              :class="form.silhouette === option.value ? 'border-[#E8873A] bg-orange-50' : 'border-[#E5E3DF] bg-white hover:bg-gray-50'"
-              @click="form.silhouette = option.value"
+              class="rounded-xl border px-3 py-2 text-sm font-semibold transition-colors"
+              :class="form.gender === 'FEMALE' ? 'border-[#E8873A] bg-orange-50 text-gray-900' : 'border-[#E5E3DF] bg-white text-gray-600 hover:bg-gray-50'"
+              @click="setGender('FEMALE')"
             >
-              <div class="flex items-center justify-between gap-2">
-                <p class="text-sm font-bold text-gray-900">{{ option.label }}</p>
-                <span v-if="option.value === 'VOLUPTUOUS'" class="rounded-full border border-orange-200 bg-orange-100 px-2 py-0.5 text-[10px] font-bold text-orange-700">Par defaut</span>
-              </div>
-              <p class="mt-1 text-xs text-gray-600">{{ option.description }}</p>
+              Femme
             </button>
+            <button
+              type="button"
+              class="rounded-xl border px-3 py-2 text-sm font-semibold transition-colors"
+              :class="form.gender === 'MALE' ? 'border-[#E8873A] bg-orange-50 text-gray-900' : 'border-[#E5E3DF] bg-white text-gray-600 hover:bg-gray-50'"
+              @click="setGender('MALE')"
+            >
+              Homme
+            </button>
+          </div>
+
+          <div class="mt-4">
+            <select
+              v-model="form.silhouette"
+              class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none"
+            >
+              <option v-for="option in silhouetteOptions" :key="option.value" :value="option.value">
+                {{ option.label }}{{ option.isDefault ? ' (par defaut)' : '' }}
+              </option>
+            </select>
+            <p class="mt-1.5 text-xs text-gray-600">{{ selectedSilhouetteDescription }}</p>
           </div>
         </div>
 
@@ -374,19 +388,25 @@ const fileInputRef = ref(null)
 const initialFormState = ref({
   bodyPrompt: '',
   silhouette: 'VOLUPTUOUS',
+  gender: 'FEMALE',
 })
 
-const silhouetteOptions = [
-  { value: 'SLIM', label: '🌿 Mince', description: 'Elancée, minimaliste, éditoriale' },
-  { value: 'ATHLETIC', label: '💪 Athletique', description: 'Tonique, sportive, fit' },
-  { value: 'VOLUPTUOUS', label: '🔥 Voluptueuse', description: 'Sablier prononcé, courbes marquées' },
-  { value: 'CURVY', label: '🫧 Harmonieuse', description: 'Courbes douces, taille dessinée, silhouette plus équilibrée' },
-]
+const silhouetteOptions = computed(() => getSilhouetteOptions(form.gender))
+const selectedSilhouetteDescription = computed(() => (
+  silhouetteOptions.value.find((option) => option.value === form.silhouette)?.description || ''
+))
+
+function setGender(gender) {
+  if (form.gender === gender) return
+  form.gender = gender
+  form.silhouette = getDefaultSilhouette(gender)
+}
 
 const form = reactive({
   name: '',
   niche: '',
   style: '',
+  gender: 'FEMALE',
   silhouette: 'VOLUPTUOUS',
   bodyPrompt: '',
   hairPrompt: '',
@@ -519,6 +539,7 @@ watch(
     form.name = value.name || ''
     form.niche = value.niche || ''
     form.style = value.style || ''
+    form.gender = value.gender || 'FEMALE'
     form.silhouette = value.silhouette || 'VOLUPTUOUS'
     form.bodyPrompt = value.bodyPrompt || ''
     form.hairPrompt = value.hairPrompt || ''
@@ -527,6 +548,7 @@ watch(
     initialFormState.value = {
       bodyPrompt: form.bodyPrompt,
       silhouette: form.silhouette,
+      gender: form.gender,
     }
     currentFaceRefPath.value = value.faceRefPath || ''
     currentFaceRefUrl.value = value.faceRefUrl || (currentFaceRefFilename.value ? `/api/media/face-refs/${encodeURIComponent(currentFaceRefFilename.value)}` : '')
@@ -821,6 +843,10 @@ async function submit() {
 
     if (form.silhouette !== initialFormState.value.silhouette) {
       patchBody.silhouette = form.silhouette
+    }
+
+    if (form.gender !== initialFormState.value.gender) {
+      patchBody.gender = form.gender
     }
 
     await $fetch(`/api/profiles/${id.value}`, {

@@ -31,6 +31,10 @@ function buildMissingColumnMessage(body, err) {
     return 'La colonne silhouette est absente de la base active. Appliquez la migration silhouette sur Neon puis reessayez.';
   }
 
+  if (missingColumn.includes('gender')) {
+    return 'La colonne gender est absente de la base active. Appliquez la migration add_persona_gender sur Neon puis reessayez.';
+  }
+
   if (missingColumn.includes('bodyprompt')) {
     return 'La colonne bodyPrompt est absente de la base active. Appliquez la migration add_body_prompt sur Neon puis reessayez.';
   }
@@ -49,6 +53,10 @@ function buildMissingColumnMessage(body, err) {
 
   if (typeof body?.silhouette === 'string') {
     return 'La colonne silhouette est absente de la base active. Appliquez la migration silhouette sur Neon puis reessayez.';
+  }
+
+  if (typeof body?.gender === 'string') {
+    return 'La colonne gender est absente de la base active. Appliquez la migration add_persona_gender sur Neon puis reessayez.';
   }
 
   if (missingColumn) {
@@ -77,6 +85,7 @@ const MODERN_INFLUENCER_SELECT = {
   profileType: true,
   brandId: true,
   silhouette: true,
+  gender: true,
   bodyPrompt: true,
   hairPrompt: true,
   identityProfile: true,
@@ -152,6 +161,7 @@ function createOfflineInfluencer({ userId, name, niche, style }) {
     niche,
     style,
     silhouette: 'VOLUPTUOUS',
+    gender: 'FEMALE',
     faceRefPath: null,
     bodyPrompt: null,
     hairPrompt: null,
@@ -202,8 +212,10 @@ module.exports = defineEventHandler(async (event) => {
     const userEmail = String(user.email || `${userId}@plotline.local`).toLowerCase();
     const { normalizeNicheValue } = await getNicheUtils();
     const normalizedNiche = normalizeNicheValue(body.niche);
-    const allowedSilhouettes = new Set(['SLIM', 'ATHLETIC', 'CURVY', 'VOLUPTUOUS']);
+    const allowedSilhouettes = new Set(['SLIM', 'ATHLETIC', 'CURVY', 'VOLUPTUOUS', 'MUSCULAR', 'STOCKY']);
     const resolvedSilhouette = String(body?.silhouette || 'VOLUPTUOUS').trim().toUpperCase();
+    const allowedGenders = new Set(['FEMALE', 'MALE']);
+    const resolvedGender = String(body?.gender || 'FEMALE').trim().toUpperCase();
     const resolvedProfileType = normalizeProfileType(body?.profileType);
     const requestedBrandId = String(body?.brandId || '').trim();
     const store = useStorage('data');
@@ -215,6 +227,10 @@ module.exports = defineEventHandler(async (event) => {
 
     if (!allowedSilhouettes.has(resolvedSilhouette)) {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'silhouette invalide' }));
+    }
+
+    if (!allowedGenders.has(resolvedGender)) {
+      return sendError(event, createError({ statusCode: 400, statusMessage: 'gender invalide' }));
     }
 
     if (requestedBrandId && resolvedProfileType !== 'PERSONA') {
@@ -242,6 +258,7 @@ module.exports = defineEventHandler(async (event) => {
           profileType: resolvedProfileType || undefined,
           brandId: requestedBrandId || undefined,
           silhouette: resolvedSilhouette,
+          gender: resolvedGender,
           bodyPrompt: typeof body?.bodyPrompt === 'string' ? body.bodyPrompt.trim() || null : null,
           description: typeof body?.description === 'string' ? body.description.trim() || null : null,
           website: typeof body?.website === 'string' ? body.website.trim() || null : null,

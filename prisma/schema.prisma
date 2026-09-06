@@ -56,6 +56,13 @@ enum SilhouetteType {
   ATHLETIC
   CURVY
   VOLUPTUOUS
+  MUSCULAR
+  STOCKY
+}
+
+enum Gender {
+  FEMALE
+  MALE
 }
 
 model User {
@@ -141,6 +148,7 @@ model Profile {
   style                String
   profileType          ProfileType?
   silhouette           SilhouetteType     @default(VOLUPTUOUS)
+  gender               Gender             @default(FEMALE)
   brandId              String?
   faceRefPath          String?
   bodyPrompt           String?

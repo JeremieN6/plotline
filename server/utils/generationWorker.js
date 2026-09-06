@@ -291,6 +291,7 @@ async function runReelWorkflow({
 
     const sceneJson = injectBody(await imageToJson(framePath), {
       silhouette: influencer.silhouette,
+      gender: influencer.gender,
       identityProfile: influencer.identityProfile,
       influencerName: influencer.name,
       bodyPrompt,
@@ -423,6 +424,7 @@ async function findInfluencerForGeneration(prisma, influencerId) {
         id: true,
         name: true,
         silhouette: true,
+        gender: true,
         faceRefPath: true,
         bodyPrompt: true,
         hairPrompt: true,
@@ -447,6 +449,7 @@ async function findInfluencerForGeneration(prisma, influencerId) {
     return {
       ...legacy,
       silhouette: 'VOLUPTUOUS',
+      gender: 'FEMALE',
       bodyPrompt: null,
       hairPrompt: null,
       identityProfile: 'default',
@@ -619,6 +622,7 @@ export async function processGenerationJob(jobData, options = {}) {
       try {
         const sceneJson = await imageToJson(scrapedImagePath);
         const enrichedSceneJson = injectBody(sceneJson, influencer.silhouette, {
+          gender: influencer.gender,
           identityProfile: influencer.identityProfile,
           influencerName: influencer.name,
           bodyPrompt,
@@ -681,6 +685,7 @@ export async function processGenerationJob(jobData, options = {}) {
         },
         {
           silhouette: influencer.silhouette,
+          gender: influencer.gender,
           identityProfile: influencer.identityProfile,
           influencerName: influencer.name,
           bodyPrompt,
@@ -713,6 +718,7 @@ export async function processGenerationJob(jobData, options = {}) {
 
       const sceneJsonText = buildGenerationPrompt(concept, normalizedContentType, ratio);
       const sceneJson = injectBody(JSON.parse(sceneJsonText), influencer.silhouette, {
+        gender: influencer.gender,
         identityProfile: influencer.identityProfile,
         influencerName: influencer.name,
         bodyPrompt,
