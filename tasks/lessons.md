@@ -19,6 +19,12 @@
 
 <!-- Les entrees seront ajoutees ici au fil du temps -->
 
+### 2026-09-07 Un computed() appele sans .value bloquait toute creation de persona
+**Probleme** : en production, impossible de creer une persona (mobile constate en premier, mais le bug touchait tous les appareils) -- a la derniere etape du formulaire (`profiles/new.vue`), la page devenait blanche sous le header, sans message d'erreur. Le bouton "Creer" n'etait jamais atteint, donc aucune persona ne se creait, meme apres plusieurs tentatives.
+**Cause racine** : l ajout du genre a transforme `silhouetteOptions` d un tableau statique en `computed(() => getSilhouetteOptions(form.gender))`. Un seul endroit, `selectedSilhouetteLabel` (affiche uniquement au recapitulatif final), avait garde `silhouetteOptions.find(...)` au lieu de `silhouetteOptions.value.find(...)`. Un computed n est pas un tableau: l appel plantait des que le recapitulatif tentait de s afficher, avant meme que l utilisateur voie le bouton de creation.
+**Solution** : `silhouetteOptions.value.find(...)`, avec repli sur l option marquee `isDefault` du genre courant plutot qu un libelle feminin fige.
+**Regle** : apres avoir transforme une donnee locale en `computed()`, chercher TOUS ses points d usage dans le fichier (pas seulement le template, qui deballe les refs automatiquement) -- un `.find`/`.filter`/`.map` appele directement dessus dans le script ne leve aucune erreur a la compilation, seulement au premier rendu qui l atteint reellement, et rien n apparait dans les logs cote client en production.
+
 ### 2026-09-03 Le deploiement detruisait la version en service avant de construire
 **Probleme** : deux deploiements consecutifs ont echoue et la production est restee cassee, servant des 500 sur les chunks JS (`Failed to fetch dynamically imported module`), page blanche sur /dashboard.
 **Cause racine** : le workflow enchainait `rm -rf .output` PUIS `npm run build`, sous `set -euo pipefail`. Des que le build echouait, la sortie precedente etait deja supprimee et le processus pm2 continuait de servir un `index.html` referencant des fichiers disparus. L echec du build ne cassait donc pas seulement le deploiement, il cassait le site en ligne.
