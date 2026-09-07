@@ -125,6 +125,23 @@ Google atteste que l'adresse est verifiee.
 disparait, puisque Google l'a deja faite. La demarche a ete documentee comme
 recette reutilisable, le meme besoin existant sur les autres projets de l'auteur.
 
+### 2026-09-06 -- La creation de persona etait pensee au feminin par defaut
+
+**Contexte** : chaque ecran de creation de persona (placeholders de nom,
+silhouettes proposees, textes de generation d'image) supposait implicitement
+une identite feminine, alors que le produit se presente comme une agence
+d'influenceurs virtuels, pas seulement d'influenceuses.
+
+**Decision** : ajouter un choix de genre explicite a la creation, avec des
+silhouettes et des textes de generation reellement penses pour une identite
+masculine plutot qu'un reemploi des memes textes.
+
+**Resultat** : le produit peut desormais representer honnetement les deux
+genres. Question laissee ouverte, non tranchee : etendre au non-binaire (le
+meme mecanisme s'y prete naturellement) et/ou a une option "mascotte" (un
+persona non humain, sans silhouette applicable) -- ce dernier point est un
+chantier distinct, pas une extension du genre.
+
 ---
 
 ## Ce que la cible attend / a appris
@@ -145,6 +162,11 @@ etude externe) :
 - Un compte de type agence se comporte differemment d'un compte de marque :
   beaucoup d'influenceuses et peu de marques d'un cote, l'inverse de l'autre.
   L'interface doit servir les deux sans imposer le vocabulaire de l'un a l'autre.
+- Une seule generation de fiche reference ne suffit pas a juger de sa qualite :
+  l'auteur a besoin de comparer plusieurs resultats issus de photos source
+  differentes avant de retenir celle qui servira de socle a toutes les
+  publications futures d'un persona. Decision prise sans grand debat : plafonner
+  la comparaison a 3 a la fois plutot que de laisser une liste illimitee.
 
 **Ce qui reste inconnu et devra etre valide aupres de vrais utilisateurs** :
 tarification, volume de publication reellement souhaite, appetit pour la
@@ -176,6 +198,9 @@ suivantes s'appliquent a tout contenu produit a partir de ce fichier :
 ---
 
 ## Derniere mise a jour
+
+2026-09-07 -- Ajout du pivot genre du persona (2026-09-06) et de l'apprentissage
+sur la comparaison de fiches reference.
 
 2026-08-27 -- Creation du fichier.
 
