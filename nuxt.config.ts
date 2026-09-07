@@ -58,6 +58,9 @@ export default defineNuxtConfig({
     klingModel: process.env.KLINGAI_MODEL || process.env.KLING_MODEL,
     redisUrl: process.env.REDIS_URL,
     baseUrl: process.env.BASE_URL,
+    // Cle partagee pour les appels service-a-service (home.sassify.fr -> Plotline),
+    // distincte de toute session utilisateur.
+    externalVideoJobsApiKey: process.env.EXTERNAL_VIDEO_JOBS_API_KEY,
     // Jamais dans `public`: le secret ne doit pas partir dans le bundle client.
     googleClientId: process.env.GOOGLE_OAUTH_CLIENT_ID,
     googleClientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET,
