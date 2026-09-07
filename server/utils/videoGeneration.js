@@ -3,17 +3,16 @@ import path from 'node:path';
 
 import { GoogleGenAI } from '@google/genai';
 
-import { isAbsoluteHttpUrl, isBlobStorageEnabled, uploadPublicMediaBuffer } from './blobStorage.js';
+import { isBlobStorageEnabled, uploadPublicMediaBuffer } from './blobStorage.js';
 import { finalizeContentWithVersion, markGenerationFailure } from './contentVersions.js';
 import { readImageSourceBuffer } from './faceRefReader.js';
 import { generateImageFromGeminiWithSafetyFallback } from './geminiImageGeneration.js';
 import { validatePersonAndUpperBody } from './imageValidation.js';
 import { generateVideoFromImageAndPrompt, generateVideoFromTextPrompt } from './klingGenerator.js';
-import { getGeneratedDir, resolveMediaPath, toMediaUrl } from './mediaStorage.js';
+import { getGeneratedDir, toMediaUrl } from './mediaStorage.js';
 import { resolveAspectRatio } from './aspectRatio.js';
 import { generateSeedanceVideo, isSeedanceEnabled } from './seedanceGenerator.js';
 import { selectVideoModel } from './videoModelSelector.js';
-import { applyHookTextOverlay } from './videoTextOverlay.js';
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -398,46 +397,7 @@ async function requestProviderVideo({ model, prompt, aspectRatio, startFrame, ru
   };
 }
 
-async function readGeneratedVideoBuffer(videoUrl) {
-  if (isAbsoluteHttpUrl(videoUrl)) {
-    const response = await fetch(videoUrl);
-    if (!response.ok) {
-      throw new Error(`Impossible de recuperer la video generee pour l'overlay (status ${response.status})`);
-    }
-    return Buffer.from(await response.arrayBuffer());
-  }
-
-  const relativePath = videoUrl.replace(/^\/api\/media\//, '');
-  const absolutePath = resolveMediaPath(relativePath);
-  if (!absolutePath) {
-    throw new Error(`Chemin video local invalide pour l'overlay: ${videoUrl}`);
-  }
-  return fs.readFile(absolutePath);
-}
-
-// Reserve aux jobs qui fournissent un hookVideo (source home.sassify.fr pour
-// l instant) : les autres formats gardent leur contrainte "no text overlays".
-async function applyHookOverlayToVideoUrl(videoUrl, hookText) {
-  const tempDir = path.join(process.cwd(), 'storage', 'temp');
-  await fs.mkdir(tempDir, { recursive: true });
-
-  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const inputPath = path.join(tempDir, `hook_in_${stamp}.mp4`);
-  const outputPath = path.join(tempDir, `hook_out_${stamp}.mp4`);
-
-  try {
-    const inputBuffer = await readGeneratedVideoBuffer(videoUrl);
-    await fs.writeFile(inputPath, inputBuffer);
-    await applyHookTextOverlay(inputPath, hookText, outputPath);
-    const outputBuffer = await fs.readFile(outputPath);
-    return await saveGeneratedVideoBuffer(outputBuffer, 'video_hook');
-  } finally {
-    await fs.unlink(inputPath).catch(() => {});
-    await fs.unlink(outputPath).catch(() => {});
-  }
-}
-
-export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, prompt, model, withFaceRef, influencer, previousStatus, hookVideo }) {
+export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, prompt, model, withFaceRef, influencer, previousStatus }) {
   // Le cadrage demande dans le prompt fait foi. Le repli ne s applique que si
   // le prompt ne se prononce pas: aucun format n est impose a la place de l auteur.
   const aspectRatio = resolveAspectRatio(prompt);
@@ -451,23 +411,12 @@ export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, 
     try {
       const startFrame = withFaceRef ? await prepareVideoStartFrame({ influencer, prompt }) : null;
       const providerResult = await requestProviderVideo({ model, prompt, aspectRatio, startFrame, runtimeConfig });
-      let resolvedVideoUrl = String(providerResult?.videoUrl || '').trim();
+      const resolvedVideoUrl = String(providerResult?.videoUrl || '').trim();
 
       // Sans URL exploitable, le contenu resterait en PROCESSING indefiniment:
       // on le marque en echec pour que l utilisateur puisse relancer.
       if (!resolvedVideoUrl) {
         throw new Error('Le fournisseur a repondu sans URL de video exploitable');
-      }
-
-      if (hookVideo) {
-        try {
-          resolvedVideoUrl = await applyHookOverlayToVideoUrl(resolvedVideoUrl, hookVideo);
-        } catch (overlayError) {
-          // L overlay est un enrichissement, pas le coeur du job : une video
-          // Omni Flash coute cher a regenerer, on la publie donc sans le texte
-          // plutot que de perdre toute la generation pour une police manquante.
-          console.error(`Overlay hookVideo echoue pour ${contentId}, video publiee sans texte:`, normalizeErrorMessage(overlayError));
-        }
       }
 
       await finalizeContentWithVersion(

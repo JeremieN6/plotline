@@ -162,6 +162,13 @@ infrastructure reutilisable entre les propres projets de son createur. Encore
 non eprouve en conditions reelles au moment de l'ecriture : la premiere
 generation reelle via ce nouveau chemin reste a faire.
 
+**Precision apportee dans la meme session** : un texte en surimpression sur la
+video avait ete propose puis retire de ce chantier. Le texte a l'ecran est un
+format pense pour le contenu influenceur (aguicheur, explicite), qui n'a rien
+a voir avec les videos issues du blog -- celles-ci doivent rester des videos
+normales, sans texte par dessus, le temps qu'un vrai chantier dedie au premier
+format soit mene separement.
+
 ---
 
 ## Ce que la cible attend / a appris

@@ -38,7 +38,6 @@ export default defineEventHandler(async (event) => {
   const influencerId = String(body?.influencerId || '').trim();
   const decorPrompt = String(body?.decorPrompt || '').trim();
   const scriptText = String(body?.scriptText || '').trim();
-  const hookVideo = String(body?.hookVideo || '').trim();
   const slug = String(body?.slug || '').trim();
   const sourceProject = String(body?.sourceProject || '').trim();
 
@@ -103,7 +102,6 @@ export default defineEventHandler(async (event) => {
       model,
       withFaceRef: true,
       influencer,
-      hookVideo,
     });
 
     return { contentId, ...result };
