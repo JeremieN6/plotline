@@ -576,8 +576,8 @@ const resolvedEyeColor = computed(() => {
 })
 
 const selectedSilhouetteLabel = computed(() => {
-  const found = silhouetteOptions.find((item) => item.value === form.silhouette)
-  return found?.label || 'Voluptueuse'
+  const found = silhouetteOptions.value.find((item) => item.value === form.silhouette)
+  return found?.label || silhouetteOptions.value.find((item) => item.isDefault)?.label || ''
 })
 
 const dynamicTraitsLine = computed(() => {
