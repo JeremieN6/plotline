@@ -1,4 +1,4 @@
-﻿# CLAUDE.md -- Memoire Projet
+﻿# AGENTS.md -- Memoire Projet
 
 > Ce fichier est lu automatiquement par l'IA au debut de chaque conversation.
 > Mets-le a jour a la fin de chaque session de travail.
@@ -16,7 +16,7 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 - Nuxt 3 monorepo (Vue 3 front + server routes back)
 - Prisma + PostgreSQL
 - BullMQ + Redis
-- SDK Anthropic JS (claude-sonnet-4-6)
+- SDK Anthropic JS (Codex-sonnet-4-6)
 - Deploy VPS Hostinger
 - Domaine cible: plotline.sassify.fr
 - Email: SMTP Hostinger via variables d'environnement
@@ -26,7 +26,7 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 ## Conventions IA et Code
 - Toute la logique serveur vit dans server/utils et server/api.
 - Les utilitaires dans server/utils sont des fonctions pures exportees.
-- Le format de sortie de Claude est toujours du JSON brut, sans markdown.
+- Le format de sortie de Codex est toujours du JSON brut, sans markdown.
 
 ---
 
@@ -51,7 +51,7 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 - [x] Script de nettoyage des medias orphelins (dry-run par defaut)
 - [x] Publication automatique des contenus a leur date planifiee (opt-in via `SCHEDULER_ENABLED`)
 - [x] Lien marque <-> ambassadrice en plusieurs-a-plusieurs (table `BrandAmbassador`), rattachement editable depuis la fiche du profil
-- [x] Planificateur editorial: cadence par profil, idees redigees par Claude avec repli deterministe, revue avant generation
+- [x] Planificateur editorial: cadence par profil, idees redigees par Codex avec repli deterministe, revue avant generation
 - [x] Genre du persona (Femme/Homme) avec silhouettes et descriptions corporelles masculines dediees dans la generation d'image
 - [x] Comparaison de plusieurs fiches reference visage a la creation d'un persona: jusqu'a 3 generees a partir de photos differentes, comparees cote a cote avant de choisir, remplacement de la moins bonne au-dela de 3
 
@@ -60,8 +60,6 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 - [ ] Eprouver Kling image2video sur une vraie generation
 - [ ] Ecran de reglage de la cadence et liste des plans passes
 - [ ] Ajouter mode dry-run + notifications d'erreur + logs structures
-- [ ] Fusionner `feature/external-video-jobs` sur `main`: premiere generation reelle via Omni Flash reussie en local le 2026-09-07 (voir Notes de Session), reste a brancher l appel reel depuis home.sassify.fr et a deployer
-- [ ] Overlay texte d accroche (hookVideo) : ecarte de ce endpoint (voir STORY.md 2026-09-07). A construire plus tard, specifiquement pour le format de contenu influenceur (aguicheur, explicite), pas pour les videos type home.sassify.fr qui doivent rester des videos normales sans texte par dessus
 
 ### Ecarte pour l instant :
 - Seedance: credits prepayes epuises et generation jamais aboutie. Hors service via `SEEDANCE_ENABLED`, code conserve. Veo et Kling suffisent.
@@ -85,8 +83,6 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 - Le cookie de `state` OAuth Google (`GOOGLE_STATE_COOKIE`) n'est pas isole par port: deux projets Nuxt en local sur des ports differents partagent leurs cookies et se font ecraser leur `state` mutuellement. Voir `docs/recette-connexion-google.md` avant de reactiver du dev local en parallele d'un autre projet ayant aussi du Google OAuth.
 - L URI de redirection Google (`server/utils/googleOAuth.js`, `pickOAuthBaseUrl`) doit toujours faire primer `BASE_URL` sur l origine de la requete: derriere le reverse proxy du VPS, lire l origine sans `xForwardedHost`/`xForwardedProto` renvoie l adresse interne du serveur, que Google refuse (`redirect_uri_mismatch`). Ne pas re-inverser cette priorite sans relire tasks/lessons.md (2026-09-03, deja fait une fois par erreur).
 - `getBodyBlock(silhouette, gender, topGarment)` (`server/utils/injectBody.js`) prend le genre en 2e argument depuis le 2026-09-06. Toute nouvelle fonction qui l appelle doit passer le genre du profil, sinon la description corporelle retombe au feminin par defaut.
-- `POST /api/external/video-jobs` (branche `feature/external-video-jobs`) est un point d entree service-a-service sans session, protege par `EXTERNAL_VIDEO_JOBS_API_KEY` (cle partagee inventee, a generer et poser identiquement sur le VPS Plotline et sur l appelant). Si la variable est absente, l endpoint refuse tout en 503 plutot que de s ouvrir sans protection -- ne jamais retirer cette garde. Ce endpoint ne fait volontairement aucun overlay texte: les videos qu il produit doivent rester des videos "normales" (type pub), sans texte par dessus.
-- Le suivi de statut existant (`GET /api/content/:id/status`) exige une session utilisateur (`requireAuthUser`) et scope la requete par `userId`: inutilisable par un appelant service-a-service. D ou `GET /api/external/video-jobs/:id/status`, un jumeau sans scoping utilisateur, protege par la meme cle partagee. Trouve et corrige en testant `POST /api/external/video-jobs` en conditions reelles -- sans lui, home.sassify.fr n aurait eu aucun moyen de savoir quand sa video est prete.
 
 ---
 
@@ -107,8 +103,8 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 | 2026-08-10 | Le workflow Pinterest est reserve aux comptes influenceur | Il n a pas de sens editorial pour une marque ou un createur de contenu |
 | 2026-08-10 | Une ambassadrice peut representer plusieurs marques (table BrandAmbassador) | C est la realite du metier, et une ambassadrice est un actif coûteux qu on ne veut pas recreer par marque |
 | 2026-08-10 | Le type de profil est ecrit en base au lieu d etre devine depuis la face ref | L inference cassait silencieusement des qu une marque aurait eu une face ref |
-| 2026-08-10 | Un plan editorial est relu avant que le moindre media soit produit | Valider un texte coute une requete Claude, valider apres generation coute autant de videos que d idees |
-| 2026-08-10 | La cadence est deterministe, Claude n ecrit que le texte des idees | Le rythme doit rester previsible meme quand l IA est indisponible |
+| 2026-08-10 | Un plan editorial est relu avant que le moindre media soit produit | Valider un texte coute une requete Codex, valider apres generation coute autant de videos que d idees |
+| 2026-08-10 | La cadence est deterministe, Codex n ecrit que le texte des idees | Le rythme doit rester previsible meme quand l IA est indisponible |
 | 2026-08-14 | OAuth Google implemente a la main (~150 lignes, aucune dependance) plutot qu avec un module tiers (nuxt-auth-utils et consorts) | Un module tiers installe sa propre session en parallele de celle du projet: deux mecanismes d authentification, dont un seul est revocable |
 | 2026-08-14 | Rattachement automatique d un compte Google a un compte mot de passe existant, uniquement si Google declare `email_verified: true` | Rattacher sur la seule correspondance d email est une prise de controle de compte: n importe qui creant un compte Google avec l adresse d un tiers recupererait son compte |
 | 2026-08-14 | Identification de l utilisateur Google par `sub` (googleId), jamais par l email | Un utilisateur peut changer l adresse de son compte Google; l identifier par email le rendrait inconnu du jour au lendemain et creerait un doublon silencieux |
@@ -116,8 +112,6 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 | 2026-09-06 | Ajout d un genre (Femme/Homme) au persona, avec silhouettes et textes de generation masculins dedies plutot qu un reemploi des silhouettes feminines | La creation de persona etait entierement pensee au feminin (placeholders, silhouettes a base de tour de poitrine); Plotline se presente comme une agence d influenceurs virtuels, pas seulement d influenceuses |
 | 2026-09-06 | Le picker de silhouette (duplique dans 3 ecrans) devient un select natif alimente par une seule source (`usePersonaOptions.js`), sans badge ni coche personnalisee | Un vrai menu deroulant ne peut pas afficher de badge sur ses options; le caractere "par defaut" est indique dans le libelle lui-meme |
 | 2026-09-07 | La comparaison de fiches reference visage se limite a 3 en simultane, avec remplacement de la moins bonne au-dela, plutot qu une liste illimitee | Comparer plus de 3 images a l ecran degrade l experience sans ameliorer la decision; le remplacement force un choix actif (laquelle ecarter) plutot qu une accumulation passive |
-| 2026-09-07 | Plotline expose un point d entree externe (`/api/external/video-jobs`) authentifie par cle partagee plutot que par session, pour que d autres projets du meme proprietaire (home.sassify.fr) reutilisent le pipeline video existant | Reconstruire un pipeline de generation video pour un second projet aurait duplique tout l identity lock et l integration fournisseurs deja eprouves ici; le controle d acces d un outil interne n a pas besoin d un compte utilisateur |
-| 2026-09-07 | L overlay texte d accroche (hookVideo), d abord code pour `/api/external/video-jobs`, en est retire avant le premier test reel | Le texte en surimpression est pense pour le format de contenu influenceur (aguicheur, explicite), pas pour les videos type home.sassify.fr qui doivent rester des videos normales sans texte par dessus; l implementer au bon endroit viendra avec ce futur chantier, pas ici |
 
 ---
 
@@ -139,8 +133,6 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 - 2026-09-06 (branche `feature/persona-gender`, fusionnee sur `main`): Ajout du genre a la creation/edition de persona. Nouvelle colonne `Profile.gender` (`FEMALE`/`MALE`, defaut `FEMALE` pour ne rien changer aux personas existantes) et deux nouvelles valeurs d enum `SilhouetteType` (`MUSCULAR`, `STOCKY`). `injectBody.js` genere desormais un texte corporel reellement masculin (epaules, torse) pour les personas homme, au lieu de reutiliser les descriptions feminines existantes. Le picker de silhouette, duplique a l identique dans 3 ecrans (creation, edition, onboarding marque), est remplace par un select natif alimente par une seule source (`usePersonaOptions.js`).
 - 2026-09-06 (suite, branche `feature/studio-widgets`): la branche des widgets Studio, mise en pause avant le travail sur le genre, a ete rebasee sur `main` (fast-forward propre, deux conflits mineurs resolus a la main dans `edit.vue` et le fichier de tests -- les deux fonctionnalites ajoutaient chacune leur propre bloc au meme endroit). `server/utils/personaDescription.js`, ecrit avant le changement de signature de `getBodyBlock`, appelait encore l ancienne forme -- corrige, et un second appel manquant trouve au passage: `server/api/widgets/resolve.post.js` ne selectionnait pas encore `gender` en base.
 - 2026-09-07: Bug critique trouve et corrige en production -- impossible de creer une persona, la page devenait blanche au recapitulatif final sans message d erreur. Cause: l ajout du genre a transforme `silhouetteOptions` en `computed()`, mais `selectedSilhouetteLabel` appelait encore `.find()` dessus sans `.value` -- un computed n est pas un tableau, l appel plantait avant meme que le bouton de creation soit atteignable. Corrige sur `main` et propage sur `feature/studio-widgets` qui avait herite du meme bug via sa fusion. Puis, sur une nouvelle branche `feature/face-ref-comparison`: possibilite de comparer plusieurs fiches reference visage (jusqu a 3, generees a partir de photos source differentes) avant de choisir laquelle utiliser, avec remplacement de la moins bonne au-dela de 3 -- aucun changement serveur, l endpoint de generation existant est simplement appele plusieurs fois cote client.
-- 2026-09-07 (suite, branche `feature/external-video-jobs`): premiere brique de l integration avec home.sassify.fr (meme proprietaire, projet separe), qui genere desormais des scripts video a partir de ses articles de blog et doit les faire produire par le pipeline video de Plotline. Verification prealable demandee par l utilisateur avant tout code: aucune notion de "type de video" n existait au-dela du format REEL/STORY code en dur, et aucune trace du modele "Omni Flash" nulle part dans le depot -- confirme par une recherche texte complete avant d ecrire quoi que ce soit. Une fois les vraies specs du modele fournies (`gemini-omni-1.1-flash`, disponibilite generale au 27/08/2026, appele via l Interactions API de `@google/genai` et non `generateContent`), ajout de `POST /api/external/video-jobs` (authentification par cle partagee `EXTERNAL_VIDEO_JOBS_API_KEY`, aucune session), le modele force sur Omni Flash pour ces jobs uniquement. Un overlay ffmpeg drawtext du hookVideo avait d abord ete ajoute puis retire dans la meme session: l utilisateur a precise que le texte en surimpression est pense pour le format de contenu influenceur, pas pour ces videos type home.sassify.fr qui doivent rester normales, sans texte -- le module `videoTextOverlay.js` a ete supprime avant le premier test reel.
-- 2026-09-07 (re-suite): premier test reel de `POST /api/external/video-jobs` en local contre la vraie base Neon. Reussi du premier coup: video Omni Flash generee (2,24 Mo, mp4 valide) et uploadee sur le Blob partage. Au passage, decouverte et correction d un vrai trou avant meme la fusion: `GET /api/content/:id/status` exige une session utilisateur, donc inutilisable par home.sassify.fr pour suivre son propre job -- ajout de `GET /api/external/video-jobs/:id/status`, jumeau sans session, protege par la meme cle partagee. Le test a aussi mis en evidence un serveur de dev local reste bloque depuis une session precedente (process toujours actif mais ne repondant plus): tue et redemarre proprement.
 
 ---
 

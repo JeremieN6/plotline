@@ -144,6 +144,33 @@ chantier distinct, pas une extension du genre.
 
 ---
 
+### 2026-09-07 -- Plotline devient aussi une brique d'infrastructure interne
+
+**Contexte** : un autre projet du meme proprietaire (un blog personnel qui
+documente publiquement la construction de plusieurs produits) a besoin de
+transformer ses articles en courtes videos parlees. Reconstruire un pipeline
+de generation video pour ce second projet aurait duplique tout le travail
+deja fait ici sur la coherence visuelle et l'integration des fournisseurs.
+
+**Decision** : ouvrir un point d'entree externe, protege par une cle partagee
+plutot que par un compte utilisateur, pour que ce second projet reutilise le
+pipeline video de Plotline sans passer par l'interface produit.
+
+**Resultat** : Plotline n'est plus uniquement l'outil final pour un
+utilisateur qui cree ses influenceurs virtuels -- il devient aussi une
+infrastructure reutilisable entre les propres projets de son createur. Encore
+non eprouve en conditions reelles au moment de l'ecriture : la premiere
+generation reelle via ce nouveau chemin reste a faire.
+
+**Precision apportee dans la meme session** : un texte en surimpression sur la
+video avait ete propose puis retire de ce chantier. Le texte a l'ecran est un
+format pense pour le contenu influenceur (aguicheur, explicite), qui n'a rien
+a voir avec les videos issues du blog -- celles-ci doivent rester des videos
+normales, sans texte par dessus, le temps qu'un vrai chantier dedie au premier
+format soit mene separement.
+
+---
+
 ## Ce que la cible attend / a appris
 
 **Cible** : createurs et petites agences qui font vivre une ou plusieurs
@@ -198,6 +225,9 @@ suivantes s'appliquent a tout contenu produit a partir de ce fichier :
 ---
 
 ## Derniere mise a jour
+
+2026-09-07 (suite) -- Ajout du pivot "Plotline comme infrastructure interne"
+(ouverture d'un point d'entree externe pour un second projet du proprietaire).
 
 2026-09-07 -- Ajout du pivot genre du persona (2026-09-06) et de l'apprentissage
 sur la comparaison de fiches reference.
