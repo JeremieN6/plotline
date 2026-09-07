@@ -224,27 +224,51 @@
               <span class="spinner" aria-hidden="true"></span>
               <span>Génération en cours... (~30s)</span>
             </span>
-            <span v-else>Générer l'image de réfrénce</span>
+            <span v-else>{{ referenceCandidates.length > 0 ? 'Générer une fiche à comparer' : "Générer l'image de référence" }}</span>
           </button>
         </div>
 
         <div v-if="step === 3 && form.profileType === 'persona'" class="step-content">
           <p class="step3-description">
-            Voici la fiche référence de ton influenceuse. Elle sera utilisée pour toutes tes générations.
+            {{ referenceCandidates.length > 1
+              ? 'Compare les fiches générées et choisis celle que tu préfères.'
+              : 'Voici la fiche référence de ton influenceuse. Elle sera utilisée pour toutes tes générations.' }}
           </p>
 
-          <div class="generated-preview-wrap">
-            <img
-              v-if="generatedImageDataUrl"
-              :src="generatedImageDataUrl"
-              alt="Fiche reference generee"
-              class="generated-preview"
-            />
+          <div class="candidates-grid">
+            <div v-for="candidate in referenceCandidates" :key="candidate.id" class="candidate-card">
+              <img :src="candidateDataUrl(candidate)" alt="Fiche référence générée" class="generated-preview" />
+              <div class="candidate-actions">
+                <button type="button" class="btn primary full-width" @click="chooseCandidate(candidate.id)">
+                  ✓ Choisir celle-ci
+                </button>
+                <button
+                  v-if="referenceCandidates.length >= MAX_REFERENCE_CANDIDATES"
+                  type="button"
+                  class="btn-link"
+                  @click="replaceCandidate(candidate.id)"
+                >
+                  Remplacer celle-ci
+                </button>
+              </div>
+            </div>
           </div>
 
+          <div v-if="generateError" class="error">{{ generateError }}</div>
+
           <div class="step3-actions">
-            <button type="button" class="btn outline-orange" @click="goBackToStep2">🔄 Regénérer</button>
-            <button type="button" class="btn primary" @click="validateReference">✓ Valider cette référence</button>
+            <button
+              v-if="referenceCandidates.length < MAX_REFERENCE_CANDIDATES"
+              type="button"
+              class="btn outline-orange"
+              @click="tryAnotherPhoto"
+            >
+              🔄 Essayer une autre photo
+            </button>
+            <p v-else class="step3-hint">
+              Tu as atteint {{ MAX_REFERENCE_CANDIDATES }} fiches. Choisis-en une, ou clique « Remplacer celle-ci »
+              sur celle que tu aimes le moins pour en essayer une nouvelle.
+            </p>
           </div>
         </div>
 
@@ -353,6 +377,21 @@ const sourceImageBase64 = ref('')
 const generatedImageBase64 = ref('')
 const generatedTempImagePath = ref('')
 
+// Comparaison de fiches reference: plusieurs photos source peuvent produire
+// plusieurs fiches, gardees ensemble jusqu'a ce qu'une soit choisie. Au-dela de
+// MAX_REFERENCE_CANDIDATES, il faut en ecarter une pour en essayer une nouvelle
+// plutot que d'en accumuler indefiniment a l'ecran.
+const MAX_REFERENCE_CANDIDATES = 3
+const referenceCandidates = ref([])
+let candidateKey = 0
+
+function candidateDataUrl(candidate) {
+  const base64 = candidate?.imageBase64 || ''
+  if (!base64) return ''
+  if (base64.startsWith('data:image/')) return base64
+  return `data:image/jpeg;base64,${base64}`
+}
+
 const profileTypes = [
   { value: 'persona', icon: '🎭', label: 'Persona IA', hint: 'Compte fictif ou personnage' },
   { value: 'brand', icon: '🏷️', label: 'Marque', hint: 'Identité commerciale ou produit' },
@@ -458,7 +497,7 @@ const stepSubtitles = computed(() => {
     return {
       1: 'Renseigne les informations de base de ton influenceuse.',
       2: 'Génère la fiche référence de ton influenceuse à partir d\'une photo source.',
-      3: 'Vérifie la fiche référence avant de finaliser la creation.',
+      3: 'Compare et choisis la fiche référence avant de finaliser la creation.',
       4: 'Récapitulatif final avant creation.',
     }
   }
@@ -711,6 +750,7 @@ async function cancelWizard() {
 
 async function generateFaceReference() {
   if (!sourceImageBase64.value || generatingRef.value) return
+  if (referenceCandidates.value.length >= MAX_REFERENCE_CANDIDATES) return
 
   generatingRef.value = true
   generateError.value = ''
@@ -724,12 +764,15 @@ async function generateFaceReference() {
       },
     })
 
-    generatedImageBase64.value = payload?.imageBase64 || ''
-    generatedTempImagePath.value = payload?.tempImagePath || ''
+    const imageBase64 = payload?.imageBase64 || ''
+    const tempImagePath = payload?.tempImagePath || ''
 
-    if (!generatedImageBase64.value || !generatedTempImagePath.value) {
+    if (!imageBase64 || !tempImagePath) {
       throw new Error('La generation n a pas retourne d image exploitable')
     }
+
+    candidateKey += 1
+    referenceCandidates.value = [...referenceCandidates.value, { id: candidateKey, imageBase64, tempImagePath }]
 
     step.value = 3
   } catch (err) {
@@ -739,12 +782,36 @@ async function generateFaceReference() {
   }
 }
 
-function goBackToStep2() {
+// Repart de l'upload pour une nouvelle photo source: la selection en cours est
+// effacee (pas les fiches deja generees) pour qu'il soit clair qu'il en faut
+// une nouvelle plutot que de relancer la meme.
+function resetSourcePhoto() {
+  if (sourcePreviewUrl.value) {
+    URL.revokeObjectURL(sourcePreviewUrl.value)
+  }
+  selectedFile.value = null
+  sourcePreviewUrl.value = ''
+  sourceImageBase64.value = ''
+  fileError.value = ''
+  generateError.value = ''
+}
+
+function tryAnotherPhoto() {
+  resetSourcePhoto()
   step.value = 2
 }
 
-function validateReference() {
-  if (!generatedImageBase64.value || !generatedTempImagePath.value) return
+function replaceCandidate(id) {
+  referenceCandidates.value = referenceCandidates.value.filter((item) => item.id !== id)
+  resetSourcePhoto()
+  step.value = 2
+}
+
+function chooseCandidate(id) {
+  const candidate = referenceCandidates.value.find((item) => item.id === id)
+  if (!candidate) return
+  generatedImageBase64.value = candidate.imageBase64
+  generatedTempImagePath.value = candidate.tempImagePath
   step.value = 4
 }
 
@@ -1273,6 +1340,50 @@ onBeforeUnmount(() => {
   gap: 12px;
   justify-content: center;
   margin-top: 10px;
+}
+
+.candidates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+}
+
+.candidate-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.candidate-card .generated-preview {
+  max-width: none;
+}
+
+.candidate-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.btn-link {
+  border: none;
+  background: none;
+  color: rgba(243, 205, 176, 0.76);
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.btn-link:hover {
+  color: var(--accent);
+}
+
+.step3-hint {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(243, 205, 176, 0.76);
+  text-align: center;
 }
 
 .recap {
