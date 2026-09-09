@@ -241,6 +241,28 @@
           </div>
         </div>
 
+        <div v-if="isAmbassadorProfile" class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
+          <div>
+            <h2 class="text-base font-bold text-gray-900">Identite</h2>
+            <p class="mt-1 text-sm text-gray-500">Ces informations, demandees a la creation, servent aussi a decrire la persona dans les widgets Studio.</p>
+          </div>
+
+          <div class="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label class="mb-1.5 block text-sm font-semibold text-gray-800">Couleur des yeux</label>
+              <input v-model="form.eyeColor" class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none" placeholder="ex : Bleus" />
+            </div>
+            <div>
+              <label class="mb-1.5 block text-sm font-semibold text-gray-800">Origine ethnique</label>
+              <input v-model="form.ethnicity" class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none" placeholder="ex : origine mediterraneenne" />
+            </div>
+            <div class="sm:col-span-2">
+              <label class="mb-1.5 block text-sm font-semibold text-gray-800">Particularites</label>
+              <input v-model="form.particularities" class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none" placeholder="ex : taches de rousseur, grain de beaute" />
+            </div>
+          </div>
+        </div>
+
         <div class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
           <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -410,6 +432,9 @@ const form = reactive({
   silhouette: 'VOLUPTUOUS',
   bodyPrompt: '',
   hairPrompt: '',
+  eyeColor: '',
+  ethnicity: '',
+  particularities: '',
 })
 
 const instagramForm = reactive({
@@ -543,12 +568,18 @@ watch(
     form.silhouette = value.silhouette || 'VOLUPTUOUS'
     form.bodyPrompt = value.bodyPrompt || ''
     form.hairPrompt = value.hairPrompt || ''
+    form.eyeColor = value.eyeColor || ''
+    form.ethnicity = value.ethnicity || ''
+    form.particularities = value.particularities || ''
     instagramForm.instagramAccountId = value.instagramAccountId || ''
     instagramForm.instagramAccessToken = value.instagramAccessToken || ''
     initialFormState.value = {
       bodyPrompt: form.bodyPrompt,
       silhouette: form.silhouette,
       gender: form.gender,
+      eyeColor: form.eyeColor,
+      ethnicity: form.ethnicity,
+      particularities: form.particularities,
     }
     currentFaceRefPath.value = value.faceRefPath || ''
     currentFaceRefUrl.value = value.faceRefUrl || (currentFaceRefFilename.value ? `/api/media/face-refs/${encodeURIComponent(currentFaceRefFilename.value)}` : '')
@@ -847,6 +878,18 @@ async function submit() {
 
     if (form.gender !== initialFormState.value.gender) {
       patchBody.gender = form.gender
+    }
+
+    if (form.eyeColor !== initialFormState.value.eyeColor) {
+      patchBody.eyeColor = form.eyeColor
+    }
+
+    if (form.ethnicity !== initialFormState.value.ethnicity) {
+      patchBody.ethnicity = form.ethnicity
+    }
+
+    if (form.particularities !== initialFormState.value.particularities) {
+      patchBody.particularities = form.particularities
     }
 
     await $fetch(`/api/profiles/${id.value}`, {

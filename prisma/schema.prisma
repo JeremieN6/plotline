@@ -154,6 +154,9 @@ model Profile {
   bodyPrompt           String?
   hairPrompt           String?
   identityProfile      String             @default("default")
+  eyeColor             String?
+  ethnicity            String?
+  particularities      String?
   description          String?
   website              String?
   targetAudience       String?

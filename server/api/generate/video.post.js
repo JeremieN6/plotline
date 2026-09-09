@@ -87,6 +87,10 @@ export default defineEventHandler(async (event) => {
   const ambassadorId = String(body?.ambassadorId || '').trim();
   const campaignId = String(body?.campaignId || '').trim();
   const withFaceRef = body?.withFaceRef === true;
+  const customReferenceImageUrl = String(body?.customReferenceImageUrl || '').trim();
+  // Texte parle distinct du prompt de scene, pour Omni Flash uniquement (voir
+  // requestOmniFlashVideo) -- ignore par les autres fournisseurs.
+  const dialogueText = String(body?.dialogueText || '').trim();
 
   if (!prompt) {
     return sendError(event, createError({ statusCode: 400, statusMessage: 'prompt requis' }));
@@ -189,7 +193,7 @@ export default defineEventHandler(async (event) => {
   const contentId = generatedContent.id;
 
   try {
-    return await runVideoGenerationJob({ prisma, runtimeConfig, contentId, prompt, model, influencerId, withFaceRef, influencer });
+    return await runVideoGenerationJob({ prisma, runtimeConfig, contentId, prompt, model, influencerId, withFaceRef, influencer, customReferenceImageUrl, scenePrompt: prompt, dialogueText });
   } catch (error) {
     const errorMessage = error?.statusMessage || error?.message || 'Génération vidéo impossible';
     await prisma.generatedContent.update({

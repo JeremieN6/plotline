@@ -64,209 +64,406 @@
           </div>
         </div>
 
-        <div class="mt-4 flex flex-wrap items-center gap-4">
+        <div v-if="!isEditingMode" class="mt-4 flex flex-wrap items-center gap-4">
           <label class="inline-flex items-center gap-2 text-sm font-semibold text-[#111111]">
-            <input v-model="mode" type="radio" value="image" class="accent-[#E8873A]" />
-            🖼️ Image
+            <input v-model="entryMode" type="radio" value="free" class="accent-[#E8873A]" />
+            ✍️ Prompt libre
           </label>
           <label class="inline-flex items-center gap-2 text-sm font-semibold text-[#111111]">
-            <input v-model="mode" type="radio" value="video" class="accent-[#E8873A]" />
-            🎬 Vidéo
+            <input v-model="entryMode" type="radio" value="widget" class="accent-[#E8873A]" />
+            🧩 Widgets
           </label>
         </div>
 
-        <section
-          v-if="mode === 'image' && !editingContentId"
-          class="mt-4 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-3"
-        >
-          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#A37A58]">Type de génération</p>
-          <div class="mt-2 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              class="rounded-[10px] border px-3 py-2 text-sm font-semibold transition-colors"
-              :class="imageGenerationKind === 'single'
-                ? 'border-[#E8873A] bg-[#FDF3EA] text-[#111111]'
-                : 'border-[#E5E3DF] bg-white text-[#666666] hover:border-[#E8873A]/40'"
-              @click="imageGenerationKind = 'single'"
-            >
-              Post unique
-            </button>
-            <button
-              type="button"
-              class="rounded-[10px] border px-3 py-2 text-sm font-semibold transition-colors"
-              :class="imageGenerationKind === 'carousel'
-                ? 'border-[#E8873A] bg-[#FDF3EA] text-[#111111]'
-                : 'border-[#E5E3DF] bg-white text-[#666666] hover:border-[#E8873A]/40'"
-              @click="imageGenerationKind = 'carousel'"
-            >
-              Carrousel
-            </button>
+        <template v-if="entryMode === 'free' || isEditingMode">
+          <div class="mt-4 flex flex-wrap items-center gap-4">
+            <label class="inline-flex items-center gap-2 text-sm font-semibold text-[#111111]">
+              <input v-model="mode" type="radio" value="image" class="accent-[#E8873A]" />
+              🖼️ Image
+            </label>
+            <label class="inline-flex items-center gap-2 text-sm font-semibold text-[#111111]">
+              <input v-model="mode" type="radio" value="video" class="accent-[#E8873A]" />
+              🎬 Vidéo
+            </label>
           </div>
-          <p class="mt-2 text-xs text-[#7B5A3F]">Le mode carrousel crée plusieurs images d'un coup (2 à 10 slides).</p>
-        </section>
 
-        <template v-if="mode === 'image' && imageGenerationKind === 'carousel' && !editingContentId">
-          <div class="mt-4 space-y-3">
-            <div class="flex items-center justify-between gap-3">
-              <label class="text-sm font-bold text-[#111111]">Prompts du carrousel</label>
-              <span class="text-xs font-semibold text-[#8A8A8A]">{{ carouselPrompts.length }}/{{ CAROUSEL_MAX_PROMPTS }} slides</span>
+          <section
+            v-if="mode === 'image' && !editingContentId"
+            class="mt-4 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-3"
+          >
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#A37A58]">Type de génération</p>
+            <div class="mt-2 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                class="rounded-[10px] border px-3 py-2 text-sm font-semibold transition-colors"
+                :class="imageGenerationKind === 'single'
+                  ? 'border-[#E8873A] bg-[#FDF3EA] text-[#111111]'
+                  : 'border-[#E5E3DF] bg-white text-[#666666] hover:border-[#E8873A]/40'"
+                @click="imageGenerationKind = 'single'"
+              >
+                Post unique
+              </button>
+              <button
+                type="button"
+                class="rounded-[10px] border px-3 py-2 text-sm font-semibold transition-colors"
+                :class="imageGenerationKind === 'carousel'
+                  ? 'border-[#E8873A] bg-[#FDF3EA] text-[#111111]'
+                  : 'border-[#E5E3DF] bg-white text-[#666666] hover:border-[#E8873A]/40'"
+                @click="imageGenerationKind = 'carousel'"
+              >
+                Carrousel
+              </button>
             </div>
+            <p class="mt-2 text-xs text-[#7B5A3F]">Le mode carrousel crée plusieurs images d'un coup (2 à 10 slides).</p>
+          </section>
 
-            <div
-              v-for="(item, index) in carouselPrompts"
-              :key="item.id"
-              class="rounded-[12px] border border-[#E5E3DF] bg-[#FAFAF8] p-3"
-            >
-              <div class="mb-2 flex items-center justify-between gap-2">
-                <p class="text-xs font-bold uppercase tracking-[0.12em] text-[#9A9A9A]">Slide {{ index + 1 }}</p>
-                <button
-                  v-if="carouselPrompts.length > CAROUSEL_MIN_PROMPTS"
-                  type="button"
-                  class="text-xs font-semibold text-[#B45F1D] transition-colors hover:text-[#8E4B16]"
-                  @click="removeCarouselPrompt(item.id)"
-                >
-                  Supprimer
-                </button>
+          <template v-if="mode === 'image' && imageGenerationKind === 'carousel' && !editingContentId">
+            <div class="mt-4 space-y-3">
+              <div class="flex items-center justify-between gap-3">
+                <label class="text-sm font-bold text-[#111111]">Prompts du carrousel</label>
+                <span class="text-xs font-semibold text-[#8A8A8A]">{{ carouselPrompts.length }}/{{ CAROUSEL_MAX_PROMPTS }} slides</span>
               </div>
-              <textarea
-                v-model="item.prompt"
-                class="w-full rounded-[10px] border border-[#E5E3DF] bg-white p-3 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
-                style="min-height: 120px;"
-                placeholder="Décris cette slide..."
-              />
-            </div>
 
+              <div
+                v-for="(item, index) in carouselPrompts"
+                :key="item.id"
+                class="rounded-[12px] border border-[#E5E3DF] bg-[#FAFAF8] p-3"
+              >
+                <div class="mb-2 flex items-center justify-between gap-2">
+                  <p class="text-xs font-bold uppercase tracking-[0.12em] text-[#9A9A9A]">Slide {{ index + 1 }}</p>
+                  <button
+                    v-if="carouselPrompts.length > CAROUSEL_MIN_PROMPTS"
+                    type="button"
+                    class="text-xs font-semibold text-[#B45F1D] transition-colors hover:text-[#8E4B16]"
+                    @click="removeCarouselPrompt(item.id)"
+                  >
+                    Supprimer
+                  </button>
+                </div>
+                <textarea
+                  v-model="item.prompt"
+                  class="w-full rounded-[10px] border border-[#E5E3DF] bg-white p-3 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+                  style="min-height: 120px;"
+                  placeholder="Décris cette slide..."
+                />
+              </div>
+
+              <button
+                type="button"
+                class="rounded-[10px] border border-dashed border-[#D9C6B4] bg-white px-3 py-2 text-sm font-semibold text-[#B45F1D] transition-colors hover:bg-[#FFF6EE] disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="carouselPrompts.length >= CAROUSEL_MAX_PROMPTS"
+                @click="addCarouselPrompt"
+              >
+                + Ajouter un prompt
+              </button>
+            </div>
+          </template>
+
+          <template v-else>
+            <label for="studio-prompt" class="mt-4 block text-sm font-bold text-[#111111]">Décris ce que tu veux créer</label>
+            <textarea
+              id="studio-prompt"
+              v-model="prompt"
+              class="mt-3 w-full rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-4 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+              style="min-height: 220px;"
+              placeholder="Colle ton prompt ici ou décris ta scène..."
+            />
+          </template>
+
+          <section class="mt-4 overflow-hidden rounded-[14px] border border-[#E5E3DF] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
             <button
               type="button"
-              class="rounded-[10px] border border-dashed border-[#D9C6B4] bg-white px-3 py-2 text-sm font-semibold text-[#B45F1D] transition-colors hover:bg-[#FFF6EE] disabled:cursor-not-allowed disabled:opacity-60"
-              :disabled="carouselPrompts.length >= CAROUSEL_MAX_PROMPTS"
-              @click="addCarouselPrompt"
+              class="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors duration-150 hover:bg-[#FAFAF8]"
+              @click="ambassadorPanelOpen = !ambassadorPanelOpen"
             >
-              + Ajouter un prompt
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[#F2EEE8] text-base">👤</span>
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-bold text-[#111111]">Ambassadrice</p>
+                <p class="truncate text-xs text-[#999999]">{{ ambassadorSummary }}</p>
+              </div>
+              <Icon
+                name="lucide:chevron-down"
+                class="h-4 w-4 shrink-0 text-[#BBBBBB] transition-transform duration-200"
+                :class="ambassadorPanelOpen ? 'rotate-180' : ''"
+              />
             </button>
-          </div>
+
+            <transition
+              enter-active-class="transition-[opacity,transform] duration-200 ease-out"
+              enter-from-class="opacity-0 -translate-y-1"
+              enter-to-class="opacity-100 translate-y-0"
+              leave-active-class="transition-[opacity,transform] duration-150 ease-in"
+              leave-from-class="opacity-100 translate-y-0"
+              leave-to-class="opacity-0 -translate-y-1"
+            >
+              <div v-if="ambassadorPanelOpen" class="border-t border-[#F0EDE8] px-4 pb-4 pt-3.5">
+                <div
+                  v-if="isContentCreator && showStudioHint"
+                  class="mb-4 flex items-start gap-2.5 rounded-[10px] border border-[#EBDCCF] bg-[#FFF7F0] px-3 py-2.5"
+                >
+                  <span class="mt-px shrink-0 text-[13px]">💡</span>
+                  <p class="flex-1 text-xs leading-relaxed text-[#7B5A3F]">L'ambassadrice est facultative — génère sans elle pour un visuel sans visage.</p>
+                  <button
+                    type="button"
+                    class="mt-px shrink-0 opacity-50 transition-opacity hover:opacity-100"
+                    @click.stop="dismissStudioHint"
+                  >
+                    <Icon name="lucide:x" class="h-3.5 w-3.5 text-[#946944]" />
+                  </button>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                  <label
+                    class="flex cursor-pointer items-center gap-2.5 rounded-[10px] border p-3 text-sm font-medium transition-all duration-150"
+                    :class="generationMode === 'with-ambassador'
+                      ? 'border-[#E8873A] bg-[#FDF3EA] text-[#111111]'
+                      : 'border-[#E5E3DF] bg-[#FAFAF8] text-[#888888] hover:border-[#E8873A]/40 hover:bg-white'"
+                  >
+                    <input
+                      v-model="generationMode"
+                      type="radio"
+                      value="with-ambassador"
+                      class="accent-[#E8873A]"
+                      :disabled="!hasAmbassadorProfiles"
+                    />
+                    Avec ambassadrice
+                  </label>
+                  <label
+                    class="flex cursor-pointer items-center gap-2.5 rounded-[10px] border p-3 text-sm font-medium transition-all duration-150"
+                    :class="generationMode === 'without-ambassador'
+                      ? 'border-[#E8873A] bg-[#FDF3EA] text-[#111111]'
+                      : 'border-[#E5E3DF] bg-[#FAFAF8] text-[#888888] hover:border-[#E8873A]/40 hover:bg-white'"
+                  >
+                    <input
+                      v-model="generationMode"
+                      type="radio"
+                      value="without-ambassador"
+                      class="accent-[#E8873A]"
+                    />
+                    Sans ambassadrice
+                  </label>
+                </div>
+
+                <div v-if="generationMode === 'with-ambassador' && hasAmbassadorProfiles" class="mt-3">
+                  <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Ambassadrice sélectionnée</label>
+                  <select
+                    v-model="selectedAmbassadorId"
+                    class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] shadow-[0_1px_2px_rgba(0,0,0,0.04)] outline-none focus:border-[#E8873A] focus:shadow-[0_0_0_3px_rgba(232,135,58,0.10)]"
+                  >
+                    <option value="">Choisir une ambassadrice...</option>
+                    <template v-for="group in ambassadorGroups" :key="group.key">
+                      <optgroup v-if="group.label" :label="group.label">
+                        <option v-for="ambassador in group.items" :key="ambassador.id" :value="ambassador.id">
+                          {{ ambassador.name }}
+                        </option>
+                      </optgroup>
+                      <template v-else>
+                        <option v-for="ambassador in group.items" :key="ambassador.id" :value="ambassador.id">
+                          {{ ambassador.name }}
+                        </option>
+                      </template>
+                    </template>
+                  </select>
+                </div>
+
+                <div v-if="!hasAmbassadorProfiles" class="mt-3 flex items-center justify-between gap-3 rounded-[10px] border border-dashed border-[#E5D8C9] bg-[#FAFAF8] px-3 py-2.5">
+                  <p class="text-xs text-[#7B5A3F]">Aucune ambassadrice configurée.</p>
+                  <NuxtLink
+                    to="/profiles/new"
+                    class="inline-flex items-center gap-1.5 rounded-[8px] bg-[#FDE7D6] px-2.5 py-1.5 text-xs font-bold text-[#B45F1D] transition-colors hover:bg-[#FAD9BE]"
+                  >
+                    <Icon name="lucide:plus" class="h-3 w-3" />
+                    Créer
+                  </NuxtLink>
+                </div>
+              </div>
+            </transition>
+          </section>
         </template>
 
         <template v-else>
-          <label for="studio-prompt" class="mt-4 block text-sm font-bold text-[#111111]">Décris ce que tu veux créer</label>
-          <textarea
-            id="studio-prompt"
-            v-model="prompt"
-            class="mt-3 w-full rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-4 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
-            style="min-height: 220px;"
-            placeholder="Colle ton prompt ici ou décris ta scène..."
-          />
-        </template>
+          <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <button
+              v-for="widget in widgetsList"
+              :key="widget.id"
+              type="button"
+              class="rounded-[14px] border p-3 text-left transition-colors"
+              :class="selectedWidgetId === widget.id
+                ? 'border-[#E8873A] bg-[#FDF3EA]'
+                : 'border-[#E5E3DF] bg-white hover:border-[#E8873A]/40'"
+              @click="selectWidget(widget.id)"
+            >
+              <span class="text-xl">🧩</span>
+              <p class="mt-2 text-sm font-bold text-[#111111]">{{ widget.nom }}</p>
+              <p class="mt-1 text-xs text-[#888888]">{{ widget.typeGeneration.join(' / ') }}</p>
+            </button>
+          </div>
+          <p v-if="widgetsLoadError" class="mt-3 text-xs text-red-600">{{ widgetsLoadError }}</p>
 
-        <section class="mt-4 overflow-hidden rounded-[14px] border border-[#E5E3DF] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
-          <button
-            type="button"
-            class="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors duration-150 hover:bg-[#FAFAF8]"
-            @click="ambassadorPanelOpen = !ambassadorPanelOpen"
-          >
-            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[#F2EEE8] text-base">👤</span>
-            <div class="min-w-0 flex-1">
-              <p class="text-sm font-bold text-[#111111]">Ambassadrice</p>
-              <p class="truncate text-xs text-[#999999]">{{ ambassadorSummary }}</p>
+          <div v-if="selectedWidget" class="mt-5 space-y-4 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-4">
+            <div v-if="selectedWidget.typeGeneration.length > 1" class="flex flex-wrap items-center gap-4">
+              <label class="inline-flex items-center gap-2 text-sm font-semibold text-[#111111]">
+                <input v-model="widgetGenerationType" type="radio" value="IMAGE" class="accent-[#E8873A]" />
+                🖼️ Image
+              </label>
+              <label class="inline-flex items-center gap-2 text-sm font-semibold text-[#111111]">
+                <input v-model="widgetGenerationType" type="radio" value="VIDEO" class="accent-[#E8873A]" />
+                🎬 Vidéo
+              </label>
             </div>
-            <Icon
-              name="lucide:chevron-down"
-              class="h-4 w-4 shrink-0 text-[#BBBBBB] transition-transform duration-200"
-              :class="ambassadorPanelOpen ? 'rotate-180' : ''"
-            />
-          </button>
 
-          <transition
-            enter-active-class="transition-[opacity,transform] duration-200 ease-out"
-            enter-from-class="opacity-0 -translate-y-1"
-            enter-to-class="opacity-100 translate-y-0"
-            leave-active-class="transition-[opacity,transform] duration-150 ease-in"
-            leave-from-class="opacity-100 translate-y-0"
-            leave-to-class="opacity-0 -translate-y-1"
-          >
-            <div v-if="ambassadorPanelOpen" class="border-t border-[#F0EDE8] px-4 pb-4 pt-3.5">
-              <div
-                v-if="isContentCreator && showStudioHint"
-                class="mb-4 flex items-start gap-2.5 rounded-[10px] border border-[#EBDCCF] bg-[#FFF7F0] px-3 py-2.5"
+            <div v-if="widgetGenerationType === 'VIDEO'">
+              <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Modèle vidéo</label>
+              <select
+                v-model="widgetVideoModel"
+                class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
               >
-                <span class="mt-px shrink-0 text-[13px]">💡</span>
-                <p class="flex-1 text-xs leading-relaxed text-[#7B5A3F]">L'ambassadrice est facultative — génère sans elle pour un visuel sans visage.</p>
+                <option value="auto">Automatique (selon le prompt)</option>
+                <option value="veo">Veo</option>
+                <option value="kling">Kling</option>
+                <option v-if="seedanceEnabled" value="seedance">Seedance</option>
+                <!-- Omni Flash : reserve a ce widget, jamais choisi par "Automatique"
+                     (selectVideoModel ne le connait pas) et non eprouve sur les 3
+                     autres widgets -- ne pas l exposer ailleurs sans l avoir teste. -->
+                <option v-if="selectedWidget.id === 'SCENARIO_BLOG'" value="omniflash">Omni Flash</option>
+              </select>
+            </div>
+
+            <template v-if="selectedWidget.id === 'SCENARIO_BLOG'">
+              <div>
+                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">1. Idée de vidéo</label>
+                <textarea
+                  v-model="scenarioIdee"
+                  rows="2"
+                  placeholder="Ex : pourquoi j'ai mis un projet en pause alors que ça marchait"
+                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#E8873A]"
+                />
                 <button
                   type="button"
-                  class="mt-px shrink-0 opacity-50 transition-opacity hover:opacity-100"
-                  @click.stop="dismissStudioHint"
+                  class="mt-2 rounded-[10px] bg-[#FDE7D6] px-4 py-2 text-sm font-bold text-[#B45F1D] transition-colors hover:bg-[#FAD9BE] disabled:cursor-not-allowed disabled:opacity-60"
+                  :disabled="!scenarioIdee.trim() || scenarioScriptLoading"
+                  @click="generateScenarioScriptFromIdee"
                 >
-                  <Icon name="lucide:x" class="h-3.5 w-3.5 text-[#946944]" />
+                  {{ scenarioScriptLoading ? 'Génération du script...' : 'Générer le script' }}
                 </button>
+                <p v-if="scenarioScriptError" class="mt-1.5 text-xs text-red-600">{{ scenarioScriptError }}</p>
               </div>
 
-              <div class="grid grid-cols-2 gap-2">
-                <label
-                  class="flex cursor-pointer items-center gap-2.5 rounded-[10px] border p-3 text-sm font-medium transition-all duration-150"
-                  :class="generationMode === 'with-ambassador'
-                    ? 'border-[#E8873A] bg-[#FDF3EA] text-[#111111]'
-                    : 'border-[#E5E3DF] bg-[#FAFAF8] text-[#888888] hover:border-[#E8873A]/40 hover:bg-white'"
-                >
-                  <input
-                    v-model="generationMode"
-                    type="radio"
-                    value="with-ambassador"
-                    class="accent-[#E8873A]"
-                    :disabled="!hasAmbassadorProfiles"
-                  />
-                  Avec ambassadrice
-                </label>
-                <label
-                  class="flex cursor-pointer items-center gap-2.5 rounded-[10px] border p-3 text-sm font-medium transition-all duration-150"
-                  :class="generationMode === 'without-ambassador'
-                    ? 'border-[#E8873A] bg-[#FDF3EA] text-[#111111]'
-                    : 'border-[#E5E3DF] bg-[#FAFAF8] text-[#888888] hover:border-[#E8873A]/40 hover:bg-white'"
-                >
-                  <input
-                    v-model="generationMode"
-                    type="radio"
-                    value="without-ambassador"
-                    class="accent-[#E8873A]"
-                  />
-                  Sans ambassadrice
-                </label>
-              </div>
-
-              <div v-if="generationMode === 'with-ambassador' && hasAmbassadorProfiles" class="mt-3">
-                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Ambassadrice sélectionnée</label>
+              <div>
+                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">2. Profil (pour le classement du contenu)</label>
                 <select
-                  v-model="selectedAmbassadorId"
-                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] shadow-[0_1px_2px_rgba(0,0,0,0.04)] outline-none focus:border-[#E8873A] focus:shadow-[0_0_0_3px_rgba(232,135,58,0.10)]"
+                  v-model="widgetProfileId"
+                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
                 >
-                  <option value="">Choisir une ambassadrice...</option>
-                  <template v-for="group in ambassadorGroups" :key="group.key">
-                    <optgroup v-if="group.label" :label="group.label">
-                      <option v-for="ambassador in group.items" :key="ambassador.id" :value="ambassador.id">
-                        {{ ambassador.name }}
-                      </option>
-                    </optgroup>
-                    <template v-else>
-                      <option v-for="ambassador in group.items" :key="ambassador.id" :value="ambassador.id">
-                        {{ ambassador.name }}
-                      </option>
-                    </template>
-                  </template>
+                  <option value="">Choisir un profil...</option>
+                  <optgroup v-if="groupedProfiles.PERSONA.length" label="Personas / Ambassadrices">
+                    <option v-for="item in groupedProfiles.PERSONA" :key="item.id" :value="item.id">{{ item.name }}</option>
+                  </optgroup>
+                  <optgroup v-if="groupedProfiles.BRAND.length" label="Marques">
+                    <option v-for="item in groupedProfiles.BRAND" :key="item.id" :value="item.id">{{ item.name }}</option>
+                  </optgroup>
+                  <optgroup v-if="groupedProfiles.ACTIVITY.length" label="Autres">
+                    <option v-for="item in groupedProfiles.ACTIVITY" :key="item.id" :value="item.id">{{ item.name }}</option>
+                  </optgroup>
                 </select>
               </div>
 
-              <div v-if="!hasAmbassadorProfiles" class="mt-3 flex items-center justify-between gap-3 rounded-[10px] border border-dashed border-[#E5D8C9] bg-[#FAFAF8] px-3 py-2.5">
-                <p class="text-xs text-[#7B5A3F]">Aucune ambassadrice configurée.</p>
-                <NuxtLink
-                  to="/profiles/new"
-                  class="inline-flex items-center gap-1.5 rounded-[8px] bg-[#FDE7D6] px-2.5 py-1.5 text-xs font-bold text-[#B45F1D] transition-colors hover:bg-[#FAD9BE]"
+              <div>
+                <label class="inline-flex items-center gap-2 text-sm font-semibold text-[#111111]">
+                  <input v-model="scenarioLockIdentity" type="checkbox" class="accent-[#E8873A]" />
+                  Verrouiller l'identité de ce persona
+                </label>
+                <div
+                  class="mt-2 rounded-[10px] border p-3 text-xs"
+                  :class="scenarioLockIdentity ? 'border-[#E8873A]/50 bg-[#FDF3EA] text-[#7B5A3F]' : 'border-[#E5E3DF] bg-[#FAFAF8] text-[#666666]'"
                 >
-                  <Icon name="lucide:plus" class="h-3 w-3" />
-                  Créer
-                </NuxtLink>
+                  <p v-if="scenarioLockIdentity && widgetVideoModel === 'omniflash'">
+                    🔒 Le visage de <strong>{{ selectedProfileName || 'ce profil' }}</strong> sera utilisé : génération en 2 étapes (~2$ au lieu de ~1$), avec un risque connu de dérive d'identité et de désynchronisation labiale en début/fin de vidéo.
+                    <span v-if="widgetProfileId && !selectedProfileHasFaceRef" class="mt-1.5 block font-bold text-red-600">⚠️ Ce profil n'a pas de fiche de référence : le verrouillage échouera à la génération.</span>
+                  </p>
+                  <p v-else-if="scenarioLockIdentity">
+                    🔒 Le visage de <strong>{{ selectedProfileName || 'ce profil' }}</strong> sera utilisé, via {{ widgetVideoModelLabel }}.
+                    <span v-if="widgetProfileId && !selectedProfileHasFaceRef" class="mt-1.5 block font-bold text-red-600">⚠️ Ce profil n'a pas de fiche de référence : le verrouillage échouera à la génération.</span>
+                  </p>
+                  <p v-else-if="widgetVideoModel === 'omniflash'">
+                    🎲 Le modèle invente librement qui apparaît à l'écran — rendu plus fiable, une seule génération (~1$).
+                  </p>
+                  <p v-else>
+                    🎲 Le modèle invente librement qui apparaît à l'écran, via {{ widgetVideoModelLabel }}.
+                  </p>
+                </div>
+              </div>
+
+              <div v-if="widgetInputs.scenePrompt || widgetInputs.scriptText">
+                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">3. Vérifie et corrige si besoin</label>
+              </div>
+            </template>
+
+            <template v-else>
+              <div v-if="selectedWidget.requiresPersona">
+                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Persona</label>
+                <select
+                  v-model="widgetProfileId"
+                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+                >
+                  <option value="">Choisir une persona...</option>
+                  <option v-for="item in ambassadorProfiles" :key="item.id" :value="item.id">{{ item.name }}</option>
+                </select>
+                <p v-if="!ambassadorProfiles.length" class="mt-1.5 text-xs text-[#7B5A3F]">Aucune persona avec face ref disponible.</p>
+              </div>
+              <div v-else>
+                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Profil (pour le classement du contenu)</label>
+                <select
+                  v-model="widgetProfileId"
+                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+                >
+                  <option value="">Choisir un profil...</option>
+                  <optgroup v-if="groupedProfiles.PERSONA.length" label="Personas / Ambassadrices">
+                    <option v-for="item in groupedProfiles.PERSONA" :key="item.id" :value="item.id">{{ item.name }}</option>
+                  </optgroup>
+                  <optgroup v-if="groupedProfiles.BRAND.length" label="Marques">
+                    <option v-for="item in groupedProfiles.BRAND" :key="item.id" :value="item.id">{{ item.name }}</option>
+                  </optgroup>
+                  <optgroup v-if="groupedProfiles.ACTIVITY.length" label="Autres">
+                    <option v-for="item in groupedProfiles.ACTIVITY" :key="item.id" :value="item.id">{{ item.name }}</option>
+                  </optgroup>
+                </select>
+              </div>
+            </template>
+
+            <div v-for="variable in widgetInputVariables" :key="variable.key">
+              <label class="mb-1.5 block text-sm font-semibold text-gray-800">{{ variable.label }}</label>
+              <textarea
+                v-if="variable.type === 'textarea'"
+                v-model="widgetInputs[variable.key]"
+                rows="3"
+                class="w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#E8873A]"
+              />
+              <input
+                v-else
+                v-model="widgetInputs[variable.key]"
+                :type="variable.type === 'number' ? 'number' : 'text'"
+                class="w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#E8873A]"
+              />
+            </div>
+
+            <div v-for="asset in widgetUploadAssets" :key="asset.key">
+              <label class="mb-1.5 block text-sm font-semibold text-gray-800">{{ asset.label || 'Image de référence' }}</label>
+              <div
+                class="flex items-center gap-3 rounded-[10px] border border-dashed border-[#D9C6B4] bg-white p-3"
+              >
+                <img v-if="widgetAssetUrls[asset.key]" :src="widgetAssetUrls[asset.key]" class="h-14 w-14 rounded-[8px] object-cover" />
+                <div class="flex-1 text-xs text-[#7B5A3F]">
+                  {{ widgetAssetUrls[asset.key] ? 'Image envoyée.' : 'JPG ou PNG.' }}
+                </div>
+                <label class="cursor-pointer rounded-[8px] bg-[#FDE7D6] px-3 py-1.5 text-xs font-bold text-[#B45F1D] transition-colors hover:bg-[#FAD9BE]">
+                  {{ widgetAssetUploading[asset.key] ? 'Envoi...' : 'Choisir' }}
+                  <input type="file" accept="image/jpeg,image/png" class="hidden" @change="onWidgetAssetChange(asset.key, $event)" />
+                </label>
               </div>
             </div>
-          </transition>
-        </section>
+          </div>
+        </template>
 
         <p v-if="errorMessage" class="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ errorMessage }}</p>
 
@@ -362,6 +559,7 @@ const route = useRoute()
 
 const prompt = ref('')
 const mode = ref('image')
+const entryMode = ref('free')
 const imageGenerationKind = ref('single')
 const generationMode = ref('without-ambassador')
 const selectedAmbassadorId = ref('')
@@ -378,7 +576,7 @@ const selectedVideoModel = ref('auto')
 // Seedance n est propose que si le compte est credite (voir SEEDANCE_ENABLED).
 const seedanceEnabled = computed(() => Boolean(useRuntimeConfig().public?.seedanceEnabled))
 
-const VIDEO_PROVIDER_LABELS = { veo: 'Veo', kling: 'Kling', seedance: 'Seedance' }
+const VIDEO_PROVIDER_LABELS = { veo: 'Veo', kling: 'Kling', seedance: 'Seedance', omniflash: 'Omni Flash' }
 
 /**
  * Nom du fournisseur reellement retenu. Le libelle etait fige sur "Veo", donc
@@ -505,6 +703,113 @@ const ambassadorSummary = computed(() => {
   return 'Sélectionner une ambassadrice'
 })
 
+const influencersList = computed(() => (Array.isArray(influencersData.value) ? influencersData.value : []))
+
+// Regroupement par type de profil (PERSONA/BRAND/ACTIVITY, ecrit en base --
+// voir Decisions Prises 2026-08-10) pour les selects qui listent tous les
+// profils sans filtre prealable, comme celui du widget Video Scenario.
+const groupedProfiles = computed(() => {
+  const groups = { PERSONA: [], BRAND: [], ACTIVITY: [] }
+  for (const item of influencersList.value) {
+    const key = groups[item.profileType] ? item.profileType : 'ACTIVITY'
+    groups[key].push(item)
+  }
+  return groups
+})
+
+// Distinct de videoProviderLabel (qui reflete selectedVideoModel, le flux
+// "Prompt libre") : ici on reflete le modele choisi DANS le widget.
+const widgetVideoModelLabel = computed(() => VIDEO_PROVIDER_LABELS[widgetVideoModel.value] || 'le modèle choisi automatiquement')
+
+const selectedProfileForWidget = computed(() => influencersList.value.find((item) => item.id === widgetProfileId.value) || null)
+const selectedProfileName = computed(() => selectedProfileForWidget.value?.name || '')
+const selectedProfileHasFaceRef = computed(() => Boolean(String(selectedProfileForWidget.value?.faceRefPath || '').trim()))
+
+// Widgets: blocs selectionnables qui pre-remplissent un prompt a partir d'un
+// template. La generation reutilise ensuite les memes endpoints que le prompt
+// libre (/api/generate/image, /api/generate/video).
+const { widgets: widgetsList, loadError: widgetsLoadError, loadWidgets, resolveWidget, generateScenarioScript } = useWidgets()
+const selectedWidgetId = ref('')
+const widgetGenerationType = ref('IMAGE')
+const widgetVideoModel = ref('auto')
+const widgetProfileId = ref('')
+const widgetInputs = ref({})
+const widgetAssetUrls = ref({})
+const widgetAssetUploading = ref({})
+
+// Widget "Video Scenario" uniquement : idee libre -> script redige par
+// Claude (scenePrompt/scriptText, deja des variables 'input' du widget donc
+// affichees et editables via la boucle generique ci-dessous une fois
+// generees), et verrouillage d identite optionnel (independant du profil
+// choisi comme proprietaire du contenu -- voir server/data/widgets.js).
+const scenarioIdee = ref('')
+const scenarioScriptLoading = ref(false)
+const scenarioScriptError = ref('')
+const scenarioLockIdentity = ref(false)
+
+loadWidgets()
+
+const selectedWidget = computed(() => widgetsList.value.find((item) => item.id === selectedWidgetId.value) || null)
+const widgetInputVariables = computed(() => (selectedWidget.value?.variables || []).filter((item) => item.source === 'input'))
+const widgetUploadAssets = computed(() => (selectedWidget.value?.assetsRequis || []).filter((item) => item.source === 'upload'))
+
+function selectWidget(widgetId) {
+  selectedWidgetId.value = widgetId
+  const widget = widgetsList.value.find((item) => item.id === widgetId)
+  widgetGenerationType.value = widget?.typeGeneration?.[0] || 'IMAGE'
+  // "Automatique" ne connait pas Omni Flash (voir videoModelSelector.js) : sans
+  // ce defaut dedie, ce widget partirait toujours sur Veo par defaut.
+  widgetVideoModel.value = widgetId === 'SCENARIO_BLOG' ? 'omniflash' : 'auto'
+  widgetProfileId.value = ''
+  widgetInputs.value = {}
+  widgetAssetUrls.value = {}
+  scenarioIdee.value = ''
+  scenarioScriptError.value = ''
+  scenarioLockIdentity.value = false
+}
+
+async function generateScenarioScriptFromIdee() {
+  if (!scenarioIdee.value.trim() || scenarioScriptLoading.value) return
+
+  scenarioScriptLoading.value = true
+  scenarioScriptError.value = ''
+  try {
+    const { scenePrompt, scriptText } = await generateScenarioScript({ idee: scenarioIdee.value.trim() })
+    widgetInputs.value = { ...widgetInputs.value, scenePrompt, scriptText }
+  } catch (err) {
+    scenarioScriptError.value = err?.data?.statusMessage || err?.message || 'Génération du script impossible.'
+  } finally {
+    scenarioScriptLoading.value = false
+  }
+}
+
+async function onWidgetAssetChange(assetKey, event) {
+  const file = event.target?.files?.[0]
+  if (!file) return
+
+  widgetAssetUploading.value = { ...widgetAssetUploading.value, [assetKey]: true }
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await $fetch('/api/upload/widget-asset', { method: 'POST', body: formData })
+    widgetAssetUrls.value = { ...widgetAssetUrls.value, [assetKey]: response?.url || '' }
+  } catch (err) {
+    errorMessage.value = err?.data?.statusMessage || err?.message || "Upload de l'image impossible."
+  } finally {
+    widgetAssetUploading.value = { ...widgetAssetUploading.value, [assetKey]: false }
+  }
+}
+
+const canGenerateWidget = computed(() => {
+  const widget = selectedWidget.value
+  if (!widget) return false
+  if (!widgetProfileId.value) return false
+  if (widgetInputVariables.value.some((item) => !String(widgetInputs.value[item.key] || '').trim())) return false
+  if (widgetUploadAssets.value.some((item) => item.required && !widgetAssetUrls.value[item.key])) return false
+  if (widget.id === 'SCENARIO_BLOG' && scenarioLockIdentity.value && !selectedProfileHasFaceRef.value) return false
+  return true
+})
+
 const isEditingMode = computed(() => Boolean(editingContentId.value))
 
 const trimmedCarouselPrompts = computed(() => (
@@ -512,6 +817,10 @@ const trimmedCarouselPrompts = computed(() => (
 ))
 
 const canGenerate = computed(() => {
+  if (entryMode.value === 'widget' && !isEditingMode.value) {
+    return canGenerateWidget.value
+  }
+
   if (mode.value === 'image' && imageGenerationKind.value === 'carousel' && !editingContentId.value) {
     if (carouselPrompts.value.length < CAROUSEL_MIN_PROMPTS || carouselPrompts.value.length > CAROUSEL_MAX_PROMPTS) {
       return false
@@ -621,6 +930,68 @@ if (process.client) {
   }
 }
 
+async function submitWidget() {
+  const widget = selectedWidget.value
+  const { finalPrompt } = await resolveWidget({
+    widgetId: widget.id,
+    profileId: widget.requiresPersona ? widgetProfileId.value : undefined,
+    inputs: widgetInputs.value,
+  })
+
+  const packshotUrl = widgetAssetUrls.value.packshot || ''
+  const referenceImageUrl = widgetAssetUrls.value.image_reference || ''
+
+  if (widgetGenerationType.value === 'VIDEO') {
+    // Video Scenario : le verrouillage d identite est un choix separe du
+    // profil "proprietaire" (case a cocher dediee), pas lie a requiresPersona
+    // comme pour les autres widgets.
+    const isScenarioWidget = widget.id === 'SCENARIO_BLOG'
+    const lockIdentity = isScenarioWidget ? scenarioLockIdentity.value : widget.requiresPersona
+
+    const result = await $fetch('/api/generate/video', {
+      method: 'POST',
+      body: {
+        prompt: finalPrompt,
+        influencerId: widgetProfileId.value,
+        ambassadorId: lockIdentity ? widgetProfileId.value : null,
+        withFaceRef: lockIdentity,
+        model: widgetVideoModel.value,
+        customReferenceImageUrl: referenceImageUrl || undefined,
+        dialogueText: isScenarioWidget ? widgetInputs.value.scriptText : undefined,
+      },
+    })
+    lastResult.value = result
+
+    if (result?.contentId) {
+      startVideoPolling(result.contentId)
+      pushToast({
+        title: 'Génération lancée',
+        message: `${videoProviderLabel.value} génère ta vidéo. Résultat ici dans ~60s.`,
+        tone: 'success',
+      })
+    }
+    return
+  }
+
+  lastResult.value = await $fetch('/api/generate/image', {
+    method: 'POST',
+    body: {
+      influencerId: widgetProfileId.value,
+      ambassadorId: widget.requiresPersona ? widgetProfileId.value : null,
+      workflowType: 'free',
+      prompt: finalPrompt,
+      contentType: 'feed',
+      extraReferenceImageUrl: packshotUrl || undefined,
+    },
+  })
+
+  pushToast({
+    title: 'Génération lancée',
+    message: 'Le contenu a bien été envoyé au pipeline.',
+    tone: 'success',
+  })
+}
+
 async function submit() {
   if (loading.value || !canGenerate.value) return
 
@@ -628,6 +999,11 @@ async function submit() {
   errorMessage.value = ''
 
   try {
+    if (entryMode.value === 'widget' && !isEditingMode.value) {
+      await submitWidget()
+      return
+    }
+
     const isEditing = Boolean(editingContentId.value)
 
     if (mode.value === 'image') {
