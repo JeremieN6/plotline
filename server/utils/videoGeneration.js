@@ -206,27 +206,26 @@ function describeOmniFlashError(error) {
     return `Modele gemini-omni-1.1-flash indisponible ou pas encore active sur ce projet Google Cloud (${rawMessage})`;
   }
 
+  if (message.includes('content_blocked') || message.includes('input blocked')) {
+    // Observe en test reel sur un persona pourtant adulte ("photorealistic
+    // children") : ressemble a un faux positif du classifieur de securite sur
+    // l image de depart generee (qui varie a chaque appel), pas a un vrai
+    // souci de contenu. Une nouvelle tentative repart d une image differente.
+    return `Contenu bloque par le filtre de securite Omni Flash, probablement un faux positif sur l image de depart generee — reessayer repart d une image differente (${rawMessage})`;
+  }
+
   return rawMessage;
 }
 
-async function requestOmniFlashVideo({ prompt, apiKey, aspectRatio }) {
-  const ai = new GoogleGenAI({ apiKey });
-  const model = 'gemini-omni-1.1-flash';
-
-  let interaction;
-  try {
-    interaction = await ai.interactions.create({
-      model,
-      input: prompt,
-      response_format: { type: 'video', aspect_ratio: aspectRatio },
-    });
-  } catch (error) {
-    throw new Error(describeOmniFlashError(error));
-  }
-
-  // L API Interactions peut repondre de facon synchrone ou asynchrone selon la
-  // charge: on gere les deux, sans supposer que `interactions.get` existe.
+// L API Interactions peut repondre de facon synchrone ou asynchrone selon la
+// charge: on gere les deux, sans supposer que `interactions.get` existe.
+// Une requete de statut isolee qui echoue (timeout reseau, hoquet transitoire)
+// ne doit pas faire perdre toute une generation deja payee cote Google : on
+// retente quelques fois avant d abandonner reellement.
+async function waitForOmniFlashInteraction(ai, interaction) {
   let attempts = 0;
+  let consecutiveErrors = 0;
+
   while (interaction && interaction.status && interaction.status !== 'completed' && attempts < 60) {
     if (interaction.status === 'failed' || interaction.status === 'error') {
       throw new Error(`Omni Flash generation failed: ${JSON.stringify(interaction?.error || interaction).slice(0, 500)}`);
@@ -241,25 +240,122 @@ async function requestOmniFlashVideo({ prompt, apiKey, aspectRatio }) {
 
     try {
       interaction = await ai.interactions.get({ name: interaction.name });
+      consecutiveErrors = 0;
     } catch (error) {
-      throw new Error(describeOmniFlashError(error));
+      consecutiveErrors += 1;
+      if (consecutiveErrors >= 5) {
+        throw new Error(describeOmniFlashError(error));
+      }
     }
   }
 
+  return interaction;
+}
+
+async function extractOmniFlashVideoUrl(interaction) {
   const base64Video = String(interaction?.output_video?.data || '').trim();
   if (!base64Video) {
     throw new Error(`Reponse Omni Flash sans output_video.data exploitable: ${JSON.stringify(interaction).slice(0, 500)}`);
   }
 
   const buffer = Buffer.from(base64Video, 'base64');
-  const videoUrl = await saveGeneratedVideoBuffer(buffer, 'video_omniflash');
+  return saveGeneratedVideoBuffer(buffer, 'video_omniflash');
+}
 
-  return {
-    jobId: String(interaction?.name || ''),
-    videoUrl,
-    status: 'completed',
-    model,
-  };
+// Sans image de depart : un seul appel texte, le modele invente librement qui
+// apparait a l ecran. C est le mode le plus fiable observe a ce jour --
+// lip-sync propre, moins cher, aucun artefact de raccord -- au prix de ne pas
+// controler l identite visuelle. Adapte a un contenu qui n a pas besoin de
+// continuite de personnage (ex. illustrer un article de blog), pas a un
+// compte influenceur ou l identite doit rester reconnaissable.
+async function requestOmniFlashSingleTurn({ scenePrompt, dialogueText, ai, model, aspectRatio }) {
+  const text = dialogueText
+    ? `${scenePrompt}. The person speaks clearly, in French, with natural lip movement synced to the speech: "${dialogueText}"`
+    : scenePrompt;
+
+  let interaction;
+  try {
+    interaction = await ai.interactions.create({
+      model,
+      input: text,
+      response_format: { type: 'video', aspect_ratio: aspectRatio },
+    });
+  } catch (error) {
+    throw new Error(describeOmniFlashError(error));
+  }
+  interaction = await waitForOmniFlashInteraction(ai, interaction);
+
+  const videoUrl = await extractOmniFlashVideoUrl(interaction);
+  return { jobId: String(interaction?.id || ''), videoUrl, status: 'completed', model };
+}
+
+// Avec une image de depart : un appel unique (image + texte demandant de
+// parler) verrouille l identite mais ne produit qu une voix off -- d apres la
+// doc officielle et un test reel, Omni Flash ne synchronise les levres que
+// via son mecanisme documente "multi-turn voice extension", qui etend une
+// INTERACTION VIDEO precedente via previous_interaction_id. Tour 1 : scene
+// silencieuse (image + decor), identite verrouillee. Tour 2 : meme
+// interaction etendue en lui demandant de parler.
+//
+// A savoir avant de reutiliser ce mode : sur plusieurs tests reels, l identite
+// derive d un tour a l autre (le tour 2 ne se re-ancre pas sur l image
+// d origine) et des artefacts de raccord audio/bouche apparaissent en debut
+// et fin de clip -- non corriges par ajustement de prompt. Cout : deux
+// generations Omni Flash au lieu d une (~2$ au lieu de ~1$ par video a ce
+// jour). Le tour 2 ne rallonge pas la duree du tour 1 (memes durees, testees
+// a l identique) : raccourcir le tour 1 pour economiser romprait
+// probablement la duree utilisable du tour 2.
+async function requestOmniFlashTwoTurn({ scenePrompt, dialogueText, ai, model, aspectRatio, faceRefImage }) {
+  const silentSceneText = `Animate this exact scene naturally: ${scenePrompt}. The person looks toward the camera with subtle natural movement. Do NOT make the person speak or open their mouth in this clip.`;
+
+  let turn1;
+  try {
+    turn1 = await ai.interactions.create({
+      model,
+      input: [
+        { type: 'image', data: faceRefImage.base64, mime_type: faceRefImage.mimeType || 'image/jpeg' },
+        { type: 'text', text: silentSceneText },
+      ],
+      response_format: { type: 'video', aspect_ratio: aspectRatio },
+    });
+  } catch (error) {
+    throw new Error(describeOmniFlashError(error));
+  }
+  turn1 = await waitForOmniFlashInteraction(ai, turn1);
+
+  const dialogue = String(dialogueText || '').trim();
+  if (!dialogue) {
+    const videoUrl = await extractOmniFlashVideoUrl(turn1);
+    return { jobId: String(turn1?.id || ''), videoUrl, status: 'completed', model };
+  }
+
+  let turn2;
+  try {
+    turn2 = await ai.interactions.create({
+      model,
+      previous_interaction_id: turn1.id,
+      input: `Make the person in this video say clearly, in French, with natural lip movement precisely synced to every word — the mouth must keep moving in sync all the way through the very last word, with no silent or static mouth movement at any point: "${dialogue}"`,
+      response_format: { type: 'video', aspect_ratio: aspectRatio },
+    });
+  } catch (error) {
+    throw new Error(describeOmniFlashError(error));
+  }
+  turn2 = await waitForOmniFlashInteraction(ai, turn2);
+
+  const videoUrl = await extractOmniFlashVideoUrl(turn2);
+  return { jobId: String(turn2?.id || ''), videoUrl, status: 'completed', model };
+}
+
+async function requestOmniFlashVideo({ scenePrompt, dialogueText, apiKey, aspectRatio, faceRefImage }) {
+  // Le timeout par defaut du SDK est de 1 minute par requete HTTP -- trop
+  // juste pour un modele recent et parfois lent a repondre a une simple
+  // requete de statut.
+  const ai = new GoogleGenAI({ apiKey, timeout: 120000 });
+  const model = 'gemini-omni-1.1-flash';
+
+  return faceRefImage
+    ? requestOmniFlashTwoTurn({ scenePrompt, dialogueText, ai, model, aspectRatio, faceRefImage })
+    : requestOmniFlashSingleTurn({ scenePrompt, dialogueText, ai, model, aspectRatio });
 }
 
 export const SUPPORTED_VIDEO_MODELS = ['veo', 'kling', 'seedance', 'omniflash'];
@@ -365,7 +461,7 @@ async function prepareVideoStartFrame({ influencer, prompt }) {
 }
 
 /** Appelle le fournisseur choisi et normalise sa reponse. */
-async function requestProviderVideo({ model, prompt, aspectRatio, startFrame, runtimeConfig }) {
+async function requestProviderVideo({ model, prompt, aspectRatio, startFrame, runtimeConfig, scenePrompt, dialogueText }) {
   if (model === 'veo') {
     return await requestVeoVideo({
       prompt,
@@ -381,9 +477,14 @@ async function requestProviderVideo({ model, prompt, aspectRatio, startFrame, ru
 
   if (model === 'omniflash') {
     return await requestOmniFlashVideo({
-      prompt,
+      // A defaut de decor/script distincts (callers existants qui ne les
+      // fournissent pas), le prompt complet fait office de scene et le
+      // dialogue reste vide -- le tour 2 est alors saute (voir requestOmniFlashVideo).
+      scenePrompt: scenePrompt || prompt,
+      dialogueText,
       apiKey: resolveGeminiApiKey(runtimeConfig),
       aspectRatio,
+      faceRefImage: startFrame,
     });
   }
 
@@ -397,7 +498,7 @@ async function requestProviderVideo({ model, prompt, aspectRatio, startFrame, ru
   };
 }
 
-export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, prompt, model, withFaceRef, influencer, previousStatus }) {
+export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, prompt, model, withFaceRef, influencer, previousStatus, scenePrompt, dialogueText }) {
   // Le cadrage demande dans le prompt fait foi. Le repli ne s applique que si
   // le prompt ne se prononce pas: aucun format n est impose a la place de l auteur.
   const aspectRatio = resolveAspectRatio(prompt);
@@ -410,7 +511,7 @@ export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, 
   (async () => {
     try {
       const startFrame = withFaceRef ? await prepareVideoStartFrame({ influencer, prompt }) : null;
-      const providerResult = await requestProviderVideo({ model, prompt, aspectRatio, startFrame, runtimeConfig });
+      const providerResult = await requestProviderVideo({ model, prompt, aspectRatio, startFrame, runtimeConfig, scenePrompt, dialogueText });
       const resolvedVideoUrl = String(providerResult?.videoUrl || '').trim();
 
       // Sans URL exploitable, le contenu resterait en PROCESSING indefiniment:
