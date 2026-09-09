@@ -88,6 +88,25 @@ export const WIDGETS = [
     ],
     negativePrompt: 'distorted product, altered label, fake typography, plastic skin',
   },
+  {
+    id: 'SCENARIO_BLOG',
+    nom: 'Video Scenario',
+    typeGeneration: ['VIDEO'],
+    // false (comme FOOD_AD) : le Studio affiche alors le picker generique
+    // "Profil (pour le classement du contenu)", sans exiger de face ref --
+    // exactement ce qu il faut ici, le profil choisi n etant que le
+    // proprietaire du contenu dans "Mes creations". Le verrouillage reel de
+    // l identite est un choix separe, porte par une case a cocher dediee
+    // dans le Studio (branchee sur withFaceRef), pas par ce champ.
+    requiresPersona: false,
+    template: '{{scenePrompt}}',
+    variables: [
+      { key: 'scenePrompt', source: 'input', label: 'Scène (décor, cadrage)', type: 'textarea' },
+      { key: 'scriptText', source: 'input', label: 'Script parlé', type: 'textarea' },
+    ],
+    assetsRequis: [],
+    negativePrompt: '',
+  },
 ];
 
 export function getWidgets() {

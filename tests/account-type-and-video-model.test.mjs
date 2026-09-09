@@ -624,9 +624,12 @@ test('persona.description: un persona homme recoit une description corporelle ma
   assert.doesNotMatch(description, /\bbust\b|breast|hourglass/);
 });
 
-test('widgets: les 4 definitions V1 sont bien exposees', () => {
+test('widgets: les definitions V1 + Video Scenario sont bien exposees', () => {
   const ids = getWidgets().map((widget) => widget.id);
-  assert.deepEqual(ids.sort(), ['FOOD_AD', 'PORTRAIT_STUDIO', 'UGC_PRODUIT', 'VLOG_LIFESTYLE'].sort());
+  assert.deepEqual(
+    ids.sort(),
+    ['FOOD_AD', 'PORTRAIT_STUDIO', 'SCENARIO_BLOG', 'UGC_PRODUIT', 'VLOG_LIFESTYLE'].sort(),
+  );
   assert.equal(getWidgetById('portrait_studio')?.id, 'PORTRAIT_STUDIO');
   assert.equal(getWidgetById('inconnu'), null);
 });

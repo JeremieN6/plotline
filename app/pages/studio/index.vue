@@ -322,30 +322,114 @@
                 <option value="veo">Veo</option>
                 <option value="kling">Kling</option>
                 <option v-if="seedanceEnabled" value="seedance">Seedance</option>
+                <!-- Omni Flash : reserve a ce widget, jamais choisi par "Automatique"
+                     (selectVideoModel ne le connait pas) et non eprouve sur les 3
+                     autres widgets -- ne pas l exposer ailleurs sans l avoir teste. -->
+                <option v-if="selectedWidget.id === 'SCENARIO_BLOG'" value="omniflash">Omni Flash</option>
               </select>
             </div>
 
-            <div v-if="selectedWidget.requiresPersona">
-              <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Persona</label>
-              <select
-                v-model="widgetProfileId"
-                class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
-              >
-                <option value="">Choisir une persona...</option>
-                <option v-for="item in ambassadorProfiles" :key="item.id" :value="item.id">{{ item.name }}</option>
-              </select>
-              <p v-if="!ambassadorProfiles.length" class="mt-1.5 text-xs text-[#7B5A3F]">Aucune persona avec face ref disponible.</p>
-            </div>
-            <div v-else>
-              <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Profil (pour le classement du contenu)</label>
-              <select
-                v-model="widgetProfileId"
-                class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
-              >
-                <option value="">Choisir un profil...</option>
-                <option v-for="item in influencersList" :key="item.id" :value="item.id">{{ item.name }}</option>
-              </select>
-            </div>
+            <template v-if="selectedWidget.id === 'SCENARIO_BLOG'">
+              <div>
+                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">1. Idée de vidéo</label>
+                <textarea
+                  v-model="scenarioIdee"
+                  rows="2"
+                  placeholder="Ex : pourquoi j'ai mis un projet en pause alors que ça marchait"
+                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#E8873A]"
+                />
+                <button
+                  type="button"
+                  class="mt-2 rounded-[10px] bg-[#FDE7D6] px-4 py-2 text-sm font-bold text-[#B45F1D] transition-colors hover:bg-[#FAD9BE] disabled:cursor-not-allowed disabled:opacity-60"
+                  :disabled="!scenarioIdee.trim() || scenarioScriptLoading"
+                  @click="generateScenarioScriptFromIdee"
+                >
+                  {{ scenarioScriptLoading ? 'Génération du script...' : 'Générer le script' }}
+                </button>
+                <p v-if="scenarioScriptError" class="mt-1.5 text-xs text-red-600">{{ scenarioScriptError }}</p>
+              </div>
+
+              <div>
+                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">2. Profil (pour le classement du contenu)</label>
+                <select
+                  v-model="widgetProfileId"
+                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+                >
+                  <option value="">Choisir un profil...</option>
+                  <optgroup v-if="groupedProfiles.PERSONA.length" label="Personas / Ambassadrices">
+                    <option v-for="item in groupedProfiles.PERSONA" :key="item.id" :value="item.id">{{ item.name }}</option>
+                  </optgroup>
+                  <optgroup v-if="groupedProfiles.BRAND.length" label="Marques">
+                    <option v-for="item in groupedProfiles.BRAND" :key="item.id" :value="item.id">{{ item.name }}</option>
+                  </optgroup>
+                  <optgroup v-if="groupedProfiles.ACTIVITY.length" label="Autres">
+                    <option v-for="item in groupedProfiles.ACTIVITY" :key="item.id" :value="item.id">{{ item.name }}</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              <div>
+                <label class="inline-flex items-center gap-2 text-sm font-semibold text-[#111111]">
+                  <input v-model="scenarioLockIdentity" type="checkbox" class="accent-[#E8873A]" />
+                  Verrouiller l'identité de ce persona
+                </label>
+                <div
+                  class="mt-2 rounded-[10px] border p-3 text-xs"
+                  :class="scenarioLockIdentity ? 'border-[#E8873A]/50 bg-[#FDF3EA] text-[#7B5A3F]' : 'border-[#E5E3DF] bg-[#FAFAF8] text-[#666666]'"
+                >
+                  <p v-if="scenarioLockIdentity && widgetVideoModel === 'omniflash'">
+                    🔒 Le visage de <strong>{{ selectedProfileName || 'ce profil' }}</strong> sera utilisé : génération en 2 étapes (~2$ au lieu de ~1$), avec un risque connu de dérive d'identité et de désynchronisation labiale en début/fin de vidéo.
+                    <span v-if="widgetProfileId && !selectedProfileHasFaceRef" class="mt-1.5 block font-bold text-red-600">⚠️ Ce profil n'a pas de fiche de référence : le verrouillage échouera à la génération.</span>
+                  </p>
+                  <p v-else-if="scenarioLockIdentity">
+                    🔒 Le visage de <strong>{{ selectedProfileName || 'ce profil' }}</strong> sera utilisé, via {{ widgetVideoModelLabel }}.
+                    <span v-if="widgetProfileId && !selectedProfileHasFaceRef" class="mt-1.5 block font-bold text-red-600">⚠️ Ce profil n'a pas de fiche de référence : le verrouillage échouera à la génération.</span>
+                  </p>
+                  <p v-else-if="widgetVideoModel === 'omniflash'">
+                    🎲 Le modèle invente librement qui apparaît à l'écran — rendu plus fiable, une seule génération (~1$).
+                  </p>
+                  <p v-else>
+                    🎲 Le modèle invente librement qui apparaît à l'écran, via {{ widgetVideoModelLabel }}.
+                  </p>
+                </div>
+              </div>
+
+              <div v-if="widgetInputs.scenePrompt || widgetInputs.scriptText">
+                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">3. Vérifie et corrige si besoin</label>
+              </div>
+            </template>
+
+            <template v-else>
+              <div v-if="selectedWidget.requiresPersona">
+                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Persona</label>
+                <select
+                  v-model="widgetProfileId"
+                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+                >
+                  <option value="">Choisir une persona...</option>
+                  <option v-for="item in ambassadorProfiles" :key="item.id" :value="item.id">{{ item.name }}</option>
+                </select>
+                <p v-if="!ambassadorProfiles.length" class="mt-1.5 text-xs text-[#7B5A3F]">Aucune persona avec face ref disponible.</p>
+              </div>
+              <div v-else>
+                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Profil (pour le classement du contenu)</label>
+                <select
+                  v-model="widgetProfileId"
+                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+                >
+                  <option value="">Choisir un profil...</option>
+                  <optgroup v-if="groupedProfiles.PERSONA.length" label="Personas / Ambassadrices">
+                    <option v-for="item in groupedProfiles.PERSONA" :key="item.id" :value="item.id">{{ item.name }}</option>
+                  </optgroup>
+                  <optgroup v-if="groupedProfiles.BRAND.length" label="Marques">
+                    <option v-for="item in groupedProfiles.BRAND" :key="item.id" :value="item.id">{{ item.name }}</option>
+                  </optgroup>
+                  <optgroup v-if="groupedProfiles.ACTIVITY.length" label="Autres">
+                    <option v-for="item in groupedProfiles.ACTIVITY" :key="item.id" :value="item.id">{{ item.name }}</option>
+                  </optgroup>
+                </select>
+              </div>
+            </template>
 
             <div v-for="variable in widgetInputVariables" :key="variable.key">
               <label class="mb-1.5 block text-sm font-semibold text-gray-800">{{ variable.label }}</label>
@@ -492,7 +576,7 @@ const selectedVideoModel = ref('auto')
 // Seedance n est propose que si le compte est credite (voir SEEDANCE_ENABLED).
 const seedanceEnabled = computed(() => Boolean(useRuntimeConfig().public?.seedanceEnabled))
 
-const VIDEO_PROVIDER_LABELS = { veo: 'Veo', kling: 'Kling', seedance: 'Seedance' }
+const VIDEO_PROVIDER_LABELS = { veo: 'Veo', kling: 'Kling', seedance: 'Seedance', omniflash: 'Omni Flash' }
 
 /**
  * Nom du fournisseur reellement retenu. Le libelle etait fige sur "Veo", donc
@@ -621,10 +705,30 @@ const ambassadorSummary = computed(() => {
 
 const influencersList = computed(() => (Array.isArray(influencersData.value) ? influencersData.value : []))
 
+// Regroupement par type de profil (PERSONA/BRAND/ACTIVITY, ecrit en base --
+// voir Decisions Prises 2026-08-10) pour les selects qui listent tous les
+// profils sans filtre prealable, comme celui du widget Video Scenario.
+const groupedProfiles = computed(() => {
+  const groups = { PERSONA: [], BRAND: [], ACTIVITY: [] }
+  for (const item of influencersList.value) {
+    const key = groups[item.profileType] ? item.profileType : 'ACTIVITY'
+    groups[key].push(item)
+  }
+  return groups
+})
+
+// Distinct de videoProviderLabel (qui reflete selectedVideoModel, le flux
+// "Prompt libre") : ici on reflete le modele choisi DANS le widget.
+const widgetVideoModelLabel = computed(() => VIDEO_PROVIDER_LABELS[widgetVideoModel.value] || 'le modèle choisi automatiquement')
+
+const selectedProfileForWidget = computed(() => influencersList.value.find((item) => item.id === widgetProfileId.value) || null)
+const selectedProfileName = computed(() => selectedProfileForWidget.value?.name || '')
+const selectedProfileHasFaceRef = computed(() => Boolean(String(selectedProfileForWidget.value?.faceRefPath || '').trim()))
+
 // Widgets: blocs selectionnables qui pre-remplissent un prompt a partir d'un
 // template. La generation reutilise ensuite les memes endpoints que le prompt
 // libre (/api/generate/image, /api/generate/video).
-const { widgets: widgetsList, loadError: widgetsLoadError, loadWidgets, resolveWidget } = useWidgets()
+const { widgets: widgetsList, loadError: widgetsLoadError, loadWidgets, resolveWidget, generateScenarioScript } = useWidgets()
 const selectedWidgetId = ref('')
 const widgetGenerationType = ref('IMAGE')
 const widgetVideoModel = ref('auto')
@@ -632,6 +736,16 @@ const widgetProfileId = ref('')
 const widgetInputs = ref({})
 const widgetAssetUrls = ref({})
 const widgetAssetUploading = ref({})
+
+// Widget "Video Scenario" uniquement : idee libre -> script redige par
+// Claude (scenePrompt/scriptText, deja des variables 'input' du widget donc
+// affichees et editables via la boucle generique ci-dessous une fois
+// generees), et verrouillage d identite optionnel (independant du profil
+// choisi comme proprietaire du contenu -- voir server/data/widgets.js).
+const scenarioIdee = ref('')
+const scenarioScriptLoading = ref(false)
+const scenarioScriptError = ref('')
+const scenarioLockIdentity = ref(false)
 
 loadWidgets()
 
@@ -643,10 +757,30 @@ function selectWidget(widgetId) {
   selectedWidgetId.value = widgetId
   const widget = widgetsList.value.find((item) => item.id === widgetId)
   widgetGenerationType.value = widget?.typeGeneration?.[0] || 'IMAGE'
-  widgetVideoModel.value = 'auto'
+  // "Automatique" ne connait pas Omni Flash (voir videoModelSelector.js) : sans
+  // ce defaut dedie, ce widget partirait toujours sur Veo par defaut.
+  widgetVideoModel.value = widgetId === 'SCENARIO_BLOG' ? 'omniflash' : 'auto'
   widgetProfileId.value = ''
   widgetInputs.value = {}
   widgetAssetUrls.value = {}
+  scenarioIdee.value = ''
+  scenarioScriptError.value = ''
+  scenarioLockIdentity.value = false
+}
+
+async function generateScenarioScriptFromIdee() {
+  if (!scenarioIdee.value.trim() || scenarioScriptLoading.value) return
+
+  scenarioScriptLoading.value = true
+  scenarioScriptError.value = ''
+  try {
+    const { scenePrompt, scriptText } = await generateScenarioScript({ idee: scenarioIdee.value.trim() })
+    widgetInputs.value = { ...widgetInputs.value, scenePrompt, scriptText }
+  } catch (err) {
+    scenarioScriptError.value = err?.data?.statusMessage || err?.message || 'Génération du script impossible.'
+  } finally {
+    scenarioScriptLoading.value = false
+  }
 }
 
 async function onWidgetAssetChange(assetKey, event) {
@@ -672,6 +806,7 @@ const canGenerateWidget = computed(() => {
   if (!widgetProfileId.value) return false
   if (widgetInputVariables.value.some((item) => !String(widgetInputs.value[item.key] || '').trim())) return false
   if (widgetUploadAssets.value.some((item) => item.required && !widgetAssetUrls.value[item.key])) return false
+  if (widget.id === 'SCENARIO_BLOG' && scenarioLockIdentity.value && !selectedProfileHasFaceRef.value) return false
   return true
 })
 
@@ -807,15 +942,22 @@ async function submitWidget() {
   const referenceImageUrl = widgetAssetUrls.value.image_reference || ''
 
   if (widgetGenerationType.value === 'VIDEO') {
+    // Video Scenario : le verrouillage d identite est un choix separe du
+    // profil "proprietaire" (case a cocher dediee), pas lie a requiresPersona
+    // comme pour les autres widgets.
+    const isScenarioWidget = widget.id === 'SCENARIO_BLOG'
+    const lockIdentity = isScenarioWidget ? scenarioLockIdentity.value : widget.requiresPersona
+
     const result = await $fetch('/api/generate/video', {
       method: 'POST',
       body: {
         prompt: finalPrompt,
         influencerId: widgetProfileId.value,
-        ambassadorId: widget.requiresPersona ? widgetProfileId.value : null,
-        withFaceRef: widget.requiresPersona,
+        ambassadorId: lockIdentity ? widgetProfileId.value : null,
+        withFaceRef: lockIdentity,
         model: widgetVideoModel.value,
         customReferenceImageUrl: referenceImageUrl || undefined,
+        dialogueText: isScenarioWidget ? widgetInputs.value.scriptText : undefined,
       },
     })
     lastResult.value = result

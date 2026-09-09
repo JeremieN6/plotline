@@ -69,6 +69,10 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'prompt requis' }));
     }
 
+    // Texte parle distinct du prompt de scene, pour Omni Flash uniquement --
+    // vide, le nouveau prompt reste tel quel pour les autres fournisseurs.
+    const dialogueText = String(body?.dialogueText || '').trim();
+
     // Modele impose depuis "Modifier". Vide ou "auto" = detection automatique.
     const requestedModel = String(body?.model || '').trim().toLowerCase();
     if (requestedModel && requestedModel !== 'auto' && !isSupportedVideoModel(requestedModel)) {
@@ -113,6 +117,8 @@ export default defineEventHandler(async (event) => {
           // Statut a rendre au contenu si la generation echoue: sans lui, une
           // modification ratee enterrait un rendu pourtant toujours valide.
           previousStatus: content.status,
+          scenePrompt: nextPrompt,
+          dialogueText,
         });
 
         return { contentId: id, status: result.status === 'completed' ? 'completed' : 'processing' };
