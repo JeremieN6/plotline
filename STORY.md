@@ -125,22 +125,24 @@ Google atteste que l'adresse est verifiee.
 disparait, puisque Google l'a deja faite. La demarche a ete documentee comme
 recette reutilisable, le meme besoin existant sur les autres projets de l'auteur.
 
-### 2026-09-06 -- La creation de persona etait pensee au feminin par defaut
+### 2026-09-06 -- Le persona n'est plus implicitement feminin
 
-**Contexte** : chaque ecran de creation de persona (placeholders de nom,
-silhouettes proposees, textes de generation d'image) supposait implicitement
-une identite feminine, alors que le produit se presente comme une agence
-d'influenceurs virtuels, pas seulement d'influenceuses.
+**Contexte** : la creation de persona, le vocabulaire de l'interface et les
+textes de generation d'image etaient entierement construits en pensant a une
+influenceuse. Le sujet est remonte a l'usage : plusieurs photos candidates pour
+une nouvelle identite, dont certaines masculines, ont revele qu'aucune
+description corporelle masculine credible n'existait dans le systeme.
 
-**Decision** : ajouter un choix de genre explicite a la creation, avec des
-silhouettes et des textes de generation reellement penses pour une identite
-masculine plutot qu'un reemploi des memes textes.
+**Decision** : ajouter un genre explicite au persona (Femme/Homme), avec des
+silhouettes et des textes de generation reellement ecrits pour un corps
+masculin plutot qu'un reemploi des memes descriptions feminines renommees.
 
-**Resultat** : le produit peut desormais representer honnetement les deux
-genres. Question laissee ouverte, non tranchee : etendre au non-binaire (le
-meme mecanisme s'y prete naturellement) et/ou a une option "mascotte" (un
-persona non humain, sans silhouette applicable) -- ce dernier point est un
-chantier distinct, pas une extension du genre.
+**Resultat** : le produit peut desormais representer un persona homme avec la
+meme rigueur de coherence visuelle qu'une persona femme. Question laissee
+ouverte a ce stade, non tranchee : une option non-binaire (extension naturelle
+du meme systeme de genre) et une option "mascotte" (un persona qui ne serait
+pas un corps humain du tout) ont ete evoquees comme pistes distinctes pour une
+iteration future.
 
 ---
 
@@ -168,6 +170,27 @@ format pense pour le contenu influenceur (aguicheur, explicite), qui n'a rien
 a voir avec les videos issues du blog -- celles-ci doivent rester des videos
 normales, sans texte par dessus, le temps qu'un vrai chantier dedie au premier
 format soit mene separement.
+
+---
+
+### 2026-09-09 -- L'identity lock cede le pas au rendu propre pour le contenu sans persona
+
+**Contexte** : les videos home.sassify.fr utilisent Omni Flash. Verrouiller
+l'identite du persona via une image de depart casse la synchronisation
+labiale (voix off) ; le mecanisme documente qui la repare (extension vocale
+multi-tours) fonctionne, mais fait deriver l'identite d'un tour a l'autre et
+introduit des artefacts de raccord audio/bouche en debut et fin de clip, non
+corriges par ajustement de prompt malgre plusieurs tentatives.
+
+**Decision** : pour ce type de contenu, qui n'a pas besoin de continuite de
+personnage reconnaissable (contrairement a un compte influenceur), laisser
+Omni Flash inventer librement qui apparait a l'ecran plutot que de forcer une
+identite qui ne tient pas encore correctement sur ce modele.
+
+**Resultat** : rendu plus propre, generation deux fois moins chere, aucun
+artefact de raccord -- au prix de ne pas controler qui apparait dans la video.
+Le flux a deux tours reste dans le code, disponible des qu'une image de depart
+est fournie, pour un usage futur ou l'identite compte davantage.
 
 ---
 
@@ -225,6 +248,9 @@ suivantes s'appliquent a tout contenu produit a partir de ce fichier :
 ---
 
 ## Derniere mise a jour
+
+2026-09-09 -- Ajout du pivot sur l'abandon de l'identity lock par defaut pour
+le contenu sans besoin de continuite de personnage (videos home.sassify.fr).
 
 2026-09-07 (suite) -- Ajout du pivot "Plotline comme infrastructure interne"
 (ouverture d'un point d'entree externe pour un second projet du proprietaire).
