@@ -42,6 +42,9 @@ import { getBodyBlock, injectBody } from '../server/utils/injectBody.js';
 import { buildPersonaDescription } from '../server/utils/personaDescription.js';
 import { resolveWidgetPrompt } from '../server/utils/widgetEngine.js';
 import { getWidgetById, getWidgets } from '../server/data/widgets.js';
+import { parsePromptAssistResult } from '../server/utils/promptAssistGenerator.js';
+import { parseWidgetFieldsResult } from '../server/utils/widgetFieldsAssistGenerator.js';
+import { parseCarouselAssistResult } from '../server/utils/carouselAssistGenerator.js';
 
 test('normalizeAccountType normalizes to uppercase', () => {
   assert.equal(normalizeAccountType(' brand '), 'BRAND');
@@ -676,4 +679,63 @@ test('widgetEngine: FOOD_AD substitue la reference upload par une mention textue
 
   assert.match(finalPrompt, /using the attached reference image as the exact reference/);
   assert.doesNotMatch(finalPrompt, /\{\{/);
+});
+
+test('promptAssistGenerator: parse un JSON brut valide', () => {
+  const result = parsePromptAssistResult('{"prompt": "a cinematic portrait"}');
+  assert.deepEqual(result, { prompt: 'a cinematic portrait' });
+});
+
+test('promptAssistGenerator: parse un JSON entoure de fences markdown', () => {
+  const result = parsePromptAssistResult('```json\n{"prompt": "a cozy morning scene"}\n```');
+  assert.deepEqual(result, { prompt: 'a cozy morning scene' });
+});
+
+test('promptAssistGenerator: renvoie null si le prompt est vide ou le JSON invalide', () => {
+  assert.equal(parsePromptAssistResult('{"prompt": ""}'), null);
+  assert.equal(parsePromptAssistResult('pas du json'), null);
+  assert.equal(parsePromptAssistResult(''), null);
+});
+
+test('widgetFieldsAssistGenerator: parse un objet avec toutes les cles attendues', () => {
+  const result = parseWidgetFieldsResult(
+    '{"scenePrompt": "a cozy kitchen", "scriptText": "Tu vas adorer ce plat."}',
+    ['scenePrompt', 'scriptText'],
+  );
+  assert.deepEqual(result, { scenePrompt: 'a cozy kitchen', scriptText: 'Tu vas adorer ce plat.' });
+});
+
+test('widgetFieldsAssistGenerator: renvoie null si une cle attendue manque ou est vide', () => {
+  const result = parseWidgetFieldsResult('{"scenePrompt": "a cozy kitchen"}', ['scenePrompt', 'scriptText']);
+  assert.equal(result, null);
+});
+
+test('widgetFieldsAssistGenerator: renvoie null sans cles attendues ou sur JSON invalide', () => {
+  assert.equal(parseWidgetFieldsResult('{"scenePrompt": "x"}', []), null);
+  assert.equal(parseWidgetFieldsResult('pas du json', ['scenePrompt']), null);
+});
+
+test('carouselAssistGenerator: parse un tableau JSON brut dans les bornes', () => {
+  const result = parseCarouselAssistResult('["slide un", "slide deux", "slide trois"]', { min: 2, max: 10 });
+  assert.deepEqual(result, ['slide un', 'slide deux', 'slide trois']);
+});
+
+test('carouselAssistGenerator: parse un tableau entoure de fences markdown', () => {
+  const result = parseCarouselAssistResult('```json\n["a", "b"]\n```', { min: 2, max: 10 });
+  assert.deepEqual(result, ['a', 'b']);
+});
+
+test('carouselAssistGenerator: renvoie null si trop peu de slides', () => {
+  assert.equal(parseCarouselAssistResult('["une seule slide"]', { min: 2, max: 10 }), null);
+});
+
+test('carouselAssistGenerator: tronque au maximum si Claude en propose trop', () => {
+  const twelve = Array.from({ length: 12 }, (_, i) => `slide ${i + 1}`);
+  const result = parseCarouselAssistResult(JSON.stringify(twelve), { min: 2, max: 10 });
+  assert.equal(result.length, 10);
+});
+
+test('carouselAssistGenerator: renvoie null sur JSON invalide ou sans tableau exploitable', () => {
+  assert.equal(parseCarouselAssistResult('pas du json', { min: 2, max: 10 }), null);
+  assert.equal(parseCarouselAssistResult('{"slides": "not an array"}', { min: 2, max: 10 }), null);
 });

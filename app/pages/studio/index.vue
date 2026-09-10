@@ -118,6 +118,25 @@
           </section>
 
           <template v-if="mode === 'image' && imageGenerationKind === 'carousel' && !editingContentId">
+            <div class="mt-4 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-3">
+              <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Exprime ton besoin (optionnel)</label>
+              <textarea
+                v-model="carouselIdea"
+                rows="2"
+                placeholder="Ex : les étapes de ma routine du matin, ambiance cosy"
+                class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#E8873A]"
+              />
+              <button
+                type="button"
+                class="mt-2 rounded-[10px] bg-[#FDE7D6] px-4 py-2 text-sm font-bold text-[#B45F1D] transition-colors hover:bg-[#FAD9BE] disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="!carouselIdea.trim() || carouselAssistLoading"
+                @click="generateCarouselSlidesFromIdea"
+              >
+                {{ carouselAssistLoading ? 'Génération des slides...' : 'Générer les slides avec Claude' }}
+              </button>
+              <p v-if="carouselAssistError" class="mt-1.5 text-xs text-red-600">{{ carouselAssistError }}</p>
+            </div>
+
             <div class="mt-4 space-y-3">
               <div class="flex items-center justify-between gap-3">
                 <label class="text-sm font-bold text-[#111111]">Prompts du carrousel</label>
@@ -160,6 +179,25 @@
           </template>
 
           <template v-else>
+            <div v-if="!editingContentId" class="mt-4 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-3">
+              <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Exprime ton besoin (optionnel)</label>
+              <textarea
+                v-model="freePromptIdea"
+                rows="2"
+                placeholder="Ex : une photo de moi en train de savourer un café le matin, ambiance cosy"
+                class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#E8873A]"
+              />
+              <button
+                type="button"
+                class="mt-2 rounded-[10px] bg-[#FDE7D6] px-4 py-2 text-sm font-bold text-[#B45F1D] transition-colors hover:bg-[#FAD9BE] disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="!freePromptIdea.trim() || freePromptAssistLoading"
+                @click="generateFreePromptFromIdea"
+              >
+                {{ freePromptAssistLoading ? 'Écriture du prompt...' : 'Écrire le prompt avec Claude' }}
+              </button>
+              <p v-if="freePromptAssistError" class="mt-1.5 text-xs text-red-600">{{ freePromptAssistError }}</p>
+            </div>
+
             <label for="studio-prompt" class="mt-4 block text-sm font-bold text-[#111111]">Décris ce que tu veux créer</label>
             <textarea
               id="studio-prompt"
@@ -331,26 +369,7 @@
 
             <template v-if="selectedWidget.id === 'SCENARIO_BLOG'">
               <div>
-                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">1. Idée de vidéo</label>
-                <textarea
-                  v-model="scenarioIdee"
-                  rows="2"
-                  placeholder="Ex : pourquoi j'ai mis un projet en pause alors que ça marchait"
-                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#E8873A]"
-                />
-                <button
-                  type="button"
-                  class="mt-2 rounded-[10px] bg-[#FDE7D6] px-4 py-2 text-sm font-bold text-[#B45F1D] transition-colors hover:bg-[#FAD9BE] disabled:cursor-not-allowed disabled:opacity-60"
-                  :disabled="!scenarioIdee.trim() || scenarioScriptLoading"
-                  @click="generateScenarioScriptFromIdee"
-                >
-                  {{ scenarioScriptLoading ? 'Génération du script...' : 'Générer le script' }}
-                </button>
-                <p v-if="scenarioScriptError" class="mt-1.5 text-xs text-red-600">{{ scenarioScriptError }}</p>
-              </div>
-
-              <div>
-                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">2. Profil (pour le classement du contenu)</label>
+                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">1. Profil (pour le classement du contenu)</label>
                 <select
                   v-model="widgetProfileId"
                   class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
@@ -393,15 +412,11 @@
                   </p>
                 </div>
               </div>
-
-              <div v-if="widgetInputs.scenePrompt || widgetInputs.scriptText">
-                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">3. Vérifie et corrige si besoin</label>
-              </div>
             </template>
 
             <template v-else>
               <div v-if="selectedWidget.requiresPersona">
-                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Persona</label>
+                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">1. Persona</label>
                 <select
                   v-model="widgetProfileId"
                   class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
@@ -412,7 +427,7 @@
                 <p v-if="!ambassadorProfiles.length" class="mt-1.5 text-xs text-[#7B5A3F]">Aucune persona avec face ref disponible.</p>
               </div>
               <div v-else>
-                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Profil (pour le classement du contenu)</label>
+                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">1. Profil (pour le classement du contenu)</label>
                 <select
                   v-model="widgetProfileId"
                   class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
@@ -430,6 +445,29 @@
                 </select>
               </div>
             </template>
+
+            <div v-if="widgetInputVariables.length">
+              <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">2. Exprime ton besoin</label>
+              <textarea
+                v-model="widgetIdea"
+                rows="2"
+                placeholder="Ex : une vidéo qui montre le produit en usage, ambiance naturelle"
+                class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#E8873A]"
+              />
+              <button
+                type="button"
+                class="mt-2 rounded-[10px] bg-[#FDE7D6] px-4 py-2 text-sm font-bold text-[#B45F1D] transition-colors hover:bg-[#FAD9BE] disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="!widgetIdea.trim() || widgetFieldsAssistLoading"
+                @click="generateWidgetFieldsFromIdea"
+              >
+                {{ widgetFieldsAssistLoading ? 'Remplissage...' : 'Remplir avec Claude' }}
+              </button>
+              <p v-if="widgetFieldsAssistError" class="mt-1.5 text-xs text-red-600">{{ widgetFieldsAssistError }}</p>
+            </div>
+
+            <div v-if="widgetInputVariables.some((item) => widgetInputs[item.key])">
+              <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">3. Vérifie et corrige si besoin</label>
+            </div>
 
             <div v-for="variable in widgetInputVariables" :key="variable.key">
               <label class="mb-1.5 block text-sm font-semibold text-gray-800">{{ variable.label }}</label>
@@ -573,6 +611,12 @@ const editContentPreviewUrl = ref('')
 // Modele impose pour la generation video. "auto" conserve la detection par prompt.
 const selectedVideoModel = ref('auto')
 
+// Assistant Claude "Prompt libre" (image/video) : idee -> prompt detaille,
+// qui remplit le textarea `prompt` existant (celui-ci reste ensuite editable).
+const freePromptIdea = ref('')
+const freePromptAssistLoading = ref(false)
+const freePromptAssistError = ref('')
+
 // Seedance n est propose que si le compte est credite (voir SEEDANCE_ENABLED).
 const seedanceEnabled = computed(() => Boolean(useRuntimeConfig().public?.seedanceEnabled))
 
@@ -605,6 +649,12 @@ const carouselPrompts = ref([
   createCarouselPrompt(''),
   createCarouselPrompt(''),
 ])
+
+// Assistant Claude carrousel : idee -> N slides (Claude decide du nombre,
+// borne 2-10), remplace carouselPrompts par le resultat.
+const carouselIdea = ref('')
+const carouselAssistLoading = ref(false)
+const carouselAssistError = ref('')
 
 // Polling vidéo asynchrone
 const videoPolling = ref({ active: false, contentId: null, intervalId: null })
@@ -728,7 +778,8 @@ const selectedProfileHasFaceRef = computed(() => Boolean(String(selectedProfileF
 // Widgets: blocs selectionnables qui pre-remplissent un prompt a partir d'un
 // template. La generation reutilise ensuite les memes endpoints que le prompt
 // libre (/api/generate/image, /api/generate/video).
-const { widgets: widgetsList, loadError: widgetsLoadError, loadWidgets, resolveWidget, generateScenarioScript } = useWidgets()
+const { widgets: widgetsList, loadError: widgetsLoadError, loadWidgets, resolveWidget } = useWidgets()
+const { assistFreePrompt, assistWidgetFields, assistCarouselSlides } = usePromptAssist()
 const selectedWidgetId = ref('')
 const widgetGenerationType = ref('IMAGE')
 const widgetVideoModel = ref('auto')
@@ -737,14 +788,16 @@ const widgetInputs = ref({})
 const widgetAssetUrls = ref({})
 const widgetAssetUploading = ref({})
 
-// Widget "Video Scenario" uniquement : idee libre -> script redige par
-// Claude (scenePrompt/scriptText, deja des variables 'input' du widget donc
-// affichees et editables via la boucle generique ci-dessous une fois
-// generees), et verrouillage d identite optionnel (independant du profil
-// choisi comme proprietaire du contenu -- voir server/data/widgets.js).
-const scenarioIdee = ref('')
-const scenarioScriptLoading = ref(false)
-const scenarioScriptError = ref('')
+// Assistant Claude widgets (generique, tous les widgets) : idee libre ->
+// valeurs pour tous les champs texte du widget selectionne (deja des
+// variables 'input', donc affichees et editables via la boucle generique
+// ci-dessous une fois generees).
+const widgetIdea = ref('')
+const widgetFieldsAssistLoading = ref(false)
+const widgetFieldsAssistError = ref('')
+
+// Video Scenario uniquement : verrouillage d identite optionnel (independant
+// du profil choisi comme proprietaire du contenu -- voir server/data/widgets.js).
 const scenarioLockIdentity = ref(false)
 
 loadWidgets()
@@ -763,23 +816,66 @@ function selectWidget(widgetId) {
   widgetProfileId.value = ''
   widgetInputs.value = {}
   widgetAssetUrls.value = {}
-  scenarioIdee.value = ''
-  scenarioScriptError.value = ''
+  widgetIdea.value = ''
+  widgetFieldsAssistError.value = ''
   scenarioLockIdentity.value = false
 }
 
-async function generateScenarioScriptFromIdee() {
-  if (!scenarioIdee.value.trim() || scenarioScriptLoading.value) return
+async function generateFreePromptFromIdea() {
+  if (!freePromptIdea.value.trim() || freePromptAssistLoading.value) return
 
-  scenarioScriptLoading.value = true
-  scenarioScriptError.value = ''
+  freePromptAssistLoading.value = true
+  freePromptAssistError.value = ''
   try {
-    const { scenePrompt, scriptText } = await generateScenarioScript({ idee: scenarioIdee.value.trim() })
-    widgetInputs.value = { ...widgetInputs.value, scenePrompt, scriptText }
+    const { prompt: assistedPrompt } = await assistFreePrompt({
+      idea: freePromptIdea.value.trim(),
+      mediaType: mode.value,
+      profileId: wantsAmbassador.value ? resolvedAmbassadorId.value : '',
+    })
+    prompt.value = assistedPrompt
   } catch (err) {
-    scenarioScriptError.value = err?.data?.statusMessage || err?.message || 'Génération du script impossible.'
+    freePromptAssistError.value = err?.data?.statusMessage || err?.message || 'Écriture du prompt impossible.'
   } finally {
-    scenarioScriptLoading.value = false
+    freePromptAssistLoading.value = false
+  }
+}
+
+async function generateCarouselSlidesFromIdea() {
+  if (!carouselIdea.value.trim() || carouselAssistLoading.value) return
+
+  carouselAssistLoading.value = true
+  carouselAssistError.value = ''
+  try {
+    const { slides } = await assistCarouselSlides({
+      idea: carouselIdea.value.trim(),
+      profileId: wantsAmbassador.value ? resolvedAmbassadorId.value : '',
+    })
+    if (Array.isArray(slides) && slides.length) {
+      carouselPrompts.value = slides.map((text) => createCarouselPrompt(text))
+    }
+  } catch (err) {
+    carouselAssistError.value = err?.data?.statusMessage || err?.message || 'Génération des slides impossible.'
+  } finally {
+    carouselAssistLoading.value = false
+  }
+}
+
+async function generateWidgetFieldsFromIdea() {
+  if (!widgetIdea.value.trim() || widgetFieldsAssistLoading.value || !selectedWidget.value) return
+
+  widgetFieldsAssistLoading.value = true
+  widgetFieldsAssistError.value = ''
+  try {
+    const { fields } = await assistWidgetFields({
+      widgetId: selectedWidget.value.id,
+      idea: widgetIdea.value.trim(),
+      profileId: widgetProfileId.value,
+    })
+    widgetInputs.value = { ...widgetInputs.value, ...fields }
+  } catch (err) {
+    widgetFieldsAssistError.value = err?.data?.statusMessage || err?.message || 'Remplissage des champs impossible.'
+  } finally {
+    widgetFieldsAssistLoading.value = false
   }
 }
 
