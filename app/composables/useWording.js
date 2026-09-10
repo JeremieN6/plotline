@@ -3,20 +3,23 @@ import { computed } from 'vue'
 const WORDING_BY_TYPE = {
   INFLUENCER_CREATOR: {
     ambassador: 'influenceuse',
+    ambassadorMasculine: 'influenceur',
     ambassadorPlural: 'influenceuses',
     visualIdentity: 'persona',
     aiAmbassador: 'influenceuse IA',
   },
   CONTENT_CREATOR: {
     ambassador: 'ambassadrice',
+    ambassadorMasculine: 'ambassadeur',
     ambassadorPlural: 'ambassadrices',
-    visualIdentity: 'identite visuelle',
+    visualIdentity: 'identité visuelle',
     aiAmbassador: 'ambassadrice IA',
   },
   BRAND: {
     ambassador: 'ambassadrice',
+    ambassadorMasculine: 'ambassadeur',
     ambassadorPlural: 'ambassadrices',
-    visualIdentity: 'identite visuelle',
+    visualIdentity: 'identité visuelle',
     aiAmbassador: 'ambassadrice IA',
   },
 }
@@ -42,9 +45,21 @@ export function useWording() {
     return normalized
   }
 
+  // Genre le nom d'ambassadeur/ambassadrice sur un profil precis (silhouette
+  // masculine/feminine choisie a la creation) -- reserve aux endroits qui
+  // referencent UN profil identifie (fiche persona, profil actif), pas aux
+  // libelles generiques/pluriels ("Mes ambassadrices") qui restent au feminin
+  // par defaut faute de profil unique a accorder.
+  function ambassadorFor(gender) {
+    return String(gender || '').trim().toUpperCase() === 'MALE'
+      ? wording.value.ambassadorMasculine
+      : wording.value.ambassador
+  }
+
   return {
     accountType,
     wording,
     formatLabel,
+    ambassadorFor,
   }
 }
