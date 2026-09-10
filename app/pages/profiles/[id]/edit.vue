@@ -164,7 +164,7 @@
           <div>
             <h2 class="text-base font-bold text-gray-900">Marques représentées</h2>
             <p class="mt-1 text-sm text-gray-500">
-              Une même {{ wording.ambassador }} peut représenter plusieurs marques. Coche celles pour lesquelles elle peut générer du contenu.
+              {{ isMaleProfile ? 'Un même' : 'Une même' }} {{ profileTypeLabel }} peut représenter plusieurs marques. Coche celles pour lesquelles {{ isMaleProfile ? 'il' : 'elle' }} peut générer du contenu.
             </p>
           </div>
 
@@ -234,7 +234,7 @@
               class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none"
             >
               <option v-for="option in silhouetteOptions" :key="option.value" :value="option.value">
-                {{ option.label }}{{ option.isDefault ? ' (par defaut)' : '' }}
+                {{ option.label }}{{ option.isDefault ? ' (par défaut)' : '' }}
               </option>
             </select>
             <p class="mt-1.5 text-xs text-gray-600">{{ selectedSilhouetteDescription }}</p>
@@ -243,8 +243,8 @@
 
         <div v-if="isAmbassadorProfile" class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
           <div>
-            <h2 class="text-base font-bold text-gray-900">Identite</h2>
-            <p class="mt-1 text-sm text-gray-500">Ces informations, demandees a la creation, servent aussi a decrire la persona dans les widgets Studio.</p>
+            <h2 class="text-base font-bold text-gray-900">Identité</h2>
+            <p class="mt-1 text-sm text-gray-500">Ces informations, demandées à la création, servent aussi à décrire la persona dans les widgets Studio.</p>
           </div>
 
           <div class="mt-4 grid gap-4 sm:grid-cols-2">
@@ -257,7 +257,7 @@
               <input v-model="form.ethnicity" class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none" placeholder="ex : origine mediterraneenne" />
             </div>
             <div class="sm:col-span-2">
-              <label class="mb-1.5 block text-sm font-semibold text-gray-800">Particularites</label>
+              <label class="mb-1.5 block text-sm font-semibold text-gray-800">Particularités</label>
               <input v-model="form.particularities" class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none" placeholder="ex : taches de rousseur, grain de beaute" />
             </div>
           </div>
@@ -371,7 +371,7 @@ const router = useRouter()
 const id = computed(() => String(route.params.id || ''))
 const activeInfluencerId = useActiveInfluencer()
 const { pushToast, requestConfirmation } = useUiFeedback()
-const { wording } = useWording()
+const { ambassadorFor } = useWording()
 
 watch(
   id,
@@ -508,7 +508,8 @@ const styleItems = computed(() => splitNiches(form.style))
 const isAmbassadorProfile = computed(() => {
   return Boolean(String(influencer.value?.faceRefPath || currentFaceRefPath.value || '').trim())
 })
-const profileTypeLabel = computed(() => (isAmbassadorProfile.value ? wording.value.ambassador : 'marque'))
+const isMaleProfile = computed(() => String(influencer.value?.gender || '').trim().toUpperCase() === 'MALE')
+const profileTypeLabel = computed(() => (isAmbassadorProfile.value ? ambassadorFor(influencer.value?.gender) : 'marque'))
 const profileTypeLabelDisplay = computed(() => {
   const label = profileTypeLabel.value
   return label.charAt(0).toUpperCase() + label.slice(1)
@@ -516,7 +517,7 @@ const profileTypeLabelDisplay = computed(() => {
 const linkedBrandLabel = computed(() => {
   const brandName = String(influencer.value?.brandName || '').trim()
   if (isAmbassadorProfile.value && brandName) {
-    return `${wording.value.ambassador} rattachée à la marque ${brandName}`
+    return `${profileTypeLabel.value} rattaché${isMaleProfile.value ? '' : 'e'} à la marque ${brandName}`
   }
 
   if (!isAmbassadorProfile.value && brandName) {
@@ -844,7 +845,7 @@ async function connectTwitter() {
     const { statusMessage } = extractHttpErrorDetails(err)
     pushToast({
       title: 'Connexion Twitter impossible',
-      message: statusMessage || 'La connexion n a pas pu être finalisée.',
+      message: statusMessage || 'La connexion n\'a pas pu être finalisée.',
       tone: 'error',
       duration: 6000,
     })

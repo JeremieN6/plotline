@@ -273,7 +273,7 @@ import { useRoute, useRouter } from 'vue-router'
 const route = useRoute()
 const router = useRouter()
 const { user, refreshAuth } = useAuthSession()
-const { wording } = useWording()
+const { wording, ambassadorFor } = useWording()
 const activeInfluencerId = useActiveInfluencer()
 const switcherOpen = ref(false)
 const mobileMenuOpen = ref(false)
@@ -323,12 +323,12 @@ const createAmbassadorLabel = computed(() => {
 })
 const activeProfileTypeLabel = computed(() => {
   const profileType = String(activeInfluencer.value?.profileType || '').trim().toUpperCase()
-  if (profileType === 'PERSONA') return wording.value.ambassador
+  if (profileType === 'PERSONA') return ambassadorFor(activeInfluencer.value?.gender)
   if (profileType === 'BRAND') return 'marque'
   if (profileType === 'ACTIVITY') return 'activité'
 
   const hasFaceRef = Boolean(String(activeInfluencer.value?.faceRefPath || '').trim())
-  return hasFaceRef ? wording.value.ambassador : 'marque'
+  return hasFaceRef ? ambassadorFor(activeInfluencer.value?.gender) : 'marque'
 })
 const settingsNavLabel = computed(() => {
   if (!activeInfluencer.value) return `Paramètres ${wording.value.ambassador}`
@@ -438,7 +438,7 @@ function profileSecondaryLabel(influencer) {
   const profileType = String(influencer?.profileType || '').trim().toUpperCase()
 
   if (profileType === 'PERSONA') {
-    return `Profil ${wording.value.ambassador}`
+    return `Profil ${ambassadorFor(influencer?.gender)}`
   }
 
   if (profileType === 'BRAND') {
@@ -451,7 +451,7 @@ function profileSecondaryLabel(influencer) {
 
   if (isContentCreator.value || isBrand.value) {
     const hasFaceRef = Boolean(String(influencer?.faceRefPath || '').trim())
-    return hasFaceRef ? `Profil ${wording.value.ambassador}` : 'Profil marque'
+    return hasFaceRef ? `Profil ${ambassadorFor(influencer?.gender)}` : 'Profil marque'
   }
 
   return summarizeNiches(influencer?.niche) || 'Sans niche'
