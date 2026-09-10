@@ -1,6 +1,7 @@
 import { getWidgetById } from '../../data/widgets.js';
 import { resolveWidgetPrompt } from '../../utils/widgetEngine.js';
 import { buildPersonaDescription } from '../../utils/personaDescription.js';
+import { findPersonaCompatible } from '../../utils/personaLookup.js';
 
 let prismaClient;
 
@@ -12,52 +13,6 @@ async function getPrisma() {
     throw new Error('Unable to resolve prisma client from server/utils/prisma.js');
   }
   return prismaClient;
-}
-
-function isPrismaSchemaDriftError(err) {
-  const message = String(err?.message || '').toLowerCase();
-  return err?.code === 'P2022'
-    || (message.includes('column') && message.includes('does not exist'))
-    || message.includes('unknown arg')
-    || message.includes('unknown argument')
-    || message.includes('unknown field');
-}
-
-const FULL_SELECT = {
-  id: true,
-  userId: true,
-  name: true,
-  silhouette: true,
-  gender: true,
-  faceRefPath: true,
-  bodyPrompt: true,
-  hairPrompt: true,
-  identityProfile: true,
-  eyeColor: true,
-  ethnicity: true,
-  particularities: true,
-};
-
-const LEGACY_SELECT = {
-  id: true,
-  userId: true,
-  name: true,
-  silhouette: true,
-  faceRefPath: true,
-  bodyPrompt: true,
-  hairPrompt: true,
-  identityProfile: true,
-};
-
-async function findPersonaCompatible(prisma, id, userId) {
-  try {
-    return await prisma.profile.findFirst({ where: { id, userId }, select: FULL_SELECT });
-  } catch (err) {
-    if (!isPrismaSchemaDriftError(err)) throw err;
-    // Migration 20260903160000 (eyeColor/ethnicity/particularities) pas encore
-    // appliquee sur cette base: persona.description se construit sans elles.
-    return prisma.profile.findFirst({ where: { id, userId }, select: LEGACY_SELECT });
-  }
 }
 
 /**

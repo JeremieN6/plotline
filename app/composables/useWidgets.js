@@ -30,16 +30,5 @@ export function useWidgets() {
     })
   }
 
-  // Widget "Video Scenario" : transforme une idee libre en scene + script via
-  // Claude, avant que l'utilisateur ne genere (et puisse corriger le texte
-  // propose). Appel separe de resolveWidget, qui reste une pure substitution
-  // de texte synchrone.
-  async function generateScenarioScript({ idee }) {
-    return await $fetch('/api/widgets/scenario-script', {
-      method: 'POST',
-      body: { idee },
-    })
-  }
-
-  return { widgets, loading, loadError, loadWidgets, resolveWidget, generateScenarioScript }
+  return { widgets, loading, loadError, loadWidgets, resolveWidget }
 }
