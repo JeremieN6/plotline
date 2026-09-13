@@ -867,7 +867,14 @@ export function startGenerationWorker() {
     async (job) => processGenerationJob(job.data, { updateProgress: (value) => job.updateProgress(value) }),
     {
       connection: workerConnection,
-      drainDelay: 30,
+      // Un job reel arrive rarement (generation manuelle) et reveille de toute
+      // facon la lecture bloquante instantanement des qu il est ajoute a la
+      // file: ces deux delais ne retardent que les relances a vide. Les
+      // valeurs par defaut de BullMQ (30s chacune) faisaient tourner le
+      // worker en boucle 24h/24 sans aucun job, ce qui a a lui seul epuise
+      // le quota mensuel de commandes Upstash du plan gratuit.
+      drainDelay: 300,
+      stalledInterval: 300_000,
     },
   );
 
