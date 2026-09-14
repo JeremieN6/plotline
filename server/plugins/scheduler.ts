@@ -1,6 +1,12 @@
 import { runScheduledPublications } from '../utils/scheduledPublisher.js';
 
-const TICK_INTERVAL_MS = 60_000;
+// A 60s, chaque tick interrogeait Neon plus vite que son delai de mise en
+// veille (~5 min): la base ne s endormait jamais et tournait en continu
+// 24h/24, epuisant le quota mensuel de CU-hours meme sans aucune visite.
+// 10 min laisse le temps a la base de suspendre entre deux verifications,
+// au prix d un retard de publication du meme ordre — sans consequence pour
+// un calendrier editorial.
+const TICK_INTERVAL_MS = 10 * 60_000;
 
 // Le publicateur planifie doit etre active explicitement. La base Neon est
 // partagee entre le poste de dev et la production: demarre par defaut, une
