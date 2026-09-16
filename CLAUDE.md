@@ -63,6 +63,7 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 
 ### Prochaines etapes :
 - [ ] Ajouter mode dry-run + notifications d'erreur + logs structures
+- [ ] Video longue pour `/api/external/video-jobs` (script "long" cote sassify.fr, `VIDEO_SCRIPT_MODE=long`) : aujourd'hui une seule generation Omni Flash de 10s, donc le script long est coupe en cours de route. A construire : enchainer plusieurs extensions via `previous_interaction_id` (meme mecanisme que `requestOmniFlashTwoTurn`, mais generalise a N segments) -- SANS jamais fournir d image de depart/face ref, en gardant un personnage fictif comme aujourd hui par defaut sur cet endpoint (voir decision 2026-09-09) : c est precisement l absence de verrouillage d identite qui evite le probleme de lip-sync/derive deja rencontre avec un persona du catalogue. Contrainte dure cote Google (Omni 1.1, doc officielle) : extension par tranches de 10s, plafonnee a 40s cumules au total (10s initial + 3 extensions max) -- pas de duree illimitee.
 
 ### Ecarte pour l instant :
 - Seedance: credits prepayes epuises et generation jamais aboutie. Hors service via `SEEDANCE_ENABLED`, code conserve. Veo et Kling suffisent.
