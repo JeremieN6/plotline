@@ -1,3 +1,5 @@
+import { DEFAULT_FORMAT_ROTATION, DEFAULT_POSTS_PER_WEEK, DEFAULT_PUBLISH_HOUR } from '../../utils/contentPlanner.js';
+
 let prismaClient;
 
 async function getMediaStorage() {
@@ -45,6 +47,9 @@ function normalizeInfluencer(influencer) {
     instagramAccessToken: influencer.instagramAccessToken,
     tiktokEnabled: Boolean(influencer.tiktokEnabled),
     calendarStep: influencer.calendarStep,
+    postsPerWeek: Number.isFinite(Number(influencer?.postsPerWeek)) ? Number(influencer.postsPerWeek) : DEFAULT_POSTS_PER_WEEK,
+    formatRotation: String(influencer?.formatRotation || DEFAULT_FORMAT_ROTATION.join(',')),
+    publishHour: Number.isFinite(Number(influencer?.publishHour)) ? Number(influencer.publishHour) : DEFAULT_PUBLISH_HOUR,
     createdAt: influencer.createdAt,
     brandId: influencer.brandId || null,
     brandName: String(influencer?.brand?.name || influencer?.brandName || '').trim(),
@@ -76,6 +81,9 @@ async function findInfluencerCompatible(prisma, id) {
         instagramAccessToken: true,
         tiktokEnabled: true,
         calendarStep: true,
+        postsPerWeek: true,
+        formatRotation: true,
+        publishHour: true,
         createdAt: true,
         brand: {
           select: {
@@ -124,7 +132,7 @@ async function getPrisma() {
   return prismaClient;
 }
 
-module.exports = defineEventHandler(async (event) => {
+export default defineEventHandler(async (event) => {
   try {
     const prisma = await getPrisma();
     const { toMediaUrl } = await getMediaStorage();

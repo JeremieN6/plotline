@@ -1,3 +1,5 @@
+import { normalizePostsPerWeek, normalizePublishHour, parseFormatRotation } from '../../utils/contentPlanner.js';
+
 let prismaClient;
 let nicheUtils;
 
@@ -105,6 +107,9 @@ async function updateInfluencerCompatible(prisma, id, data) {
         eyeColor: true,
         ethnicity: true,
         particularities: true,
+        postsPerWeek: true,
+        formatRotation: true,
+        publishHour: true,
       },
     });
   } catch (err) {
@@ -120,7 +125,7 @@ async function updateInfluencerCompatible(prisma, id, data) {
   }
 }
 
-module.exports = defineEventHandler(async (event) => {
+export default defineEventHandler(async (event) => {
   try {
     const id = event.context?.params?.id;
     const body = await readBody(event);
@@ -192,6 +197,24 @@ module.exports = defineEventHandler(async (event) => {
     if (typeof body?.particularities === 'string') {
       const normalizedParticularities = body.particularities.trim();
       payload.particularities = normalizedParticularities ? normalizedParticularities : null;
+    }
+
+    if (body?.postsPerWeek !== undefined && body?.postsPerWeek !== null && body?.postsPerWeek !== '') {
+      if (!Number.isFinite(Number(body.postsPerWeek)) || Number(body.postsPerWeek) < 1) {
+        return sendError(event, createError({ statusCode: 400, statusMessage: 'postsPerWeek invalide' }));
+      }
+      payload.postsPerWeek = normalizePostsPerWeek(body.postsPerWeek);
+    }
+
+    if (typeof body?.formatRotation === 'string' && body.formatRotation.trim()) {
+      payload.formatRotation = parseFormatRotation(body.formatRotation).join(',');
+    }
+
+    if (body?.publishHour !== undefined && body?.publishHour !== null && body?.publishHour !== '') {
+      if (!Number.isFinite(Number(body.publishHour)) || Number(body.publishHour) < 0 || Number(body.publishHour) > 23) {
+        return sendError(event, createError({ statusCode: 400, statusMessage: 'publishHour invalide' }));
+      }
+      payload.publishHour = normalizePublishHour(body.publishHour);
     }
 
     if (!payload.name || !payload.niche || !payload.style) {

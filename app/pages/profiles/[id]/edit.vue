@@ -264,6 +264,88 @@
         </div>
 
         <div class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
+          <div>
+            <h2 class="text-base font-bold text-gray-900">Cadence de publication</h2>
+            <p class="mt-1 text-sm text-gray-500">Détermine le rythme utilisé par le planificateur éditorial quand tu prépares un plan.</p>
+          </div>
+
+          <div class="mt-4 grid gap-4 sm:grid-cols-3">
+            <div>
+              <label class="mb-1.5 block text-sm font-semibold text-gray-800">Posts par semaine</label>
+              <input
+                v-model.number="form.postsPerWeek"
+                type="number"
+                min="1"
+                max="21"
+                class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none"
+              />
+            </div>
+            <div>
+              <label class="mb-1.5 block text-sm font-semibold text-gray-800">Heure de publication</label>
+              <select
+                v-model.number="form.publishHour"
+                class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none"
+              >
+                <option v-for="hour in 24" :key="hour - 1" :value="hour - 1">{{ String(hour - 1).padStart(2, '0') }}h</option>
+              </select>
+            </div>
+            <div>
+              <label class="mb-1.5 block text-sm font-semibold text-gray-800">Rotation des formats</label>
+              <input
+                v-model="form.formatRotation"
+                type="text"
+                class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none"
+                placeholder="FEED,STORY,REEL"
+              />
+              <p class="mt-1.5 text-xs text-gray-500">Séparés par des virgules, parmi FEED, STORY, REEL.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
+          <div>
+            <h2 class="text-base font-bold text-gray-900">Plans précédents</h2>
+            <p class="mt-1 text-sm text-gray-500">Retrouve les plans déjà préparés pour ce profil.</p>
+          </div>
+
+          <div v-if="plansPending" class="mt-4 text-sm text-gray-500">Chargement...</div>
+          <div v-else-if="!previousPlans.length" class="mt-4 text-sm text-gray-500">Aucun plan préparé pour l'instant.</div>
+          <div v-else class="mt-4 space-y-2">
+            <div
+              v-for="planItem in previousPlans"
+              :key="planItem.id"
+              class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E5E3DF] bg-white px-3 py-2.5"
+            >
+              <div class="flex items-center gap-2.5">
+                <span
+                  class="rounded-full px-2.5 py-1 text-xs font-bold"
+                  :class="planStatusClass(planItem.status)"
+                >
+                  {{ planStatusLabel(planItem.status) }}
+                </span>
+                <span class="text-sm text-gray-700">
+                  {{ planItem._count?.items || 0 }} idée{{ (planItem._count?.items || 0) > 1 ? 's' : '' }} · {{ formatPlanDate(planItem.createdAt) }}
+                </span>
+              </div>
+              <div class="flex items-center gap-2">
+                <NuxtLink :to="`/plans/${planItem.id}`" class="text-xs font-bold text-[#B45F1D] underline underline-offset-2">
+                  Ouvrir
+                </NuxtLink>
+                <button
+                  v-if="planItem.status === 'DRAFT'"
+                  type="button"
+                  class="text-xs font-bold text-[#666666] underline underline-offset-2 hover:text-[#111111]"
+                  :disabled="discardingPlanIds.includes(planItem.id)"
+                  @click="discardPreviousPlan(planItem)"
+                >
+                  {{ discardingPlanIds.includes(planItem.id) ? 'Abandon...' : 'Jeter' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
           <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h2 class="text-base font-bold text-gray-900">Instagram</h2>
@@ -411,6 +493,9 @@ const initialFormState = ref({
   bodyPrompt: '',
   silhouette: 'VOLUPTUOUS',
   gender: 'FEMALE',
+  postsPerWeek: 3,
+  formatRotation: 'FEED,STORY,REEL',
+  publishHour: 18,
 })
 
 const silhouetteOptions = computed(() => getSilhouetteOptions(form.gender))
@@ -435,6 +520,9 @@ const form = reactive({
   eyeColor: '',
   ethnicity: '',
   particularities: '',
+  postsPerWeek: 3,
+  formatRotation: 'FEED,STORY,REEL',
+  publishHour: 18,
 })
 
 const instagramForm = reactive({
@@ -500,6 +588,50 @@ async function saveBrandLinks() {
     brandLinksMessage.value = err?.statusMessage || 'Enregistrement impossible.'
   } finally {
     savingBrands.value = false
+  }
+}
+
+// Plans editoriaux deja prepares pour ce profil, avec possibilite de les jeter
+// sans passer par l ecran de revue.
+const { data: plansData, pending: plansPending, refresh: refreshPlans } = await useFetch(
+  () => `/api/plans?profileId=${id.value}`,
+  { key: computed(() => `plans-for-profile-${id.value}`) },
+)
+const previousPlans = computed(() => plansData.value?.plans ?? [])
+const discardingPlanIds = ref([])
+
+function planStatusLabel(status) {
+  if (status === 'APPROVED') return 'Approuvé'
+  if (status === 'DISCARDED') return 'Abandonné'
+  return 'Brouillon'
+}
+
+function planStatusClass(status) {
+  if (status === 'APPROVED') return 'bg-[#E7F3EC] text-[#2F7A4F]'
+  if (status === 'DISCARDED') return 'bg-[#F5F2ED] text-[#999999]'
+  return 'bg-[#FDF0E4] text-[#B45F1D]'
+}
+
+function formatPlanDate(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+async function discardPreviousPlan(planItem) {
+  discardingPlanIds.value = [...discardingPlanIds.value, planItem.id]
+
+  try {
+    await $fetch(`/api/plans/${planItem.id}/discard`, { method: 'POST' })
+    await refreshPlans()
+  } catch (err) {
+    pushToast({
+      title: 'Abandon impossible',
+      message: err?.statusMessage || 'Le plan n\'a pas pu être abandonné.',
+      tone: 'error',
+    })
+  } finally {
+    discardingPlanIds.value = discardingPlanIds.value.filter((planId) => planId !== planItem.id)
   }
 }
 
@@ -572,6 +704,9 @@ watch(
     form.eyeColor = value.eyeColor || ''
     form.ethnicity = value.ethnicity || ''
     form.particularities = value.particularities || ''
+    form.postsPerWeek = Number.isFinite(Number(value.postsPerWeek)) ? Number(value.postsPerWeek) : 3
+    form.formatRotation = value.formatRotation || 'FEED,STORY,REEL'
+    form.publishHour = Number.isFinite(Number(value.publishHour)) ? Number(value.publishHour) : 18
     instagramForm.instagramAccountId = value.instagramAccountId || ''
     instagramForm.instagramAccessToken = value.instagramAccessToken || ''
     initialFormState.value = {
@@ -581,6 +716,9 @@ watch(
       eyeColor: form.eyeColor,
       ethnicity: form.ethnicity,
       particularities: form.particularities,
+      postsPerWeek: form.postsPerWeek,
+      formatRotation: form.formatRotation,
+      publishHour: form.publishHour,
     }
     currentFaceRefPath.value = value.faceRefPath || ''
     currentFaceRefUrl.value = value.faceRefUrl || (currentFaceRefFilename.value ? `/api/media/face-refs/${encodeURIComponent(currentFaceRefFilename.value)}` : '')
@@ -891,6 +1029,18 @@ async function submit() {
 
     if (form.particularities !== initialFormState.value.particularities) {
       patchBody.particularities = form.particularities
+    }
+
+    if (form.postsPerWeek !== initialFormState.value.postsPerWeek) {
+      patchBody.postsPerWeek = form.postsPerWeek
+    }
+
+    if (form.formatRotation !== initialFormState.value.formatRotation) {
+      patchBody.formatRotation = form.formatRotation
+    }
+
+    if (form.publishHour !== initialFormState.value.publishHour) {
+      patchBody.publishHour = form.publishHour
     }
 
     await $fetch(`/api/profiles/${id.value}`, {

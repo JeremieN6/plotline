@@ -86,11 +86,16 @@
                 v-for="content in cell.items"
                 :key="content.id"
                 type="button"
-                class="rounded-[12px] px-2 py-1.5 text-left text-[11px] font-bold text-white shadow-sm transition-opacity duration-150 hover:opacity-90"
-                :class="formatClass(content.format)"
-                @click.stop="openDrawer(content)"
+                class="rounded-[12px] px-2 py-1.5 text-left text-[11px] font-bold shadow-sm transition-opacity duration-150 hover:opacity-90"
+                :class="content.isDraft
+                  ? 'border border-dashed border-[#B45F1D]/50 bg-[#FDF0E4]/60 text-[#B45F1D] opacity-80'
+                  : `text-white ${formatClass(content.format)}`"
+                @click.stop="content.isDraft ? openDraftPlan(content) : openDrawer(content)"
               >
-                <span class="block truncate">{{ content.influencer?.name }}</span>
+                <span class="block truncate">
+                  {{ content.influencer?.name }}
+                  <span v-if="content.isDraft" class="font-medium">· Brouillon</span>
+                </span>
                 <span class="block truncate font-medium opacity-80">{{ content.caption || 'Sans caption' }}</span>
               </button>
             </div>
@@ -178,6 +183,29 @@ async function createPlan() {
   }
 }
 
+// Idees d un plan brouillon: pas encore generees (pas de contentId), donc
+// absentes de /content. Affichees en style distinct, sans engager de credits.
+async function fetchDraftPlanItems(profileId) {
+  const { plans } = await $fetch(`/api/plans?profileId=${profileId}`)
+  const draftPlans = (plans || []).filter((plan) => plan.status === 'DRAFT')
+
+  const draftsByPlan = await Promise.all(
+    draftPlans.map((plan) => $fetch(`/api/plans/${plan.id}`)),
+  )
+
+  return draftsByPlan.flatMap(({ plan }) => (plan?.items || [])
+    .filter((item) => item.keep && !item.contentId)
+    .map((item) => ({
+      id: `plan-item-${item.id}`,
+      planId: plan.id,
+      format: item.format,
+      scheduledAt: item.scheduledAt,
+      caption: item.caption || item.prompt,
+      influencer: { name: plan.profile?.name },
+      isDraft: true,
+    })))
+}
+
 watch(
   selectedInfluencer,
   async (value) => {
@@ -187,10 +215,15 @@ watch(
     }
 
     const response = await $fetch(`/api/profiles/${value.id}/content?statuses=PENDING,VALIDATED,PUBLISHED,PROCESSING`)
-    contents.value = response.contents || []
+    const draftItems = await fetchDraftPlanItems(value.id)
+    contents.value = [...(response.contents || []), ...draftItems]
   },
   { immediate: true },
 )
+
+function openDraftPlan(content) {
+  router.push(`/plans/${content.planId}`)
+}
 
 const monthLabel = computed(() => {
   return new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(currentMonth.value)
