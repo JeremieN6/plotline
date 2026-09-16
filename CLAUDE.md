@@ -63,7 +63,6 @@ Le produit permet de configurer un ou plusieurs personas (identite visuelle, voi
 
 ### Prochaines etapes :
 - [ ] Ajouter mode dry-run + notifications d'erreur + logs structures
-- [ ] Overlay texte d accroche (hookVideo) : ecarte de l endpoint externe (voir STORY.md 2026-09-07). A construire plus tard, specifiquement pour le format de contenu influenceur (aguicheur, explicite), pas pour les videos type home.sassify.fr qui doivent rester des videos normales sans texte par dessus
 
 ### Ecarte pour l instant :
 - Seedance: credits prepayes epuises et generation jamais aboutie. Hors service via `SEEDANCE_ENABLED`, code conserve. Veo et Kling suffisent.
