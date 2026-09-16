@@ -374,7 +374,7 @@
                   v-model="widgetProfileId"
                   class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
                 >
-                  <option value="">Choisir un profil...</option>
+                  <option value="">Aucun profil particulier (personnage fictif, contenu générique)</option>
                   <optgroup v-if="groupedProfiles.PERSONA.length" label="Personas / Ambassadrices">
                     <option v-for="item in groupedProfiles.PERSONA" :key="item.id" :value="item.id">{{ item.name }}</option>
                   </optgroup>
@@ -385,6 +385,7 @@
                     <option v-for="item in groupedProfiles.ACTIVITY" :key="item.id" :value="item.id">{{ item.name }}</option>
                   </optgroup>
                 </select>
+                <p class="mt-1.5 text-xs text-[#7B5A3F]">Optionnel : sert seulement à retrouver le contenu dans Mes créations. Sans choix, il sera classé sous un profil générique "Contenus sans persona".</p>
               </div>
 
               <div>
@@ -432,7 +433,7 @@
                   v-model="widgetProfileId"
                   class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
                 >
-                  <option value="">Choisir un profil...</option>
+                  <option value="">Aucun profil particulier (contenu générique)</option>
                   <optgroup v-if="groupedProfiles.PERSONA.length" label="Personas / Ambassadrices">
                     <option v-for="item in groupedProfiles.PERSONA" :key="item.id" :value="item.id">{{ item.name }}</option>
                   </optgroup>
@@ -443,6 +444,7 @@
                     <option v-for="item in groupedProfiles.ACTIVITY" :key="item.id" :value="item.id">{{ item.name }}</option>
                   </optgroup>
                 </select>
+                <p class="mt-1.5 text-xs text-[#7B5A3F]">Optionnel : sert seulement à retrouver le contenu dans Mes créations. Sans choix, il sera classé sous un profil générique "Contenus sans persona".</p>
               </div>
             </template>
 
@@ -899,7 +901,10 @@ async function onWidgetAssetChange(assetKey, event) {
 const canGenerateWidget = computed(() => {
   const widget = selectedWidget.value
   if (!widget) return false
-  if (!widgetProfileId.value) return false
+  // Seuls les widgets qui verrouillent une identite (requiresPersona) exigent
+  // un profil : les autres (Food Ad, Video Scenario) peuvent rester rattaches
+  // au profil generique "Contenus sans persona", auto-cree cote serveur.
+  if (widget.requiresPersona && !widgetProfileId.value) return false
   if (widgetInputVariables.value.some((item) => !String(widgetInputs.value[item.key] || '').trim())) return false
   if (widgetUploadAssets.value.some((item) => item.required && !widgetAssetUrls.value[item.key])) return false
   if (widget.id === 'SCENARIO_BLOG' && scenarioLockIdentity.value && !selectedProfileHasFaceRef.value) return false
@@ -929,7 +934,9 @@ const canGenerate = computed(() => {
     return false
   }
 
-  if (!primaryInfluencerId.value) return false
+  // Sans profil actif (aucun persona/profil cree sur le compte), le contenu
+  // est rattache au profil generique "Contenus sans persona", auto-cree cote
+  // serveur -- primaryInfluencerId vide ne bloque donc plus la generation.
   if (wantsAmbassador.value && !resolvedAmbassadorId.value) return false
   return true
 })

@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { processGenerationJob } from '../../utils/generationWorker.js';
 import { shouldUseQueue } from '../../utils/queueMode.js';
+import { getOrCreateDefaultProfile } from '../../utils/defaultProfile.js';
 
 let prismaClient;
 let variablesCache;
@@ -204,7 +205,7 @@ export default defineEventHandler(async (event) => {
     const user = await authModule.requireAuthUser(event);
     const body = await readBody(event);
     const {
-      influencerId,
+      influencerId: rawInfluencerId,
       ambassadorId,
       campaignId,
       contentType,
@@ -214,6 +215,12 @@ export default defineEventHandler(async (event) => {
       prompt,
       extraReferenceImageUrl,
     } = body || {};
+    // Un contenu sans persona precis (personnage fictif, affiche produit...)
+    // reste rattache a un profil neutre auto-cree, jamais propose dans les
+    // selecteurs de persona -- voir server/utils/defaultProfile.js. La colonne
+    // GeneratedContent.influencerId reste obligatoire en base, mais l utilisateur
+    // n a plus besoin de choisir un persona de son catalogue pour generer.
+    let influencerId = String(rawInfluencerId || '').trim();
     errorContext = {
       influencerId,
       ambassadorId,
@@ -258,13 +265,9 @@ export default defineEventHandler(async (event) => {
     const isFreeWorkflow = normalizedWorkflowType === 'free';
 
     if (!influencerId) {
-      return sendError(
-        event,
-        createError({
-          statusCode: 400,
-          statusMessage: 'Missing required field: influencerId',
-        }),
-      );
+      const defaultProfile = await getOrCreateDefaultProfile(prisma, user.id);
+      influencerId = defaultProfile.id;
+      errorContext.influencerId = influencerId;
     }
 
     if (campaignId) {

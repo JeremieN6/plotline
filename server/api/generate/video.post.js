@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { resolveVideoModelOrThrow, runVideoGenerationJob } from '../../utils/videoGeneration.js';
+import { getOrCreateDefaultProfile } from '../../utils/defaultProfile.js';
 
 let prismaClient;
 
@@ -83,7 +84,9 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event);
 
   const prompt = String(body?.prompt || '').trim();
-  const influencerId = String(body?.influencerId || '').trim();
+  // Un contenu sans persona precis (personnage fictif, publicite generique...)
+  // reste rattache a un profil neutre auto-cree -- voir server/utils/defaultProfile.js.
+  let influencerId = String(body?.influencerId || '').trim();
   const ambassadorId = String(body?.ambassadorId || '').trim();
   const campaignId = String(body?.campaignId || '').trim();
   const withFaceRef = body?.withFaceRef === true;
@@ -97,7 +100,8 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!influencerId) {
-    return sendError(event, createError({ statusCode: 400, statusMessage: 'influencerId requis' }));
+    const defaultProfile = await getOrCreateDefaultProfile(prisma, user.id);
+    influencerId = defaultProfile.id;
   }
 
   if (campaignId) {
