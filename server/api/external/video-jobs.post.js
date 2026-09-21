@@ -37,14 +37,18 @@ export default defineEventHandler(async (event) => {
   const prisma = await getPrisma();
   const body = await readBody(event);
 
-  const influencerId = String(body?.influencerId || '').trim();
+  // Profil qui RECOIT la video dans Plotline (marque, persona...): un simple
+  // dossier de rangement, jamais la personne a l ecran (withFaceRef: false plus
+  // bas). `influencerId` reste accepte: c est l ancien nom du parametre, encore
+  // envoye par les versions de sassify deja deployees.
+  const profileId = String(body?.profileId || body?.influencerId || '').trim();
   const decorPrompt = String(body?.decorPrompt || '').trim();
   const scriptText = String(body?.scriptText || '').trim();
   const slug = String(body?.slug || '').trim();
   const sourceProject = String(body?.sourceProject || '').trim();
 
-  if (!influencerId) {
-    return sendError(event, createError({ statusCode: 400, statusMessage: 'influencerId requis' }));
+  if (!profileId) {
+    return sendError(event, createError({ statusCode: 400, statusMessage: 'profileId requis' }));
   }
 
   if (!scriptText) {
@@ -52,7 +56,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const influencer = await prisma.profile.findUnique({
-    where: { id: influencerId },
+    where: { id: profileId },
     select: { id: true, faceRefPath: true },
   });
 
@@ -99,7 +103,7 @@ export default defineEventHandler(async (event) => {
   const generatedContent = await createGeneratedContentRecord(prisma, generatedContentData);
   const contentId = generatedContent.id;
 
-  console.log(`[external/video-jobs] contentId=${contentId} influencerId=${influencerId} sourceProject=${sourceProject || 'inconnu'} slug=${slug || 'aucun'} model=${model}`);
+  console.log(`[external/video-jobs] contentId=${contentId} profileId=${profileId} sourceProject=${sourceProject || 'inconnu'} slug=${slug || 'aucun'} model=${model}`);
 
   try {
     const result = await runVideoGenerationJob({
