@@ -19,6 +19,24 @@
 
 <!-- Les entrees seront ajoutees ici au fil du temps -->
 
+### 2026-09-21 Proteger un endpoint casse les pages qui l appellent en `$fetch` pendant le rendu serveur
+**Probleme** : apres avoir exige une session sur `GET /api/profiles/:id/content`, la page Calendrier affichait "401 - Authentification requise" a la place de la page entiere. Constate seulement en rechargeant la page en navigateur, pas par les tests ni le build.
+**Cause racine** : `calendar.vue` appelait l endpoint via un `$fetch` brut dans un `watch(..., { immediate: true })`, qui s execute aussi au rendu serveur. Cote serveur, un `$fetch` brut n envoie pas le cookie de la requete entrante: l endpoint, jusque-la ouvert (donc faille), repondait sans session; devenu protege, il repond 401 et l erreur non rattrapee fait tomber la page. `content.vue` avait le meme appel mais dans un `try/catch`, ce qui masquait le probleme (liste vide au rendu serveur).
+**Solution** : `useRequestFetch()` (deja utilise par `useAuthSession`) pour ces appels, plus un `try/catch` autour du chargement dans le calendrier pour qu un echec n emporte pas la page.
+**Regle** : avant de proteger un endpoint, chercher tous ses appelants (`grep`) et verifier lesquels s executent au rendu serveur; apres l avoir protege, recharger EN ENTIER (pas en navigation interne) chaque page qui l utilise. Et une erreur avalee par un `try/catch` n est pas la preuve que l appel marche.
+
+### 2026-09-19 `new GoogleGenAI({ apiKey, timeout })` ignore silencieusement le timeout
+**Probleme** : en testant le chainage de segments Omni Flash, la 2e interaction echouait en "Request timed out. This is a client-side timeout" apres ~60-180s, alors que `requestOmniFlashVideo` declarait deja `timeout: 120000` (puis 300000 apres une premiere tentative de correction, sans effet).
+**Cause racine** : le constructeur de `GoogleGenAI` (`@google/genai` 2.7.0) ne lit JAMAIS `options.timeout` -- seulement `options.httpOptions`, dont `httpOptions.timeout` est transmis au client des Interactions (`timeout: httpOpts?.timeout`, defaut `DEFAULT_TIMEOUT = 60000`). Le timeout de premier niveau etait donc un no-op depuis le premier jour: tous les appels Omni Flash tournaient sur 60s, jamais sur les 120s vises.
+**Solution** : `new GoogleGenAI({ apiKey, httpOptions: { timeout: 300000 } })`.
+**Regle** : une option passee a un constructeur de SDK qui ne provoque aucune erreur n est pas la preuve qu elle est lue. Avant d augmenter une valeur "pour corriger", verifier dans le code du SDK (`node_modules/@google/genai/dist/index.mjs`) que l option est reellement consommee, plutot que de relancer des tests payants en tatonnant (deux essais reels ont ete brules ici sur une valeur sans effet).
+
+### 2026-09-19 Une interaction Omni Flash chainee renvoie la video CUMULATIVE, pas seulement son segment
+**Probleme** : la premiere version du chainage concatenait (ffmpeg) les videos des 4 interactions et produisait 100s au lieu de 40s, avec le debut de la scene rejoue plusieurs fois.
+**Cause racine** : chaque interaction utilisant `previous_interaction_id` renvoie la video depuis le debut (10s, 20s, 30s, 40s), pas uniquement son propre clip de 10s. 10+20+30+40 = 100s. Le plan reposait sur une lecture erronee du commentaire de `requestOmniFlashTwoTurn` ("le tour 2 ne rallonge pas la duree du tour 1"), jamais verifiee sur un chainage reel a plus de 2 tours.
+**Solution** : garder uniquement la video du DERNIER segment (aucune concatenation, `videoConcat.js` supprime). Verifie sur un vrai rendu: plans larges de debut de scene a t=0/10/30/60s, personnage et decor coherents d un bout a l autre.
+**Regle** : avant de construire un assemblage (concat, montage), verifier sur UNE sortie reelle ce que chaque appel renvoie exactement (duree, contenu) -- un ffprobe + quelques captures suffisent, et l hypothese "chaque appel = son propre morceau" a failli etre livree.
+
 ### 2026-09-07 Un computed() appele sans .value bloquait toute creation de persona
 **Probleme** : en production, impossible de creer une persona (mobile constate en premier, mais le bug touchait tous les appareils) -- a la derniere etape du formulaire (`profiles/new.vue`), la page devenait blanche sous le header, sans message d'erreur. Le bouton "Creer" n'etait jamais atteint, donc aucune persona ne se creait, meme apres plusieurs tentatives.
 **Cause racine** : l ajout du genre a transforme `silhouetteOptions` d un tableau statique en `computed(() => getSilhouetteOptions(form.gender))`. Un seul endroit, `selectedSilhouetteLabel` (affiche uniquement au recapitulatif final), avait garde `silhouetteOptions.find(...)` au lieu de `silhouetteOptions.value.find(...)`. Un computed n est pas un tableau: l appel plantait des que le recapitulatif tentait de s afficher, avant meme que l utilisateur voie le bouton de creation.
