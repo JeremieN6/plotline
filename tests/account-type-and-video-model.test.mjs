@@ -45,6 +45,7 @@ import { getWidgetById, getWidgets } from '../server/data/widgets.js';
 import { parsePromptAssistResult } from '../server/utils/promptAssistGenerator.js';
 import { parseWidgetFieldsResult } from '../server/utils/widgetFieldsAssistGenerator.js';
 import { parseCarouselAssistResult } from '../server/utils/carouselAssistGenerator.js';
+import { splitScriptIntoSegments } from '../server/utils/scriptSegmentation.js';
 
 test('normalizeAccountType normalizes to uppercase', () => {
   assert.equal(normalizeAccountType(' brand '), 'BRAND');
@@ -738,4 +739,57 @@ test('carouselAssistGenerator: tronque au maximum si Claude en propose trop', ()
 test('carouselAssistGenerator: renvoie null sur JSON invalide ou sans tableau exploitable', () => {
   assert.equal(parseCarouselAssistResult('pas du json', { min: 2, max: 10 }), null);
   assert.equal(parseCarouselAssistResult('{"slides": "not an array"}', { min: 2, max: 10 }), null);
+});
+
+test('splitScriptIntoSegments: texte court tient dans un seul segment', () => {
+  const result = splitScriptIntoSegments('Une phrase courte et percutante qui tient large.');
+  assert.equal(result.segments.length, 1);
+  assert.equal(result.truncatedWordCount, 0);
+});
+
+test('splitScriptIntoSegments: texte vide ne produit aucun segment', () => {
+  assert.deepEqual(splitScriptIntoSegments(''), { segments: [], truncatedWordCount: 0 });
+  assert.deepEqual(splitScriptIntoSegments('   '), { segments: [], truncatedWordCount: 0 });
+});
+
+test('splitScriptIntoSegments: repartit plusieurs phrases sur plusieurs segments sans en couper une', () => {
+  const text = 'Premiere phrase assez longue pour a elle seule bien remplir un segment entier ici.'
+    + ' Deuxieme phrase, elle aussi assez fournie pour occuper une bonne partie du segment suivant.'
+    + ' Troisieme phrase courte.';
+  const result = splitScriptIntoSegments(text, { maxWordsPerSegment: 12, maxSegments: 4 });
+
+  assert.ok(result.segments.length > 1);
+  assert.equal(result.truncatedWordCount, 0);
+  // Aucune phrase n est coupee en plein mot: chaque segment se termine par une ponctuation de fin de phrase.
+  for (const segment of result.segments) {
+    assert.match(segment.trim(), /[.!?]$/);
+  }
+  // Reassembler les segments redonne exactement les memes phrases, dans le meme ordre.
+  assert.equal(result.segments.join(' '), text);
+});
+
+test('splitScriptIntoSegments: une phrase plus longue que la limite forme son propre segment sans etre coupee', () => {
+  const longSentence = 'Une phrase unique mais anormalement longue qui depasse largement la limite de mots autorisee par segment.';
+  const result = splitScriptIntoSegments(longSentence, { maxWordsPerSegment: 5, maxSegments: 4 });
+
+  assert.equal(result.segments.length, 1);
+  assert.equal(result.segments[0], longSentence);
+  assert.equal(result.truncatedWordCount, 0);
+});
+
+test('splitScriptIntoSegments: tronque proprement au-dela de maxSegments et compte les mots ignores', () => {
+  const sentences = Array.from({ length: 6 }, (_, i) => `Phrase numero ${i + 1} avec quelques mots supplementaires ici.`);
+  const result = splitScriptIntoSegments(sentences.join(' '), { maxWordsPerSegment: 10, maxSegments: 4 });
+
+  assert.equal(result.segments.length, 4);
+  assert.ok(result.truncatedWordCount > 0);
+});
+
+test('splitScriptIntoSegments: pile 4 segments ne declenche aucune troncature', () => {
+  const sentences = Array.from({ length: 4 }, (_, i) => `Phrase numero ${i + 1} ici.`);
+  // 4 mots par phrase: une limite de 4 mots/segment force exactement une phrase par segment.
+  const result = splitScriptIntoSegments(sentences.join(' '), { maxWordsPerSegment: 4, maxSegments: 4 });
+
+  assert.equal(result.segments.length, 4);
+  assert.equal(result.truncatedWordCount, 0);
 });

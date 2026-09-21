@@ -13,6 +13,7 @@ import { getGeneratedDir, toMediaUrl } from './mediaStorage.js';
 import { resolveAspectRatio } from './aspectRatio.js';
 import { generateSeedanceVideo, isSeedanceEnabled } from './seedanceGenerator.js';
 import { selectVideoModel } from './videoModelSelector.js';
+import { splitScriptIntoSegments } from './scriptSegmentation.js';
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -252,13 +253,17 @@ async function waitForOmniFlashInteraction(ai, interaction) {
   return interaction;
 }
 
-async function extractOmniFlashVideoUrl(interaction) {
+function extractOmniFlashVideoBuffer(interaction) {
   const base64Video = String(interaction?.output_video?.data || '').trim();
   if (!base64Video) {
     throw new Error(`Reponse Omni Flash sans output_video.data exploitable: ${JSON.stringify(interaction).slice(0, 500)}`);
   }
 
-  const buffer = Buffer.from(base64Video, 'base64');
+  return Buffer.from(base64Video, 'base64');
+}
+
+async function extractOmniFlashVideoUrl(interaction) {
+  const buffer = extractOmniFlashVideoBuffer(interaction);
   return saveGeneratedVideoBuffer(buffer, 'video_omniflash');
 }
 
@@ -346,16 +351,108 @@ async function requestOmniFlashTwoTurn({ scenePrompt, dialogueText, ai, model, a
   return { jobId: String(turn2?.id || ''), videoUrl, status: 'completed', model };
 }
 
+// Un seul appel Omni Flash, chaine ou non sur une interaction precedente.
+// Contrairement a extractOmniFlashVideoUrl(), ne pousse rien sur le Blob: seule
+// la video du DERNIER segment est persistee (voir requestOmniFlashMultiSegment).
+async function requestOmniFlashSegmentBuffer({ ai, model, aspectRatio, text, previousInteractionId }) {
+  let interaction;
+  try {
+    interaction = await ai.interactions.create({
+      model,
+      ...(previousInteractionId ? { previous_interaction_id: previousInteractionId } : {}),
+      input: text,
+      response_format: { type: 'video', aspect_ratio: aspectRatio },
+    });
+  } catch (error) {
+    throw new Error(describeOmniFlashError(error));
+  }
+  interaction = await waitForOmniFlashInteraction(ai, interaction);
+
+  return {
+    interactionId: String(interaction?.id || ''),
+    buffer: extractOmniFlashVideoBuffer(interaction),
+  };
+}
+
+// Enchaine plusieurs segments de 10s via previous_interaction_id (documente par
+// Google pour Omni 1.1 : extension par tranches de 10s, jusqu a 40s cumules,
+// donc 4 segments) pour couvrir un script trop long pour un seul appel
+// single-turn. Volontairement reserve aux generations SANS face ref : c est le
+// seul mode qui rend proprement a ce jour (decision du 2026-09-09) --
+// verrouiller l identite ici reintroduirait le probleme de lip-sync/derive
+// deja rencontre avec requestOmniFlashTwoTurn.
+//
+// Chaque interaction renvoie la video CUMULATIVE depuis le debut (10s, puis
+// 20s, 30s, 40s), pas seulement son propre clip -- constate en test reel : une
+// premiere version concatenait les 4 sorties et produisait 100s (10+20+30+40)
+// avec le debut de la scene rejoue a t=0, 10, 30 et 60s. La video finale est
+// donc simplement celle du DERNIER segment, sans aucun assemblage ffmpeg.
+// Les segments intermediaires servent uniquement a construire la chaine.
+async function requestOmniFlashMultiSegment({ scenePrompt, dialogueText, ai, model, aspectRatio }) {
+  const { segments, truncatedWordCount } = splitScriptIntoSegments(dialogueText);
+
+  if (truncatedWordCount > 0) {
+    console.warn(`[omniflash] script tronque de ${truncatedWordCount} mot(s) au-dela de 4 segments (plafond Google de 40s cumules).`);
+  }
+
+  let previousInteractionId;
+  let lastResult = null;
+
+  for (const [index, segmentText] of segments.entries()) {
+    const text = index === 0
+      ? `${scenePrompt}. The person speaks clearly, in French, with natural lip movement synced to the speech: "${segmentText}"`
+      : `Continue this exact scene naturally, maintaining the same character, setting, and visual style. The person continues speaking clearly, in French, with natural lip movement synced to the speech: "${segmentText}"`;
+
+    console.log(`[omniflash] segment ${index + 1}/${segments.length}...`);
+
+    try {
+      lastResult = await requestOmniFlashSegmentBuffer({
+        ai,
+        model,
+        aspectRatio,
+        text,
+        previousInteractionId,
+      });
+    } catch (error) {
+      // Le message brut ne dit pas quel segment a echoue dans une chaine de 4:
+      // sans ce contexte, diagnostiquer une chaine longue revient a tout rejouer.
+      throw new Error(`Segment ${index + 1}/${segments.length} : ${normalizeErrorMessage(error, 'Omni Flash')}`);
+    }
+
+    console.log(`[omniflash] segment ${index + 1}/${segments.length} termine (interaction ${lastResult.interactionId}).`);
+    previousInteractionId = lastResult.interactionId;
+  }
+
+  const videoUrl = await saveGeneratedVideoBuffer(lastResult.buffer, 'video_omniflash_multi');
+
+  return { jobId: lastResult.interactionId, videoUrl, status: 'completed', model };
+}
+
 async function requestOmniFlashVideo({ scenePrompt, dialogueText, apiKey, aspectRatio, faceRefImage }) {
-  // Le timeout par defaut du SDK est de 1 minute par requete HTTP -- trop
-  // juste pour un modele recent et parfois lent a repondre a une simple
-  // requete de statut.
-  const ai = new GoogleGenAI({ apiKey, timeout: 120000 });
+  // Le timeout par defaut du SDK est de 1 minute par requete HTTP -- confirme
+  // en lisant le SDK (`@google/genai`) apres un echec reel sur un test a 4
+  // segments: `new GoogleGenAI({ apiKey, timeout })` ignorait silencieusement
+  // ce `timeout` de premier niveau depuis le debut (le constructeur ne lit que
+  // `options.httpOptions`, jamais `options.timeout`) -- CHAQUE appel Omni
+  // Flash tournait donc reellement sur le defaut de 60s du SDK, jamais sur les
+  // 120s vises par le commentaire d origine. Un chainage a 2 segments l a
+  // rendu visible: la 2e interaction (avec previous_interaction_id) a mis plus
+  // de 60s a demarrer et a echoue en "client-side timeout". Fixe en passant
+  // par la bonne forme, `httpOptions.timeout`, alignee sur le budget deja
+  // tolere par waitForOmniFlashInteraction (60 tentatives x 5s = 300s).
+  const ai = new GoogleGenAI({ apiKey, httpOptions: { timeout: 300000 } });
   const model = 'gemini-omni-1.1-flash';
 
-  return faceRefImage
-    ? requestOmniFlashTwoTurn({ scenePrompt, dialogueText, ai, model, aspectRatio, faceRefImage })
-    : requestOmniFlashSingleTurn({ scenePrompt, dialogueText, ai, model, aspectRatio });
+  if (faceRefImage) {
+    return requestOmniFlashTwoTurn({ scenePrompt, dialogueText, ai, model, aspectRatio, faceRefImage });
+  }
+
+  const { segments } = splitScriptIntoSegments(dialogueText);
+  if (segments.length > 1) {
+    return requestOmniFlashMultiSegment({ scenePrompt, dialogueText, ai, model, aspectRatio });
+  }
+
+  return requestOmniFlashSingleTurn({ scenePrompt, dialogueText, ai, model, aspectRatio });
 }
 
 export const SUPPORTED_VIDEO_MODELS = ['veo', 'kling', 'seedance', 'omniflash'];
