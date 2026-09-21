@@ -185,12 +185,17 @@ async function createPlan() {
 
 // Idees d un plan brouillon: pas encore generees (pas de contentId), donc
 // absentes de /content. Affichees en style distinct, sans engager de credits.
+// Ce watch s execute aussi au rendu serveur, ou un $fetch brut n envoie pas le
+// cookie de session: sans useRequestFetch, les endpoints proteges repondaient
+// 401 et faisaient tomber toute la page.
+const requestFetch = useRequestFetch()
+
 async function fetchDraftPlanItems(profileId) {
-  const { plans } = await $fetch(`/api/plans?profileId=${profileId}`)
+  const { plans } = await requestFetch(`/api/plans?profileId=${profileId}`)
   const draftPlans = (plans || []).filter((plan) => plan.status === 'DRAFT')
 
   const draftsByPlan = await Promise.all(
-    draftPlans.map((plan) => $fetch(`/api/plans/${plan.id}`)),
+    draftPlans.map((plan) => requestFetch(`/api/plans/${plan.id}`)),
   )
 
   return draftsByPlan.flatMap(({ plan }) => (plan?.items || [])
@@ -214,9 +219,13 @@ watch(
       return
     }
 
-    const response = await $fetch(`/api/profiles/${value.id}/content?statuses=PENDING,VALIDATED,PUBLISHED,PROCESSING`)
-    const draftItems = await fetchDraftPlanItems(value.id)
-    contents.value = [...(response.contents || []), ...draftItems]
+    try {
+      const response = await requestFetch(`/api/profiles/${value.id}/content?statuses=PENDING,VALIDATED,PUBLISHED,PROCESSING`)
+      const draftItems = await fetchDraftPlanItems(value.id)
+      contents.value = [...(response.contents || []), ...draftItems]
+    } catch {
+      contents.value = []
+    }
   },
   { immediate: true },
 )

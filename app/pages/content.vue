@@ -369,6 +369,8 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 const activeInfluencerId = useActiveInfluencer()
 const { pushToast } = useUiFeedback()
 const { wording, accountType, formatLabel } = useWording()
+// Rendu serveur: un $fetch brut n envoie pas le cookie de session.
+const requestFetch = useRequestFetch()
 const isContentCreator = computed(() => accountType.value === 'CONTENT_CREATOR')
 const isBrand = computed(() => accountType.value === 'BRAND')
 
@@ -486,7 +488,7 @@ watch(
     try {
       const statuses = getStatusesForTab(tab)
       const campaignQuery = selectedCampaignId.value ? `&campaignId=${encodeURIComponent(selectedCampaignId.value)}` : ''
-      const response = await $fetch(`/api/profiles/${influencer.id}/content?statuses=${statuses}${campaignQuery}`)
+      const response = await requestFetch(`/api/profiles/${influencer.id}/content?statuses=${statuses}${campaignQuery}`)
       if (activeRequestId.value === requestId) {
         contentItems.value = (response.contents || []).map((item) => normalizeItem(item, activeJobsByContentId.value))
       }

@@ -8,6 +8,9 @@ function mapJobStatus(state) {
 
 export default defineEventHandler(async (event) => {
   try {
+    const authModule = await import('../../utils/auth.js');
+    await authModule.requireAuthUser(event);
+
     if (!shouldUseQueue()) {
       return sendError(
         event,
@@ -39,6 +42,10 @@ export default defineEventHandler(async (event) => {
       errorMessage: state === 'failed' ? job.failedReason || 'Generation echouee' : null,
     };
   } catch (err) {
+    if (err?.statusCode) {
+      return sendError(event, err);
+    }
+
     return sendError(
       event,
       createError({

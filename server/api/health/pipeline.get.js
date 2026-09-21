@@ -1,4 +1,12 @@
 module.exports = defineEventHandler(async (event) => {
+  // Ce rapport liste les contenus, profils et erreurs de TOUS les comptes:
+  // reserve aux admins. Import dynamique: ce fichier reste en CJS.
+  const authModule = await import('../../utils/auth.js');
+  const user = await authModule.requireAuthUser(event);
+  if (!user.isAdmin) {
+    throw createError({ statusCode: 403, statusMessage: 'Reserve aux comptes administrateur' });
+  }
+
   const prismaModule = await import('../../utils/prisma.js');
   const prisma = prismaModule?.prisma || prismaModule?.default?.prisma;
 

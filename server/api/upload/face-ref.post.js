@@ -115,6 +115,12 @@ async function upsertFaceRefOnInfluencer(influencerId, faceRefPath) {
 
 module.exports = defineEventHandler(async (event) => {
   try {
+    // Sans session, n importe qui connaissant un identifiant de profil pouvait
+    // remplacer sa face ref: authentification et propriete du profil sont
+    // desormais exigees sur les deux branches (JSON et multipart).
+    const authModule = await import('../../utils/auth.js');
+    const user = await authModule.requireAuthUser(event);
+
     const contentType = String(getHeader(event, 'content-type') || '').toLowerCase();
 
     if (contentType.includes('application/json')) {
@@ -126,8 +132,8 @@ module.exports = defineEventHandler(async (event) => {
         return sendError(event, createError({ statusCode: 400, statusMessage: 'influencerId et tempImagePath requis' }));
       }
 
-      const influencer = await prisma.profile.findUnique({
-        where: { id: influencerId },
+      const influencer = await prisma.profile.findFirst({
+        where: { id: influencerId, userId: user.id },
         select: { id: true },
       });
 
@@ -136,6 +142,13 @@ module.exports = defineEventHandler(async (event) => {
       }
 
       const absoluteTempPath = resolveTempPath(tempImagePath);
+
+      // Seul l auteur d une fiche generee peut la rattacher a un profil: sans
+      // cela, un compte connecte pouvait appliquer la fiche d un autre.
+      if (!path.basename(absoluteTempPath).startsWith(`faceref_${user.id}_`)) {
+        return sendError(event, createError({ statusCode: 403, statusMessage: 'Cette image temporaire ne vous appartient pas' }));
+      }
+
       if (!fs.existsSync(absoluteTempPath)) {
         return sendError(event, createError({ statusCode: 404, statusMessage: 'Image temporaire introuvable' }));
       }
@@ -193,8 +206,8 @@ module.exports = defineEventHandler(async (event) => {
     const isTemporary = influencerId.startsWith('temp-');
 
     if (!isTemporary) {
-      const influencer = await prisma.profile.findUnique({
-        where: { id: influencerId },
+      const influencer = await prisma.profile.findFirst({
+        where: { id: influencerId, userId: user.id },
         select: { id: true }
       });
 
@@ -235,6 +248,12 @@ module.exports = defineEventHandler(async (event) => {
 
     return { path: publicPath, url: publicPath };
   } catch (err) {
+    // Les refus volontaires (401, 400...) gardent leur code au lieu d etre
+    // aplatis en 500 par le repli generique ci-dessous.
+    if (err?.statusCode) {
+      return sendError(event, err);
+    }
+
     console.error('[upload:face-ref] failure', {
       name: err?.name,
       code: err?.code,

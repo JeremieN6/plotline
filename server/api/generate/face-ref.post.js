@@ -1,3 +1,4 @@
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -100,6 +101,12 @@ async function generateFaceRefImageWithFallback(genai, customPrompt, sourceImage
 
 module.exports = defineEventHandler(async (event) => {
   try {
+    // Chaque appel depense du credit Gemini: sans session, n importe qui pouvait
+    // le consommer. Import dynamique car ce fichier reste en `module.exports`
+    // (un import statique casserait le serveur de dev, voir tasks/lessons.md).
+    const authModule = await import('../../utils/auth.js');
+    const user = await authModule.requireAuthUser(event);
+
     const body = await readBody(event);
     const sourceImageBase64 = normalizeBase64Image(body?.sourceImageBase64);
     const customPrompt = String(body?.customPrompt || '').trim();
@@ -132,7 +139,10 @@ module.exports = defineEventHandler(async (event) => {
     const tempDir = path.join(process.cwd(), 'storage', 'temp');
     fs.mkdirSync(tempDir, { recursive: true });
 
-    const fileName = `faceref_${Date.now()}.jpg`;
+    // Le nom porte l identifiant de l utilisateur et un suffixe aleatoire: un
+    // horodatage seul se devine, et rien ne liait ce fichier a son auteur
+    // (voir la verification correspondante dans upload/face-ref.post.js).
+    const fileName = `faceref_${user.id}_${crypto.randomBytes(6).toString('hex')}.jpg`;
     const absolutePath = path.join(tempDir, fileName);
     fs.writeFileSync(absolutePath, buffer);
 
@@ -143,6 +153,11 @@ module.exports = defineEventHandler(async (event) => {
       imageBase64,
     };
   } catch (err) {
+    // Un refus volontaire (401...) garde son code au lieu d etre aplati en 500.
+    if (err?.statusCode) {
+      return sendError(event, err);
+    }
+
     console.error('[generate:face-ref] failure', {
       name: err?.name,
       code: err?.code,

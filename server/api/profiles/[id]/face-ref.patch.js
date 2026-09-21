@@ -49,8 +49,30 @@ module.exports = defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'Paramètre id requis' }));
     }
 
+    // Aucun ecran n appelle plus cet endpoint: il reste protege (session +
+    // propriete du profil) plutot que ouvert, car le pipeline telecharge le
+    // chemin enregistre -- une URL arbitraire permettrait de lui faire
+    // requeter n importe quelle adresse.
+    const authModule = await import('../../../utils/auth.js');
+    const user = await authModule.requireAuthUser(event);
+
+    const ownedProfile = await prisma.profile.findFirst({
+      where: { id, userId: user.id },
+      select: { id: true },
+    });
+
+    if (!ownedProfile) {
+      return sendError(event, createError({ statusCode: 404, statusMessage: 'Profil introuvable' }));
+    }
+
     if (!faceRefPath || typeof faceRefPath !== 'string') {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'faceRefPath requis' }));
+    }
+
+    const isOwnBlobUrl = /^https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\//i.test(faceRefPath);
+    const isLocalUpload = faceRefPath.startsWith('/uploads/') || faceRefPath.startsWith('storage/uploads/');
+    if (!isOwnBlobUrl && !isLocalUpload) {
+      return sendError(event, createError({ statusCode: 400, statusMessage: 'faceRefPath doit pointer vers le stockage de l application' }));
     }
 
     const resolveLocalPath = (value) => {
@@ -87,6 +109,10 @@ module.exports = defineEventHandler(async (event) => {
 
     return influencer;
   } catch (err) {
+    if (err?.statusCode) {
+      return sendError(event, err);
+    }
+
     console.error('[influencer:face-ref-patch] failure', {
       name: err?.name,
       code: err?.code,

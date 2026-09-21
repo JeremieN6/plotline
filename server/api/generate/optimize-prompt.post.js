@@ -19,6 +19,10 @@ function extractTextFromClaudeResponse(response) {
 
 export default defineEventHandler(async (event) => {
   try {
+    // Chaque appel depense du credit Anthropic: reserve aux comptes connectes.
+    const authModule = await import('../../utils/auth.js');
+    await authModule.requireAuthUser(event);
+
     const body = await readBody(event);
     const rawPrompt = String(body?.rawPrompt || '').trim();
     const influencerName = String(body?.influencerName || '').trim();
@@ -74,6 +78,10 @@ export default defineEventHandler(async (event) => {
 
     return { optimizedPrompt };
   } catch (err) {
+    if (err?.statusCode) {
+      return sendError(event, err);
+    }
+
     return sendError(
       event,
       createError({

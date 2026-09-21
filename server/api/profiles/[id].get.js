@@ -142,6 +142,11 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'Paramètre id requis' }));
     }
 
+    // Une fiche de profil (tokens Instagram compris) ne se lit que depuis le
+    // compte qui la possede: connaitre un identifiant ne suffit plus.
+    const authModule = await import('../../utils/auth.js');
+    const user = await authModule.requireAuthUser(event);
+
     let influencer;
 
     try {
@@ -157,9 +162,13 @@ export default defineEventHandler(async (event) => {
 
     if (!influencer) {
       const storedInfluencer = await store.getItem(`influencer:${id}`);
-      if (storedInfluencer) {
+      if (storedInfluencer && storedInfluencer.userId === user.id) {
         return storedInfluencer;
       }
+      return sendError(event, createError({ statusCode: 404, statusMessage: 'Influencer non trouvé' }));
+    }
+
+    if (influencer.userId !== user.id) {
       return sendError(event, createError({ statusCode: 404, statusMessage: 'Influencer non trouvé' }));
     }
 
@@ -178,6 +187,10 @@ export default defineEventHandler(async (event) => {
       faceRefUrl,
     };
   } catch (err) {
+    if (err?.statusCode) {
+      return sendError(event, err);
+    }
+
     return sendError(event, createError({ statusCode: 500, statusMessage: 'Erreur serveur', data: err }));
   }
 });

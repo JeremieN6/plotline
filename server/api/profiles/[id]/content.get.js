@@ -111,6 +111,9 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'Parametre id requis' }));
     }
 
+    const authModule = await import('../../../utils/auth.js');
+    const user = await authModule.requireAuthUser(event);
+
     const query = getQuery(event);
     const statusValue = query.statuses || query.status || 'PENDING';
     const campaignId = String(query.campaignId || '').trim();
@@ -125,6 +128,16 @@ export default defineEventHandler(async (event) => {
     }
 
     const prisma = await getPrisma();
+
+    // Les contenus d un profil ne se lisent que depuis le compte qui le possede.
+    const ownedProfile = await prisma.profile.findFirst({
+      where: { id, userId: user.id },
+      select: { id: true },
+    });
+
+    if (!ownedProfile) {
+      return sendError(event, createError({ statusCode: 404, statusMessage: 'Profil introuvable' }));
+    }
 
     const baseWhere = {
       status: statuses.length === 1 ? statuses[0] : { in: statuses },
@@ -159,6 +172,10 @@ export default defineEventHandler(async (event) => {
 
     return { contents };
   } catch (err) {
+    if (err?.statusCode) {
+      return sendError(event, err);
+    }
+
     return sendError(
       event,
       createError({

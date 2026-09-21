@@ -135,6 +135,27 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'Paramètre id requis' }));
     }
 
+    // Sans session ni verification de propriete, n importe qui pouvait modifier
+    // le profil d un autre compte en connaissant son identifiant.
+    const authModule = await import('../../utils/auth.js');
+    const user = await authModule.requireAuthUser(event);
+
+    if (String(id).startsWith('local-')) {
+      const storedProfile = await useStorage('data').getItem(`influencer:${id}`);
+      if (!storedProfile || storedProfile.userId !== user.id) {
+        return sendError(event, createError({ statusCode: 404, statusMessage: 'Influenceuse non trouvée' }));
+      }
+    } else {
+      const ownedProfile = await (await getPrisma()).profile.findFirst({
+        where: { id, userId: user.id },
+        select: { id: true },
+      });
+
+      if (!ownedProfile) {
+        return sendError(event, createError({ statusCode: 404, statusMessage: 'Influenceuse non trouvée' }));
+      }
+    }
+
     const payload = {
       name: String(body?.name || '').trim(),
       niche: normalizeNicheValue(body?.niche || ''),
@@ -276,6 +297,10 @@ export default defineEventHandler(async (event) => {
       throw err;
     }
   } catch (err) {
+    if (err?.statusCode) {
+      return sendError(event, err);
+    }
+
     console.error('[influencer:patch] failure', {
       name: err?.name,
       code: err?.code,
