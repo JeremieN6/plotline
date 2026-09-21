@@ -131,6 +131,32 @@
             >
               {{ generatingRef ? 'Génération en cours... (~30s)' : 'Générer la nouvelle fiche référence' }}
             </button>
+
+            <div v-if="isAdmin" class="mt-4 rounded-xl border border-dashed border-[#E5E3DF] bg-white p-4">
+              <div class="flex flex-wrap items-center gap-2">
+                <p class="text-sm font-bold text-gray-800">Importer directement une fiche 3 vues</p>
+                <span class="rounded-full bg-[#111111] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Admin</span>
+              </div>
+              <p class="mt-1 text-xs text-gray-500">
+                Remplace la face ref actuelle par ta propre fiche, sans passer par la génération. Format conseillé : 3 vues du visage (face, 3/4, profil) sur fond blanc — c'est le format qui a le mieux tenu l'identité faciale.
+              </p>
+              <input
+                ref="adminSheetInputRef"
+                type="file"
+                accept="image/jpeg,image/png,.jpg,.jpeg,.png"
+                class="hidden"
+                @change="onAdminSheetSelect"
+              />
+              <button
+                type="button"
+                class="mt-3 rounded-lg border border-[#E5E3DF] bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                :disabled="uploadingAdminSheet"
+                @click="openAdminSheetPicker"
+              >
+                {{ uploadingAdminSheet ? 'Import en cours...' : 'Importer ma fiche' }}
+              </button>
+              <p v-if="adminSheetError" class="mt-2 text-sm text-red-600">{{ adminSheetError }}</p>
+            </div>
           </template>
 
           <template v-else>
@@ -453,6 +479,15 @@ const router = useRouter()
 const id = computed(() => String(route.params.id || ''))
 const activeInfluencerId = useActiveInfluencer()
 const { pushToast, requestConfirmation } = useUiFeedback()
+
+// Import direct d une fiche reference, reserve aux comptes admin (le serveur
+// re-verifie: ce drapeau ne sert qu a afficher la zone).
+const { user: authUser, refreshAuth } = useAuthSession()
+await refreshAuth()
+const isAdmin = computed(() => Boolean(authUser.value?.isAdmin))
+const adminSheetInputRef = ref(null)
+const uploadingAdminSheet = ref(false)
+const adminSheetError = ref('')
 const { ambassadorFor } = useWording()
 
 watch(
@@ -866,6 +901,42 @@ async function generateFaceReference() {
     generateError.value = err?.data?.statusMessage || err?.message || String(err)
   } finally {
     generatingRef.value = false
+  }
+}
+
+function openAdminSheetPicker() {
+  adminSheetInputRef.value?.click()
+}
+
+async function onAdminSheetSelect(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file || uploadingAdminSheet.value) return
+
+  uploadingAdminSheet.value = true
+  adminSheetError.value = ''
+
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    await $fetch(`/api/profiles/${id.value}/face-ref-upload`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    resetFaceRefFlow()
+    await refresh()
+
+    pushToast({
+      title: 'Fiche importée',
+      message: 'Ta fiche référence remplace la face ref actuelle.',
+      tone: 'success',
+    })
+  } catch (err) {
+    adminSheetError.value = err?.data?.statusMessage || err?.message || 'Import impossible'
+  } finally {
+    uploadingAdminSheet.value = false
   }
 }
 

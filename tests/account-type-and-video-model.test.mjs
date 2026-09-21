@@ -46,6 +46,7 @@ import { parsePromptAssistResult } from '../server/utils/promptAssistGenerator.j
 import { parseWidgetFieldsResult } from '../server/utils/widgetFieldsAssistGenerator.js';
 import { parseCarouselAssistResult } from '../server/utils/carouselAssistGenerator.js';
 import { splitScriptIntoSegments } from '../server/utils/scriptSegmentation.js';
+import { isAdminEmail, parseAdminAccounts } from '../server/utils/adminAccounts.js';
 
 test('normalizeAccountType normalizes to uppercase', () => {
   assert.equal(normalizeAccountType(' brand '), 'BRAND');
@@ -792,4 +793,21 @@ test('splitScriptIntoSegments: pile 4 segments ne declenche aucune troncature', 
 
   assert.equal(result.segments.length, 4);
   assert.equal(result.truncatedWordCount, 0);
+});
+
+test('adminAccounts: parse une liste separee par virgules, en minuscules, sans vides', () => {
+  assert.deepEqual(
+    parseAdminAccounts(' Contact@Sassify.fr, ngoyi.jeremie@gmail.com ,, '),
+    ['contact@sassify.fr', 'ngoyi.jeremie@gmail.com'],
+  );
+  assert.deepEqual(parseAdminAccounts(''), []);
+  assert.deepEqual(parseAdminAccounts(undefined), []);
+});
+
+test('adminAccounts: isAdminEmail ignore la casse et refuse tout quand la liste est vide', () => {
+  const raw = 'a@x.fr,b@x.fr';
+  assert.equal(isAdminEmail('A@X.fr', raw), true);
+  assert.equal(isAdminEmail('c@x.fr', raw), false);
+  assert.equal(isAdminEmail('', raw), false);
+  assert.equal(isAdminEmail('a@x.fr', ''), false);
 });

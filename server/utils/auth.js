@@ -2,6 +2,8 @@ import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } fr
 import { promisify } from 'node:util';
 import { createError, deleteCookie, getCookie, setCookie } from 'h3';
 
+import { isAdminEmail } from './adminAccounts.js';
+
 const scrypt = promisify(scryptCallback);
 
 const SESSION_COOKIE_NAME = 'plotline_session';
@@ -167,7 +169,7 @@ export async function resolveAuthUser(event) {
     return null;
   }
 
-  return session.user;
+  return { ...session.user, isAdmin: isAdminEmail(session.user.email) };
 }
 
 export async function requireAuthUser(event) {
