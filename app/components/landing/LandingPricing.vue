@@ -6,8 +6,8 @@
                 <h2 class="section-title">La valeur est dans la <em class="accent-em">cohérence</em>.</h2>
                 <p class="section-subtext">
                     Tu paies pour un pipeline automatisé: <br> 
-                    1- persistance du visage <br>
-                    2- récupération d'inspiration de contenu <br>
+                    1- Persistance du visage <br>
+                    2- Récupération d'inspiration de contenu <br>
                     3- Motion Control <br>
                     4- Publication sur Instagram et/ou TikTok.
                 </p>
@@ -27,7 +27,8 @@
                                 class="price-period">/mois</span></div>
                     </div>
                     <ul class="pricing-features">
-                        <li class="pricing-feature"><span class="feature-check">✓</span>1 influenceuse active</li>
+                        <li class="pricing-feature"><span class="feature-check">✓</span>1 persona actif</li>
+                        <li class="pricing-feature"><span class="feature-check">✓</span>3 fiches référence faciale</li>
                         <li class="pricing-feature"><span class="feature-check">✓</span>30 générations/mois</li>
                         <li class="pricing-feature"><span class="feature-check">✓</span>Liste de prompts Pro</li>
                         <li class="pricing-feature"><span class="feature-check">✓</span>Validation manuelle du contenu
@@ -48,7 +49,8 @@
                         <li class="pricing-feature"><span class="feature-check feature-check-pro">✓</span>Tout le plan
                             Solo</li>
                         <li class="pricing-feature"><span class="feature-check feature-check-pro">✓</span>5
-                            Influenceuses actives</li>
+                            Personas actifs</li>
+                        <li class="pricing-feature"><span class="feature-check feature-check-pro">✓</span>6 fiches référence faciale</li>
                         <li class="pricing-feature"><span class="feature-check feature-check-pro">✓</span>150
                             générations/mois</li>
                         <li class="pricing-feature"><span class="feature-check feature-check-pro">✓</span>Gestion
@@ -72,7 +74,8 @@
                     </div>
                     <ul class="pricing-features">
                         <li class="pricing-feature"><span class="feature-check">✓</span>Tout le plan Studio</li>
-                        <li class="pricing-feature"><span class="feature-check">✓</span>Influenceuses illimitées</li>
+                        <li class="pricing-feature"><span class="feature-check">✓</span>Personas illimités</li>
+                        <li class="pricing-feature"><span class="feature-check">✓</span>Fiches référence faciale illimitées</li>
                         <li class="pricing-feature"><span class="feature-check">✓</span>Générations illimitées</li>
                         <li class="pricing-feature"><span class="feature-check">✓</span>Accès à l'API</li>
                         <li class="pricing-feature"><span class="feature-check">✓</span>Onboarding dédié</li>
