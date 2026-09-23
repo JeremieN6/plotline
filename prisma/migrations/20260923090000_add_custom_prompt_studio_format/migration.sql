@@ -1,0 +1,11 @@
+-- Ajoute une 4e valeur a l enum ContentFormat: un format de contenu genere a
+-- partir de la base de prompts qualifiee de l utilisateur (voir CLAUDE.md,
+-- "A trancher : 4e valeur de Format Rotation CUSTOM_PROMPT_STUDIO"), plutot
+-- que d une recherche Pinterest. Additif, sans impact sur les lignes
+-- existantes -- aucun contenu ne porte encore ce format.
+--
+-- A appliquer a la main dans l editeur SQL de Neon (jamais depuis le projet,
+-- voir CLAUDE.md "Blocages et Points d Attention"). ALTER TYPE ... ADD VALUE
+-- est transactionnel depuis PostgreSQL 12 (Neon plotline tourne en PG17) :
+-- une seule instruction suffit.
+ALTER TYPE "ContentFormat" ADD VALUE IF NOT EXISTS 'CUSTOM_PROMPT_STUDIO';
