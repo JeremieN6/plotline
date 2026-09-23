@@ -31,7 +31,13 @@ logs
 
 
 # Dossiers et fichiers temporaire
-/tmp
+# /tmp/* (pas /tmp) : un simple /tmp empecherait Git de descendre dans le
+# dossier, rendant toute exception plus bas inoperante (comportement gitignore
+# documente : un repertoire exclu ne peut pas etre re-inclus par ses enfants).
+/tmp/*
+# Exception : notes de suivi qu on veut garder trace (voir tmp/exclusive-content/README.md)
+!/tmp/exclusive-content/
+!/tmp/exclusive-content/**
 *.tmp
 *.temp
 *.bak
