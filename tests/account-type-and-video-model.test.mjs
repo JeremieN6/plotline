@@ -37,7 +37,7 @@ import {
   resolvePublishTarget,
   runScheduledPublications,
 } from '../server/utils/scheduledPublisher.js';
-import { selectVideoModel } from '../server/utils/videoModelSelector.js';
+import { extractQuotedDialogue, selectVideoModel } from '../server/utils/videoModelSelector.js';
 import { getBodyBlock, injectBody } from '../server/utils/injectBody.js';
 import { buildPersonaDescription } from '../server/utils/personaDescription.js';
 import { resolveWidgetPrompt } from '../server/utils/widgetEngine.js';
@@ -47,6 +47,7 @@ import { parseWidgetFieldsResult } from '../server/utils/widgetFieldsAssistGener
 import { parseCarouselAssistResult } from '../server/utils/carouselAssistGenerator.js';
 import { splitScriptIntoSegments } from '../server/utils/scriptSegmentation.js';
 import { isAdminEmail, parseAdminAccounts } from '../server/utils/adminAccounts.js';
+import { detectPinterestCategory, pickPinterestKeyword } from '../server/utils/pinterestKeywordPicker.js';
 
 test('normalizeAccountType normalizes to uppercase', () => {
   assert.equal(normalizeAccountType(' brand '), 'BRAND');
@@ -258,8 +259,10 @@ test('planner: la rotation de formats ecarte les valeurs inconnues', () => {
   assert.deepEqual(parseFormatRotation('PODCAST'), ['FEED', 'STORY', 'REEL']);
 });
 
-test('planner: le format decide de la plateforme', () => {
-  assert.equal(platformForFormat('REEL'), 'TIKTOK');
+test('planner: toujours Instagram, REEL n est pas specifique a TikTok', () => {
+  // TikTok n a aucune route de publication automatique (resolvePublishTarget),
+  // et Instagram publie deja les Reels nativement (media_type: 'REELS').
+  assert.equal(platformForFormat('REEL'), 'INSTAGRAM');
   assert.equal(platformForFormat('FEED'), 'INSTAGRAM');
   assert.equal(platformForFormat('STORY'), 'INSTAGRAM');
 });
@@ -301,9 +304,9 @@ test('planner: la rotation reprend ou le profil l avait laissee', () => {
   const resumed = buildPlanSlots({ ...base, rotationOffset: 1 }).map((slot) => slot.format);
   assert.deepEqual(resumed, ['STORY', 'REEL', 'FEED']);
 
-  // La plateforme suit le format, creneau par creneau.
+  // Toujours Instagram, quel que soit le format du creneau.
   const slots = buildPlanSlots({ ...base, rotationOffset: 2 });
-  assert.deepEqual(slots.map((slot) => slot.platform), ['TIKTOK', 'INSTAGRAM', 'INSTAGRAM']);
+  assert.deepEqual(slots.map((slot) => slot.platform), ['INSTAGRAM', 'INSTAGRAM', 'INSTAGRAM']);
 });
 
 test('planner: une heure de publication invalide retombe sur la valeur par defaut', () => {
@@ -810,4 +813,40 @@ test('adminAccounts: isAdminEmail ignore la casse et refuse tout quand la liste 
   assert.equal(isAdminEmail('c@x.fr', raw), false);
   assert.equal(isAdminEmail('', raw), false);
   assert.equal(isAdminEmail('a@x.fr', ''), false);
+});
+
+test('extractQuotedDialogue: extrait la repartie et separe le decor', () => {
+  const result = extractQuotedDialogue('Elle regarde la camera dans sa cuisine et dit "Ma routine du matin change tout".');
+  assert.equal(result.dialogue, 'Ma routine du matin change tout');
+  assert.equal(result.scene.includes('Ma routine du matin'), false);
+  assert.ok(result.scene.includes('cuisine'));
+});
+
+test('extractQuotedDialogue: guillemets francais reconnus', () => {
+  const result = extractQuotedDialogue('Gros plan, il murmure «reste concentre»');
+  assert.equal(result.dialogue, 'reste concentre');
+});
+
+test('extractQuotedDialogue: aucune repartie renvoie null', () => {
+  assert.equal(extractQuotedDialogue('Une sequence dynamique de danse dans un studio'), null);
+  assert.equal(extractQuotedDialogue(''), null);
+  assert.equal(extractQuotedDialogue(undefined), null);
+});
+
+test('pinterestKeywordPicker: detectPinterestCategory retombe sur lifestyle par defaut', () => {
+  assert.equal(detectPinterestCategory('routine bien-etre au quotidien'), 'lifestyle');
+  assert.equal(detectPinterestCategory('vacances a la plage'), 'beach');
+  assert.equal(detectPinterestCategory('conseils mode et outfit du jour'), 'outfit');
+  assert.equal(detectPinterestCategory(''), 'lifestyle');
+});
+
+test('pinterestKeywordPicker: pickPinterestKeyword renvoie toujours un mot-cle non vide', async () => {
+  const story = await pickPinterestKeyword({ format: 'STORY', niche: 'plage et voyage' });
+  assert.equal(story.category, 'beach');
+  assert.equal(typeof story.keyword, 'string');
+  assert.ok(story.keyword.length > 0);
+
+  const reel = await pickPinterestKeyword({ format: 'REEL', niche: 'niche totalement inconnue' });
+  assert.equal(reel.category, 'lifestyle');
+  assert.ok(reel.keyword.length > 0);
 });

@@ -187,7 +187,10 @@ export default defineEventHandler(async (event) => {
     brandId: ownerProfile.id,
     ambassadorId: withFaceRef ? influencer.id : null,
     campaignId: campaignId || null,
-    platform: 'TIKTOK',
+    // REEL n est pas specifique a TikTok: Instagram publie deja les Reels
+    // nativement, et TikTok n a aucune route de publication automatique
+    // (voir scheduledPublisher.js resolvePublishTarget).
+    platform: 'INSTAGRAM',
     format: 'REEL',
     status: 'PROCESSING',
     prompt: prompt || null,

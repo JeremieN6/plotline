@@ -62,7 +62,7 @@ function derivePlatformAndFormat(calendarStep) {
   }
 
   if (index === 2) {
-    return { platform: 'TIKTOK', format: 'REEL' };
+    return { platform: 'INSTAGRAM', format: 'REEL' };
   }
 
   return { platform: 'INSTAGRAM', format: 'FEED' };
@@ -76,7 +76,7 @@ function derivePlatformAndFormatFromContentType(contentType) {
   }
 
   if (normalized === 'reel') {
-    return { platform: 'TIKTOK', format: 'REEL' };
+    return { platform: 'INSTAGRAM', format: 'REEL' };
   }
 
   if (normalized === 'feed') {

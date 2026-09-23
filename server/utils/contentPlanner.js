@@ -30,9 +30,15 @@ export function parseFormatRotation(value) {
   return parsed.length ? parsed : [...DEFAULT_FORMAT_ROTATION];
 }
 
-/** Le format decide de la plateforme, comme dans le pipeline de generation. */
+/**
+ * Toujours Instagram: REEL n est pas specifique a TikTok (Instagram publie deja
+ * les Reels nativement, voir instagramPublisher.js media_type: 'REELS'), et
+ * TikTok n a de toute facon aucune route de publication automatique
+ * (resolvePublishTarget la refuse explicitement) -- y assigner un format y
+ * condamnait le contenu a ne jamais pouvoir etre publie depuis l app.
+ */
 export function platformForFormat(format) {
-  return String(format || '').trim().toUpperCase() === 'REEL' ? 'TIKTOK' : 'INSTAGRAM';
+  return 'INSTAGRAM';
 }
 
 export function normalizePostsPerWeek(value) {

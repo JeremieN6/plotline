@@ -1,5 +1,7 @@
 import { processGenerationJob } from '../../../utils/generationWorker.js';
 import { resolveVideoModelOrThrow, runVideoGenerationJob } from '../../../utils/videoGeneration.js';
+import { pickPinterestKeyword } from '../../../utils/pinterestKeywordPicker.js';
+import { extractQuotedDialogue } from '../../../utils/videoModelSelector.js';
 
 let prismaClient;
 
@@ -20,17 +22,88 @@ function isVideoFormat(format) {
   return String(format || '').trim().toUpperCase() === 'REEL';
 }
 
+function isStoryFormat(format) {
+  return String(format || '').trim().toUpperCase() === 'STORY';
+}
+
 /**
  * Lance la generation d une idee. Les erreurs sont absorbees: une idee ratee ne
  * doit pas empecher les suivantes d aboutir, et le contenu porte deja son propre
  * statut d echec.
+ *
+ * Definition des formats (2026-09-22): REEL = video avec un personnage
+ * clairement visible (persona du catalogue OU personnage fictif) ; FEED =
+ * image, le plus souvent avec personnage ; STORY = image ou video SANS aucun
+ * personnage obligatoire (decor, ambiance). Le routage ci-dessous suit cette
+ * definition plutot qu un simple nom de format.
  */
 async function generateForItem({ prisma, runtimeConfig, item, profile, withFaceRef }) {
   try {
     if (isVideoFormat(item.format)) {
+      if (withFaceRef) {
+        // Persona du catalogue: on reutilise le pipeline Pinterest + Kling
+        // Motion Control (runReelWorkflow, via processGenerationJob) au lieu
+        // de la generation texte->video generique -- c est le seul chemin qui
+        // porte deja les gardes qualite (rejet des clips source trop courts,
+        // sans visage/haut du corps visible) plutot que d en dupliquer une
+        // version affaiblie ici.
+        const { keyword, category } = await pickPinterestKeyword({
+          format: 'REEL',
+          niche: profile.niche,
+          style: profile.style,
+        });
+
+        await processGenerationJob({
+          influencerId: profile.id,
+          workflowType: 'pinterest',
+          contentType: 'reel',
+          keyword,
+          tagCategory: category,
+          contentId: item.contentId,
+          withFaceRef: true,
+        });
+        return;
+      }
+
+      // Personnage fictif (pas de face ref a verrouiller): le modele depend de
+      // ce qu il y a vraiment a produire, pas d une regle fixe.
+      //
+      // - Une repartie entre guillemets dans l idee => il y a un texte a faire
+      //   dire. Omni Flash est alors justifie par le contenu lui-meme (seul
+      //   modele du projet avec lip-sync natif), pas choisi par defaut.
+      // - Sans repartie (mouvement, ambiance, action) => Omni Flash n apporte
+      //   rien puisqu il n y a aucune levre a synchroniser ; Kling/Veo restent
+      //   le choix eprouve pour du mouvement pur (selectVideoModel, deja
+      //   utilise ailleurs dans le projet pour ce meme arbitrage).
+      const quoted = extractQuotedDialogue(item.prompt);
+
+      if (quoted) {
+        const model = resolveVideoModelOrThrow({
+          prompt: item.prompt,
+          withFaceRef: false,
+          influencer: profile,
+          runtimeConfig,
+          forcedModel: 'omniflash',
+        });
+
+        await runVideoGenerationJob({
+          prisma,
+          runtimeConfig,
+          contentId: item.contentId,
+          prompt: item.prompt,
+          model,
+          withFaceRef: false,
+          influencer: profile,
+          scenePrompt: quoted.scene,
+          dialogueText: quoted.dialogue,
+        });
+
+        return;
+      }
+
       const model = resolveVideoModelOrThrow({
         prompt: item.prompt,
-        withFaceRef,
+        withFaceRef: false,
         influencer: profile,
         runtimeConfig,
       });
@@ -41,10 +114,34 @@ async function generateForItem({ prisma, runtimeConfig, item, profile, withFaceR
         contentId: item.contentId,
         prompt: item.prompt,
         model,
-        withFaceRef,
+        withFaceRef: false,
         influencer: profile,
+        scenePrompt: item.prompt,
       });
 
+      return;
+    }
+
+    if (isStoryFormat(item.format)) {
+      // Une Story n a jamais de personnage: elle vient toujours d un mot-cle
+      // Pinterest, jamais du prompt libre ecrit par Claude (qui ne decrit pas
+      // une recherche Pinterest exploitable). Bug corrige le 2026-09-22: ce
+      // format echouait a 100% ("No Pinterest video found for query:
+      // undefined"), faute de mot-cle du tout.
+      const { keyword, category } = await pickPinterestKeyword({
+        format: 'STORY',
+        niche: profile.niche,
+        style: profile.style,
+      });
+
+      await processGenerationJob({
+        influencerId: profile.id,
+        workflowType: 'pinterest',
+        contentType: 'story',
+        keyword,
+        tagCategory: category,
+        contentId: item.contentId,
+      });
       return;
     }
 

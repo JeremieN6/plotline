@@ -27,3 +27,29 @@ export function selectVideoModel(prompt) {
   // pas le choix automatique tant qu il n a pas ete eprouve sur de vrais rendus.
   return 'veo';
 }
+
+/**
+ * Repere une repartie entre guillemets dans un prompt libre et separe decor et
+ * texte a prononcer.
+ *
+ * Sert a decider si Omni Flash (seul modele du projet avec lip-sync natif) est
+ * justifie pour un personnage fictif: sans mot a synchroniser sur les levres,
+ * Omni Flash n apporte rien par rapport a Kling/Veo, qui restent le choix
+ * eprouve pour du mouvement pur (danse, action, plan cinematique) -- voir
+ * `selectVideoModel`. Ce n est donc pas Omni Flash "par defaut", mais Omni
+ * Flash quand le contenu lui-meme contient effectivement une parole a rendre.
+ */
+export function extractQuotedDialogue(prompt) {
+  const text = String(prompt || '');
+  const match = text.match(/[«"]([^»"]{3,})[»"]/);
+  if (!match) return null;
+
+  const dialogue = match[1].trim();
+  if (!dialogue) return null;
+
+  const scene = `${text.slice(0, match.index)} ${text.slice(match.index + match[0].length)}`
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return { dialogue, scene: scene || text.trim() };
+}
