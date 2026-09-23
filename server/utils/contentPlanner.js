@@ -8,7 +8,12 @@
  * du rythme.
  */
 
-export const SUPPORTED_PLAN_FORMATS = ['FEED', 'STORY', 'REEL'];
+// CUSTOM_PROMPT_STUDIO (2026-09-23) est selectionnable mais volontairement
+// absent de la rotation par defaut: c est un format experimental (base de
+// prompts maison plutot que Pinterest) que l utilisateur doit ajouter
+// explicitement a la cadence d un profil pour le tester, pas quelque chose
+// que tous les profils recoivent silencieusement.
+export const SUPPORTED_PLAN_FORMATS = ['FEED', 'STORY', 'REEL', 'CUSTOM_PROMPT_STUDIO'];
 export const DEFAULT_FORMAT_ROTATION = ['FEED', 'STORY', 'REEL'];
 export const DEFAULT_POSTS_PER_WEEK = 3;
 export const DEFAULT_PUBLISH_HOUR = 18;
@@ -123,6 +128,7 @@ export function buildFallbackIdea({ profile, format, position }) {
     FEED: `une scene posee qui met en valeur ${niche}`,
     STORY: `un moment pris sur le vif autour de ${niche}`,
     REEL: `une sequence courte et rythmee autour de ${niche}`,
+    CUSTOM_PROMPT_STUDIO: `une idee originale autour de ${niche}`,
   };
 
   const angle = angleByFormat[String(format || '').toUpperCase()] || angleByFormat.FEED;

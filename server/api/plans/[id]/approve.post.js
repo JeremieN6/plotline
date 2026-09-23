@@ -2,6 +2,10 @@ import { processGenerationJob } from '../../../utils/generationWorker.js';
 import { resolveVideoModelOrThrow, runVideoGenerationJob } from '../../../utils/videoGeneration.js';
 import { pickPinterestKeyword } from '../../../utils/pinterestKeywordPicker.js';
 import { extractQuotedDialogue } from '../../../utils/videoModelSelector.js';
+import { chooseCustomPromptWidget } from '../../../utils/customPromptStudioRouting.js';
+import { resolveWidgetPrompt } from '../../../utils/widgetEngine.js';
+import { buildPersonaDescription } from '../../../utils/personaDescription.js';
+import { generateWidgetFields } from '../../../utils/widgetFieldsAssistGenerator.js';
 
 let prismaClient;
 
@@ -24,6 +28,10 @@ function isVideoFormat(format) {
 
 function isStoryFormat(format) {
   return String(format || '').trim().toUpperCase() === 'STORY';
+}
+
+function isCustomPromptStudioFormat(format) {
+  return String(format || '').trim().toUpperCase() === 'CUSTOM_PROMPT_STUDIO';
 }
 
 /**
@@ -122,6 +130,71 @@ async function generateForItem({ prisma, runtimeConfig, item, profile, withFaceR
       return;
     }
 
+    if (isCustomPromptStudioFormat(item.format)) {
+      // Format experimental (2026-09-23) : genere depuis la base de prompts
+      // maison (server/data/widgets.js) plutot qu une recherche Pinterest --
+      // objectif de l utilisateur : comparer les deux sources, reduire a
+      // terme la dependance a Pinterest. Le widget est choisi selon la
+      // presence d une face ref, et volontairement restreint a deux widgets
+      // deja eprouves (voir customPromptStudioRouting.js pour le detail de
+      // l exclusion des 3 autres).
+      const widget = chooseCustomPromptWidget(withFaceRef);
+      if (!widget) {
+        throw new Error('Aucun widget Studio automatisable pour ce profil (CUSTOM_PROMPT_STUDIO)');
+      }
+
+      const personaDescription = widget.requiresPersona ? buildPersonaDescription(profile) : '';
+      // L idee ecrite par Claude pour ce creneau sert de matiere premiere au
+      // meme mecanisme "idee -> champs" deja utilise dans le Studio manuel
+      // (widgetFieldsAssistGenerator.js), pas d un nouvel appel dedie.
+      const inputs = await generateWidgetFields({
+        widget,
+        idea: item.prompt,
+        personaDescription,
+        apiKey: runtimeConfig.anthropicApiKey,
+      });
+      const { finalPrompt } = resolveWidgetPrompt(widget, { personaDescription, inputs });
+
+      if ((widget.typeGeneration || []).includes('VIDEO')) {
+        // Seul widget video autorise ici : SCENARIO_BLOG, sans face ref --
+        // exactement le chemin Omni Flash deja valide par
+        // /api/external/video-jobs (scene + script separes, pas de
+        // verrouillage d identite).
+        const model = resolveVideoModelOrThrow({
+          prompt: finalPrompt,
+          withFaceRef: false,
+          influencer: profile,
+          runtimeConfig,
+          forcedModel: 'omniflash',
+        });
+
+        await runVideoGenerationJob({
+          prisma,
+          runtimeConfig,
+          contentId: item.contentId,
+          prompt: finalPrompt,
+          model,
+          withFaceRef: false,
+          influencer: profile,
+          scenePrompt: finalPrompt,
+          dialogueText: inputs.scriptText || undefined,
+        });
+        return;
+      }
+
+      // Seul widget image autorise ici : PORTRAIT_STUDIO, toujours avec face
+      // ref (c est un widget requiresPersona).
+      await processGenerationJob({
+        influencerId: profile.id,
+        workflowType: 'free',
+        contentType: 'feed',
+        prompt: finalPrompt,
+        contentId: item.contentId,
+        withFaceRef: true,
+      });
+      return;
+    }
+
     if (isStoryFormat(item.format)) {
       // Une Story n a jamais de personnage: elle vient toujours d un mot-cle
       // Pinterest, jamais du prompt libre ecrit par Claude (qui ne decrit pas
@@ -199,6 +272,12 @@ export default defineEventHandler(async (event) => {
             silhouette: true,
             niche: true,
             style: true,
+            // Necessaires a buildPersonaDescription(), utilise par le format
+            // CUSTOM_PROMPT_STUDIO (widget PORTRAIT_STUDIO).
+            gender: true,
+            eyeColor: true,
+            ethnicity: true,
+            particularities: true,
           },
         },
         items: {

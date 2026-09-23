@@ -48,6 +48,7 @@ import { parseCarouselAssistResult } from '../server/utils/carouselAssistGenerat
 import { splitScriptIntoSegments } from '../server/utils/scriptSegmentation.js';
 import { isAdminEmail, parseAdminAccounts } from '../server/utils/adminAccounts.js';
 import { detectPinterestCategory, pickPinterestKeyword } from '../server/utils/pinterestKeywordPicker.js';
+import { chooseCustomPromptWidget } from '../server/utils/customPromptStudioRouting.js';
 
 test('normalizeAccountType normalizes to uppercase', () => {
   assert.equal(normalizeAccountType(' brand '), 'BRAND');
@@ -849,4 +850,9 @@ test('pinterestKeywordPicker: pickPinterestKeyword renvoie toujours un mot-cle n
   const reel = await pickPinterestKeyword({ format: 'REEL', niche: 'niche totalement inconnue' });
   assert.equal(reel.category, 'lifestyle');
   assert.ok(reel.keyword.length > 0);
+});
+
+test('customPromptStudioRouting: choisit PORTRAIT_STUDIO avec face ref, SCENARIO_BLOG sans', () => {
+  assert.equal(chooseCustomPromptWidget(true).id, 'PORTRAIT_STUDIO');
+  assert.equal(chooseCustomPromptWidget(false).id, 'SCENARIO_BLOG');
 });
