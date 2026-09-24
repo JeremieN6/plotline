@@ -48,7 +48,15 @@ import { parseCarouselAssistResult } from '../server/utils/carouselAssistGenerat
 import { splitScriptIntoSegments } from '../server/utils/scriptSegmentation.js';
 import { isAdminEmail, parseAdminAccounts } from '../server/utils/adminAccounts.js';
 import { detectPinterestCategory, pickPinterestKeyword } from '../server/utils/pinterestKeywordPicker.js';
-import { chooseCustomPromptWidget } from '../server/utils/customPromptStudioRouting.js';
+import { chooseCustomPromptWidget, chooseCustomPromptWidgetAndPattern } from '../server/utils/customPromptStudioRouting.js';
+import {
+  buildEffectiveWidget,
+  getAutomatablePatternForWidget,
+  isAutomatablePattern,
+  isPatternAllowedForAccount,
+  listSelectablePatterns,
+  resolvePatternForAccount,
+} from '../server/utils/promptPatternSelector.js';
 
 test('normalizeAccountType normalizes to uppercase', () => {
   assert.equal(normalizeAccountType(' brand '), 'BRAND');
@@ -855,4 +863,97 @@ test('pinterestKeywordPicker: pickPinterestKeyword renvoie toujours un mot-cle n
 test('customPromptStudioRouting: choisit PORTRAIT_STUDIO avec face ref, SCENARIO_BLOG sans', () => {
   assert.equal(chooseCustomPromptWidget(true).id, 'PORTRAIT_STUDIO');
   assert.equal(chooseCustomPromptWidget(false).id, 'SCENARIO_BLOG');
+});
+
+test('promptPatternSelector: isPatternAllowedForAccount respecte accountTypeRestriction', () => {
+  const restricted = { accountTypeRestriction: 'INFLUENCER_CREATOR' };
+  const open = { accountTypeRestriction: null };
+
+  assert.equal(isPatternAllowedForAccount(restricted, 'INFLUENCER_CREATOR'), true);
+  assert.equal(isPatternAllowedForAccount(restricted, 'BRAND'), false);
+  assert.equal(isPatternAllowedForAccount(restricted, ''), false);
+  assert.equal(isPatternAllowedForAccount(open, 'BRAND'), true);
+  assert.equal(isPatternAllowedForAccount(null, 'BRAND'), false);
+});
+
+test('promptPatternSelector: listSelectablePatterns filtre par widget, selectable et compte', () => {
+  const forInfluencer = listSelectablePatterns({ widgetId: 'PORTRAIT_STUDIO', accountType: 'INFLUENCER_CREATOR' });
+  const ids = forInfluencer.map((pattern) => pattern.id);
+
+  assert.ok(ids.includes('PORTRAIT_COZY_HOME'));
+  assert.ok(ids.includes('PORTRAIT_GOLDEN_HOUR_TIER_A'));
+  assert.ok(ids.includes('SELFIE_MIROIR_TIER_A'));
+  // Les paliers B ne sont jamais selectionnables, quel que soit le compte.
+  assert.ok(!ids.includes('PORTRAIT_GOLDEN_HOUR_TIER_B'));
+  assert.ok(!ids.includes('SELFIE_MIROIR_TIER_B'));
+
+  const forBrand = listSelectablePatterns({ widgetId: 'PORTRAIT_STUDIO', accountType: 'BRAND' });
+  const brandIds = forBrand.map((pattern) => pattern.id);
+  assert.ok(brandIds.includes('PORTRAIT_COZY_HOME'));
+  assert.ok(!brandIds.includes('PORTRAIT_GOLDEN_HOUR_TIER_A'));
+  assert.ok(!brandIds.includes('SELFIE_MIROIR_TIER_A'));
+});
+
+test('promptPatternSelector: resolvePatternForAccount refuse un pattern hors compte/widget', () => {
+  assert.equal(
+    resolvePatternForAccount({ patternId: 'PORTRAIT_GOLDEN_HOUR_TIER_A', widgetId: 'PORTRAIT_STUDIO', accountType: 'BRAND' }),
+    null,
+  );
+  assert.equal(
+    resolvePatternForAccount({ patternId: 'PORTRAIT_GOLDEN_HOUR_TIER_B', widgetId: 'PORTRAIT_STUDIO', accountType: 'INFLUENCER_CREATOR' }),
+    null,
+  );
+  assert.equal(
+    resolvePatternForAccount({ patternId: 'PORTRAIT_COZY_HOME', widgetId: 'SCENARIO_BLOG', accountType: 'INFLUENCER_CREATOR' }),
+    null,
+  );
+  assert.equal(
+    resolvePatternForAccount({ patternId: 'PORTRAIT_GOLDEN_HOUR_TIER_A', widgetId: 'PORTRAIT_STUDIO', accountType: 'INFLUENCER_CREATOR' })?.id,
+    'PORTRAIT_GOLDEN_HOUR_TIER_A',
+  );
+});
+
+test('promptPatternSelector: getAutomatablePatternForWidget ne renvoie que les 2 patterns du lot', () => {
+  assert.equal(getAutomatablePatternForWidget('PORTRAIT_STUDIO')?.id, 'PORTRAIT_COZY_HOME');
+  assert.equal(getAutomatablePatternForWidget('SCENARIO_BLOG')?.id, 'SCENARIO_CONVERSATIONNEL');
+  // Aucun des patterns "adoucis" n est automatisable : contenu qui ne doit
+  // jamais pouvoir etre auto-publie par scheduledPublisher.
+  assert.notEqual(getAutomatablePatternForWidget('PORTRAIT_STUDIO')?.id, 'PORTRAIT_GOLDEN_HOUR_TIER_A');
+});
+
+test('promptPatternSelector: isAutomatablePattern refuse un pattern automatable mal configure avec une restriction de compte', () => {
+  // Garde-fou structurel, independant des donnees actuelles de
+  // promptPatterns.js : meme si un futur pattern etait marque par erreur
+  // automatable + accountTypeRestriction en meme temps, la cadence ne doit
+  // jamais pouvoir le choisir (elle n a pas de notion de compte a ce stade).
+  assert.equal(
+    isAutomatablePattern({ automatable: true, selectable: true, accountTypeRestriction: 'INFLUENCER_CREATOR' }),
+    false,
+  );
+  assert.equal(isAutomatablePattern({ automatable: true, selectable: true, accountTypeRestriction: null }), true);
+  assert.equal(isAutomatablePattern({ automatable: true, selectable: false, accountTypeRestriction: null }), false);
+  assert.equal(isAutomatablePattern({ automatable: false, selectable: true, accountTypeRestriction: null }), false);
+  assert.equal(isAutomatablePattern(null), false);
+});
+
+test('promptPatternSelector: buildEffectiveWidget fusionne template et assistHint sans muter le widget de base', () => {
+  const baseWidget = getWidgetById('SCENARIO_BLOG');
+  const pattern = { template: null, assistHintOverrides: { scenePrompt: 'consigne renforcee' } };
+
+  const effective = buildEffectiveWidget(baseWidget, pattern);
+
+  assert.equal(effective.template, baseWidget.template);
+  assert.equal(effective.variables.find((v) => v.key === 'scenePrompt').assistHint, 'consigne renforcee');
+  // Le widget de base ne doit jamais etre modifie en place.
+  assert.notEqual(baseWidget.variables.find((v) => v.key === 'scenePrompt').assistHint, 'consigne renforcee');
+});
+
+test('customPromptStudioRouting: chooseCustomPromptWidgetAndPattern fusionne le pattern automatisable', () => {
+  const withFaceRef = chooseCustomPromptWidgetAndPattern(true);
+  assert.equal(withFaceRef.pattern.id, 'PORTRAIT_COZY_HOME');
+  assert.ok(withFaceRef.widget.template.includes('cheek resting gently on a raised fist'));
+
+  const withoutFaceRef = chooseCustomPromptWidgetAndPattern(false);
+  assert.equal(withoutFaceRef.pattern.id, 'SCENARIO_CONVERSATIONNEL');
+  assert.ok(withoutFaceRef.widget.variables.find((v) => v.key === 'scriptText').assistHint.includes('accroche'));
 });

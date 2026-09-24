@@ -2,6 +2,7 @@ import { getWidgetById } from '../../data/widgets.js';
 import { generateWidgetFields } from '../../utils/widgetFieldsAssistGenerator.js';
 import { buildPersonaDescription } from '../../utils/personaDescription.js';
 import { findPersonaCompatible } from '../../utils/personaLookup.js';
+import { buildEffectiveWidget, resolvePatternForAccount } from '../../utils/promptPatternSelector.js';
 
 let prismaClient;
 
@@ -39,8 +40,26 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'idea requise' }));
     }
 
+    // Meme verification serveur que resolve.post.js : un patternId n est
+    // jamais accepte sans revalider compte + widget.
+    const requestedPatternId = String(body?.patternId || '').trim();
+    let effectiveWidget = widget;
+    if (requestedPatternId) {
+      const pattern = resolvePatternForAccount({
+        patternId: requestedPatternId,
+        widgetId: widget.id,
+        accountType: user.accountType,
+      });
+
+      if (!pattern) {
+        return sendError(event, createError({ statusCode: 403, statusMessage: 'Pattern non autorise pour ce compte ou ce widget' }));
+      }
+
+      effectiveWidget = buildEffectiveWidget(widget, pattern);
+    }
+
     let personaDescription = '';
-    if (widget.requiresPersona && profileId) {
+    if (effectiveWidget.requiresPersona && profileId) {
       const prisma = await getPrisma();
       const persona = await findPersonaCompatible(prisma, profileId, user.id);
       if (persona) {
@@ -49,7 +68,7 @@ export default defineEventHandler(async (event) => {
     }
 
     const fields = await generateWidgetFields({
-      widget,
+      widget: effectiveWidget,
       idea,
       personaDescription,
       apiKey: runtimeConfig.anthropicApiKey,

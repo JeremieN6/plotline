@@ -2,6 +2,7 @@ import { getWidgetById } from '../../data/widgets.js';
 import { resolveWidgetPrompt } from '../../utils/widgetEngine.js';
 import { buildPersonaDescription } from '../../utils/personaDescription.js';
 import { findPersonaCompatible } from '../../utils/personaLookup.js';
+import { buildEffectiveWidget, resolvePatternForAccount } from '../../utils/promptPatternSelector.js';
 
 let prismaClient;
 
@@ -34,10 +35,29 @@ export default defineEventHandler(async (event) => {
 
     const inputs = body?.inputs && typeof body.inputs === 'object' ? body.inputs : {};
 
+    // Un patternId n est jamais accepte tel quel : verifie contre le widget
+    // ET le type de compte a chaque appel, meme si le front ne proposait que
+    // des patterns deja filtres.
+    const requestedPatternId = String(body?.patternId || '').trim();
+    let effectiveWidget = widget;
+    if (requestedPatternId) {
+      const pattern = resolvePatternForAccount({
+        patternId: requestedPatternId,
+        widgetId: widget.id,
+        accountType: user.accountType,
+      });
+
+      if (!pattern) {
+        return sendError(event, createError({ statusCode: 403, statusMessage: 'Pattern non autorise pour ce compte ou ce widget' }));
+      }
+
+      effectiveWidget = buildEffectiveWidget(widget, pattern);
+    }
+
     let personaDescription = '';
     let persona = null;
 
-    if (widget.requiresPersona) {
+    if (effectiveWidget.requiresPersona) {
       const profileId = String(body?.profileId || '').trim();
       if (!profileId) {
         return sendError(event, createError({ statusCode: 400, statusMessage: 'profileId requis pour ce widget' }));
@@ -55,7 +75,7 @@ export default defineEventHandler(async (event) => {
       personaDescription = buildPersonaDescription(persona);
     }
 
-    const { finalPrompt } = resolveWidgetPrompt(widget, { personaDescription, inputs });
+    const { finalPrompt } = resolveWidgetPrompt(effectiveWidget, { personaDescription, inputs });
 
     return {
       finalPrompt,

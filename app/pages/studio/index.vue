@@ -338,6 +338,20 @@
           </div>
           <p v-if="widgetsLoadError" class="mt-3 text-xs text-red-600">{{ widgetsLoadError }}</p>
 
+          <div v-if="selectedWidget && patternsForSelectedWidget.length" class="mt-4">
+            <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Recette (optionnel)</label>
+            <select
+              :value="selectedPatternId"
+              class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+              @change="selectPattern($event.target.value)"
+            >
+              <option value="">Template par défaut</option>
+              <option v-for="pattern in patternsForSelectedWidget" :key="pattern.id" :value="pattern.id">
+                {{ pattern.nom }}
+              </option>
+            </select>
+          </div>
+
           <div v-if="selectedWidget" class="mt-5 space-y-4 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-4">
             <div v-if="selectedWidget.typeGeneration.length > 1" class="flex flex-wrap items-center gap-4">
               <label class="inline-flex items-center gap-2 text-sm font-semibold text-[#111111]">
@@ -780,9 +794,10 @@ const selectedProfileHasFaceRef = computed(() => Boolean(String(selectedProfileF
 // Widgets: blocs selectionnables qui pre-remplissent un prompt a partir d'un
 // template. La generation reutilise ensuite les memes endpoints que le prompt
 // libre (/api/generate/image, /api/generate/video).
-const { widgets: widgetsList, loadError: widgetsLoadError, loadWidgets, resolveWidget } = useWidgets()
+const { widgets: widgetsList, patterns: patternsList, loadError: widgetsLoadError, loadWidgets, resolveWidget } = useWidgets()
 const { assistFreePrompt, assistWidgetFields, assistCarouselSlides } = usePromptAssist()
 const selectedWidgetId = ref('')
+const selectedPatternId = ref('')
 const widgetGenerationType = ref('IMAGE')
 const widgetVideoModel = ref('auto')
 const widgetProfileId = ref('')
@@ -807,6 +822,10 @@ loadWidgets()
 const selectedWidget = computed(() => widgetsList.value.find((item) => item.id === selectedWidgetId.value) || null)
 const widgetInputVariables = computed(() => (selectedWidget.value?.variables || []).filter((item) => item.source === 'input'))
 const widgetUploadAssets = computed(() => (selectedWidget.value?.assetsRequis || []).filter((item) => item.source === 'upload'))
+// Patterns cures disponibles pour le widget selectionne (deja filtres par
+// type de compte cote serveur, voir useWidgets.js) -- vide pour la plupart
+// des widgets tant qu aucun pattern n a ete cure pour eux.
+const patternsForSelectedWidget = computed(() => patternsList.value.filter((item) => item.widgetId === selectedWidgetId.value))
 
 function selectWidget(widgetId) {
   selectedWidgetId.value = widgetId
@@ -816,11 +835,22 @@ function selectWidget(widgetId) {
   // ce defaut dedie, ce widget partirait toujours sur Veo par defaut.
   widgetVideoModel.value = widgetId === 'SCENARIO_BLOG' ? 'omniflash' : 'auto'
   widgetProfileId.value = ''
+  selectedPatternId.value = ''
   widgetInputs.value = {}
   widgetAssetUrls.value = {}
   widgetIdea.value = ''
   widgetFieldsAssistError.value = ''
   scenarioLockIdentity.value = false
+}
+
+// Changer de recette invalide les champs deja remplis: un pattern different
+// peut porter des consignes differentes (assistHint) pour les memes cles de
+// variable, melanger l ancien remplissage avec la nouvelle recette produirait
+// un prompt incoherent.
+function selectPattern(patternId) {
+  selectedPatternId.value = patternId
+  widgetInputs.value = {}
+  widgetFieldsAssistError.value = ''
 }
 
 async function generateFreePromptFromIdea() {
@@ -870,6 +900,7 @@ async function generateWidgetFieldsFromIdea() {
   try {
     const { fields } = await assistWidgetFields({
       widgetId: selectedWidget.value.id,
+      patternId: selectedPatternId.value,
       idea: widgetIdea.value.trim(),
       profileId: widgetProfileId.value,
     })
@@ -1037,6 +1068,7 @@ async function submitWidget() {
   const widget = selectedWidget.value
   const { finalPrompt } = await resolveWidget({
     widgetId: widget.id,
+    patternId: selectedPatternId.value,
     profileId: widget.requiresPersona ? widgetProfileId.value : undefined,
     inputs: widgetInputs.value,
   })

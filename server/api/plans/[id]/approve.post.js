@@ -2,7 +2,7 @@ import { processGenerationJob } from '../../../utils/generationWorker.js';
 import { resolveVideoModelOrThrow, runVideoGenerationJob } from '../../../utils/videoGeneration.js';
 import { pickPinterestKeyword } from '../../../utils/pinterestKeywordPicker.js';
 import { extractQuotedDialogue } from '../../../utils/videoModelSelector.js';
-import { chooseCustomPromptWidget } from '../../../utils/customPromptStudioRouting.js';
+import { chooseCustomPromptWidgetAndPattern } from '../../../utils/customPromptStudioRouting.js';
 import { resolveWidgetPrompt } from '../../../utils/widgetEngine.js';
 import { buildPersonaDescription } from '../../../utils/personaDescription.js';
 import { generateWidgetFields } from '../../../utils/widgetFieldsAssistGenerator.js';
@@ -132,13 +132,16 @@ async function generateForItem({ prisma, runtimeConfig, item, profile, withFaceR
 
     if (isCustomPromptStudioFormat(item.format)) {
       // Format experimental (2026-09-23) : genere depuis la base de prompts
-      // maison (server/data/widgets.js) plutot qu une recherche Pinterest --
-      // objectif de l utilisateur : comparer les deux sources, reduire a
-      // terme la dependance a Pinterest. Le widget est choisi selon la
-      // presence d une face ref, et volontairement restreint a deux widgets
-      // deja eprouves (voir customPromptStudioRouting.js pour le detail de
-      // l exclusion des 3 autres).
-      const widget = chooseCustomPromptWidget(withFaceRef);
+      // maison (server/data/widgets.js + server/data/promptPatterns.js)
+      // plutot qu une recherche Pinterest -- objectif de l utilisateur :
+      // comparer les deux sources, reduire a terme la dependance a Pinterest.
+      // Le widget est choisi selon la presence d une face ref, et
+      // volontairement restreint a deux widgets deja eprouves (voir
+      // customPromptStudioRouting.js pour le detail de l exclusion des 3
+      // autres) ; le pattern actif pour ce widget (un seul par widget dans ce
+      // lot, jamais un pattern au ton plus pousse -- voir promptPatterns.js)
+      // est fusionne dedans.
+      const { widget } = chooseCustomPromptWidgetAndPattern(withFaceRef);
       if (!widget) {
         throw new Error('Aucun widget Studio automatisable pour ce profil (CUSTOM_PROMPT_STUDIO)');
       }

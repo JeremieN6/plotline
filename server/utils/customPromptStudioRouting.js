@@ -1,4 +1,5 @@
 import { getWidgets } from '../data/widgets.js';
+import { buildEffectiveWidget, getAutomatablePatternForWidget } from './promptPatternSelector.js';
 
 /**
  * Choisit le widget Studio utilisable automatiquement par la cadence pour le
@@ -37,4 +38,25 @@ export function chooseCustomPromptWidget(withFaceRef) {
         && !requiresUploadAsset(widget),
     ) || null
   );
+}
+
+/**
+ * Meme choix que `chooseCustomPromptWidget`, mais renvoie aussi le pattern de
+ * prompt actif pour ce widget (server/data/promptPatterns.js), fusionne dans
+ * le widget final a utiliser. Un seul pattern automatisable par widget dans
+ * ce lot (2026-09-24) : pas de selection par tag, voir CLAUDE.md.
+ *
+ * Si un widget est automatisable mais qu aucun pattern actif n existe pour
+ * lui (ne devrait pas arriver avec les donnees actuelles), on retombe sur le
+ * widget de base plutot que d echouer -- mieux vaut le template generique du
+ * widget qu un contenu bloque.
+ */
+export function chooseCustomPromptWidgetAndPattern(withFaceRef) {
+  const widget = chooseCustomPromptWidget(withFaceRef);
+  if (!widget) return { widget: null, pattern: null };
+
+  const pattern = getAutomatablePatternForWidget(widget.id);
+  const effectiveWidget = pattern ? buildEffectiveWidget(widget, pattern) : widget;
+
+  return { widget: effectiveWidget, pattern };
 }

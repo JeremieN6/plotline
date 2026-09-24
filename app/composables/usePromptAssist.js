@@ -12,10 +12,10 @@ export function usePromptAssist() {
     })
   }
 
-  async function assistWidgetFields({ widgetId, idea, profileId }) {
+  async function assistWidgetFields({ widgetId, patternId, idea, profileId }) {
     return await $fetch('/api/widgets/fields-assist', {
       method: 'POST',
-      body: { widgetId, idea, profileId },
+      body: { widgetId, patternId: patternId || undefined, idea, profileId },
     })
   }
 

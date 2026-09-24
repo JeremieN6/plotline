@@ -7,6 +7,11 @@
  */
 export function useWidgets() {
   const widgets = ref([])
+  // Patterns de prompts cures (server/data/promptPatterns.js), deja filtres
+  // cote serveur selon le type de compte -- ne contient que ce que ce compte
+  // a le droit de choisir. Chaque pattern porte un widgetId : filtrer cote
+  // client pour n afficher que ceux du widget selectionne.
+  const patterns = ref([])
   const loading = ref(false)
   const loadError = ref('')
 
@@ -16,6 +21,7 @@ export function useWidgets() {
     try {
       const response = await $fetch('/api/widgets')
       widgets.value = Array.isArray(response?.widgets) ? response.widgets : []
+      patterns.value = Array.isArray(response?.patterns) ? response.patterns : []
     } catch (err) {
       loadError.value = err?.data?.statusMessage || err?.message || 'Impossible de charger les widgets'
     } finally {
@@ -23,12 +29,12 @@ export function useWidgets() {
     }
   }
 
-  async function resolveWidget({ widgetId, profileId, inputs }) {
+  async function resolveWidget({ widgetId, patternId, profileId, inputs }) {
     return await $fetch('/api/widgets/resolve', {
       method: 'POST',
-      body: { widgetId, profileId, inputs },
+      body: { widgetId, patternId: patternId || undefined, profileId, inputs },
     })
   }
 
-  return { widgets, loading, loadError, loadWidgets, resolveWidget }
+  return { widgets, patterns, loading, loadError, loadWidgets, resolveWidget }
 }
