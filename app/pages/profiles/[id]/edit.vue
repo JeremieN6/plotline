@@ -127,9 +127,19 @@
               type="button"
               class="mt-4 w-full rounded-lg bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#d4762f] disabled:cursor-not-allowed disabled:opacity-60"
               :disabled="generatingRef"
-              @click="generateFaceReference"
+              @click="generateFaceReference('default')"
             >
               {{ generatingRef ? 'Génération en cours... (~30s)' : 'Générer la nouvelle fiche référence' }}
+            </button>
+
+            <button
+              v-if="sourceImageBase64"
+              type="button"
+              class="mt-2 w-full rounded-lg border border-[#E5E3DF] bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="generatingRef"
+              @click="generateFaceReference('contact_sheet_9')"
+            >
+              Essayer une autre méthode (fiche 9 vues)
             </button>
 
             <div v-if="isAdmin" class="mt-4 rounded-xl border border-dashed border-[#E5E3DF] bg-white p-4">
@@ -876,18 +886,22 @@ async function onDrop(event) {
   await setFile(file)
 }
 
-async function generateFaceReference() {
+async function generateFaceReference(method = 'default') {
   if (!sourceImageBase64.value || generatingRef.value) return
 
   generatingRef.value = true
   generateError.value = ''
 
   try {
+    // "contact_sheet_9" est une methode alternative explicite (bouton
+    // "Essayer une autre methode"), jamais choisie automatiquement.
+    const customPrompt = method === 'contact_sheet_9' ? FACE_REF_ALT_PROMPT_9PANEL : FACE_REF_BASE_PROMPT
+
     const payload = await $fetch('/api/generate/face-ref', {
       method: 'POST',
       body: {
         sourceImageBase64: sourceImageBase64.value,
-        customPrompt: FACE_REF_BASE_PROMPT,
+        customPrompt,
       },
     })
 

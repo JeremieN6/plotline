@@ -124,8 +124,12 @@
         <p v-if="fileError" class="text-sm text-red-300">{{ fileError }}</p>
         <p v-if="generateError" class="text-sm text-red-300">{{ generateError }}</p>
 
-        <button type="button" class="rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50" :disabled="!sourceImageBase64 || generatingRef" @click="generateFaceReference">
+        <button type="button" class="rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50" :disabled="!sourceImageBase64 || generatingRef" @click="generateFaceReference('default')">
           {{ generatingRef ? 'Génération en cours...' : 'Lancer le processus de cohérence faciale' }}
+        </button>
+
+        <button type="button" class="rounded-[12px] border border-[#5B4332] bg-transparent px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50" :disabled="!sourceImageBase64 || generatingRef" @click="generateFaceReference('contact_sheet_9')">
+          Essayer une autre méthode (fiche 9 vues)
         </button>
 
         <img v-if="generatedImageDataUrl" :src="generatedImageDataUrl" alt="Cohérence faciale" class="max-h-64 rounded-[12px] border border-[#5B4332] object-cover" />
@@ -234,10 +238,8 @@ const dynamicTraitsLine = computed(() => {
   return `- ${chunks.join(' - ')}. These traits are mandatory and must prevail over source image ambiguities.`
 })
 
-const customPrompt = computed(() => {
-  const parts = [
-    'Create a professional character reference sheet of this exact character with strict face consistency, natural skin texture, white background and multiple neutral portrait angles.',
-  ]
+function buildCustomPrompt(base) {
+  const parts = [base]
 
   if (dynamicTraitsLine.value) {
     parts.push(dynamicTraitsLine.value)
@@ -248,7 +250,11 @@ const customPrompt = computed(() => {
   }
 
   return parts.join(' ')
-})
+}
+
+const customPrompt = computed(() => buildCustomPrompt(
+  'Create a professional character reference sheet of this exact character with strict face consistency, natural skin texture, white background and multiple neutral portrait angles.',
+))
 
 const canContinue = computed(() => {
   if (step.value === 1) {
@@ -316,18 +322,24 @@ async function onFaceFileSelect(event) {
   }
 }
 
-async function generateFaceReference() {
+async function generateFaceReference(method = 'default') {
   if (!sourceImageBase64.value || generatingRef.value) return
 
   generatingRef.value = true
   generateError.value = ''
 
   try {
+    // "contact_sheet_9" est une methode alternative explicite (bouton
+    // "Essayer une autre methode"), jamais choisie automatiquement.
+    const promptToUse = method === 'contact_sheet_9'
+      ? buildCustomPrompt(FACE_REF_ALT_PROMPT_9PANEL)
+      : customPrompt.value
+
     const payload = await $fetch('/api/generate/face-ref', {
       method: 'POST',
       body: {
         sourceImageBase64: sourceImageBase64.value,
-        customPrompt: customPrompt.value,
+        customPrompt: promptToUse,
       },
     })
 

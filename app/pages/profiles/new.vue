@@ -226,6 +226,15 @@
             </span>
             <span v-else>{{ referenceCandidates.length > 0 ? 'Générer une fiche à comparer' : "Générer l'image de référence" }}</span>
           </button>
+
+          <button
+            type="button"
+            class="btn secondary full-width"
+            :disabled="!sourceImageBase64 || generatingRef"
+            @click="generateFaceReference('contact_sheet_9')"
+          >
+            Essayer une autre méthode (fiche 9 vues)
+          </button>
         </div>
 
         <div v-if="step === 3 && form.profileType === 'persona'" class="step-content">
@@ -627,12 +636,14 @@ const dynamicTraitsLine = computed(() => {
   return `- ${chunks.join(' - ')}. Ces caractéristiques sont impératives et prévalent sur tout élément visible sur l'image de référence.`
 })
 
-const customPrompt = computed(() => {
-  const parts = [basePrompt]
+function buildCustomPrompt(base) {
+  const parts = [base]
   if (dynamicTraitsLine.value) parts.push(dynamicTraitsLine.value)
   if (personalization.traits.trim()) parts.push(`Particular traits to preserve: ${personalization.traits.trim()}.`)
   return parts.join(' ')
-})
+}
+
+const customPrompt = computed(() => buildCustomPrompt(basePrompt))
 
 const generatedImageDataUrl = computed(() => {
   if (!generatedImageBase64.value) return ''
@@ -748,7 +759,7 @@ async function cancelWizard() {
   await router.push(exitPath.value || '/dashboard')
 }
 
-async function generateFaceReference() {
+async function generateFaceReference(method = 'default') {
   if (!sourceImageBase64.value || generatingRef.value) return
   if (referenceCandidates.value.length >= MAX_REFERENCE_CANDIDATES) return
 
@@ -756,11 +767,17 @@ async function generateFaceReference() {
   generateError.value = ''
 
   try {
+    // "contact_sheet_9" est une methode alternative explicite (voir bouton
+    // "Essayer une autre methode"), jamais choisie automatiquement.
+    const promptToUse = method === 'contact_sheet_9'
+      ? buildCustomPrompt(FACE_REF_ALT_PROMPT_9PANEL)
+      : customPrompt.value
+
     const payload = await $fetch('/api/generate/face-ref', {
       method: 'POST',
       body: {
         sourceImageBase64: sourceImageBase64.value,
-        customPrompt: customPrompt.value,
+        customPrompt: promptToUse,
       },
     })
 

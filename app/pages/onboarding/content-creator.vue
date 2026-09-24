@@ -82,8 +82,12 @@
           <p v-if="fileError" class="text-sm text-red-300">{{ fileError }}</p>
           <p v-if="generateError" class="text-sm text-red-300">{{ generateError }}</p>
 
-          <button type="button" class="rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50" :disabled="!sourceImageBase64 || generatingRef" @click="generateFaceReference">
+          <button type="button" class="rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50" :disabled="!sourceImageBase64 || generatingRef" @click="generateFaceReference('default')">
             {{ generatingRef ? 'Génération en cours...' : 'Lancer le processus de cohérence faciale' }}
+          </button>
+
+          <button type="button" class="rounded-[12px] border border-[#5B4332] bg-transparent px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50" :disabled="!sourceImageBase64 || generatingRef" @click="generateFaceReference('contact_sheet_9')">
+            Essayer une autre méthode (fiche 9 vues)
           </button>
 
           <img v-if="generatedImageDataUrl" :src="generatedImageDataUrl" alt="Face ref" class="max-h-64 rounded-[12px] border border-[#5B4332] object-cover" />
@@ -223,18 +227,24 @@ async function onFileSelect(event) {
   }
 }
 
-async function generateFaceReference() {
+async function generateFaceReference(method = 'default') {
   if (!sourceImageBase64.value || generatingRef.value) return
 
   generatingRef.value = true
   generateError.value = ''
 
   try {
+    // "contact_sheet_9" est une methode alternative explicite (bouton
+    // "Essayer une autre methode"), jamais choisie automatiquement.
+    const customPrompt = method === 'contact_sheet_9'
+      ? FACE_REF_ALT_PROMPT_9PANEL
+      : 'Create a professional face reference sheet from this source image. Keep exact face consistency, realistic skin texture, neutral expression, white background, vertical composition with multiple portrait angles.'
+
     const payload = await $fetch('/api/generate/face-ref', {
       method: 'POST',
       body: {
         sourceImageBase64: sourceImageBase64.value,
-        customPrompt: 'Create a professional face reference sheet from this source image. Keep exact face consistency, realistic skin texture, neutral expression, white background, vertical composition with multiple portrait angles.',
+        customPrompt,
       },
     })
 
