@@ -287,8 +287,20 @@ const { data: variablesData } = await useFetch('/api/variables', {
   key: 'generate-variables',
 })
 
+const { ambassadorFor } = useWording()
+
+const profileTypeLabel = computed(() => {
+  const profileType = String(influencerData.value?.profileType || '').trim().toUpperCase()
+  if (profileType === 'BRAND') return 'Marque'
+  if (profileType === 'ACTIVITY') return 'Activité'
+  const label = ambassadorFor(influencerData.value?.gender)
+  return label.charAt(0).toUpperCase() + label.slice(1)
+})
+
 const influencerName = computed(() => {
-  return influencerData.value?.name ? `Influenceuse: ${influencerData.value.name}` : `Influenceuse #${id.value}`
+  return influencerData.value?.name
+    ? `${profileTypeLabel.value}: ${influencerData.value.name}`
+    : `${profileTypeLabel.value} #${id.value}`
 })
 
 const influencerNameRaw = computed(() => String(influencerData.value?.name || '').trim())

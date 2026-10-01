@@ -389,6 +389,7 @@ const navigation = computed(() => {
   return [
     { label: 'Accueil', to: '/dashboard' },
     { label: 'Générer', to: activeInfluencer.value ? `/profiles/${activeInfluencer.value.id}/generate` : '/profiles', disabled: !activeInfluencer.value },
+    { label: 'Studio', to: '/studio' },
     { label: 'Contenu', to: '/content' },
     profilesItem,
     { label: 'Calendrier', to: '/calendar' },

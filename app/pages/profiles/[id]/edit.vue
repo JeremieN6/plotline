@@ -698,7 +698,7 @@ const linkedBrandLabel = computed(() => {
   }
 
   if (!isAmbassadorProfile.value && brandName) {
-    return `Influenceuse rattachée à la marque ${brandName}`
+    return `${profileTypeLabelDisplay.value} rattaché${isMaleProfile.value ? '' : 'e'} à la marque ${brandName}`
   }
 
   return ''
@@ -1136,7 +1136,7 @@ async function submit() {
     await refresh()
 
     pushToast({
-      title: 'Influenceuse mise à jour',
+      title: `${profileTypeLabelDisplay.value} mis${isMaleProfile.value ? '' : 'e'} à jour`,
       message: 'Les modifications ont bien été enregistrées.',
       tone: 'success',
     })
