@@ -14,6 +14,7 @@ import { resolveAspectRatio } from './aspectRatio.js';
 import { generateSeedanceVideo, isSeedanceEnabled } from './seedanceGenerator.js';
 import { selectVideoModel } from './videoModelSelector.js';
 import { splitScriptIntoSegments } from './scriptSegmentation.js';
+import { buildFirstSegmentPrompt, buildContinuationPrompt } from './omniFlashPrompts.js';
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -275,7 +276,7 @@ async function extractOmniFlashVideoUrl(interaction) {
 // compte influenceur ou l identite doit rester reconnaissable.
 async function requestOmniFlashSingleTurn({ scenePrompt, dialogueText, ai, model, aspectRatio }) {
   const text = dialogueText
-    ? `${scenePrompt}. The person speaks clearly, in French, with natural lip movement synced to the speech: "${dialogueText}"`
+    ? buildFirstSegmentPrompt(scenePrompt, dialogueText)
     : scenePrompt;
 
   let interaction;
@@ -400,8 +401,8 @@ async function requestOmniFlashMultiSegment({ scenePrompt, dialogueText, ai, mod
 
   for (const [index, segmentText] of segments.entries()) {
     const text = index === 0
-      ? `${scenePrompt}. The person speaks clearly, in French, with natural lip movement synced to the speech: "${segmentText}"`
-      : `Continue this exact scene naturally, maintaining the same character, setting, and visual style. The person continues speaking clearly, in French, with natural lip movement synced to the speech: "${segmentText}"`;
+      ? buildFirstSegmentPrompt(scenePrompt, segmentText)
+      : buildContinuationPrompt(segmentText);
 
     console.log(`[omniflash] segment ${index + 1}/${segments.length}...`);
 

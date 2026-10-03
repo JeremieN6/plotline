@@ -46,6 +46,7 @@ import { parsePromptAssistResult } from '../server/utils/promptAssistGenerator.j
 import { parseWidgetFieldsResult } from '../server/utils/widgetFieldsAssistGenerator.js';
 import { parseCarouselAssistResult } from '../server/utils/carouselAssistGenerator.js';
 import { splitScriptIntoSegments } from '../server/utils/scriptSegmentation.js';
+import { buildFirstSegmentPrompt, buildContinuationPrompt } from '../server/utils/omniFlashPrompts.js';
 import { isAdminEmail, parseAdminAccounts } from '../server/utils/adminAccounts.js';
 import { detectPinterestCategory, pickPinterestKeyword } from '../server/utils/pinterestKeywordPicker.js';
 import { chooseCustomPromptWidget, chooseCustomPromptWidgetAndPattern } from '../server/utils/customPromptStudioRouting.js';
@@ -956,4 +957,19 @@ test('customPromptStudioRouting: chooseCustomPromptWidgetAndPattern fusionne le 
   const withoutFaceRef = chooseCustomPromptWidgetAndPattern(false);
   assert.equal(withoutFaceRef.pattern.id, 'SCENARIO_CONVERSATIONNEL');
   assert.ok(withoutFaceRef.widget.variables.find((v) => v.key === 'scriptText').assistHint.includes('accroche'));
+});
+
+test('omniFlashPrompts: le premier segment garde la scene, impose une seule lecture et cite le texte', () => {
+  const prompt = buildFirstSegmentPrompt('A founder at a desk', 'Bonjour a tous.');
+  assert.ok(prompt.startsWith('A founder at a desk.'));
+  assert.ok(prompt.includes('exactly once'));
+  assert.ok(prompt.includes('Never repeat'));
+  assert.ok(prompt.includes('"Bonjour a tous."'));
+});
+
+test('omniFlashPrompts: la continuation interdit de redire le dernier mot du segment precedent', () => {
+  const prompt = buildContinuationPrompt('Et voila la suite.');
+  assert.ok(prompt.includes('not even the last word of the previous sentence'));
+  assert.ok(prompt.includes('exactly once'));
+  assert.ok(prompt.includes('"Et voila la suite."'));
 });
