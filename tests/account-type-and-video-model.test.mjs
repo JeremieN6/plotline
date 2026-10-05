@@ -51,7 +51,7 @@ import { parseCarouselAssistResult } from '../server/utils/carouselAssistGenerat
 import { splitScriptIntoSegments } from '../server/utils/scriptSegmentation.js';
 import { buildFirstSegmentPrompt, buildContinuationPrompt } from '../server/utils/omniFlashPrompts.js';
 import { compareSpeech } from '../server/utils/speechFidelity.js';
-import { computeKeepSegments, parseSilenceDetect } from '../server/utils/silenceCompaction.js';
+import { computeKeepSegments, parseSilenceDetect, shouldCompact } from '../server/utils/silenceCompaction.js';
 import { isAdminEmail, parseAdminAccounts } from '../server/utils/adminAccounts.js';
 import { detectPinterestCategory, pickPinterestKeyword } from '../server/utils/pinterestKeywordPicker.js';
 import { chooseCustomPromptWidget, chooseCustomPromptWidgetAndPattern } from '../server/utils/customPromptStudioRouting.js';
@@ -1102,4 +1102,10 @@ test('parseSilenceDetect: lit la duree et les silences, dont un silence final ou
   const { duration, silences } = parseSilenceDetect(stderr);
   assert.ok(Math.abs(duration - 20.01) < 1e-9);
   assert.deepEqual(silences, [[8.7, 9.9], [19.2, duration]]);
+});
+
+test('shouldCompact: ne coupe jamais une video quasi entierement silencieuse', () => {
+  assert.equal(shouldCompact(10, [[9.85, 10]]), false);
+  assert.equal(shouldCompact(10, [[0, 10]]), false);
+  assert.equal(shouldCompact(10, [[0.85, 4], [5.0, 8.7]]), true);
 });

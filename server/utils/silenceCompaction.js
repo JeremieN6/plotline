@@ -46,6 +46,19 @@ export function computeKeepSegments(silences, duration, { minSilence = MIN_SILEN
   return segments;
 }
 
+/**
+ * Pur : garde-fou avant de couper. Une video sans parole detectee (plan muet,
+ * detection ratee) est entierement "silence" : la couper la detruirait.
+ */
+export function shouldCompact(duration, keep) {
+  if (!duration || keep.length < 1) return false;
+
+  const kept = keep.reduce((total, [start, end]) => total + (end - start), 0);
+  const removed = duration - kept;
+
+  return removed >= 0.3 && kept >= 1.5 && removed / duration <= 0.7;
+}
+
 export function parseSilenceDetect(stderr) {
   const durationMatch = /Duration: (\d+):(\d+):([\d.]+)/.exec(stderr);
   const duration = durationMatch
@@ -90,7 +103,7 @@ export async function compactSilences(videoBuffer) {
 
     const keep = computeKeepSegments(silences, duration);
     const removed = duration - keep.reduce((total, [start, end]) => total + (end - start), 0);
-    if (!duration || keep.length < 2 || removed < 0.3) return videoBuffer;
+    if (!shouldCompact(duration, keep)) return videoBuffer;
 
     const filters = keep.map(([start, end], i) => (
       `[0:v]trim=${start.toFixed(3)}:${end.toFixed(3)},setpts=PTS-STARTPTS[v${i}];`

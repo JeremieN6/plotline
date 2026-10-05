@@ -274,8 +274,11 @@ function extractOmniFlashVideoBuffer(interaction) {
   return Buffer.from(base64Video, 'base64');
 }
 
-async function extractOmniFlashVideoUrl(interaction) {
-  const buffer = extractOmniFlashVideoBuffer(interaction);
+// `compact` : uniquement quand le clip contient de la parole -- un plan muet est
+// entierement "silence" et ne doit jamais etre coupe.
+async function extractOmniFlashVideoUrl(interaction, { compact = false } = {}) {
+  let buffer = extractOmniFlashVideoBuffer(interaction);
+  if (compact && isSilenceCompactionEnabled()) buffer = await compactSilences(buffer);
   return saveGeneratedVideoBuffer(buffer, 'video_omniflash');
 }
 
@@ -302,7 +305,7 @@ async function requestOmniFlashSingleTurn({ scenePrompt, dialogueText, ai, model
   }
   interaction = await waitForOmniFlashInteraction(ai, interaction);
 
-  const videoUrl = await extractOmniFlashVideoUrl(interaction);
+  const videoUrl = await extractOmniFlashVideoUrl(interaction, { compact: Boolean(dialogueText) });
   return { jobId: String(interaction?.id || ''), videoUrl, status: 'completed', model };
 }
 
@@ -359,7 +362,7 @@ async function requestOmniFlashTwoTurn({ scenePrompt, dialogueText, ai, model, a
   }
   turn2 = await waitForOmniFlashInteraction(ai, turn2);
 
-  const videoUrl = await extractOmniFlashVideoUrl(turn2);
+  const videoUrl = await extractOmniFlashVideoUrl(turn2, { compact: true });
   return { jobId: String(turn2?.id || ''), videoUrl, status: 'completed', model };
 }
 
