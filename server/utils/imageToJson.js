@@ -32,7 +32,7 @@ export async function imageToJson(imagePath) {
 
   const genai = new GoogleGenAI({ apiKey: geminiKey });
   const response = await genai.models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.8-flash',
     contents: [
       {
         role: 'user',
