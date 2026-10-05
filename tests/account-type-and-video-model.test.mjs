@@ -47,6 +47,8 @@ import { parseWidgetFieldsResult } from '../server/utils/widgetFieldsAssistGener
 import { parseCarouselAssistResult } from '../server/utils/carouselAssistGenerator.js';
 import { splitScriptIntoSegments } from '../server/utils/scriptSegmentation.js';
 import { buildFirstSegmentPrompt, buildContinuationPrompt } from '../server/utils/omniFlashPrompts.js';
+import { compareSpeech } from '../server/utils/speechFidelity.js';
+import { computeKeepSegments, parseSilenceDetect } from '../server/utils/silenceCompaction.js';
 import { isAdminEmail, parseAdminAccounts } from '../server/utils/adminAccounts.js';
 import { detectPinterestCategory, pickPinterestKeyword } from '../server/utils/pinterestKeywordPicker.js';
 import { chooseCustomPromptWidget, chooseCustomPromptWidgetAndPattern } from '../server/utils/customPromptStudioRouting.js';
@@ -991,4 +993,49 @@ test('omniFlashPrompts: la continuation interdit de redire le dernier mot du seg
   assert.ok(prompt.includes('not even the last word of the previous sentence'));
   assert.ok(prompt.includes('exactly once'));
   assert.ok(prompt.includes('"Et voila la suite."'));
+});
+
+test('compareSpeech: texte identique malgre accents, ponctuation et apostrophes', () => {
+  const result = compareSpeech("Il a payé neuf euros, c'est tout.", 'il a paye neuf euros c est tout');
+  assert.equal(result.ok, true);
+  assert.equal(result.distance, 0);
+});
+
+test('compareSpeech: detecte le begaiement observe en reel sur une video de blog', () => {
+  const expected = "Il a payé neuf euros par mois, alors que presque toutes ses tentatives échouaient à cause d'un bug invisible.";
+  const heard = "Il a payé neuf euros par mois, alors que presque toutes ses tentatives échouaient à cause d'un bug, à cause d'un bug invisible. À cause d'invisible.";
+  const result = compareSpeech(expected, heard);
+  assert.equal(result.ok, false);
+  assert.ok(result.wordErrorRate > 0.4);
+});
+
+test('compareSpeech: detecte une phrase manquante et tolere un mot de travers', () => {
+  assert.equal(compareSpeech('Une phrase assez longue pour le test de la parole ici.', '').ok, false);
+  assert.equal(compareSpeech('Un deux trois quatre cinq six sept huit neuf dix onze douze', 'Un deux trois quatre cinq six sept huit neuf dix onze douzes').ok, true);
+});
+
+test('computeKeepSegments: raccourcit les longs silences et garde les courtes pauses', () => {
+  // silence de 1,2 s au milieu (garde 0,3 s), pause de 0,5 s (intacte)
+  const keep = computeKeepSegments([[4, 5.2], [8, 8.5]], 12);
+  assert.equal(keep.length, 2);
+  assert.ok(Math.abs(keep[0][1] - 4.15) < 1e-9);
+  assert.ok(Math.abs(keep[1][0] - 5.05) < 1e-9);
+  assert.equal(keep[1][1], 12);
+});
+
+test('computeKeepSegments: coupe le silence du debut jusqu a 0,15 s avant la parole', () => {
+  const keep = computeKeepSegments([[0, 1.0]], 10);
+  assert.equal(keep.length, 1);
+  assert.ok(Math.abs(keep[0][0] - 0.85) < 1e-9);
+});
+
+test('computeKeepSegments: aucun silence long, rien a couper', () => {
+  assert.deepEqual(computeKeepSegments([[2, 2.4]], 10), [[0, 10]]);
+});
+
+test('parseSilenceDetect: lit la duree et les silences, dont un silence final ouvert', () => {
+  const stderr = '  Duration: 00:00:20.01, start: 0\n[silencedetect] silence_start: 8.7\n[silencedetect] silence_end: 9.9 | silence_duration: 1.2\n[silencedetect] silence_start: 19.2';
+  const { duration, silences } = parseSilenceDetect(stderr);
+  assert.ok(Math.abs(duration - 20.01) < 1e-9);
+  assert.deepEqual(silences, [[8.7, 9.9], [19.2, duration]]);
 });

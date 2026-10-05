@@ -15,6 +15,17 @@ import { generateSeedanceVideo, isSeedanceEnabled } from './seedanceGenerator.js
 import { selectVideoModel } from './videoModelSelector.js';
 import { splitScriptIntoSegments } from './scriptSegmentation.js';
 import { buildFirstSegmentPrompt, buildContinuationPrompt } from './omniFlashPrompts.js';
+import { isSpeechVerificationEnabled, verifySegmentSpeech } from './speechVerification.js';
+import { compactSilences, isSilenceCompactionEnabled } from './silenceCompaction.js';
+
+// Chaque regeneration coute une generation Omni Flash de plus : on plafonne par
+// segment ET par video pour qu une parole obstinement fautive ne vide pas le solde.
+// Prudent par defaut (2) ; OMNIFLASH_MAX_SPEECH_RETRIES le releve ou le coupe (0).
+const MAX_SPEECH_ATTEMPTS_PER_SEGMENT = 3;
+const MAX_SPEECH_RETRIES_PER_VIDEO = Number.isFinite(Number(process.env.OMNIFLASH_MAX_SPEECH_RETRIES))
+  && String(process.env.OMNIFLASH_MAX_SPEECH_RETRIES || '').trim() !== ''
+  ? Math.max(0, Number(process.env.OMNIFLASH_MAX_SPEECH_RETRIES))
+  : 2;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -398,33 +409,63 @@ async function requestOmniFlashMultiSegment({ scenePrompt, dialogueText, ai, mod
 
   let previousInteractionId;
   let lastResult = null;
+  const verifySpeech = isSpeechVerificationEnabled();
+  let retryBudget = MAX_SPEECH_RETRIES_PER_VIDEO;
 
   for (const [index, segmentText] of segments.entries()) {
     const text = index === 0
       ? buildFirstSegmentPrompt(scenePrompt, segmentText)
       : buildContinuationPrompt(segmentText);
 
-    console.log(`[omniflash] segment ${index + 1}/${segments.length}...`);
+    let best = null;
 
-    try {
-      lastResult = await requestOmniFlashSegmentBuffer({
-        ai,
-        model,
-        aspectRatio,
-        text,
-        previousInteractionId,
-      });
-    } catch (error) {
-      // Le message brut ne dit pas quel segment a echoue dans une chaine de 4:
-      // sans ce contexte, diagnostiquer une chaine longue revient a tout rejouer.
-      throw new Error(`Segment ${index + 1}/${segments.length} : ${normalizeErrorMessage(error, 'Omni Flash')}`);
+    // Une nouvelle tentative repart de la MEME interaction precedente : seuls
+    // les segments defectueux sont regeneres, jamais ceux deja valides.
+    for (let attempt = 1; ; attempt++) {
+      console.log(`[omniflash] segment ${index + 1}/${segments.length}${attempt > 1 ? ` (tentative ${attempt})` : ''}...`);
+
+      let result;
+      try {
+        result = await requestOmniFlashSegmentBuffer({
+          ai,
+          model,
+          aspectRatio,
+          text,
+          previousInteractionId,
+        });
+      } catch (error) {
+        // Le message brut ne dit pas quel segment a echoue dans une chaine de 4:
+        // sans ce contexte, diagnostiquer une chaine longue revient a tout rejouer.
+        throw new Error(`Segment ${index + 1}/${segments.length} : ${normalizeErrorMessage(error, 'Omni Flash')}`);
+      }
+
+      const verdict = verifySpeech
+        ? await verifySegmentSpeech({ ai, videoBuffer: result.buffer, segmentIndex: index, expectedText: segmentText })
+        : null;
+
+      if (!best || (verdict && verdict.wordErrorRate < (best.verdict?.wordErrorRate ?? Infinity))) {
+        best = { result, verdict };
+      }
+
+      if (!verdict || verdict.ok) break;
+
+      console.warn(`[omniflash] segment ${index + 1} : parole non conforme (ecart ${Math.round(verdict.wordErrorRate * 100)}%), entendu : "${verdict.heardText}"`);
+
+      if (retryBudget <= 0 || attempt >= MAX_SPEECH_ATTEMPTS_PER_SEGMENT) {
+        console.warn(`[omniflash] segment ${index + 1} : meilleure tentative conservee (ecart ${Math.round(best.verdict.wordErrorRate * 100)}%).`);
+        break;
+      }
+
+      retryBudget -= 1;
     }
 
+    lastResult = best.result;
     console.log(`[omniflash] segment ${index + 1}/${segments.length} termine (interaction ${lastResult.interactionId}).`);
     previousInteractionId = lastResult.interactionId;
   }
 
-  const videoUrl = await saveGeneratedVideoBuffer(lastResult.buffer, 'video_omniflash_multi');
+  const finalBuffer = isSilenceCompactionEnabled() ? await compactSilences(lastResult.buffer) : lastResult.buffer;
+  const videoUrl = await saveGeneratedVideoBuffer(finalBuffer, 'video_omniflash_multi');
 
   return { jobId: lastResult.interactionId, videoUrl, status: 'completed', model };
 }
