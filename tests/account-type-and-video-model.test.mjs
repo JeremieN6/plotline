@@ -1109,3 +1109,8 @@ test('shouldCompact: ne coupe jamais une video quasi entierement silencieuse', (
   assert.equal(shouldCompact(10, [[0, 10]]), false);
   assert.equal(shouldCompact(10, [[0.85, 4], [5.0, 8.7]]), true);
 });
+
+test('omniFlashPrompts: interdit sous-titres et texte a l ecran, premier segment comme continuation', () => {
+  assert.ok(buildFirstSegmentPrompt('Scene', 'Texte.').includes('Do not show subtitles'));
+  assert.ok(buildContinuationPrompt('Texte.').includes('Do not show subtitles'));
+});

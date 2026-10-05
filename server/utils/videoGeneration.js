@@ -354,7 +354,7 @@ async function requestOmniFlashTwoTurn({ scenePrompt, dialogueText, ai, model, a
     turn2 = await ai.interactions.create({
       model,
       previous_interaction_id: turn1.id,
-      input: `Make the person in this video say clearly, in French, with natural lip movement precisely synced to every word — the mouth must keep moving in sync all the way through the very last word, with no silent or static mouth movement at any point: "${dialogue}"`,
+      input: `Make the person in this video say clearly, in French, with natural lip movement precisely synced to every word — the mouth must keep moving in sync all the way through the very last word, with no silent or static mouth movement at any point. Do not show subtitles, captions or any on-screen text: the video must contain no written words at all. Text: "${dialogue}"`,
       response_format: { type: 'video', aspect_ratio: aspectRatio },
     });
   } catch (error) {

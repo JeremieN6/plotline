@@ -6,7 +6,7 @@
  */
 
 const SPEECH_RULES =
-  'Say the quoted text exactly once, word for word, in French, at a calm natural pace that fills about 10 seconds. Never repeat a word or a sentence, never add, skip or invent a word, and stop speaking right after the last word.';
+  'Say the quoted text exactly once, word for word, in French, at a calm natural pace that fills about 10 seconds. Never repeat a word or a sentence, never add, skip or invent a word, and stop speaking right after the last word. Do not show subtitles, captions or any on-screen text: the video must contain no written words at all.';
 
 export function buildFirstSegmentPrompt(scenePrompt, text) {
   return `${scenePrompt}. The person speaks clearly, in French, with natural lip movement synced to the speech. ${SPEECH_RULES} Text: "${text}"`;
