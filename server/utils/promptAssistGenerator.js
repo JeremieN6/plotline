@@ -28,6 +28,18 @@ export function buildPromptAssistSystemPrompt({ mediaType, personaDescription, i
 
   if (kind === 'video') {
     lines.push('- Decris le mouvement de camera et l enchainement des plans si pertinent.');
+    lines.push(
+      '- Si une replique est necessaire, 20 a 30 mots maximum par scene ; si l idee en fournit une, la recopier mot pour mot sans la reecrire.',
+    );
+  } else {
+    // Regles tirees d un prompt "generateur de prompts" de l utilisateur
+    // (PROMPTS-INBOX #38), applicables seulement si l idee ne demande pas un
+    // autre style.
+    lines.push(
+      '- Si l idee est vague (ex: "fille dans un cafe"), invente toi-meme les details manquants de decor, de lumiere et de style pour obtenir une image complete.',
+      '- Sauf si l idee demande explicitement un autre style (editorial, studio, cinema), vise une photo de telephone haut de gamme : format vertical 9:16, focale 24 mm (ou 13 mm ultra grand-angle, 77 mm teleobjectif), lumiere naturelle de fenetre, golden hour ou flash direct de nuit, bruit numerique leger, haute lumieres un peu brulees, cadrage de snapshot naturel, texture de peau reelle.',
+      '- Dans ce cas, evite les halos anamorphiques, le bokeh de cinema exagere et le grain de pellicule.',
+    );
   }
 
   if (identityLocked && personaDescription) {

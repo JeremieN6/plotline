@@ -132,6 +132,10 @@
           Essayer une autre méthode (fiche 9 vues)
         </button>
 
+        <button type="button" class="rounded-[12px] border border-[#5B4332] bg-transparent px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50" :disabled="!sourceImageBase64 || generatingRef" @click="generateFaceReference('close_up_4')">
+          Essayer une autre méthode (4 vues en gros plan)
+        </button>
+
         <img v-if="generatedImageDataUrl" :src="generatedImageDataUrl" alt="Cohérence faciale" class="max-h-64 rounded-[12px] border border-[#5B4332] object-cover" />
       </div>
 
@@ -331,9 +335,8 @@ async function generateFaceReference(method = 'default') {
   try {
     // "contact_sheet_9" est une methode alternative explicite (bouton
     // "Essayer une autre methode"), jamais choisie automatiquement.
-    const promptToUse = method === 'contact_sheet_9'
-      ? buildCustomPrompt(FACE_REF_ALT_PROMPT_9PANEL)
-      : customPrompt.value
+    const altPrompt = getAltFaceRefPrompt(method)
+    const promptToUse = altPrompt ? buildCustomPrompt(altPrompt) : customPrompt.value
 
     const payload = await $fetch('/api/generate/face-ref', {
       method: 'POST',

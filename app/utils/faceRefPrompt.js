@@ -9,3 +9,19 @@ export const FACE_REF_BASE_PROMPT =
 // couverts, verrouillage d echelle/eclairage explicite entre panneaux.
 export const FACE_REF_ALT_PROMPT_9PANEL =
   'Create a highly realistic 3x3 portrait contact sheet of the same person, using the uploaded reference image as the primary guide for facial structure, hairstyle, clothing, lighting, and photographic style. Keep the exact same recognizable identity in all 9 panels: same face, same hairstyle, same outfit, same neutral warm-gray studio background, same soft diffused lighting, same camera distance and framing (head-and-shoulders, roughly 85mm portrait lens). No facial distortion, no identity drift between panels, no excessive retouching or plastic skin, natural skin texture with visible pores. Arrange exactly 9 panels in a 3 columns by 3 rows grid, equal panel sizes, no dividers or gaps. Row 1: front-facing portrait looking directly at camera; right-side profile; opposite three-quarter profile. Row 2: left three-quarter angle; right three-quarter angle; slightly lowered frontal angle. Row 3: low-angle portrait looking slightly upward; portrait looking downward; head gently tilted to one side. Photorealistic, sharp focus, high dynamic range, consistent scale and lighting across all nine frames. No cartoon, no CGI, no different person in different panels, no changing hairstyle or outfit between panels, no text, no watermark.'
+
+// Troisieme methode (2026-10-05), source tmp/autres/PROMPTS-INBOX.md #33 :
+// 4 gros plans (face, dos, profil gauche, profil droit) en 2x2. Meme regle que
+// la fiche 9 vues : alternative explicite, jamais choisie automatiquement.
+export const FACE_REF_ALT_PROMPT_4VIEWS =
+  'Create a professional 9:16 vertical character reference sheet showing the same character in four close-up views arranged in a clean 2x2 layout: Front View | Back View | Left Profile | Right Profile. Frame each view as a close-up portrait / upper-body shot, with the character large in the image and the face, hairstyle, skin details, clothing, and accessories clearly visible. Maintain perfect identity consistency across all four views - identical facial features, hairstyle, proportions, outfit, colors, and accessories. Use a simple neutral studio background, soft realistic lighting, natural expression, straight neutral posture, and highly realistic photographic detail. No full-body shots, no distant framing, no extra characters, no props. Aspect Ratio: 9:16 vertical.'
+
+const ALT_FACE_REF_PROMPTS = {
+  contact_sheet_9: FACE_REF_ALT_PROMPT_9PANEL,
+  close_up_4: FACE_REF_ALT_PROMPT_4VIEWS,
+}
+
+/** Prompt de la methode alternative demandee, ou `null` (methode par defaut). */
+export function getAltFaceRefPrompt(method) {
+  return ALT_FACE_REF_PROMPTS[method] || null
+}

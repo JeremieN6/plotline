@@ -171,6 +171,74 @@ export const PROMPT_PATTERNS = [
     limites: 'Jamais teste avec un vrai rendu Plotline. Passe par le widget Video Scenario car c est le seul a proposer Omni Flash (synchro labiale) : pas de packshot, le produit n est decrit qu en texte donc son etiquette peut deriver. Avec identite verrouillee, flux Omni Flash 2 tours (defauts connus de derive en debut/fin de clip) ; sans verrouillage, un script de plus de ~22 mots est enchaine en plusieurs segments.',
     source: 'tmp/autres/PROMPTS.md #78 (structure et paragraphe de jeu, sans le cas maillot de bain) + prompt "Opus 5.5 AI UGC Ad Director" (contraintes de realisme)',
   },
+  {
+    id: 'PORTRAIT_EDITORIAL_EXTERIEUR',
+    nom: 'Portrait editorial en exterieur (golden hour, 85mm)',
+    type: 'IMAGE',
+    widgetId: 'PORTRAIT_STUDIO',
+    tier: null,
+    accountTypeRestriction: null,
+    selectable: true,
+    // Un seul pattern automatisable par widget dans ce lot : PORTRAIT_COZY_HOME.
+    automatable: false,
+    tags: ['portrait', 'editorial', 'exterieur', 'luxe', 'golden-hour'],
+    template:
+      'Ultra-photorealistic fashion editorial photograph of {{persona.description}}, {{cadrage}}, keeping the face and identity fully consistent with the reference. She wears {{tenue}}. Setting: {{decor}}, an outdoor location with strong character, real architectural details and lush natural greenery. {{lumiere}}, warm directional late-afternoon sunlight creating soft highlights on skin and hair and gentle shadows. Shot on a full-frame mirrorless camera with an 85mm f/1.4 lens, shallow depth of field, creamy bokeh in the background, ultra-sharp focus on the face, visible natural skin texture and pores, realistic fabric folds, filmic color grading, high dynamic range. {{style_photo}} aesthetic, {{aspect_ratio}} composition.',
+    negativePrompt:
+      'extra fingers, deformed hands, plastic skin, over-smoothed face, changed facial features, extra limbs, distorted proportions, watermark, text, logos, low resolution, cartoon, illustration',
+    assistHintOverrides: {
+      decor:
+        'Un lieu exterieur precis et photogenique, en anglais, avec des elements d architecture reels et de la vegetation (cour mediterraneenne, rue de la Riviera, jardin d une propriete...). Pas de marque ni de logo cites.',
+      lumiere:
+        'Lumiere naturelle chaude et directionnelle de fin d apres-midi (golden hour), en anglais, une phrase.',
+    },
+    statut: 'experimental',
+    limites: 'Jamais teste avec un vrai rendu Plotline. Fusion de trois recettes proches (cour mediterraneenne, rue de la Riviera, jardin de luxe) ; les marques et references de materiel citees dans les sources sont retirees.',
+    source: 'tmp/autres/PROMPTS-INBOX.md #40, #43 (Cannes), #44 (luxe)',
+  },
+  {
+    id: 'VLOG_DV_CAMCORDER',
+    nom: 'Vlog camescope DV annees 2000',
+    type: 'VIDEO',
+    widgetId: 'VLOG_LIFESTYLE',
+    tier: null,
+    accountTypeRestriction: null,
+    selectable: true,
+    automatable: false,
+    tags: ['video', 'vlog', 'dv', 'nostalgie', 'home-video'],
+    template:
+      'An ultra-realistic home-video {{type_vlog}} filmed by a friend on an early-2000s consumer DV camcorder. {{persona.description}} in {{decor}}. Imperfect handheld operation, natural camera shake, awkward framing, occasional reframing, autofocus hunting, slight lens breathing, exposure pumping between sunlight and shade, subtle motion blur, mild rolling shutter, faded colors, soft contrast, slight digital compression and sensor noise. No stabilization, no cinematic camera moves, no modern color grading. Everything must feel genuinely captured, not AI-generated. Timeline ({{duree}}s): {{sequence_scenes}}. {{dialogue_court}} Only authentic location sound, no music, no narration. Keep her face, hairstyle and clothing perfectly consistent throughout. The recording may end abruptly on black, like an old camcorder being switched off.',
+    negativePrompt:
+      'stabilization, cinematic camera moves, modern color grading, polished commercial look, identity change, text overlays, logos',
+    assistHintOverrides: {
+      sequence_scenes:
+        'Enchainement des plans dans le temps avec horodatage (ex: 00:00-00:05), en anglais, banal et concret (une personne ordinaire dans un quotidien calme), un seul quartier, pas de commerce ni de foule, aucune action spectaculaire.',
+    },
+    statut: 'experimental',
+    limites: 'Jamais teste avec un vrai rendu Plotline. Ce widget n envoie pas de texte parle a Omni Flash : la replique eventuelle reste dans le prompt (Veo/Kling), sans synchro labiale garantie.',
+    source: 'tmp/autres/PROMPTS-INBOX.md #3 (variation 1 "same topic"), #36',
+  },
+  {
+    id: 'PORTRAIT_POSE_CATALOGUE',
+    nom: 'Portrait a poses (catalogue de poses)',
+    type: 'IMAGE',
+    widgetId: 'PORTRAIT_STUDIO',
+    tier: 'B',
+    accountTypeRestriction: 'INFLUENCER_CREATOR',
+    // INACTIF : decision de l utilisateur (2026-10-05). Ne sera rendu
+    // selectionnable qu apres le choix d un modele de generation plus
+    // permissif, branche par l utilisateur lui-meme. Aucun template tant que
+    // le widget n a pas de variable "pose" (voir server/data/poseCatalog.js).
+    selectable: false,
+    automatable: false,
+    tags: ['portrait', 'poses', 'catalogue'],
+    template: null,
+    negativePrompt: null,
+    assistHintOverrides: null,
+    statut: 'reserve',
+    limites: 'Donnees seulement (server/data/poseCatalog.js, 21 poses par nom de planche). Conditions au branchement : personas fictives adultes issues de la face ref, jamais le visage d une personne reelle ; ajouter une variable "pose" au widget ou un widget dedie.',
+    source: 'zip pattern-images/ref-pose fourni le 2026-10-05 (hors depot)',
+  },
 ];
 
 export function getPromptPatterns() {

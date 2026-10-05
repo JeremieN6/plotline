@@ -42,7 +42,10 @@ import { getBodyBlock, injectBody } from '../server/utils/injectBody.js';
 import { buildPersonaDescription } from '../server/utils/personaDescription.js';
 import { resolveWidgetPrompt } from '../server/utils/widgetEngine.js';
 import { getWidgetById, getWidgets } from '../server/data/widgets.js';
-import { parsePromptAssistResult } from '../server/utils/promptAssistGenerator.js';
+import { buildPromptAssistSystemPrompt, parsePromptAssistResult } from '../server/utils/promptAssistGenerator.js';
+import { getPoseByName, getPoseCatalog } from '../server/data/poseCatalog.js';
+import { getPromptPatternById } from '../server/data/promptPatterns.js';
+import { FACE_REF_ALT_PROMPT_9PANEL, getAltFaceRefPrompt } from '../app/utils/faceRefPrompt.js';
 import { parseWidgetFieldsResult } from '../server/utils/widgetFieldsAssistGenerator.js';
 import { parseCarouselAssistResult } from '../server/utils/carouselAssistGenerator.js';
 import { splitScriptIntoSegments } from '../server/utils/scriptSegmentation.js';
@@ -978,6 +981,67 @@ test('UGC_AVIS_PARLE: selectionnable par tous les comptes sur Video Scenario, ja
   assert.ok(finalPrompt.includes('accurate lip sync'));
   assert.match(finalPrompt, /Avoid: plastic skin/);
   assert.ok(widget.variables.find((v) => v.key === 'scriptText').assistHint.includes('2,5 mots par seconde'));
+});
+
+test('lot 1 patterns: portrait editorial et vlog DV selectionnables par tous, jamais automatiques, prompts complets', () => {
+  const portraitIds = listSelectablePatterns({ widgetId: 'PORTRAIT_STUDIO', accountType: 'BRAND' }).map((p) => p.id);
+  assert.ok(portraitIds.includes('PORTRAIT_EDITORIAL_EXTERIEUR'));
+  assert.equal(getAutomatablePatternForWidget('PORTRAIT_STUDIO')?.id, 'PORTRAIT_COZY_HOME');
+
+  const vlogIds = listSelectablePatterns({ widgetId: 'VLOG_LIFESTYLE', accountType: 'BRAND' }).map((p) => p.id);
+  assert.ok(vlogIds.includes('VLOG_DV_CAMCORDER'));
+  assert.equal(getAutomatablePatternForWidget('VLOG_LIFESTYLE'), null);
+
+  const editorial = resolvePatternForAccount({ patternId: 'PORTRAIT_EDITORIAL_EXTERIEUR', widgetId: 'PORTRAIT_STUDIO', accountType: 'BRAND' });
+  const editorialWidget = buildEffectiveWidget(getWidgetById('PORTRAIT_STUDIO'), editorial);
+  const { finalPrompt: portraitPrompt } = resolveWidgetPrompt(editorialWidget, {
+    personaDescription: 'PERSONA',
+    inputs: { cadrage: 'CADRAGE', tenue: 'TENUE', decor: 'DECOR', lumiere: 'LUMIERE', style_photo: 'STYLE', aspect_ratio: '4:5' },
+  });
+  assert.ok(portraitPrompt.includes('PERSONA, CADRAGE'));
+  assert.ok(!portraitPrompt.includes('{{'));
+  assert.ok(!/Louis Vuitton|Sony/i.test(portraitPrompt));
+
+  const vlog = resolvePatternForAccount({ patternId: 'VLOG_DV_CAMCORDER', widgetId: 'VLOG_LIFESTYLE', accountType: 'BRAND' });
+  const vlogWidget = buildEffectiveWidget(getWidgetById('VLOG_LIFESTYLE'), vlog);
+  const { finalPrompt: vlogPrompt } = resolveWidgetPrompt(vlogWidget, {
+    personaDescription: 'PERSONA',
+    inputs: { type_vlog: 'walk', decor: 'DECOR', duree: '30', sequence_scenes: 'SCENES', dialogue_court: 'DIALOGUE' },
+  });
+  assert.ok(vlogPrompt.includes('early-2000s consumer DV camcorder'));
+  assert.ok(!vlogPrompt.includes('{{'));
+});
+
+test('poseCatalog: 21 poses par nom de planche, pattern a poses inactif et reserve aux comptes influenceur', () => {
+  assert.equal(getPoseCatalog().length, 21);
+  assert.equal(new Set(getPoseCatalog().map((pose) => pose.id)).size, 21);
+  assert.equal(getPoseByName('side sit')?.id, 'SIDE_SIT');
+
+  const pattern = getPromptPatternById('PORTRAIT_POSE_CATALOGUE');
+  assert.equal(pattern.selectable, false);
+  assert.equal(pattern.automatable, false);
+  assert.equal(pattern.accountTypeRestriction, 'INFLUENCER_CREATOR');
+  // Meme avec le bon type de compte, il reste introuvable cote selection.
+  const ids = listSelectablePatterns({ widgetId: 'PORTRAIT_STUDIO', accountType: 'INFLUENCER_CREATOR' }).map((p) => p.id);
+  assert.ok(!ids.includes('PORTRAIT_POSE_CATALOGUE'));
+});
+
+test('promptAssistGenerator: regles iPhone pour les images, replique 20 a 30 mots pour la video', () => {
+  const image = buildPromptAssistSystemPrompt({ mediaType: 'image' });
+  assert.ok(image.includes('photo de telephone haut de gamme'));
+  assert.ok(image.includes('invente toi-meme les details manquants'));
+  assert.ok(!image.includes('20 a 30 mots'));
+
+  const video = buildPromptAssistSystemPrompt({ mediaType: 'video' });
+  assert.ok(video.includes('20 a 30 mots maximum par scene'));
+  assert.ok(!video.includes('photo de telephone'));
+});
+
+test('faceRefPrompt: la methode 4 vues est resolue, une methode inconnue renvoie la methode par defaut (null)', () => {
+  assert.ok(getAltFaceRefPrompt('close_up_4').includes('2x2 layout'));
+  assert.equal(getAltFaceRefPrompt('contact_sheet_9'), FACE_REF_ALT_PROMPT_9PANEL);
+  assert.equal(getAltFaceRefPrompt('default'), null);
+  assert.equal(getAltFaceRefPrompt(new Event('click')), null);
 });
 
 test('omniFlashPrompts: le premier segment garde la scene, impose une seule lecture et cite le texte', () => {

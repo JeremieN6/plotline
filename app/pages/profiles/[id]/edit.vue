@@ -142,6 +142,16 @@
               Essayer une autre méthode (fiche 9 vues)
             </button>
 
+            <button
+              v-if="sourceImageBase64"
+              type="button"
+              class="mt-2 w-full rounded-lg border border-[#E5E3DF] bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="generatingRef"
+              @click="generateFaceReference('close_up_4')"
+            >
+              Essayer une autre méthode (4 vues en gros plan)
+            </button>
+
             <div v-if="isAdmin" class="mt-4 rounded-xl border border-dashed border-[#E5E3DF] bg-white p-4">
               <div class="flex flex-wrap items-center gap-2">
                 <p class="text-sm font-bold text-gray-800">Importer directement une fiche 3 vues</p>
@@ -895,7 +905,7 @@ async function generateFaceReference(method = 'default') {
   try {
     // "contact_sheet_9" est une methode alternative explicite (bouton
     // "Essayer une autre methode"), jamais choisie automatiquement.
-    const customPrompt = method === 'contact_sheet_9' ? FACE_REF_ALT_PROMPT_9PANEL : FACE_REF_BASE_PROMPT
+    const customPrompt = getAltFaceRefPrompt(method) || FACE_REF_BASE_PROMPT
 
     const payload = await $fetch('/api/generate/face-ref', {
       method: 'POST',

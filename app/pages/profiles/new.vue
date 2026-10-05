@@ -235,6 +235,15 @@
           >
             Essayer une autre méthode (fiche 9 vues)
           </button>
+
+          <button
+            type="button"
+            class="btn secondary full-width"
+            :disabled="!sourceImageBase64 || generatingRef"
+            @click="generateFaceReference('close_up_4')"
+          >
+            Essayer une autre méthode (4 vues en gros plan)
+          </button>
         </div>
 
         <div v-if="step === 3 && form.profileType === 'persona'" class="step-content">
@@ -769,9 +778,8 @@ async function generateFaceReference(method = 'default') {
   try {
     // "contact_sheet_9" est une methode alternative explicite (voir bouton
     // "Essayer une autre methode"), jamais choisie automatiquement.
-    const promptToUse = method === 'contact_sheet_9'
-      ? buildCustomPrompt(FACE_REF_ALT_PROMPT_9PANEL)
-      : customPrompt.value
+    const altPrompt = getAltFaceRefPrompt(method)
+    const promptToUse = altPrompt ? buildCustomPrompt(altPrompt) : customPrompt.value
 
     const payload = await $fetch('/api/generate/face-ref', {
       method: 'POST',
