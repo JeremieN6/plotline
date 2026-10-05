@@ -959,6 +959,25 @@ test('customPromptStudioRouting: chooseCustomPromptWidgetAndPattern fusionne le 
   assert.ok(withoutFaceRef.widget.variables.find((v) => v.key === 'scriptText').assistHint.includes('accroche'));
 });
 
+test('UGC_AVIS_PARLE: selectionnable par tous les comptes sur Video Scenario, jamais automatique, prompt final complet', () => {
+  for (const accountType of ['INFLUENCER_CREATOR', 'CONTENT_CREATOR', 'BRAND']) {
+    const ids = listSelectablePatterns({ widgetId: 'SCENARIO_BLOG', accountType }).map((pattern) => pattern.id);
+    assert.ok(ids.includes('UGC_AVIS_PARLE'), accountType);
+  }
+
+  // Le pattern automatisable de Video Scenario reste SCENARIO_CONVERSATIONNEL.
+  assert.equal(getAutomatablePatternForWidget('SCENARIO_BLOG')?.id, 'SCENARIO_CONVERSATIONNEL');
+
+  const pattern = resolvePatternForAccount({ patternId: 'UGC_AVIS_PARLE', widgetId: 'SCENARIO_BLOG', accountType: 'BRAND' });
+  const widget = buildEffectiveWidget(getWidgetById('SCENARIO_BLOG'), pattern);
+  const { finalPrompt } = resolveWidgetPrompt(widget, { inputs: { scenePrompt: 'SCENE_TEXT', scriptText: 'SCRIPT' } });
+
+  assert.ok(finalPrompt.startsWith('SCENE_TEXT '));
+  assert.ok(finalPrompt.includes('accurate lip sync'));
+  assert.match(finalPrompt, /Avoid: plastic skin/);
+  assert.ok(widget.variables.find((v) => v.key === 'scriptText').assistHint.includes('2,5 mots par seconde'));
+});
+
 test('omniFlashPrompts: le premier segment garde la scene, impose une seule lecture et cite le texte', () => {
   const prompt = buildFirstSegmentPrompt('A founder at a desk', 'Bonjour a tous.');
   assert.ok(prompt.startsWith('A founder at a desk.'));

@@ -216,7 +216,7 @@ export const WIDGETS = [
       { key: 'personaFaceRef', source: 'persona', required: true },
       { key: 'packshot', source: 'upload', required: true, label: 'Packshot produit' },
     ],
-    negativePrompt: 'distorted product, altered label, fake typography, plastic skin',
+    negativePrompt: 'distorted product, altered label, fake typography, plastic skin, extra fingers, unreadable label, studio lighting, fake stats or reviews',
   },
   {
     id: 'SCENARIO_BLOG',

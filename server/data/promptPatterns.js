@@ -142,6 +142,35 @@ export const PROMPT_PATTERNS = [
     limites: 'Renforce le texte demande a Claude, pas le pipeline de generation lui-meme (deja eprouve via /api/external/video-jobs et le widget Studio existant).',
     source: 'tmp/autres/PROMPTS.md #13, #16',
   },
+  {
+    id: 'UGC_AVIS_PARLE',
+    nom: 'UGC avis parle au telephone (15s)',
+    type: 'VIDEO',
+    widgetId: 'SCENARIO_BLOG',
+    tier: null,
+    accountTypeRestriction: null,
+    selectable: true,
+    // Jamais automatique : un avis produit n a pas de sens sans produit choisi
+    // par l utilisateur (aucun packshot n existe dans ce parcours).
+    automatable: false,
+    tags: ['video', 'ugc', 'avis', 'produit', 'parle'],
+    // La structure (chronologie, plans, objectifs) est demandee a Claude via
+    // assistHintOverrides ; le template n ajoute que le paragraphe de jeu et les
+    // contraintes de realisme, repris de #78 et du prompt "UGC Ad Director".
+    template:
+      '{{scenePrompt}} Use natural conversational delivery, accurate lip sync, realistic hand movements, subtle posture shifts, and authentic smartphone UGC framing. Natural skin texture, real phone lens look, messy real-life background details, no studio lighting, no perfect framing. Any product is held like a real object, its label faces the camera and stays readable. Maintain consistent hairstyle, outfit, room layout and lighting throughout.',
+    negativePrompt:
+      'plastic skin, extra fingers, warped jewelry or straps, fake logos, unreadable or warped text, sudden lighting changes, overly polished commercial movement, artificial expressions, wardrobe changes, face drift, fake stats or fake reviews, subtitles, watermarks',
+    assistHintOverrides: {
+      scenePrompt:
+        'Decrit en anglais UNE video verticale 9:16 de 15 secondes, filmee au telephone, avec un seul decor et une seule tenue gardes identiques du debut a la fin. Structure en 4 temps avec horodatage, dans cet ordre : accroche (0-3 s), probleme ou decouverte du produit (3-7 s), preuve montree plutot que racontee (7-11 s), conclusion douce (11-15 s). Pour chaque temps, donne le type de plan (medium shot, close-up...), l angle, la focale equivalente et un mouvement de camera discret (poussee lente, derive laterale, rack focus, recul lent). Decris le produit concretement (forme, couleur, matiere) sans nom de marque invente. Aucun dialogue ni texte a l ecran dans cette description, pas de description du visage (il vient de la face ref ou est laisse libre).',
+      scriptText:
+        'Texte parle en francais, de 3 a 4 phrases courtes, 2,5 mots par seconde maximum (donc 30 a 37 mots au total pour 15 s), ton d une vraie personne qui parle a une amie : tutoiement, honnete, un peu desordonne. La premiere phrase doit arreter le scroll en moins de 2 secondes. Pas de mot de marque qu une vraie personne ne dirait pas, aucune statistique ni avis invente, pas de guillemets, pas de didascalie.',
+    },
+    statut: 'experimental',
+    limites: 'Jamais teste avec un vrai rendu Plotline. Passe par le widget Video Scenario car c est le seul a proposer Omni Flash (synchro labiale) : pas de packshot, le produit n est decrit qu en texte donc son etiquette peut deriver. Avec identite verrouillee, flux Omni Flash 2 tours (defauts connus de derive en debut/fin de clip) ; sans verrouillage, un script de plus de ~22 mots est enchaine en plusieurs segments.',
+    source: 'tmp/autres/PROMPTS.md #78 (structure et paragraphe de jeu, sans le cas maillot de bain) + prompt "Opus 5.5 AI UGC Ad Director" (contraintes de realisme)',
+  },
 ];
 
 export function getPromptPatterns() {
