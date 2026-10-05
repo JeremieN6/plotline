@@ -1,6 +1,8 @@
 import { createGeneratedContentRecord } from '../generate/video.post.js';
 import { resolveVideoModelOrThrow, runVideoGenerationJob } from '../../utils/videoGeneration.js';
 
+const DEFAULT_SCENE_PROMPT = 'A person speaking directly to the camera in a tidy, softly lit home office, natural daylight, relaxed and authentic atmosphere';
+
 let prismaClient;
 
 async function getPrisma() {
@@ -121,7 +123,10 @@ export default defineEventHandler(async (event) => {
       // Omni Flash utilise ces deux champs separement seulement si une image
       // de depart est fournie (voir requestOmniFlashVideo) -- sans elle
       // (withFaceRef: false), un seul appel texte les combine directement.
-      scenePrompt: decorPrompt || prompt,
+      // Jamais le script en repli : sans decor, le script entier se retrouvait
+      // dans la description de scene ET dans les repliques, et le modele en
+      // reprenait des phrases hors de leur segment.
+      scenePrompt: decorPrompt || DEFAULT_SCENE_PROMPT,
       dialogueText: scriptText,
     });
 
