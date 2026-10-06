@@ -1076,7 +1076,9 @@ test('compareSpeech: detecte le begaiement observe en reel sur une video de blog
 
 test('compareSpeech: detecte une phrase manquante et tolere un mot de travers', () => {
   assert.equal(compareSpeech('Une phrase assez longue pour le test de la parole ici.', '').ok, false);
-  assert.equal(compareSpeech('Un deux trois quatre cinq six sept huit neuf dix onze douze', 'Un deux trois quatre cinq six sept huit neuf dix onze douzes').ok, true);
+  const vingt = 'un deux trois quatre cinq six sept huit neuf dix onze douze treize quatorze quinze seize dix-sept dix-huit dix-neuf vingt';
+  assert.equal(compareSpeech(vingt, vingt.replace('vingt', 'vins')).ok, true);
+  assert.equal(compareSpeech(vingt, vingt.replace('vingt', 'vins vins')).ok, false);
 });
 
 test('computeKeepSegments: raccourcit les longs silences et garde les courtes pauses', () => {
@@ -1163,4 +1165,10 @@ test('usageSummary: bornes de mois, image ou video, agregation et regenerations'
   assert.equal(summary.failed, 2);
   assert.deepEqual(summary.byModel, { 'gemini-omni-1.1-flash': 2, inconnu: 1 });
   assert.equal(summarizeUsage().generations, 0);
+});
+
+test('compareSpeech: le begaiement reel "formuler clairmuler clairement formuler clairement" est refuse', () => {
+  const expected = "Je donne l'état de chaque projet à une IA, et elle me force à formuler clairement ce que je suis en train d'éviter.";
+  const heard = "Je donne l'état de chaque projet à une IA et elle me force à formuler clairmuler clairement formuler clairement ce que je suis en train d'éviter.";
+  assert.equal(compareSpeech(expected, heard).ok, false);
 });

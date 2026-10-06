@@ -5,9 +5,10 @@
  * des videos de blog en francais).
  */
 
-// Tolere quelques ecarts de transcription (environ 3 mots sur 20) : au-dela,
-// c est un vrai defaut de parole (repetition, mot saute, mot invente).
-export const SPEECH_MAX_WORD_ERROR_RATE = 0.15;
+// Tolere UN seul ecart de transcription (4 % sur 25 mots) : des 2 mots d ecart,
+// c est un vrai defaut de parole (repetition, mot saute, mot invente). A 15 %, un
+// begaiement reel de 3 mots sur 25 (12 %) passait le controle sans etre vu.
+export const SPEECH_MAX_WORD_ERROR_RATE = 0.07;
 
 export function normalizeSpokenWords(text) {
   return String(text || '')
