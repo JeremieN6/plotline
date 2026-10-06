@@ -362,11 +362,13 @@ const navigation = computed(() => {
   // marque: ailleurs, il fallait taper l URL a la main. Elle est desormais
   // presente pour les trois types de compte.
   const profilesItem = { label: 'Mes profils', to: '/profiles' }
+  const libraryItem = { label: 'Bibliothèque', to: '/library' }
 
   if (isContentCreator.value) {
     return [
       { label: 'Accueil', to: '/dashboard' },
       { label: 'Studio', to: '/studio' },
+      libraryItem,
       { label: 'Mes créations', to: '/content' },
       profilesItem,
       { label: 'Calendrier', to: '/calendar' },
@@ -379,6 +381,7 @@ const navigation = computed(() => {
     return [
       { label: 'Accueil', to: '/dashboard' },
       { label: 'Brand Studio', to: '/brand-studio' },
+      libraryItem,
       profilesItem,
       { label: 'Calendrier', to: '/calendar' },
       { label: 'Analytics', to: '/analytics', badge: 'Bientôt', disabled: true },
@@ -390,6 +393,7 @@ const navigation = computed(() => {
     { label: 'Accueil', to: '/dashboard' },
     { label: 'Générer', to: activeInfluencer.value ? `/profiles/${activeInfluencer.value.id}/generate` : '/profiles', disabled: !activeInfluencer.value },
     { label: 'Studio', to: '/studio' },
+    libraryItem,
     { label: 'Contenu', to: '/content' },
     profilesItem,
     { label: 'Calendrier', to: '/calendar' },

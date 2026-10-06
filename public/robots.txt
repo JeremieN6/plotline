@@ -3,6 +3,7 @@ Disallow: /_nuxt/
 Disallow: /api/
 Disallow: /dashboard
 Disallow: /studio
+Disallow: /library
 Disallow: /brand-studio
 Disallow: /content
 Disallow: /calendar

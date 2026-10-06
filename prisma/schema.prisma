@@ -81,6 +81,30 @@ model User {
   authSessions AuthSession[]
   passwordResetTokens PasswordResetToken[]
   emailChangeTokens   EmailChangeToken[]
+  referenceAssets     ReferenceAsset[]
+}
+
+/// Bibliotheque d assets de reference au niveau du compte (voiture, lieu, bijou...).
+/// Le type et le role de chaque photo sont du TEXT valide cote code, pas des enums.
+model ReferenceAsset {
+  id            String   @id @default(cuid())
+  userId        String
+  type          String
+  code          String
+  name          String
+  description   String?
+  /// [{ url, role }], 1 a 8 entrees.
+  sources       Json     @default("[]")
+  sheetUrl      String?
+  /// true quand les photos ont change depuis la derniere generation de la fiche.
+  sheetOutdated Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, code])
+  @@index([userId, type])
 }
 
 model Campaign {

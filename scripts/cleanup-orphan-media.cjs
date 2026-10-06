@@ -91,6 +91,19 @@ async function collectReferencedMedia(prisma) {
   const profiles = await prisma.profile.findMany({ select: { faceRefPath: true } });
   profiles.forEach((row) => remember(row.faceRefPath));
 
+  // Bibliotheque d assets : photos sources et fiches.
+  try {
+    const assets = await prisma.referenceAsset.findMany({ select: { sources: true, sheetUrl: true } });
+    assets.forEach((row) => {
+      remember(row.sheetUrl);
+      if (Array.isArray(row.sources)) {
+        row.sources.forEach((source) => remember(source?.url));
+      }
+    });
+  } catch (error) {
+    console.warn('[avertissement] bibliotheque d assets illisible, ses medias ne sont pas proteges:', error?.message);
+  }
+
   return { referencedUrls, referencedFilenames };
 }
 
@@ -134,6 +147,8 @@ async function scanBlobFiles(referencedUrls, referencedFilenames) {
       const name = blob.pathname.split('/').filter(Boolean).pop();
       // On ne touche pas aux face refs, rangees dans leur propre prefixe.
       if (blob.pathname.startsWith('face-refs/')) continue;
+      // Meme regle pour la bibliotheque d assets (photos sources et fiches).
+      if (blob.pathname.startsWith('reference-assets/')) continue;
       if (referencedUrls.has(blob.url) || (name && referencedFilenames.has(name))) continue;
 
       orphans.push({ name: blob.pathname, url: blob.url, size: blob.size || 0 });
