@@ -22,7 +22,9 @@ export function isSilenceCompactionEnabled() {
  * totale, renvoie les intervalles a CONSERVER. Un silence au tout debut est
  * coupe jusqu a 0,15 s avant la parole ; les autres gardent KEEP_SECONDS.
  */
-export function computeKeepSegments(silences, duration, { minSilence = MIN_SILENCE_SECONDS, keep = KEEP_SECONDS } = {}) {
+export function computeKeepSegments(silences, duration, { minSilence = MIN_SILENCE_SECONDS, keep = KEEP_SECONDS, edgesOnly = false } = {}) {
+  if (edgesOnly) return computeEdgeSegment(silences, duration, minSilence);
+
   const segments = [];
   let cursor = 0;
 
@@ -59,6 +61,39 @@ export function shouldCompact(duration, keep) {
   return removed >= 0.3 && kept >= 1.5 && removed / duration <= 0.7;
 }
 
+// Clip a segment unique : les pauses au milieu d une phrase font partie du
+// rythme (et couper l image en plein geste se voit). On rogne le debut et la fin
+// en gardant un peu de souffle avant la premiere et apres la derniere parole, et
+// on ne touche au milieu que pour un trou ANORMAL (> GAP_SECONDS), ramene a
+// 2 x GAP_KEEP_SECONDS. Les pauses naturelles (< 1 s) restent intactes.
+const HEAD_KEEP_SECONDS = 0.2;
+const TAIL_KEEP_SECONDS = 0.4;
+const GAP_SECONDS = 1.0;
+const GAP_KEEP_SECONDS = 0.3;
+
+function computeEdgeSegment(silences, duration, minSilence) {
+  const segments = [];
+  let start = 0;
+  let end = duration;
+  let cursor = null;
+
+  for (const [silenceStart, silenceEnd] of silences) {
+    if (silenceEnd - silenceStart < minSilence) continue;
+
+    if (silenceStart < 0.05) {
+      start = Math.max(start, silenceEnd - HEAD_KEEP_SECONDS);
+    } else if (silenceEnd >= duration - 0.05) {
+      end = Math.min(end, silenceStart + TAIL_KEEP_SECONDS);
+    } else if (silenceEnd - silenceStart > GAP_SECONDS) {
+      segments.push([cursor ?? start, silenceStart + GAP_KEEP_SECONDS]);
+      cursor = silenceEnd - GAP_KEEP_SECONDS;
+    }
+  }
+
+  segments.push([cursor ?? start, end]);
+  return segments.filter(([from, to]) => to - from > 0.05);
+}
+
 export function parseSilenceDetect(stderr) {
   const durationMatch = /Duration: (\d+):(\d+):([\d.]+)/.exec(stderr);
   const duration = durationMatch
@@ -86,7 +121,7 @@ export function parseSilenceDetect(stderr) {
  * (couper l audio seul desynchroniserait la video). Ne bloque jamais : en cas de
  * probleme, la video d origine est renvoyee telle quelle.
  */
-export async function compactSilences(videoBuffer) {
+export async function compactSilences(videoBuffer, { edgesOnly = false } = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'plotline-silence-'));
 
   try {
@@ -101,7 +136,7 @@ export async function compactSilences(videoBuffer) {
     ]).catch((error) => error);
     const { duration, silences } = parseSilenceDetect(String(detection?.stderr || ''));
 
-    const keep = computeKeepSegments(silences, duration);
+    const keep = computeKeepSegments(silences, duration, { edgesOnly });
     const removed = duration - keep.reduce((total, [start, end]) => total + (end - start), 0);
     if (!shouldCompact(duration, keep)) return videoBuffer;
 

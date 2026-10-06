@@ -278,7 +278,8 @@ function extractOmniFlashVideoBuffer(interaction) {
 // entierement "silence" et ne doit jamais etre coupe.
 async function extractOmniFlashVideoUrl(interaction, { compact = false } = {}) {
   let buffer = extractOmniFlashVideoBuffer(interaction);
-  if (compact && isSilenceCompactionEnabled()) buffer = await compactSilences(buffer);
+  // Clip unique : on ne rogne que le debut et la fin (voir silenceCompaction.js).
+  if (compact && isSilenceCompactionEnabled()) buffer = await compactSilences(buffer, { edgesOnly: true });
   return saveGeneratedVideoBuffer(buffer, 'video_omniflash');
 }
 

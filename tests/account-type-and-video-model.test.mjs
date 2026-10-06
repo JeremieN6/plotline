@@ -1114,3 +1114,22 @@ test('omniFlashPrompts: interdit sous-titres et texte a l ecran, premier segment
   assert.ok(buildFirstSegmentPrompt('Scene', 'Texte.').includes('Do not show subtitles'));
   assert.ok(buildContinuationPrompt('Texte.').includes('Do not show subtitles'));
 });
+
+test('computeKeepSegments edgesOnly: rogne debut/fin et ne coupe au milieu que le trou anormal', () => {
+  const keep = computeKeepSegments([[0, 0.8], [3.37, 4.0], [6.56, 7.98], [8.95, 10]], 10, { edgesOnly: true });
+  // la pause de 0,63 s reste intacte ; le trou de 1,42 s est ramene a 0,6 s
+  assert.equal(keep.length, 2);
+  assert.ok(Math.abs(keep[0][0] - 0.6) < 1e-9);
+  assert.ok(Math.abs(keep[0][1] - 6.86) < 1e-9);
+  assert.ok(Math.abs(keep[1][0] - 7.68) < 1e-9);
+  assert.ok(Math.abs(keep[1][1] - 9.35) < 1e-9);
+});
+
+test('computeKeepSegments edgesOnly: aucune coupe au milieu sans trou de plus d une seconde', () => {
+  const keep = computeKeepSegments([[0, 0.8], [3, 3.9], [9, 10]], 10, { edgesOnly: true });
+  assert.equal(keep.length, 1);
+});
+
+test('computeKeepSegments edgesOnly: rien a rogner sans silence long aux extremites', () => {
+  assert.deepEqual(computeKeepSegments([[3, 3.9]], 10, { edgesOnly: true }), [[0, 10]]);
+});
