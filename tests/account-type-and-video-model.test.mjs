@@ -44,6 +44,7 @@ import { resolveWidgetPrompt } from '../server/utils/widgetEngine.js';
 import { getWidgetById, getWidgets } from '../server/data/widgets.js';
 import { buildPromptAssistSystemPrompt, parsePromptAssistResult } from '../server/utils/promptAssistGenerator.js';
 import { getPoseByName, getPoseCatalog } from '../server/data/poseCatalog.js';
+import { classifyMedia, monthRange, summarizeUsage } from '../server/utils/usageSummary.js';
 import { getPromptPatternById } from '../server/data/promptPatterns.js';
 import { FACE_REF_ALT_PROMPT_9PANEL, getAltFaceRefPrompt } from '../app/utils/faceRefPrompt.js';
 import { parseWidgetFieldsResult } from '../server/utils/widgetFieldsAssistGenerator.js';
@@ -1132,4 +1133,34 @@ test('computeKeepSegments edgesOnly: aucune coupe au milieu sans trou de plus d 
 
 test('computeKeepSegments edgesOnly: rien a rogner sans silence long aux extremites', () => {
   assert.deepEqual(computeKeepSegments([[3, 3.9]], 10, { edgesOnly: true }), [[0, 10]]);
+});
+
+test('usageSummary: bornes de mois, image ou video, agregation et regenerations', () => {
+  const june = monthRange('2026-06');
+  assert.equal(june.label, '2026-06');
+  assert.equal(june.start.toISOString(), '2026-06-01T00:00:00.000Z');
+  assert.equal(june.end.toISOString(), '2026-07-01T00:00:00.000Z');
+  assert.equal(monthRange('2026-12').end.toISOString(), '2027-01-01T00:00:00.000Z');
+  assert.equal(monthRange('n importe quoi', new Date('2026-10-15T00:00:00Z')).label, '2026-10');
+
+  assert.equal(classifyMedia('https://x/y/clip.mp4?token=1'), 'video');
+  assert.equal(classifyMedia('https://x/y/photo.JPG'), 'image');
+  assert.equal(classifyMedia(null), 'image');
+
+  const summary = summarizeUsage({
+    versions: [
+      { contentId: 'a', imageUrl: 'a1.mp4', generationModel: 'gemini-omni-1.1-flash' },
+      { contentId: 'a', imageUrl: 'a2.mp4', generationModel: 'gemini-omni-1.1-flash' },
+      { contentId: 'b', imageUrl: 'b1.jpg', generationModel: null },
+    ],
+    failed: 2,
+  });
+
+  assert.equal(summary.generations, 3);
+  assert.equal(summary.videos, 2);
+  assert.equal(summary.images, 1);
+  assert.equal(summary.regenerations, 1);
+  assert.equal(summary.failed, 2);
+  assert.deepEqual(summary.byModel, { 'gemini-omni-1.1-flash': 2, inconnu: 1 });
+  assert.equal(summarizeUsage().generations, 0);
 });

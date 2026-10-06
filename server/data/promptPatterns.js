@@ -167,8 +167,8 @@ export const PROMPT_PATTERNS = [
       scriptText:
         'Texte parle en francais, de 3 a 4 phrases courtes, 2,5 mots par seconde maximum (donc 30 a 37 mots au total pour 15 s), ton d une vraie personne qui parle a une amie : tutoiement, honnete, un peu desordonne. La premiere phrase doit arreter le scroll en moins de 2 secondes. Pas de mot de marque qu une vraie personne ne dirait pas, aucune statistique ni avis invente, pas de guillemets, pas de didascalie.',
     },
-    statut: 'experimental',
-    limites: 'Jamais teste avec un vrai rendu Plotline. Passe par le widget Video Scenario car c est le seul a proposer Omni Flash (synchro labiale) : pas de packshot, le produit n est decrit qu en texte donc son etiquette peut deriver. Avec identite verrouillee, flux Omni Flash 2 tours (defauts connus de derive en debut/fin de clip) ; sans verrouillage, un script de plus de ~22 mots est enchaine en plusieurs segments.',
+    statut: 'valide',
+    limites: 'Valide en usage reel par l utilisateur (octobre 2026, fonctionne correctement). Passe par le widget Video Scenario car c est le seul a proposer Omni Flash (synchro labiale) : pas de packshot, le produit n est decrit qu en texte donc son etiquette peut deriver. Avec identite verrouillee, flux Omni Flash 2 tours (defauts connus de derive en debut/fin de clip) ; sans verrouillage, un script de plus de ~22 mots est enchaine en plusieurs segments.',
     source: 'tmp/autres/PROMPTS.md #78 (structure et paragraphe de jeu, sans le cas maillot de bain) + prompt "Opus 5.5 AI UGC Ad Director" (contraintes de realisme)',
   },
   {

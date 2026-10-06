@@ -22,6 +22,18 @@
     </section>
 
     <section class="rounded-[20px] border border-[#E5E3DF] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+      <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#E8873A]">Usage</p>
+      <h2 class="mt-2 text-2xl font-bold text-[#111111]">Générations du mois</h2>
+      <p class="mt-2 text-sm text-[#666666]">Vois combien de contenus tu as générés, par modèle et par profil.</p>
+      <NuxtLink
+        to="/usage"
+        class="mt-4 inline-flex rounded-xl bg-[#111111] px-4 py-2 text-sm font-semibold text-white transition hover:bg-black"
+      >
+        Voir l'usage
+      </NuxtLink>
+    </section>
+
+    <section class="rounded-[20px] border border-[#E5E3DF] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
       <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#E8873A]">Sécurité</p>
       <h2 class="mt-2 text-2xl font-bold text-[#111111]">Modifier l'adresse email</h2>
       <p class="mt-2 text-sm text-[#666666]">
