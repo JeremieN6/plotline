@@ -439,6 +439,23 @@
                   </p>
                 </div>
               </div>
+
+              <div v-if="widgetVideoModel === 'omniflash'">
+                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Plans de coupe (B-roll)</label>
+                <select
+                  v-model.number="scenarioBrollCount"
+                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+                >
+                  <option :value="0">Aucun (par défaut)</option>
+                  <option :value="1">1 plan de coupe</option>
+                  <option :value="2">2 plans de coupe</option>
+                  <option :value="3">3 plans de coupe</option>
+                </select>
+                <p class="mt-1.5 text-xs text-[#7B5A3F]">
+                  Des images qui illustrent ce qui est dit, posées par-dessus la vidéo pendant environ 2 secondes. La voix continue, le son d'origine n'est pas touché.
+                  Chaque plan génère une image (payant, quelques dizaines de centimes).
+                </p>
+              </div>
             </template>
 
             <template v-else>
@@ -834,6 +851,10 @@ const widgetFieldsAssistError = ref('')
 // du profil choisi comme proprietaire du contenu -- voir server/data/widgets.js).
 const scenarioLockIdentity = ref(false)
 
+// Video Scenario + Omni Flash : nombre d images B-roll posees par-dessus la
+// video (0 = aucune, valeur par defaut : chaque image est payante).
+const scenarioBrollCount = ref(0)
+
 loadWidgets()
 
 const selectedWidget = computed(() => widgetsList.value.find((item) => item.id === selectedWidgetId.value) || null)
@@ -859,6 +880,7 @@ function selectWidget(widgetId) {
   widgetIdea.value = ''
   widgetFieldsAssistError.value = ''
   scenarioLockIdentity.value = false
+  scenarioBrollCount.value = 0
 }
 
 // Changer de recette invalide les champs deja remplis: un pattern different
@@ -1112,6 +1134,7 @@ async function submitWidget() {
         model: widgetVideoModel.value,
         customReferenceImageUrl: referenceImageUrl || undefined,
         dialogueText: isScenarioWidget ? widgetInputs.value.scriptText : undefined,
+        brollCount: isScenarioWidget && widgetVideoModel.value === 'omniflash' ? scenarioBrollCount.value : undefined,
       },
     })
     lastResult.value = result

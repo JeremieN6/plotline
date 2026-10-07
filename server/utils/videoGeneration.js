@@ -16,6 +16,7 @@ import { selectVideoModel } from './videoModelSelector.js';
 import { splitScriptIntoSegments } from './scriptSegmentation.js';
 import { buildFirstSegmentPrompt, buildContinuationPrompt } from './omniFlashPrompts.js';
 import { isSpeechVerificationEnabled, verifySegmentSpeech } from './speechVerification.js';
+import { applyBrollToBuffer } from './brollGeneration.js';
 import { compactSilences, isSilenceCompactionEnabled } from './silenceCompaction.js';
 
 // Chaque regeneration coute une generation Omni Flash de plus : on plafonne par
@@ -276,10 +277,12 @@ function extractOmniFlashVideoBuffer(interaction) {
 
 // `compact` : uniquement quand le clip contient de la parole -- un plan muet est
 // entierement "silence" et ne doit jamais etre coupe.
-async function extractOmniFlashVideoUrl(interaction, { compact = false } = {}) {
+async function extractOmniFlashVideoUrl(interaction, { compact = false, broll = null } = {}) {
   let buffer = extractOmniFlashVideoBuffer(interaction);
   // Clip unique : on ne rogne que le debut et la fin (voir silenceCompaction.js).
   if (compact && isSilenceCompactionEnabled()) buffer = await compactSilences(buffer, { edgesOnly: true });
+  // Plans de coupe : toujours APRES la compaction (les instants detectes se lisent sur la video finale).
+  if (broll) buffer = await applyBrollToBuffer(buffer, broll);
   return saveGeneratedVideoBuffer(buffer, 'video_omniflash');
 }
 
@@ -289,7 +292,7 @@ async function extractOmniFlashVideoUrl(interaction, { compact = false } = {}) {
 // controler l identite visuelle. Adapte a un contenu qui n a pas besoin de
 // continuite de personnage (ex. illustrer un article de blog), pas a un
 // compte influenceur ou l identite doit rester reconnaissable.
-async function requestOmniFlashSingleTurn({ scenePrompt, dialogueText, ai, model, aspectRatio }) {
+async function requestOmniFlashSingleTurn({ scenePrompt, dialogueText, ai, model, aspectRatio, brollCount = 0 }) {
   const text = dialogueText
     ? buildFirstSegmentPrompt(scenePrompt, dialogueText)
     : scenePrompt;
@@ -306,7 +309,10 @@ async function requestOmniFlashSingleTurn({ scenePrompt, dialogueText, ai, model
   }
   interaction = await waitForOmniFlashInteraction(ai, interaction);
 
-  const videoUrl = await extractOmniFlashVideoUrl(interaction, { compact: Boolean(dialogueText) });
+  const videoUrl = await extractOmniFlashVideoUrl(interaction, {
+    compact: Boolean(dialogueText),
+    broll: dialogueText && brollCount ? { count: brollCount, scriptText: dialogueText } : null,
+  });
   return { jobId: String(interaction?.id || ''), videoUrl, status: 'completed', model };
 }
 
@@ -326,7 +332,7 @@ async function requestOmniFlashSingleTurn({ scenePrompt, dialogueText, ai, model
 // jour). Le tour 2 ne rallonge pas la duree du tour 1 (memes durees, testees
 // a l identique) : raccourcir le tour 1 pour economiser romprait
 // probablement la duree utilisable du tour 2.
-async function requestOmniFlashTwoTurn({ scenePrompt, dialogueText, ai, model, aspectRatio, faceRefImage }) {
+async function requestOmniFlashTwoTurn({ scenePrompt, dialogueText, ai, model, aspectRatio, faceRefImage, brollCount = 0 }) {
   const silentSceneText = `Animate this exact scene naturally: ${scenePrompt}. The person looks toward the camera with subtle natural movement. Do NOT make the person speak or open their mouth in this clip.`;
 
   let turn1;
@@ -363,7 +369,10 @@ async function requestOmniFlashTwoTurn({ scenePrompt, dialogueText, ai, model, a
   }
   turn2 = await waitForOmniFlashInteraction(ai, turn2);
 
-  const videoUrl = await extractOmniFlashVideoUrl(turn2, { compact: true });
+  const videoUrl = await extractOmniFlashVideoUrl(turn2, {
+    compact: true,
+    broll: brollCount ? { count: brollCount, scriptText: dialogue } : null,
+  });
   return { jobId: String(turn2?.id || ''), videoUrl, status: 'completed', model };
 }
 
@@ -404,7 +413,7 @@ async function requestOmniFlashSegmentBuffer({ ai, model, aspectRatio, text, pre
 // avec le debut de la scene rejoue a t=0, 10, 30 et 60s. La video finale est
 // donc simplement celle du DERNIER segment, sans aucun assemblage ffmpeg.
 // Les segments intermediaires servent uniquement a construire la chaine.
-async function requestOmniFlashMultiSegment({ scenePrompt, dialogueText, ai, model, aspectRatio }) {
+async function requestOmniFlashMultiSegment({ scenePrompt, dialogueText, ai, model, aspectRatio, brollCount = 0 }) {
   const { segments, truncatedWordCount } = splitScriptIntoSegments(dialogueText);
 
   if (truncatedWordCount > 0) {
@@ -468,13 +477,14 @@ async function requestOmniFlashMultiSegment({ scenePrompt, dialogueText, ai, mod
     previousInteractionId = lastResult.interactionId;
   }
 
-  const finalBuffer = isSilenceCompactionEnabled() ? await compactSilences(lastResult.buffer) : lastResult.buffer;
+  let finalBuffer = isSilenceCompactionEnabled() ? await compactSilences(lastResult.buffer) : lastResult.buffer;
+  if (brollCount) finalBuffer = await applyBrollToBuffer(finalBuffer, { count: brollCount, scriptText: dialogueText });
   const videoUrl = await saveGeneratedVideoBuffer(finalBuffer, 'video_omniflash_multi');
 
   return { jobId: lastResult.interactionId, videoUrl, status: 'completed', model };
 }
 
-async function requestOmniFlashVideo({ scenePrompt, dialogueText, apiKey, aspectRatio, faceRefImage }) {
+async function requestOmniFlashVideo({ scenePrompt, dialogueText, apiKey, aspectRatio, faceRefImage, brollCount = 0 }) {
   // Le timeout par defaut du SDK est de 1 minute par requete HTTP -- confirme
   // en lisant le SDK (`@google/genai`) apres un echec reel sur un test a 4
   // segments: `new GoogleGenAI({ apiKey, timeout })` ignorait silencieusement
@@ -490,15 +500,15 @@ async function requestOmniFlashVideo({ scenePrompt, dialogueText, apiKey, aspect
   const model = 'gemini-omni-1.1-flash';
 
   if (faceRefImage) {
-    return requestOmniFlashTwoTurn({ scenePrompt, dialogueText, ai, model, aspectRatio, faceRefImage });
+    return requestOmniFlashTwoTurn({ scenePrompt, dialogueText, ai, model, aspectRatio, faceRefImage, brollCount });
   }
 
   const { segments } = splitScriptIntoSegments(dialogueText);
   if (segments.length > 1) {
-    return requestOmniFlashMultiSegment({ scenePrompt, dialogueText, ai, model, aspectRatio });
+    return requestOmniFlashMultiSegment({ scenePrompt, dialogueText, ai, model, aspectRatio, brollCount });
   }
 
-  return requestOmniFlashSingleTurn({ scenePrompt, dialogueText, ai, model, aspectRatio });
+  return requestOmniFlashSingleTurn({ scenePrompt, dialogueText, ai, model, aspectRatio, brollCount });
 }
 
 export const SUPPORTED_VIDEO_MODELS = ['veo', 'kling', 'seedance', 'omniflash'];
@@ -624,7 +634,7 @@ async function prepareVideoStartFrameFromUrl({ imageUrl, prompt }) {
 }
 
 /** Appelle le fournisseur choisi et normalise sa reponse. */
-async function requestProviderVideo({ model, prompt, aspectRatio, startFrame, runtimeConfig, scenePrompt, dialogueText }) {
+async function requestProviderVideo({ model, prompt, aspectRatio, startFrame, runtimeConfig, scenePrompt, dialogueText, brollCount = 0 }) {
   if (model === 'veo') {
     return await requestVeoVideo({
       prompt,
@@ -648,6 +658,7 @@ async function requestProviderVideo({ model, prompt, aspectRatio, startFrame, ru
       apiKey: resolveGeminiApiKey(runtimeConfig),
       aspectRatio,
       faceRefImage: startFrame,
+      brollCount,
     });
   }
 
@@ -661,7 +672,7 @@ async function requestProviderVideo({ model, prompt, aspectRatio, startFrame, ru
   };
 }
 
-export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, prompt, model, withFaceRef, influencer, previousStatus, scenePrompt, dialogueText, customReferenceImageUrl }) {
+export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, prompt, model, withFaceRef, influencer, previousStatus, scenePrompt, dialogueText, customReferenceImageUrl, brollCount = 0 }) {
   // Le cadrage demande dans le prompt fait foi. Le repli ne s applique que si
   // le prompt ne se prononce pas: aucun format n est impose a la place de l auteur.
   const aspectRatio = resolveAspectRatio(prompt);
@@ -678,7 +689,7 @@ export async function runVideoGenerationJob({ prisma, runtimeConfig, contentId, 
         : withFaceRef
           ? await prepareVideoStartFrame({ influencer, prompt })
           : null;
-      const providerResult = await requestProviderVideo({ model, prompt, aspectRatio, startFrame, runtimeConfig, scenePrompt, dialogueText });
+      const providerResult = await requestProviderVideo({ model, prompt, aspectRatio, startFrame, runtimeConfig, scenePrompt, dialogueText, brollCount });
       const resolvedVideoUrl = String(providerResult?.videoUrl || '').trim();
 
       // Sans URL exploitable, le contenu resterait en PROCESSING indefiniment:

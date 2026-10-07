@@ -1172,3 +1172,22 @@ test('compareSpeech: le begaiement reel "formuler clairmuler clairement formuler
   const heard = "Je donne l'état de chaque projet à une IA et elle me force à formuler clairmuler clairement formuler clairement ce que je suis en train d'éviter.";
   assert.equal(compareSpeech(expected, heard).ok, false);
 });
+
+test('PODCAST_PARLE: selectionnable par tous les comptes sur Video Scenario, jamais automatique, prompt final complet', () => {
+  for (const accountType of ['INFLUENCER_CREATOR', 'CONTENT_CREATOR', 'BRAND']) {
+    const ids = listSelectablePatterns({ widgetId: 'SCENARIO_BLOG', accountType }).map((pattern) => pattern.id);
+    assert.ok(ids.includes('PODCAST_PARLE'), accountType);
+  }
+  assert.equal(getAutomatablePatternForWidget('SCENARIO_BLOG')?.id, 'SCENARIO_CONVERSATIONNEL');
+
+  const pattern = resolvePatternForAccount({ patternId: 'PODCAST_PARLE', widgetId: 'SCENARIO_BLOG', accountType: 'INFLUENCER_CREATOR' });
+  const widget = buildEffectiveWidget(getWidgetById('SCENARIO_BLOG'), pattern);
+  const { finalPrompt } = resolveWidgetPrompt(widget, { inputs: { scenePrompt: 'SCENE_TEXT', scriptText: 'SCRIPT' } });
+
+  assert.ok(finalPrompt.startsWith('SCENE_TEXT '));
+  assert.ok(finalPrompt.includes('boom arm'));
+  assert.ok(finalPrompt.includes('accurate lip sync'));
+  assert.match(finalPrompt, /Avoid: subtitles/);
+  assert.ok(widget.variables.find((v) => v.key === 'scriptText').assistHint.includes('22 a 24 mots'));
+  assert.ok(widget.variables.find((v) => v.key === 'scenePrompt').assistHint.includes('plan de coupe'));
+});
