@@ -1,5 +1,6 @@
 import { createGeneratedContentRecord } from '../generate/video.post.js';
 import { resolveVideoModelOrThrow, runVideoGenerationJob } from '../../utils/videoGeneration.js';
+import { normalizeBrollCount } from '../../utils/brollGeneration.js';
 
 const DEFAULT_SCENE_PROMPT = 'A person speaking directly to the camera in a tidy, softly lit home office, natural daylight, relaxed and authentic atmosphere';
 
@@ -46,6 +47,8 @@ export default defineEventHandler(async (event) => {
   const profileId = String(body?.profileId || body?.influencerId || '').trim();
   const decorPrompt = String(body?.decorPrompt || '').trim();
   const scriptText = String(body?.scriptText || '').trim();
+  // Plans de coupe (images B-roll posees par ffmpeg, payantes) : jamais actifs sans demande explicite.
+  const brollCount = normalizeBrollCount(body?.brollCount);
   const slug = String(body?.slug || '').trim();
   const sourceProject = String(body?.sourceProject || '').trim();
 
@@ -128,6 +131,7 @@ export default defineEventHandler(async (event) => {
       // reprenait des phrases hors de leur segment.
       scenePrompt: decorPrompt || DEFAULT_SCENE_PROMPT,
       dialogueText: scriptText,
+      brollCount,
     });
 
     return { contentId, ...result };

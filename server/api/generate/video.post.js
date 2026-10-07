@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import { resolveVideoModelOrThrow, runVideoGenerationJob } from '../../utils/videoGeneration.js';
 import { getOrCreateDefaultProfile } from '../../utils/defaultProfile.js';
+import { normalizeBrollCount } from '../../utils/brollGeneration.js';
 
 let prismaClient;
 
@@ -94,6 +95,8 @@ export default defineEventHandler(async (event) => {
   // Texte parle distinct du prompt de scene, pour Omni Flash uniquement (voir
   // requestOmniFlashVideo) -- ignore par les autres fournisseurs.
   const dialogueText = String(body?.dialogueText || '').trim();
+  // Plans de coupe (images B-roll payantes posees par ffmpeg), Omni Flash avec parole uniquement : 0 par defaut.
+  const brollCount = normalizeBrollCount(body?.brollCount);
 
   if (!prompt) {
     return sendError(event, createError({ statusCode: 400, statusMessage: 'prompt requis' }));
@@ -200,7 +203,7 @@ export default defineEventHandler(async (event) => {
   const contentId = generatedContent.id;
 
   try {
-    return await runVideoGenerationJob({ prisma, runtimeConfig, contentId, prompt, model, influencerId, withFaceRef, influencer, customReferenceImageUrl, scenePrompt: prompt, dialogueText });
+    return await runVideoGenerationJob({ prisma, runtimeConfig, contentId, prompt, model, influencerId, withFaceRef, influencer, customReferenceImageUrl, scenePrompt: prompt, dialogueText, brollCount });
   } catch (error) {
     const errorMessage = error?.statusMessage || error?.message || 'Génération vidéo impossible';
     await prisma.generatedContent.update({

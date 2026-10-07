@@ -239,6 +239,34 @@ export const PROMPT_PATTERNS = [
     limites: 'Donnees seulement (server/data/poseCatalog.js, 21 poses par nom de planche). Conditions au branchement : personas fictives adultes issues de la face ref, jamais le visage d une personne reelle ; ajouter une variable "pose" au widget ou un widget dedie.',
     source: 'zip pattern-images/ref-pose fourni le 2026-10-05 (hors depot)',
   },
+  {
+    id: 'PODCAST_PARLE',
+    nom: 'Video podcast, intervenant au micro',
+    type: 'VIDEO',
+    widgetId: 'SCENARIO_BLOG',
+    tier: null,
+    accountTypeRestriction: null,
+    selectable: true,
+    // Un podcast parle d un sujet choisi par l utilisateur : jamais automatique.
+    automatable: false,
+    tags: ['video', 'podcast', 'parle', 'interview', 'b-roll'],
+    // Le decor de studio et le jeu d acteur sont fixes ici ; la structure des
+    // plans (et les plans de coupe eventuels) est demandee a Claude via
+    // assistHintOverrides, comme pour UGC_AVIS_PARLE.
+    template:
+      '{{scenePrompt}} Professional video podcast set: a condenser microphone on a boom arm in front of the speaker without covering the mouth, acoustic panels, warm practical lights, shallow depth of field, two-camera podcast framing. Calm conversational delivery, accurate lip sync, natural pauses and small hand gestures. Maintain the same set, outfit, lighting and audio throughout.',
+    negativePrompt:
+      'subtitles, captions, on-screen text, watermarks, logos, microphone covering the mouth, face drift, wardrobe changes, robotic voice, camera shake, harsh studio lighting, warped hands',
+    assistHintOverrides: {
+      scenePrompt:
+        'Decrit en anglais UNE video verticale 9:16 de 10 secondes, un seul intervenant assis devant un micro sur bras articule dans un studio de podcast (fond au choix : panneaux acoustiques, canape, fauteuil, bibliotheque), decor et tenue gardes identiques du debut a la fin. Structure : plan moyen qui montre le studio, le micro et l intervenant au debut, puis un tres gros plan serre sur le visage (yeux au centre) a la fin. Si l idee evoque des objets, lieux ou actions concrets, tu peux ajouter UN plan de coupe (B-roll) de 2 secondes pendant que la voix continue, puis revenir a l intervenant : decris-le precisement. Aucun dialogue ni texte a l ecran dans cette description, pas de description du visage.',
+      scriptText:
+        'Texte parle en francais, 22 a 24 mots, UNE seule idee, ton pose d intervenant de podcast qui parle a une seule personne, avec des pauses naturelles. Une seule phrase ou deux courtes, pas de guillemets, pas de didascalie, aucune statistique inventee.',
+    },
+    statut: 'experimental',
+    limites: 'Jamais essaye en generation reelle. Passe par Video Scenario (seul widget avec Omni Flash). Les plans de coupe (B-roll) dans le meme clip sont une hypothese : on ignore si Omni Flash garde la voix et la synchro labiale quand il change de plan. Avec identite verrouillee, flux 2 tours (derive d identite et bouche qui se ferme apres ~1,5 s, voir notes du 2026-10-06). Le procede d origine (#20) part d une image de studio Pinterest avec la persona incrustee : non reproduit ici.',
+    source: 'tmp/autres/PROMPTS.md #20 (idee du studio et du micro) + tmp/autres/PROMPTS-INBOX.md #39 (plan moyen puis tres gros plan, 20 a 30 mots par scene)',
+  },
 ];
 
 export function getPromptPatterns() {
