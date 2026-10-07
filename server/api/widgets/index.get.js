@@ -1,6 +1,7 @@
 import { getWidgets } from '../../data/widgets.js';
 import { getPromptPatterns } from '../../data/promptPatterns.js';
 import { isPatternAllowedForAccount } from '../../utils/promptPatternSelector.js';
+import { ART_DIRECTION_WIDGET_IDS, listArtDirections } from '../../utils/artDirections.js';
 
 export default defineEventHandler(async (event) => {
   try {
@@ -13,7 +14,7 @@ export default defineEventHandler(async (event) => {
       .filter((pattern) => pattern.selectable === true && isPatternAllowedForAccount(pattern, user.accountType))
       .map(({ id, nom, type, widgetId, tier, tags, statut }) => ({ id, nom, type, widgetId, tier, tags, statut }));
 
-    return { widgets: getWidgets(), patterns };
+    return { widgets: getWidgets(), patterns, artDirections: listArtDirections(), artDirectionWidgetIds: ART_DIRECTION_WIDGET_IDS };
   } catch (err) {
     if (err?.statusCode) throw err;
     return sendError(event, createError({ statusCode: 500, statusMessage: 'Erreur serveur', data: err }));

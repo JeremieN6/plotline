@@ -402,6 +402,18 @@
                 <p class="mt-1.5 text-xs text-[#7B5A3F]">Optionnel : sert seulement à retrouver le contenu dans Mes créations. Sans choix, il sera classé sous un profil générique "Contenus sans persona".</p>
               </div>
 
+              <div v-if="artDirectionsList.length">
+                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Direction artistique (optionnel)</label>
+                <select
+                  v-model="selectedArtDirectionId"
+                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+                >
+                  <option value="">Aucune : je décris tout dans la scène</option>
+                  <option v-for="item in artDirectionsList" :key="item.id" :value="item.id">{{ item.label }}</option>
+                </select>
+                <p v-if="selectedArtDirection" class="mt-1.5 text-xs text-[#7B5A3F]">{{ selectedArtDirection.description }} Ajoutée en tête de la scène au moment de générer.</p>
+              </div>
+
               <div>
                 <label class="inline-flex items-center gap-2 text-sm font-semibold text-[#111111]">
                   <input v-model="scenarioLockIdentity" type="checkbox" class="accent-[#E8873A]" />
@@ -794,7 +806,7 @@ const selectedProfileHasFaceRef = computed(() => Boolean(String(selectedProfileF
 // Widgets: blocs selectionnables qui pre-remplissent un prompt a partir d'un
 // template. La generation reutilise ensuite les memes endpoints que le prompt
 // libre (/api/generate/image, /api/generate/video).
-const { widgets: widgetsList, patterns: patternsList, loadError: widgetsLoadError, loadWidgets, resolveWidget } = useWidgets()
+const { widgets: widgetsList, patterns: patternsList, artDirections: artDirectionsList, artDirectionWidgetIds, loadError: widgetsLoadError, loadWidgets, resolveWidget } = useWidgets()
 const { assistFreePrompt, assistWidgetFields, assistCarouselSlides } = usePromptAssist()
 const selectedWidgetId = ref('')
 const selectedPatternId = ref('')
@@ -804,6 +816,11 @@ const widgetProfileId = ref('')
 const widgetInputs = ref({})
 const widgetAssetUrls = ref({})
 const widgetAssetUploading = ref({})
+
+// Direction artistique de la scene (Video Scenario) : ajoutee en tete de la
+// scene cote serveur au moment de resoudre le widget.
+const selectedArtDirectionId = ref('')
+const selectedArtDirection = computed(() => artDirectionsList.value.find((item) => item.id === selectedArtDirectionId.value) || null)
 
 // Assistant Claude widgets (generique, tous les widgets) : idee libre ->
 // valeurs pour tous les champs texte du widget selectionne (deja des
@@ -836,6 +853,7 @@ function selectWidget(widgetId) {
   widgetVideoModel.value = widgetId === 'SCENARIO_BLOG' ? 'omniflash' : 'auto'
   widgetProfileId.value = ''
   selectedPatternId.value = ''
+  selectedArtDirectionId.value = ''
   widgetInputs.value = {}
   widgetAssetUrls.value = {}
   widgetIdea.value = ''
@@ -1069,6 +1087,7 @@ async function submitWidget() {
   const { finalPrompt } = await resolveWidget({
     widgetId: widget.id,
     patternId: selectedPatternId.value,
+    artDirectionId: artDirectionWidgetIds.value.includes(widget.id) ? selectedArtDirectionId.value : undefined,
     profileId: widget.requiresPersona ? widgetProfileId.value : undefined,
     inputs: widgetInputs.value,
   })

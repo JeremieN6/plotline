@@ -419,7 +419,7 @@ async function requestOmniFlashMultiSegment({ scenePrompt, dialogueText, ai, mod
   for (const [index, segmentText] of segments.entries()) {
     const text = index === 0
       ? buildFirstSegmentPrompt(scenePrompt, segmentText)
-      : buildContinuationPrompt(segmentText);
+      : buildContinuationPrompt(segmentText, scenePrompt);
 
     let best = null;
 

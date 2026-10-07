@@ -3,6 +3,7 @@ import { resolveWidgetPrompt } from '../../utils/widgetEngine.js';
 import { buildPersonaDescription } from '../../utils/personaDescription.js';
 import { findPersonaCompatible } from '../../utils/personaLookup.js';
 import { buildEffectiveWidget, resolvePatternForAccount } from '../../utils/promptPatternSelector.js';
+import { ART_DIRECTION_WIDGET_IDS, applyArtDirection, normalizeArtDirectionId } from '../../utils/artDirections.js';
 
 let prismaClient;
 
@@ -75,7 +76,22 @@ export default defineEventHandler(async (event) => {
       personaDescription = buildPersonaDescription(persona);
     }
 
-    const { finalPrompt } = resolveWidgetPrompt(effectiveWidget, { personaDescription, inputs });
+    const resolved = resolveWidgetPrompt(effectiveWidget, { personaDescription, inputs });
+    let finalPrompt = resolved.finalPrompt;
+
+    // Direction artistique (optionnelle) : verifiee ici, jamais appliquee telle
+    // quelle depuis le client.
+    const requestedArtDirection = String(body?.artDirectionId || '').trim();
+    if (requestedArtDirection) {
+      const artDirectionId = normalizeArtDirectionId(requestedArtDirection);
+      if (!artDirectionId) {
+        return sendError(event, createError({ statusCode: 400, statusMessage: 'Direction artistique inconnue' }));
+      }
+      if (!ART_DIRECTION_WIDGET_IDS.includes(widget.id)) {
+        return sendError(event, createError({ statusCode: 400, statusMessage: 'Ce widget n accepte pas de direction artistique' }));
+      }
+      finalPrompt = applyArtDirection(finalPrompt, artDirectionId);
+    }
 
     return {
       finalPrompt,
