@@ -4,6 +4,12 @@
       <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#E8873A]">Studio</p>
       <h1 class="mt-2 text-3xl font-bold tracking-tight text-[#111111]">Studio</h1>
       <p class="mt-2 text-sm text-[#666666]">Crée rapidement des visuels et vidéos pour ton activité.</p>
+      <NuxtLink
+        to="/studio/faceless"
+        class="mt-3 inline-flex items-center gap-2 rounded-[10px] border border-[#E6B78E] bg-[#FFF5EC] px-3 py-1.5 text-xs font-bold text-[#B45F1D] transition-colors hover:bg-[#FFEBDB]"
+      >
+        Nouveau : vidéo faceless (voix off + avatar animé) →
+      </NuxtLink>
     </header>
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.9fr)]">

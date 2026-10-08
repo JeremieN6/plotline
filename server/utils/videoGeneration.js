@@ -98,7 +98,7 @@ function withApiKeyInUrl(rawUrl, apiKey) {
 // Sans ce passage par le Blob, la video restait sur le disque de la machine
 // qui genere: avec une base partagee entre local et prod, elle etait
 // introuvable depuis l autre environnement.
-async function saveGeneratedVideoBuffer(buffer, filePrefix = 'video') {
+export async function saveGeneratedVideoBuffer(buffer, filePrefix = 'video') {
   if (isBlobStorageEnabled()) {
     const uploaded = await uploadPublicMediaBuffer('generated', 'mp4', buffer, 'video/mp4');
     return uploaded.url;
