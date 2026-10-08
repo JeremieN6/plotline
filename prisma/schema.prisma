@@ -197,10 +197,13 @@ model Profile {
   postsPerWeek         Int                @default(3)
   formatRotation       String             @default("FEED,STORY,REEL")
   publishHour          Int                @default(18)
+  /// Personnalite structuree (identite, histoire, voix, ligne editoriale, bios).
+  /// Forme et validation : server/utils/personality.js. NULL = pas encore generee.
+  personality          Json?
   createdAt            DateTime           @default(now())
 
   user                 User               @relation(fields: [userId], references: [id])
-  brand                Profile?           @relation("ProfileBrand", fields: [brandId], references: [id], onDelete: SetNull)
+  brand                Profile?          @relation("ProfileBrand", fields: [brandId], references: [id], onDelete: SetNull)
   brandInfluencers     Profile[]          @relation("ProfileBrand")
   generatedContents    GeneratedContent[]
 

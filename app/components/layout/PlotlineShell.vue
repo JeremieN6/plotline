@@ -351,7 +351,15 @@ const routeInfluencerId = computed(() => {
   return rawId
 })
 
+// Le laboratoire de personnalite n est propose qu aux admins (la page et les
+// routes serveur verifient de toute facon).
 const navigation = computed(() => {
+  const items = baseNavigation.value
+  if (!user.value?.isAdmin) return items
+  return [...items, { label: 'Personnalité (admin)', to: '/admin/personality' }]
+})
+
+const baseNavigation = computed(() => {
   const settingsItem = {
     label: settingsNavLabel.value,
     to: activeInfluencer.value ? `/profiles/${activeInfluencer.value.id}/edit` : '/profiles/new',

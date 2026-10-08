@@ -10,6 +10,7 @@ Disallow: /calendar
 Disallow: /settings
 Disallow: /profiles
 Disallow: /plans
+Disallow: /admin
 Disallow: /onboarding
 Disallow: /auth/forgot-password
 Disallow: /auth/reset-password

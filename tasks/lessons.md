@@ -19,6 +19,35 @@
 
 <!-- Les entrees seront ajoutees ici au fil du temps -->
 
+### 2026-10-08 Les exemples d une consigne a Claude deviennent le gabarit de TOUTES les sorties
+**Probleme** : 7 personnalites generees sans consigne se ressemblaient : 6 tons commencaient par "Parle comme quelqu un qui...", les surnoms finissaient par "(donne par ...)", les bios suivaient "Metier. Lieu. Chiffre. Emoji", et 6 profils sur 7 avaient une obsession de "classement chiffre" (312 notices, 340 vinyles...).
+**Cause racine** : c etait MA consigne : l exemple du champ ton ("Parle comme quelqu un qui explique une panne..."), celui des obsessions ("en a 140"), l ordre "origine entre parentheses" pour le surnom, et une liste de graines d obsessions presque entierement faite de collections.
+**Solution** : exemples retires ou remplaces par des interdictions de forme, graines d obsessions elargies (rituel, peur, conflit, talent inutile), regles anti-formules dans le prompt, tranche d age tiree au hasard.
+**Regle** : un exemple dans une consigne n est jamais neutre, le modele le recopie. Decrire la qualite attendue plutot que donner un exemple complet, et relire les graines/listes aleatoires pour verifier qu elles ne partagent pas une meme FORME. Mesurer sur 6 a 8 sorties sans consigne avant de dire que ca varie.
+
+### 2026-10-08 Une generation longue se coupe en etapes enchainees, pas en appels paralleles
+**Probleme** : une personnalite complete en un appel Claude prenait ~80 s, au-dela du delai d un reverse proxy (~60 s).
+**Cause racine** : un seul appel de 47 champs. Le paralleliser aurait ramene a ~40 s mais la voix et l apparence ne pouvaient plus etre deduites de l histoire (la seconde moitie ne la voit pas).
+**Solution** : deux requetes HTTP successives pilotees par l ecran (histoire/identite d abord, puis voix/editorial/apparence avec la premiere moitie en contexte) : ~40 s chacune, coherence gardee.
+**Regle** : quand la suite depend du debut, enchainer plusieurs requetes courtes cote client plutot que paralleliser ou allonger une requete unique.
+
+### 2026-10-08 `:disabled="chaine"` desactive tout quand la chaine est vide
+**Probleme** : tous les champs de l ecran admin etaient grises au chargement.
+**Cause racine** : `busy` valait `''` ; Vue rend l attribut booleen `disabled=""` (present) pour une chaine vide.
+**Regle** : lier `disabled` (et tout attribut booleen) a un vrai booleen (`Boolean(x)`, computed), jamais a une chaine ou un id.
+
+### 2026-10-08 `Get-Content`/`Set-Content` PowerShell 5.1 corrompt les accents d un fichier UTF-8 sans BOM
+**Probleme** : un remplacement par regex a transforme "Générateur" en "GÃ©nÃ©rateur" dans un fichier .vue (et ajoute un BOM).
+**Cause racine** : `Get-Content` lit en ANSI sans BOM, `Set-Content -Encoding utf8` re-encode ces caracteres deja mal decodes.
+**Solution** : double conversion inversee (UTF-8 -> octets cp1252 -> UTF-8).
+**Regle** : pour modifier un fichier texte, utiliser l outil Edit ; en PowerShell, `[IO.File]::ReadAllText/WriteAllText` avec `UTF8Encoding($false)`, et verifier les accents ensuite.
+
+### 2026-10-08 Un export de classe dans `server/utils` s auto-importe lui-meme
+**Probleme** : build Nitro en erreur "symbol PersonalityGenerationError has already been declared".
+**Cause racine** : Nitro auto-importe tout export de `server/utils` ; un fichier qui exporte une classe ET l utilise la voit declaree deux fois.
+**Solution** : fonctions fabriques (`createPersonalityError` / `isPersonalityError`) a la place de la classe.
+**Regle** : pas d export de classe dans `server/utils` ; utiliser des fonctions fabriques et des gardes de type.
+
 ### 2026-09-21 Proteger un endpoint casse les pages qui l appellent en `$fetch` pendant le rendu serveur
 **Probleme** : apres avoir exige une session sur `GET /api/profiles/:id/content`, la page Calendrier affichait "401 - Authentification requise" a la place de la page entiere. Constate seulement en rechargeant la page en navigateur, pas par les tests ni le build.
 **Cause racine** : `calendar.vue` appelait l endpoint via un `$fetch` brut dans un `watch(..., { immediate: true })`, qui s execute aussi au rendu serveur. Cote serveur, un `$fetch` brut n envoie pas le cookie de la requete entrante: l endpoint, jusque-la ouvert (donc faille), repondait sans session; devenu protege, il repond 401 et l erreur non rattrapee fait tomber la page. `content.vue` avait le meme appel mais dans un `try/catch`, ce qui masquait le probleme (liste vide au rendu serveur).
