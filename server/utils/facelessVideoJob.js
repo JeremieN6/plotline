@@ -34,9 +34,14 @@ function enqueueRender(task) {
   return run;
 }
 
+/**
+ * Bruitages : par defaut les sons SYNTHETISES du depot (resources/faceless/sfx,
+ * aucune licence tierce). FACELESS_SFX_DIR permet de pointer vers un autre pack
+ * (memes noms de fichiers) -- sous la responsabilite de qui le fournit.
+ */
 export function resolveFacelessSfxDir() {
   const fromEnv = String(process.env.FACELESS_SFX_DIR || '').trim();
-  return fromEnv ? resolve(fromEnv) : resolve(process.cwd(), 'tmp/faceless/sfx');
+  return fromEnv ? resolve(fromEnv) : resolve(process.cwd(), 'resources/faceless/sfx');
 }
 
 /** Pur : legende du post (texte + hashtags). */

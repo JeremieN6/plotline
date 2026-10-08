@@ -16,7 +16,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '../..');
 
 const specPath = resolve(process.argv[2] || join(here, 'demo.json'));
-const sfxDir = resolve(process.argv[3] || join(root, 'tmp/faceless/sfx'));
+const sfxDir = resolve(process.argv[3] || join(root, 'resources/faceless/sfx'));
 const outDir = join(root, 'tmp/faceless/out');
 const voiceDir = join(outDir, 'voice');
 

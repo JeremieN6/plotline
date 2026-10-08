@@ -1,10 +1,44 @@
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
+import { extname, resolve, sep } from 'node:path';
 
 import { resolveFfmpegPaths } from './ffmpegBinaries.js';
+import { FACELESS_ASSET_ORIGIN } from './facelessTemplate.js';
 
 const execFileAsync = promisify(execFile);
+
+const ASSET_TYPES = { '.ttf': 'font/ttf', '.otf': 'font/otf', '.woff2': 'font/woff2', '.png': 'image/png', '.svg': 'image/svg+xml' };
+
+/** Dossier des fichiers du theme (polices...). FACELESS_ASSETS_DIR le remplace. */
+export function resolveFacelessAssetsDir() {
+  const fromEnv = String(process.env.FACELESS_ASSETS_DIR || '').trim();
+  return resolve(fromEnv || resolve(process.cwd(), 'resources/faceless'));
+}
+
+/** Pur : chemin disque d une URL du theme, ou null si elle sort du dossier. */
+export function facelessAssetPath(url, baseDir = resolveFacelessAssetsDir()) {
+  let pathname;
+  try {
+    pathname = decodeURIComponent(new URL(url).pathname);
+  } catch {
+    return null;
+  }
+  const file = resolve(baseDir, `.${pathname}`);
+  return file.startsWith(baseDir + sep) ? file : null;
+}
+
+async function serveFacelessAsset(route) {
+  const file = facelessAssetPath(route.request().url());
+  if (!file) return route.abort();
+  try {
+    const body = await readFile(file);
+    return route.fulfill({ status: 200, body, contentType: ASSET_TYPES[extname(file).toLowerCase()] || 'application/octet-stream' });
+  } catch {
+    console.warn(`[faceless] fichier du theme introuvable : ${file}`);
+    return route.abort();
+  }
+}
 
 export const MIX_SAMPLE_RATE = 48000;
 const CHANNELS = 2;
@@ -83,6 +117,7 @@ export async function renderFacelessVideo({ html, timeline, audioRawPath, output
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
+    await page.route(`${FACELESS_ASSET_ORIGIN}/**`, (route) => serveFacelessAsset(route));
     await page.setContent(html, { waitUntil: 'load' });
     await page.evaluate(() => window.__ready);
 

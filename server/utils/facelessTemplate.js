@@ -10,6 +10,16 @@ import { buildChibiSvg } from './facelessAvatar.js';
  * entrees, legere vibration du papier a 8 images/s).
  */
 
+/**
+ * Origine fictive des fichiers du theme (polices) : le moteur de rendu
+ * intercepte ces requetes et sert les fichiers de resources/faceless/. Le rendu
+ * est ainsi identique sous Windows et sur le serveur Linux.
+ */
+export const FACELESS_ASSET_ORIGIN = 'https://faceless.assets';
+
+// Emojis : police systeme (Noto Color Emoji sur le serveur, Segoe sous Windows).
+const EMOJI_FONTS = '"Noto Color Emoji","Segoe UI Emoji","Apple Color Emoji"';
+
 // Zone utile : a droite les boutons TikTok/Reels, en bas la legende et le pseudo.
 const SAFE = { left: 70, right: 150, top: 170, bottom: 420 };
 
@@ -171,9 +181,10 @@ function decorLayer() {
 }
 
 const CSS = `
+@font-face{font-family:"Fredoka";src:url("${FACELESS_ASSET_ORIGIN}/fonts/Fredoka.ttf") format("truetype");font-weight:300 700;font-stretch:75% 125%}
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:1080px;height:1920px;overflow:hidden}
-body{background:#f9dbe5;font-family:"Bahnschrift","Segoe UI",sans-serif;color:#3b2433}
+body{background:#f9dbe5;font-family:"Fredoka",${EMOJI_FONTS},sans-serif;color:#3b2433}
 #paper{position:absolute;inset:0;background:
   radial-gradient(circle at 20% 15%,rgba(255,255,255,.55),transparent 45%),
   radial-gradient(circle at 85% 80%,rgba(255,200,220,.6),transparent 50%),
@@ -193,11 +204,11 @@ mark{background:linear-gradient(transparent 52%,#ffb3cb 52%,#ffb3cb 90%,transpar
 .headline.small{font-size:96px}
 .badge{width:200px;height:200px;border-radius:50%;background:#ff6f9c;color:#fff;display:flex;align-items:center;justify-content:center;
   font-size:130px;font-weight:800;border:10px solid #fff;box-shadow:6px 10px 0 rgba(122,59,82,.2)}
-.sticker{line-height:1;text-align:center;font-family:"Segoe UI Emoji","Noto Color Emoji",sans-serif;
+.sticker{line-height:1;text-align:center;font-family:${EMOJI_FONTS},sans-serif;
   filter:drop-shadow(0 0 0 #fff) drop-shadow(4px 0 0 #fff) drop-shadow(-4px 0 0 #fff) drop-shadow(0 4px 0 #fff) drop-shadow(0 -4px 0 #fff) drop-shadow(5px 9px 0 rgba(122,59,82,.2))}
 .list-item{display:flex;align-items:center;gap:28px;background:#fff;padding:30px 40px;border-radius:14px;font-size:64px;font-weight:700;
   box-shadow:6px 10px 0 rgba(122,59,82,.16);border:4px dashed #ffc2d6}
-.li-emoji{font-family:"Segoe UI Emoji","Noto Color Emoji",sans-serif;font-size:76px}
+.li-emoji{font-family:${EMOJI_FONTS},sans-serif;font-size:76px}
 .big-word{font-weight:800;color:#ff5c93;text-align:center;line-height:1;letter-spacing:-4px;white-space:nowrap;
   filter:drop-shadow(0 0 0 #fff) drop-shadow(8px 0 0 #fff) drop-shadow(-8px 0 0 #fff) drop-shadow(0 8px 0 #fff) drop-shadow(0 -8px 0 #fff) drop-shadow(8px 12px 0 rgba(122,59,82,.2))}
 .avatar{width:100%;height:100%}
@@ -264,7 +275,12 @@ const RUNTIME = `
   };
   // Mise en page une fois les polices chargees : les elements "follow" se
   // posent sous leur reference (les scenes sont rendues visibles le temps de mesurer).
-  window.__ready = document.fonts.ready.then(() => {
+  // La police du theme est chargee explicitement : les scenes sont masquees au
+  // demarrage, le navigateur ne la demanderait qu au premier texte affiche.
+  window.__ready = Promise.all([
+    document.fonts.load('700 100px Fredoka', 'Aa€…'),
+    document.fonts.load('400 100px Fredoka', 'Aa'),
+  ]).catch(() => null).then(() => document.fonts.ready).then(() => {
     scenes.forEach((s) => { s.style.display = 'block'; });
     document.querySelectorAll('[data-follow]').forEach((el) => {
       const ref = document.getElementById(el.dataset.follow);

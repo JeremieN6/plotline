@@ -303,3 +303,43 @@ test('purge : la voix partagee par une version gardee n est pas supprimee', () =
   // Contenus classiques : comportement inchange.
   assert.deepEqual(collectSafelyDeletableUrls({ versionsToPurge: [{ imageUrl: 'a.png' }], keptVersions: [{ imageUrl: 'b.png' }], currentImageUrl: 'b.png' }), ['a.png']);
 });
+
+// --- Polices et bruitages embarques ----------------------------------------
+
+const { SYNTH_SFX_NAMES, encodeWav, synthesizeSfx } = await import('../server/utils/facelessSfxSynth.js');
+const { FACELESS_SFX } = await import('../server/data/facelessCatalog.js');
+const { facelessAssetPath } = await import('../server/utils/facelessRenderer.js');
+const { resolve: resolvePath, sep: pathSep } = await import('node:path');
+
+test('chaque bruitage du catalogue a sa recette de synthese, sonore et courte', () => {
+  assert.deepEqual([...SYNTH_SFX_NAMES].sort(), Object.keys(FACELESS_SFX).sort());
+  for (const name of SYNTH_SFX_NAMES) {
+    const samples = synthesizeSfx(name);
+    assert.ok(samples.length > 0 && samples.length <= 3 * 48000, name);
+    const peak = samples.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
+    assert.ok(Number.isFinite(peak) && peak > 0.05 && peak <= 0.71, `${name} pic ${peak}`);
+  }
+  assert.throws(() => synthesizeSfx('memes/spiderman'), /inconnu/);
+});
+
+test('synthese deterministe et WAV valide', () => {
+  const a = encodeWav(synthesizeSfx('girly/kawaii-pop'));
+  const b = encodeWav(synthesizeSfx('girly/kawaii-pop'));
+  assert.ok(a.equals(b));
+  assert.equal(a.toString('ascii', 0, 4), 'RIFF');
+  assert.equal(a.readUInt32LE(24), 48000);
+  assert.equal(a.length, 44 + synthesizeSfx('girly/kawaii-pop').length * 2);
+});
+
+test('facelessAssetPath : sert le dossier du theme, jamais au-dela', () => {
+  const base = resolvePath('resources/faceless');
+  assert.equal(facelessAssetPath('https://faceless.assets/fonts/Fredoka.ttf', base), resolvePath(base, 'fonts/Fredoka.ttf'));
+  // L analyseur d URL ramene deja ".." a la racine : on reste dans le dossier.
+  assert.equal(facelessAssetPath('https://faceless.assets/../../.env.local', base), resolvePath(base, '.env.local'));
+  // Variantes encodees : le resultat, s il existe, reste DANS le dossier du theme.
+  for (const url of ['https://faceless.assets/%2e%2e/%2e%2e/.env.local', 'https://faceless.assets/%252e%252e/%252e%252e/.env.local', 'https://faceless.assets/..%2f..%2f.env.local']) {
+    const file = facelessAssetPath(url, base);
+    assert.ok(file === null || file.startsWith(base + pathSep), url);
+  }
+  assert.equal(facelessAssetPath('pas une url', base), null);
+});

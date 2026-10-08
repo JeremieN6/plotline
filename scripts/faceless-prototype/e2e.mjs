@@ -6,6 +6,7 @@
 //   node scripts/faceless-prototype/e2e.mjs "idee" [duree] [voiceId]
 //   node scripts/faceless-prototype/e2e.mjs plan.json                  (reprend un plan, sans Claude)
 //   node scripts/faceless-prototype/e2e.mjs --retouch "consigne"       (retouche le dernier essai)
+//   node scripts/faceless-prototype/e2e.mjs --render                   (re-monte le dernier essai : AUCUN appel payant)
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
@@ -14,14 +15,19 @@ for (const line of readFileSync('.env.local', 'utf8').split(/\r?\n/)) {
   if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim().replace(/^["']|["']$/g, '');
 }
 
-const { produceFacelessVideo, retouchFacelessVideo, RENDER_SPEC_KIND } = await import('../../server/utils/facelessVideoJob.js');
+const { produceFacelessVideo, renderFacelessFromPlan, retouchFacelessVideo, RENDER_SPEC_KIND } = await import('../../server/utils/facelessVideoJob.js');
 const out = resolve('tmp/faceless/out');
 mkdirSync(out, { recursive: true });
 const started = Date.now();
 const onStep = (step) => console.log(`${((Date.now() - started) / 1000).toFixed(0)} s : ${step}`);
 const specPath = join(out, 'e2e-spec.json');
 
-if (process.argv[2] === '--retouch') {
+if (process.argv[2] === '--render') {
+  const spec = JSON.parse(readFileSync(specPath, 'utf8'));
+  const { video, duration } = await renderFacelessFromPlan(spec.plan, { audio: readFileSync(spec.voiceUrl), words: spec.words });
+  writeFileSync(join(out, 'e2e-render.mp4'), video);
+  console.log(`OK : ${duration.toFixed(1)} s re-montees sans appel payant, ${((Date.now() - started) / 1000).toFixed(0)} s`);
+} else if (process.argv[2] === '--retouch') {
   const spec = JSON.parse(readFileSync(specPath, 'utf8'));
   const n = (spec.retouches?.length || 0) + 1;
   const { video, plan, voice, newVoice, duration } = await retouchFacelessVideo({ spec, instruction: process.argv[3], onStep });
