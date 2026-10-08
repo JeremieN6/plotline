@@ -204,7 +204,7 @@ mark{background:linear-gradient(transparent 52%,#ffb3cb 52%,#ffb3cb 90%,transpar
 .avatar.flip{transform:scaleX(-1)}
 .paper-shape{filter:drop-shadow(4px 6px 0 rgba(122,59,82,.15))}
 #captions{position:absolute;left:${SAFE.left}px;width:${1080 - SAFE.left - SAFE.right}px;top:1400px;text-align:center;z-index:20;display:none}
-#captions span{display:inline-block;margin:0 10px;font-size:84px;font-weight:800;color:#3b2433;
+#captions span{display:inline-block;margin:0 18px;font-size:84px;font-weight:800;color:#3b2433;
   filter:drop-shadow(0 0 0 #fff) drop-shadow(6px 0 0 #fff) drop-shadow(-6px 0 0 #fff) drop-shadow(0 6px 0 #fff) drop-shadow(0 -6px 0 #fff)}
 #captions span.on{color:#ff4f8b;transform:scale(1.12) rotate(-3deg)}
 `;

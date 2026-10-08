@@ -309,6 +309,8 @@ model ContentVersion {
   caption         String?
   prompt          String?
   generationModel String?
+  /// Video faceless : plan de montage + voix + temps des mots, pour la retouche.
+  renderSpec      Json?
   isActive        Boolean  @default(false)
   createdAt       DateTime @default(now())
 

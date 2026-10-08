@@ -81,8 +81,12 @@ async function collectReferencedMedia(prisma) {
   contents.forEach((row) => remember(row.imageUrl));
 
   try {
-    const versions = await prisma.contentVersion.findMany({ select: { imageUrl: true } });
-    versions.forEach((row) => remember(row.imageUrl));
+    const versions = await prisma.contentVersion.findMany({ select: { imageUrl: true, renderSpec: true } });
+    versions.forEach((row) => {
+      remember(row.imageUrl);
+      // Voix d une video faceless (reutilisee par ses retouches).
+      remember(row.renderSpec?.voiceUrl);
+    });
   } catch (error) {
     console.warn('[avertissement] versions illisibles, elles seront ignorees:', error?.message);
   }

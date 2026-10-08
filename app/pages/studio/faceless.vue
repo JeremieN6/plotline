@@ -86,17 +86,65 @@
         <p v-if="errorMessage" class="rounded-[12px] border border-[#F3C1C1] bg-[#FFF4F4] p-3 text-sm text-[#A33]">{{ errorMessage }}</p>
       </section>
 
-      <aside class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+      <aside class="space-y-4 rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
         <p class="text-sm font-semibold text-[#111111]">Résultat</p>
-        <div v-if="polling" class="mt-4 rounded-[14px] border border-[#F2CCAA] bg-[#FFF5EC] p-4 text-sm text-[#B45F1D]">
-          Script, voix puis montage image par image… ({{ elapsedLabel }})
+        <div v-if="polling" class="rounded-[14px] border border-[#F2CCAA] bg-[#FFF5EC] p-4 text-sm text-[#B45F1D]">
+          {{ pollingLabel }} ({{ elapsedLabel }})
         </div>
-        <div v-else-if="result && !result.failed && result.imageUrl" class="mt-4 space-y-3">
-          <video :src="result.imageUrl" controls playsinline class="w-full rounded-[14px] border border-[#E5E3DF] bg-black" />
+        <p v-if="lastFailure" class="rounded-[12px] border border-[#F3C1C1] bg-[#FFF4F4] p-3 text-sm text-[#A33]">
+          {{ lastFailure }}
+        </p>
+        <div v-if="videoUrl" class="space-y-3">
+          <video :key="videoUrl" :src="videoUrl" controls playsinline class="w-full rounded-[14px] border border-[#E5E3DF] bg-black" />
           <NuxtLink to="/content" class="inline-block text-sm font-semibold text-[#B45F1D] hover:underline">Voir dans Mes créations →</NuxtLink>
         </div>
-        <p v-else-if="result && result.failed" class="mt-4 text-sm text-[#A33]">{{ result.errorMessage || 'La génération a échoué.' }}</p>
-        <p v-else class="mt-4 text-sm text-[#888]">La vidéo apparaîtra ici.</p>
+        <p v-else-if="!polling" class="text-sm text-[#888]">La vidéo apparaîtra ici.</p>
+
+        <div v-if="info?.retouchable && videoUrl && !polling" class="space-y-3 border-t border-[#F0EEEA] pt-4">
+          <div>
+            <label class="text-sm font-semibold text-[#111111]" for="faceless-retouch">Retoucher</label>
+            <p class="mt-1 text-xs text-[#666666]">
+              Dis ce qui ne va pas, comme à un monteur. Si le texte dit ne change pas, la même voix est réutilisée.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="suggestion in RETOUCH_SUGGESTIONS"
+              :key="suggestion"
+              type="button"
+              class="rounded-full border border-[#E5E3DF] bg-[#FAFAF8] px-3 py-1 text-xs text-[#444] transition-colors hover:border-[#E6B78E] hover:bg-[#FFF5EC]"
+              @click="instruction = suggestion"
+            >
+              {{ suggestion }}
+            </button>
+          </div>
+          <textarea
+            id="faceless-retouch"
+            v-model="instruction"
+            rows="3"
+            maxlength="1000"
+            placeholder="Ex. : l intro a trop de texte, coupe-la en deux écrans. Garde l avatar qui sourit pendant toute la phrase sur la communauté."
+            class="w-full rounded-[12px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A] focus:shadow-[0_0_0_3px_rgba(232,135,58,0.10)]"
+          />
+          <button
+            type="button"
+            class="rounded-[12px] bg-[#111111] px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="!instruction.trim() || !info.canRetouchNow"
+            @click="retouch"
+          >
+            Créer la version retouchée
+          </button>
+          <p v-if="!info.canRetouchNow" class="text-xs text-[#888]">Seule une vidéo « en attente » peut être retouchée.</p>
+          <div v-if="info.retouches?.length" class="text-xs text-[#666666]">
+            <p class="font-semibold text-[#444]">Retouches déjà appliquées</p>
+            <ol class="mt-1 list-decimal space-y-1 pl-4">
+              <li v-for="(item, index) in info.retouches" :key="index">{{ item }}</li>
+            </ol>
+          </div>
+        </div>
+        <p v-else-if="info && !info.retouchable && videoUrl && !polling" class="border-t border-[#F0EEEA] pt-4 text-xs text-[#888]">
+          Cette vidéo a été créée avant les retouches : elle n a pas de plan de montage enregistré.
+        </p>
       </aside>
     </div>
   </div>
@@ -106,6 +154,15 @@
 useSeoMeta({ title: 'Vidéo faceless' })
 
 const { pushToast } = useUiFeedback()
+const route = useRoute()
+
+// Consignes types (inspirees des allers-retours du tuto) : un clic les place dans la zone de retouche.
+const RETOUCH_SUGGESTIONS = [
+  'L intro a trop de texte : coupe-la en deux écrans.',
+  'Laisse chaque carte un peu plus longtemps à l écran.',
+  'Varie davantage les expressions de l avatar.',
+  'Rends l appel à l action final plus percutant.',
+]
 
 const idea = ref('')
 const profileId = ref('')
@@ -113,13 +170,19 @@ const voiceId = ref('')
 const durationSeconds = ref(30)
 const captions = ref(true)
 const errorMessage = ref('')
-const result = ref(null)
+const instruction = ref('')
+const contentId = ref(String(route.query.content || ''))
+const videoUrl = ref('')
+const lastFailure = ref('')
+const info = ref(null)
 const polling = ref(false)
+const pollingKind = ref('generate')
 const startedAt = ref(0)
 const now = ref(Date.now())
 let pollTimer = null
 let clockTimer = null
 
+const requestFetch = useRequestFetch()
 const { data: profilesData } = await useFetch('/api/profiles', { key: 'faceless-profiles' })
 const { data: options } = await useFetch('/api/faceless/options', { key: 'faceless-options' })
 
@@ -132,10 +195,23 @@ watch(options, (value) => {
 }, { immediate: true })
 
 const canGenerate = computed(() => idea.value.trim().length > 0 && Boolean(voiceId.value) && !polling.value)
+const pollingLabel = computed(() => (pollingKind.value === 'retouch'
+  ? 'Retouche du plan, puis nouveau montage…'
+  : 'Script, voix puis montage image par image…'))
 const elapsedLabel = computed(() => {
   const seconds = Math.max(0, Math.round((now.value - startedAt.value) / 1000))
   return `${Math.floor(seconds / 60)} min ${String(seconds % 60).padStart(2, '0')} s`
 })
+
+async function loadInfo(id, fetcher = $fetch) {
+  try {
+    info.value = await fetcher(`/api/content/${id}/faceless`)
+    if (info.value?.imageUrl) videoUrl.value = info.value.imageUrl
+    if (info.value?.idea && !idea.value) idea.value = info.value.idea
+  } catch {
+    info.value = null
+  }
+}
 
 function stopPolling() {
   if (pollTimer) clearInterval(pollTimer)
@@ -145,15 +221,33 @@ function stopPolling() {
   polling.value = false
 }
 
-async function checkStatus(contentId) {
+function startPolling(id, kind) {
+  stopPolling()
+  pollingKind.value = kind
+  polling.value = true
+  startedAt.value = Date.now()
+  now.value = Date.now()
+  clockTimer = setInterval(() => { now.value = Date.now() }, 1000)
+  pollTimer = setInterval(() => checkStatus(id), 5000)
+}
+
+async function checkStatus(id) {
   try {
-    const status = await $fetch(`/api/content/${contentId}/status`)
+    const status = await $fetch(`/api/content/${id}/status`)
     if (!status?.done) return
     stopPolling()
-    result.value = status
-    pushToast(status.failed
-      ? { title: 'Génération échouée', message: status.errorMessage || 'La vidéo n a pas pu être montée.', tone: 'error' }
-      : { title: 'Vidéo prête !', message: 'Elle est aussi dans Mes créations.', tone: 'success' })
+    if (status.failed) {
+      // Une retouche ratee garde le rendu precedent : on le laisse affiche.
+      lastFailure.value = status.keptPreviousRender
+        ? `${status.errorMessage || 'Échec.'} La version précédente est conservée.`
+        : (status.errorMessage || 'La vidéo n a pas pu être montée.')
+      pushToast({ title: 'Échec', message: lastFailure.value, tone: 'error' })
+    } else {
+      instruction.value = ''
+      pushToast({ title: 'Vidéo prête !', message: 'Elle est aussi dans Mes créations.', tone: 'success' })
+    }
+    if (status.imageUrl) videoUrl.value = status.imageUrl
+    await loadInfo(id)
   } catch {
     // Erreur transitoire : on reessaie au prochain tour.
   }
@@ -161,7 +255,9 @@ async function checkStatus(contentId) {
 
 async function generate() {
   errorMessage.value = ''
-  result.value = null
+  lastFailure.value = ''
+  videoUrl.value = ''
+  info.value = null
   try {
     const response = await $fetch('/api/generate/faceless', {
       method: 'POST',
@@ -173,15 +269,34 @@ async function generate() {
         captions: captions.value,
       },
     })
-    polling.value = true
-    startedAt.value = Date.now()
-    now.value = Date.now()
-    clockTimer = setInterval(() => { now.value = Date.now() }, 1000)
-    pollTimer = setInterval(() => checkStatus(response.contentId), 5000)
+    contentId.value = response.contentId
+    startPolling(response.contentId, 'generate')
   } catch (error) {
     errorMessage.value = error?.data?.statusMessage || error?.statusMessage || 'Impossible de lancer la génération.'
   }
 }
+
+async function retouch() {
+  lastFailure.value = ''
+  try {
+    await $fetch(`/api/content/${contentId.value}/faceless-retouch`, {
+      method: 'POST',
+      body: { instruction: instruction.value },
+    })
+    startPolling(contentId.value, 'retouch')
+  } catch (error) {
+    lastFailure.value = error?.data?.statusMessage || error?.statusMessage || 'Impossible de lancer la retouche.'
+  }
+}
+
+// Ouverte depuis Mes créations (?content=...) : on reprend la video existante.
+if (contentId.value) {
+  await loadInfo(contentId.value, requestFetch)
+}
+
+onMounted(() => {
+  if (contentId.value && info.value?.status === 'PROCESSING') startPolling(contentId.value, 'retouch')
+})
 
 onBeforeUnmount(stopPolling)
 </script>

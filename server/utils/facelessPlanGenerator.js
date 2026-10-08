@@ -200,19 +200,93 @@ export function parseFacelessPlanResponse(rawText) {
   return JSON.parse(text.slice(start, end + 1));
 }
 
-/** Appel Claude. `createMessage` est injectable (tests). */
-export async function generateFacelessPlan({ idea, persona, targetSeconds, captions = true, apiKey, createMessage } = {}) {
+async function askClaudeForPlan({ system, userContent, captions, apiKey, createMessage }) {
   const key = String(apiKey || process.env.ANTHROPIC_API_KEY || '').trim();
   if (!createMessage && !key) throw new Error('ANTHROPIC_API_KEY non configuree');
 
   const request = {
     model: String(process.env.ANTHROPIC_MODEL || DEFAULT_MODEL).trim() || DEFAULT_MODEL,
     max_tokens: MAX_TOKENS,
-    system: buildFacelessPlanSystemPrompt({ targetSeconds: normalizeFacelessDuration(targetSeconds), persona, captions }),
-    messages: [{ role: 'user', content: buildFacelessPlanUserPrompt(idea) }],
+    system,
+    messages: [{ role: 'user', content: userContent }],
   };
   const response = await (createMessage ? createMessage(request) : new Anthropic({ apiKey: key }).messages.create(request));
   const text = (response?.content || []).filter((b) => b?.type === 'text').map((b) => b.text).join('\n');
 
   return sanitizeFacelessPlan(parseFacelessPlanResponse(text), { captions });
+}
+
+/** Appel Claude. `createMessage` est injectable (tests). */
+export async function generateFacelessPlan({ idea, persona, targetSeconds, captions = true, apiKey, createMessage } = {}) {
+  return askClaudeForPlan({
+    system: buildFacelessPlanSystemPrompt({ targetSeconds: normalizeFacelessDuration(targetSeconds), persona, captions }),
+    userContent: buildFacelessPlanUserPrompt(idea),
+    captions,
+    apiKey,
+    createMessage,
+  });
+}
+
+// --- Retouches --------------------------------------------------------------
+
+/** Pur : le plan tel qu on le montre a Claude (sans champs internes vides). */
+export function planForEditing(plan) {
+  const compact = (value) => (Array.isArray(value) ? value.length > 0 : value !== '' && value != null && value !== false);
+  return {
+    title: plan?.title || '',
+    caption: plan?.caption || '',
+    hashtags: plan?.hashtags || [],
+    scenes: (plan?.scenes || []).map((scene) => Object.fromEntries(
+      ['say', 'layout', 'text', 'title', 'number', 'word', 'emoji', 'items', 'avatar', 'sfx', 'captions']
+        .filter((key) => key === 'say' || key === 'layout' || key === 'avatar' || compact(scene[key]))
+        .map((key) => [key, scene[key]]),
+    )),
+  };
+}
+
+/**
+ * Pur : le texte dit a-t-il change (sinon la voix existante est reutilisee) ?
+ * On compare le script COMPLET, tel qu il est lu par la voix : couper une scene
+ * en deux sans changer un mot garde la meme voix (les mots se repartissent
+ * entre scenes par leur nombre).
+ */
+export function spokenTextChanged(previousPlan, nextPlan) {
+  const spoken = (plan) => (plan?.scenes || []).map((scene) => String(scene.say || '')).join(' ').replace(/\s+/g, ' ').trim();
+  return spoken(previousPlan) !== spoken(nextPlan);
+}
+
+export function buildFacelessRetouchSystemPrompt({ targetSeconds = 30, persona = null, captions = true } = {}) {
+  return [
+    buildFacelessPlanSystemPrompt({ targetSeconds, persona, captions }),
+    '',
+    'RETOUCHE',
+    'Tu ne crees pas une nouvelle video : tu RETOUCHES un plan existant selon la consigne de l utilisateur.',
+    '- Applique la consigne precisement, et ne change RIEN d autre (meme ordre de scenes, memes textes, memes expressions, memes bruitages ailleurs).',
+    '- Ne modifie le texte dit ("say") QUE si la consigne porte sur ce qui est dit (script, ton, duree, une phrase precise). Sinon recopie chaque "say" a l identique, caractere pour caractere : la voix deja enregistree sera reutilisee.',
+    '- Si tu modifies un "say", verifie que les reperes "at" de cette scene citent toujours des mots exacts de la nouvelle phrase.',
+    '- "Plus long a l ecran", "trop rapide" sur un element : ajuste son repere "at" (plus tot) ou separe la scene en deux scenes.',
+    '- Renvoie le plan COMPLET, dans la meme forme JSON que d habitude.',
+  ].join('\n');
+}
+
+export function buildFacelessRetouchUserPrompt(plan, instruction) {
+  return [
+    'Plan actuel :',
+    JSON.stringify(planForEditing(plan)),
+    '',
+    'Consigne de retouche :',
+    String(instruction || '').trim(),
+  ].join('\n');
+}
+
+/** Retouche d un plan par Claude. `createMessage` est injectable (tests). */
+export async function retouchFacelessPlan({ plan, instruction, persona, targetSeconds, captions = true, apiKey, createMessage } = {}) {
+  if (!String(instruction || '').trim()) throw new Error('Consigne de retouche vide');
+  return askClaudeForPlan({
+    system: buildFacelessRetouchSystemPrompt({ targetSeconds: normalizeFacelessDuration(targetSeconds), persona, captions }),
+    userContent: buildFacelessRetouchUserPrompt(plan, instruction),
+    captions,
+    apiKey,
+    createMessage,
+  });
 }

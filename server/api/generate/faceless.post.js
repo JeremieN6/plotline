@@ -4,6 +4,7 @@ import { runFacelessVideoJob } from '../../utils/facelessVideoJob.js';
 import { normalizeFacelessDuration } from '../../utils/facelessPlanGenerator.js';
 import { resolveElevenLabsApiKey } from '../../utils/elevenLabsTts.js';
 import { DEFAULT_FACELESS_VOICE_ID, findFacelessVoice } from '../../data/facelessCatalog.js';
+import { FACELESS_PERSONA_SELECT } from '../../utils/facelessContent.js';
 
 const MAX_IDEA_LENGTH = 2000;
 
@@ -21,8 +22,6 @@ async function getPrisma() {
 
   return prismaClient;
 }
-
-const PERSONA_SELECT = { id: true, name: true, niche: true, style: true, gender: true, description: true, targetAudience: true };
 
 // Video faceless : montage code (HTML capture image par image), voix
 // ElevenLabs, aucun modele de generation video. Reponse immediate en
@@ -52,7 +51,7 @@ export default defineEventHandler(async (event) => {
   // La persona est facultative : elle donne le ton et range la video chez elle.
   let persona = null;
   if (profileId) {
-    persona = await prisma.profile.findFirst({ where: { id: profileId, userId: user.id }, select: PERSONA_SELECT });
+    persona = await prisma.profile.findFirst({ where: { id: profileId, userId: user.id }, select: FACELESS_PERSONA_SELECT });
     if (!persona) {
       return sendError(event, createError({ statusCode: 404, statusMessage: 'Profil introuvable' }));
     }

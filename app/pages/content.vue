@@ -606,10 +606,15 @@ function canValidate(item) {
 }
 
 function canModify(item) {
-  return (isContentCreator.value || isBrand.value) && item.status === 'PENDING'
+  if (item.status !== 'PENDING') return false
+  // La retouche d une video faceless est ouverte a tous les types de compte.
+  if (item.generationModel === 'faceless') return true
+  return isContentCreator.value || isBrand.value
 }
 
 function modifyHref(item) {
+  // Une video faceless se retouche en langage naturel sur son propre ecran.
+  if (item.generationModel === 'faceless') return `/studio/faceless?content=${item.id}`
   const studioPath = isBrand.value ? '/brand-studio' : '/studio'
   return `${studioPath}?edit=${item.id}`
 }

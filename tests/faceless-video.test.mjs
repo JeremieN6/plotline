@@ -236,3 +236,70 @@ test('sanitizeFacelessScene : emoji retires des textes, sous-titres seulement su
   assert.equal(word.word, '2 min');
   assert.equal(word.captions, true);
 });
+
+// --- Retouches -------------------------------------------------------------
+
+const { planForEditing, retouchFacelessPlan, spokenTextChanged } = await import('../server/utils/facelessPlanGenerator.js');
+const { isFacelessRenderSpec } = await import('../server/utils/facelessVideoJob.js');
+const { collectSafelyDeletableUrls, versionMediaUrls } = await import('../server/utils/contentVersions.js');
+
+const basePlan = sanitizeFacelessPlan({
+  title: 'T',
+  scenes: [
+    { say: 'Salut toi.', layout: 'hook', text: 'Salut' },
+    { say: 'Abonne-toi.', layout: 'avatar', text: 'Abonne-toi' },
+  ],
+});
+
+test('spokenTextChanged : seul le texte dit compte', () => {
+  const visualOnly = { ...basePlan, scenes: basePlan.scenes.map((s) => ({ ...s, text: `${s.text} !`, layout: 'avatar' })) };
+  assert.equal(spokenTextChanged(basePlan, visualOnly), false);
+  const respaced = { ...basePlan, scenes: basePlan.scenes.map((s, i) => (i === 0 ? { ...s, say: ' Salut   toi. ' } : s)) };
+  assert.equal(spokenTextChanged(basePlan, respaced), false);
+  // Scene coupee en deux sans changer un mot : meme voix.
+  const split = { ...basePlan, scenes: [{ ...basePlan.scenes[0], say: 'Salut' }, { ...basePlan.scenes[0], say: 'toi.' }, basePlan.scenes[1]] };
+  assert.equal(spokenTextChanged(basePlan, split), false);
+  const reworded = { ...basePlan, scenes: basePlan.scenes.map((s, i) => (i === 1 ? { ...s, say: 'Abonne-toi vite.' } : s)) };
+  assert.equal(spokenTextChanged(basePlan, reworded), true);
+});
+
+test('planForEditing : retire les champs vides, garde say/layout/avatar', () => {
+  const edited = planForEditing(basePlan);
+  assert.deepEqual(Object.keys(edited.scenes[0]).sort(), ['avatar', 'layout', 'say', 'text']);
+});
+
+test('retouchFacelessPlan : plan actuel + consigne envoyes, regles de retouche presentes', async () => {
+  let request;
+  const createMessage = async (req) => {
+    request = req;
+    return { content: [{ type: 'text', text: JSON.stringify(planForEditing(basePlan)) }] };
+  };
+  const plan = await retouchFacelessPlan({ plan: basePlan, instruction: 'intro plus courte', createMessage });
+  assert.equal(plan.scenes.length, 2);
+  assert.match(request.system, /RETOUCHE/);
+  assert.match(request.system, /recopie chaque "say" a l identique/);
+  assert.match(request.messages[0].content, /intro plus courte/);
+  assert.match(request.messages[0].content, /Salut toi\./);
+  await assert.rejects(retouchFacelessPlan({ plan: basePlan, instruction: '  ', createMessage }), /vide/);
+});
+
+test('isFacelessRenderSpec : plan, voix et mots requis', () => {
+  const spec = { kind: 'faceless', plan: basePlan, voiceUrl: 'https://x/v.mp3', words: [{ text: 'a', start: 0, end: 1 }] };
+  assert.equal(isFacelessRenderSpec(spec), true);
+  assert.equal(isFacelessRenderSpec({ ...spec, voiceUrl: '' }), false);
+  assert.equal(isFacelessRenderSpec({ ...spec, kind: 'autre' }), false);
+  assert.equal(isFacelessRenderSpec(null), false);
+});
+
+test('purge : la voix partagee par une version gardee n est pas supprimee', () => {
+  const voice = 'https://blob/voice-1.mp3';
+  const old = { imageUrl: 'https://blob/v1.mp4', renderSpec: { voiceUrl: voice } };
+  const kept = { imageUrl: 'https://blob/v2.mp4', renderSpec: { voiceUrl: voice } };
+  assert.deepEqual(versionMediaUrls(old), ['https://blob/v1.mp4', voice]);
+  assert.deepEqual(collectSafelyDeletableUrls({ versionsToPurge: [old], keptVersions: [kept], currentImageUrl: kept.imageUrl }), ['https://blob/v1.mp4']);
+  // Plus aucune version ne l utilise : la voix part avec la video.
+  const other = { imageUrl: 'https://blob/v3.mp4', renderSpec: { voiceUrl: 'https://blob/voice-2.mp3' } };
+  assert.deepEqual(collectSafelyDeletableUrls({ versionsToPurge: [old], keptVersions: [other], currentImageUrl: other.imageUrl }), ['https://blob/v1.mp4', voice]);
+  // Contenus classiques : comportement inchange.
+  assert.deepEqual(collectSafelyDeletableUrls({ versionsToPurge: [{ imageUrl: 'a.png' }], keptVersions: [{ imageUrl: 'b.png' }], currentImageUrl: 'b.png' }), ['a.png']);
+});
