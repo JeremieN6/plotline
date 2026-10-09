@@ -253,6 +253,13 @@ export async function generatePersonality(input = {}, deps = {}) {
   const provided = normalizeProvided(input.provided, kind);
   const withProvided = mergePersonality(existing, null, provided, kind);
   const protectedFields = collectProtectedFields(withProvided);
+  // Mode "completer" : tout champ deja renseigne est conserve tel quel, seuls les
+  // champs vides sont generes (ils servent alors de contexte impose a Claude).
+  if (input.onlyEmpty === true) {
+    for (const [blockKey, fields] of Object.entries(withProvided.blocks)) {
+      for (const fieldKey of Object.keys(fields)) protectedFields.add(fieldId(blockKey, fieldKey));
+    }
+  }
 
   const targets = selectTargetFields(kind, { onlyBlocks, platforms: input.platforms, protectedFields });
   const targetIds = new Set(targets.map(({ block, field }) => fieldId(block.key, field.key)));

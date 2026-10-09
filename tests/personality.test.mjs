@@ -474,6 +474,43 @@ test('profil existant : le physique déjà figé est imposé à Claude et jamais
   assert.doesNotMatch(plain.calls[0].system, /Genre du personnage|déjà définie/);
 });
 
+test('onlyEmpty : « compléter » ne réécrit aucun champ déjà renseigné, même généré', async () => {
+  const existing = {
+    kind: 'PERSONA',
+    blocks: { voice: { tone: { value: 'Ton déjà généré, sec et patient', origin: 'generated' } } },
+  };
+
+  const completing = fakeClient(fullResponse('PERSONA'));
+  const kept = await generatePersonality(
+    { kind: 'PERSONA', existing, onlyBlocks: ['voice'], onlyEmpty: true },
+    { client: completing, rng: createSeededRng(21) },
+  );
+  assert.equal(kept.personality.blocks.voice.tone.value, 'Ton déjà généré, sec et patient');
+  assert.equal(kept.personality.blocks.voice.tone.origin, 'generated');
+  assert.ok(kept.personality.blocks.voice.humor, 'les champs vides sont bien générés');
+  assert.match(completing.calls[0].system, /Ton déjà généré, sec et patient/);
+  assert.doesNotMatch(completing.calls[0].system, /"tone" —/);
+
+  // Sans onlyEmpty, un champ généré non verrouillé est bien remplacé (régénération).
+  const replacing = fakeClient(fullResponse('PERSONA'));
+  const replaced = await generatePersonality(
+    { kind: 'PERSONA', existing, onlyBlocks: ['voice'] },
+    { client: replacing, rng: createSeededRng(21) },
+  );
+  assert.equal(replaced.personality.blocks.voice.tone.value, 'valeur tone');
+
+  // Tout est déjà renseigné : aucun appel Claude, donc aucun coût.
+  const full = JSON.parse(fullResponse('PERSONA'));
+  const filled = { kind: 'PERSONA', blocks: {} };
+  for (const [blockKey, fields] of Object.entries(full)) {
+    filled.blocks[blockKey] = Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, { value, origin: 'generated' }]));
+  }
+  const idle = fakeClient();
+  const done = await generatePersonality({ kind: 'PERSONA', existing: filled, onlyEmpty: true }, { client: idle });
+  assert.equal(idle.calls.length, 0);
+  assert.equal(done.generated, 0);
+});
+
 test('graines d obsessions : toutes les formes ne sont pas des collections', () => {
   const values = PERSONALITY_SEEDS.obsessions.map((item) => item.value);
   assert.ok(values.length >= 45);

@@ -185,6 +185,7 @@ export async function handlePersonalityGeneration(event, { blockOnly = false } =
     platforms: body.platforms,
     language: body.language,
     onlyBlocks,
+    onlyEmpty: !blockOnly && body.onlyEmpty === true,
     profileConstraints: buildProfileConstraints(profile),
     seedOverride: body.seedOverride,
   });
