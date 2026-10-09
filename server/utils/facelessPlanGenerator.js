@@ -240,15 +240,15 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
 }
 
 /** Pur : plan complet nettoye. Leve une erreur si moins de 2 scenes exploitables. */
-export function sanitizeFacelessPlan(raw, { captions = true, packIds = [], illustrationIds = [], maxNew = 0 } = {}) {
+export function sanitizeFacelessPlan(raw, { captions = true, packIds = [], illustrationIds = [], maxNew = 0, maxScenes = MAX_SCENES, maxChars = MAX_SPOKEN_CHARS } = {}) {
   const scenes = [];
   const newBudget = { left: Math.max(0, Math.min(Number(maxNew) || 0, MAX_NEW_PER_VIDEO)) };
   let spokenChars = 0;
 
-  for (const candidate of (Array.isArray(raw?.scenes) ? raw.scenes : []).slice(0, MAX_SCENES)) {
+  for (const candidate of (Array.isArray(raw?.scenes) ? raw.scenes : []).slice(0, maxScenes)) {
     const scene = sanitizeFacelessScene(candidate, { captions, packIds, illustrationIds, newBudget });
     if (!scene) continue;
-    if (spokenChars + scene.say.length > MAX_SPOKEN_CHARS) break;
+    if (spokenChars + scene.say.length > maxChars) break;
     // Une scene sans aucun mot (ponctuation seule) casserait la repartition des mots.
     if (!countSpokenTokens(scene.say)) continue;
     spokenChars += scene.say.length + 1;

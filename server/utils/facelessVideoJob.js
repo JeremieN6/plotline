@@ -202,13 +202,21 @@ export async function retouchFacelessVideo({ spec, instruction, persona, remembe
   // Images connues : celles du dossier aujourd hui + celles de la version retouchee (meme supprimees du dossier).
   const known = { ...folderIllustrations, ...(spec?.illustrationEntries && typeof spec.illustrationEntries === 'object' ? spec.illustrationEntries : {}) };
   if (rememberRule) style = appendStyleRule(style, instruction);
+  const ownVoice = spec?.voiceSource === 'own';
 
   onStep('plan');
+  const ownVoiceRefusal = 'Avec ta propre voix, une retouche ne peut pas changer ce qui est dit : seule la mise en scène change. Re-enregistre ta voix pour modifier le texte.';
   const plan = await retouchFacelessPlan({
-    plan: spec.plan, instruction, persona, targetSeconds: spec.targetSeconds, captions: spec.captions !== false, style, packEntries, illustrations: known,
+    plan: spec.plan,
+    instruction: ownVoice ? `${instruction}\n(Contrainte : la voix est celle enregistree par le createur. Ne modifie, ne deplace et ne supprime aucun mot de aucun "say" ; tu peux seulement les repartir entre scenes.)` : instruction,
+    persona, targetSeconds: spec.targetSeconds, captions: spec.captions !== false, style, packEntries, illustrations: known,
+  }).catch((error) => {
+    // Devant une consigne qui exige de changer le texte, Claude repond parfois en prose au lieu d un plan.
+    throw ownVoice && /sans JSON/.test(String(error?.message)) ? new Error(ownVoiceRefusal) : error;
   });
 
   const newVoice = spokenTextChanged(spec.plan, plan);
+  if (newVoice && ownVoice) throw new Error(ownVoiceRefusal);
   onStep(newVoice ? 'voice' : 'voice-reused');
   const voice = newVoice
     ? await synthesizePlanVoice(plan, spec.voiceId)
@@ -219,7 +227,7 @@ export async function retouchFacelessVideo({ spec, instruction, persona, remembe
   return { video, plan, voice, newVoice, duration, style, packEntries, illustrationEntries: pickIllustrations(plan, known) };
 }
 
-async function finalizeFaceless(prisma, contentId, { video, plan, voice, voiceUrl, duration, style, packEntries, illustrationEntries = {}, base }) {
+export async function finalizeFaceless(prisma, contentId, { video, plan, voice, voiceUrl, duration, style, packEntries, illustrationEntries = {}, base }) {
   const videoUrl = await saveGeneratedVideoBuffer(video, 'video_faceless');
   const renderSpec = {
     ...base,
@@ -243,7 +251,7 @@ async function finalizeFaceless(prisma, contentId, { video, plan, voice, voiceUr
   );
 }
 
-function inBackground(prisma, contentId, previousStatus, task) {
+export function inBackground(prisma, contentId, previousStatus, task) {
   (async () => {
     try {
       await task();
@@ -258,7 +266,7 @@ function inBackground(prisma, contentId, previousStatus, task) {
   return { contentId, status: 'processing', model: 'faceless' };
 }
 
-const logStep = (contentId) => (step) => console.log(`[faceless] contentId=${contentId} etape=${step}`);
+export const logStep = (contentId) => (step) => console.log(`[faceless] contentId=${contentId} etape=${step}`);
 
 /** Lance la generation en tache de fond ; la requete HTTP repond tout de suite. */
 export function runFacelessVideoJob({ prisma, contentId, idea, persona, targetSeconds, captions, voiceId, style, userId, illustrations = {}, maxNew = 0, previousStatus }) {
