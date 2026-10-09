@@ -1,6 +1,7 @@
 import { requireFacelessPersona } from '../../../../utils/facelessApi.js';
 import { startPackJob } from '../../../../utils/facelessAvatarPack.js';
 import { readFacelessMedia, saveFacelessMedia } from '../../../../utils/facelessMedia.js';
+import { facelessAssetFolder } from '../../../../utils/facelessIllustration.js';
 import { updateProfileStyle } from '../../../../utils/facelessStyleStore.js';
 import { generateImageFromGeminiWithSafetyFallback } from '../../../../utils/geminiImageGeneration.js';
 import { estimatePackCostUsd } from '../../../../data/facelessAvatarCatalog.js';
@@ -25,6 +26,12 @@ export default defineEventHandler(async (event) => {
     }));
   }
 
+  // Le style graphique de l avatar se modifie depuis le dossier : il est enregistre avant de generer.
+  const avatarPrompt = String(body?.avatarPrompt ?? style.avatarPrompt ?? '').replace(/s+/g, ' ').trim().slice(0, 400);
+  if (avatarPrompt !== style.avatarPrompt) {
+    await updateProfileStyle(prisma, persona.id, user.id, (current) => ({ ...current, avatarPrompt }));
+  }
+
   const baseUrl = style.avatar.pack?.baseUrl;
   if (!baseUrl) {
     return sendError(event, createError({ statusCode: 400, statusMessage: 'Cree d abord l image de base du pack' }));
@@ -34,11 +41,11 @@ export default defineEventHandler(async (event) => {
     return await startPackJob({
       ids,
       baseUrl,
-      avatarPrompt: style.avatarPrompt,
+      avatarPrompt,
       store: { update: (mutator) => updateProfileStyle(prisma, persona.id, user.id, mutator) },
       deps: {
         generate: generateImageFromGeminiWithSafetyFallback,
-        save: (buffer, type) => saveFacelessMedia(buffer, { folder: `faceless-avatars/${persona.id}`, ...type }),
+        save: (buffer, type) => saveFacelessMedia(buffer, { folder: facelessAssetFolder(persona.id, 'avatar'), ...type }),
         read: readFacelessMedia,
       },
     });

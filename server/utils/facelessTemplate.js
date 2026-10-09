@@ -73,7 +73,7 @@ const nextSeed = () => (seedCounter += 7919);
 const uid = (prefix) => `${prefix}-${nextSeed()}`;
 
 // DA et images d avatar de la page en cours de construction.
-let T = { style: null, packEntries: {} };
+let T = { style: null, packEntries: {}, illustrations: {} };
 
 /** Entree d animation autorisee par la DA (sinon "pop", sinon la premiere permise). */
 function ent(name) {
@@ -117,6 +117,8 @@ const AVATAR_SPOTS = {
   'bottom-right': { x: 1080 - SAFE.right - 520, y: 1000, size: 520 },
   'peek-left': { x: SAFE.left - 30, y: 1110, size: 420 },
   'peek-right': { x: 1080 - SAFE.right - 400, y: 1110, size: 420 },
+  // Sous une photo : plus bas et plus petit, pour ne pas cacher la legende du cadre.
+  'photo-low': { x: 1080 - SAFE.right - 400, y: 1215, size: 390 },
   center: { x: 115, y: 640, size: 780 },
   // Buste qui "monte du bas de l ecran" : on ne le voit jamais coupe en l air.
   'from-bottom': { x: 130, y: 860, size: 760 },
@@ -228,6 +230,22 @@ const LAYOUTS = {
       + (scene.emoji ? fx(sticker(scene.emoji, 200), { x: 620, y: 1040, w: 220, enter: 'pop', at: 0.2, rot: 8 }) : '')
       + avatarBlock(scene, { pos: 'peek-left', mode: 'head', hidden: !scene.avatar });
   },
+  // Photo dans un cadre : polaroid (papier, scotch, legende) ou cadre simple selon la DA.
+  photo(scene) {
+    const entry = T.illustrations[scene.image];
+    // Image introuvable (supprimee du dossier ?) : la scene reste lisible en "avatar".
+    if (!entry) return LAYOUTS.avatar({ ...scene, text: scene.text || scene.title || '' });
+
+    const polaroid = (scene.frame || (T.style.card === 'flat' ? 'plain' : 'polaroid')) === 'polaroid';
+    const tape = polaroid
+      ? '<span class="tape" style="left:-26px;top:-20px;transform:rotate(-24deg)"></span><span class="tape" style="right:-26px;top:-20px;transform:rotate(22deg)"></span>'
+      : '';
+    const caption = scene.text ? `<div class="photo-cap">${richText(scene.text)}</div>` : '';
+    const html = `<div class="photo-wrap">${tape}<div class="photo ${polaroid ? 'polaroid' : 'plainframe'}">`
+      + `<img class="photo-img" alt="" src="${FACELESS_ASSET_ORIGIN}/illustration/${encodeURIComponent(scene.image)}.jpg">${caption}</div></div>`;
+    return fx(html, { x: SAFE.left + 110, y: 250, w: 640, enter: scene.enter || 'drop', rot: polaroid ? -3 : -1.5, z: 3 })
+      + avatarBlock(scene, { pos: 'photo-low', mode: 'head' });
+  },
   // Carte de nom (marque, outil) : un grand emoji et le nom dessous.
   logo(scene) {
     const size = Math.min(110, Math.floor(980 / Math.max(5, String(scene.word || '').length)));
@@ -321,6 +339,13 @@ mark{${flat ? `background:var(--accent);color:${onAccent};padding:0 12px` : 'bac
   ${flat ? `border:6px solid ${ink};box-shadow:10px 10px 0 ${ink};text-transform:uppercase;` : (sticker ? 'border:10px solid #fff;border-radius:36px;box-shadow:0 10px 0 rgba(0,0,0,.14);' : `border-radius:14px;box-shadow:6px 10px 0 rgba(0,0,0,.14);border:4px dashed color-mix(in srgb,var(--accent) 45%,#fff);`)}}
 .li-emoji{font-family:${EMOJI_FONTS},sans-serif;font-size:76px}
 .big-word{font-weight:${flat ? 900 : 800};color:var(--accent);text-align:center;line-height:1;letter-spacing:${flat ? -6 : -4}px;white-space:nowrap;${flat ? `text-transform:uppercase;text-shadow:10px 10px 0 ${ink};` : `filter:${outlineShadow.replace(/7px/g, '8px')} drop-shadow(8px 12px 0 rgba(0,0,0,.2));`}}
+.photo-wrap{position:relative;${flat ? '' : 'filter:drop-shadow(6px 10px 0 rgba(0,0,0,.18));'}}
+.photo{background:#fff;overflow:hidden}
+.photo-img{display:block;width:100%;aspect-ratio:4/5;object-fit:cover;background:#ddd}
+.photo.polaroid{padding:26px 26px 0}
+.photo.polaroid .photo-cap{padding:22px 10px 32px;min-height:104px;text-align:center;font-size:58px;font-weight:700;line-height:1.1;color:var(--ink)}
+.photo.plainframe{${flat ? `border:6px solid ${ink};box-shadow:12px 12px 0 ${ink};` : (sticker ? 'border:12px solid #fff;border-radius:36px;' : 'border:10px solid #fff;')}}
+.photo.plainframe .photo-cap{padding:18px 24px;text-align:center;font-size:54px;font-weight:${flat ? 900 : 700};background:var(--card);color:var(--cardText);${flat ? 'text-transform:uppercase;' : ''}}
 .avatar{width:100%;height:100%}
 .avatar.flip{transform:scaleX(-1)}
 .avatar-img{width:100%;height:100%;object-fit:contain;object-position:center bottom;display:block;
@@ -420,11 +445,13 @@ function buildRuntime(fontFamily) {
  * `options.style` : DA normalisee (defaut : papercraft pastel).
  * `options.packEntries` : { id: { mode, url } } images d avatar disponibles
  * (servies au rendu sous FACELESS_ASSET_ORIGIN/avatar/<id>.png).
+ * `options.illustrations` : { id: { kind, label, url } } illustrations du dossier
+ * (servies sous FACELESS_ASSET_ORIGIN/illustration/<id>.jpg).
  */
 export function buildFacelessHtml(timeline, options = {}) {
   seedCounter = 1;
   const style = options.style || normalizeFacelessStyle({});
-  T = { style, packEntries: options.packEntries || {} };
+  T = { style, packEntries: options.packEntries || {}, illustrations: options.illustrations || {} };
 
   const bgOf = (scene) => (['alt', 'dark'].includes(scene.bg) ? scene.bg : 'main');
   const scenesHtml = timeline.scenes.map((scene) => {

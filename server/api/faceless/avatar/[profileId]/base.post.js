@@ -1,6 +1,7 @@
 import { requireFacelessPersona } from '../../../../utils/facelessApi.js';
 import { generateBaseAvatar } from '../../../../utils/facelessAvatarPack.js';
 import { saveFacelessMedia } from '../../../../utils/facelessMedia.js';
+import { facelessAssetFolder } from '../../../../utils/facelessIllustration.js';
 import { updateProfileStyle } from '../../../../utils/facelessStyleStore.js';
 import { generateImageFromGeminiWithSafetyFallback } from '../../../../utils/geminiImageGeneration.js';
 import { readImageSourceBuffer } from '../../../../utils/faceRefReader.js';
@@ -34,7 +35,7 @@ export default defineEventHandler(async (event) => {
       if (buffer.length > MAX_UPLOAD_BYTES) return sendError(event, createError({ statusCode: 400, statusMessage: 'Image trop lourde (8 Mo maximum)' }));
       const type = sniffImage(buffer);
       if (!type) return sendError(event, createError({ statusCode: 400, statusMessage: 'Le fichier doit etre un PNG ou un JPG' }));
-      url = await saveFacelessMedia(buffer, { folder: `faceless-avatars/${persona.id}`, ...type });
+      url = await saveFacelessMedia(buffer, { folder: facelessAssetFolder(persona.id, 'avatar'), ...type });
     } else {
       if (body?.confirmCost !== true) {
         return sendError(event, createError({ statusCode: 400, statusMessage: `Confirmation requise : 1 image payante (environ ${IMAGE_COST_USD} $)` }));
@@ -49,7 +50,7 @@ export default defineEventHandler(async (event) => {
         avatarPrompt,
         deps: {
           generate: generateImageFromGeminiWithSafetyFallback,
-          save: (buffer, type) => saveFacelessMedia(buffer, { folder: `faceless-avatars/${persona.id}`, ...type }),
+          save: (buffer, type) => saveFacelessMedia(buffer, { folder: facelessAssetFolder(persona.id, 'avatar'), ...type }),
         },
       });
     }

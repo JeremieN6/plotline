@@ -13,13 +13,14 @@ import {
   FACELESS_PRESETS,
 } from '../data/facelessThemes.js';
 import { DEFAULT_FACELESS_VOICE_ID, findFacelessVoice } from '../data/facelessCatalog.js';
+import { ILLUSTRATION_KINDS, ILLUSTRATION_SOURCES, MAX_ILLUSTRATIONS, MAX_ILLUSTRATION_PROMPT } from '../data/facelessIllustrations.js';
 
 /**
  * Direction artistique d une persona : normalisation et valeurs par defaut.
  * Tout ce qui vient du client ou de Claude passe par `normalizeFacelessStyle` :
  * listes blanches, couleurs hexadecimales verifiees, textes bornes.
- * Le pack d avatars (images generees, URL) n est JAMAIS accepte du client : il
- * est ecrit par le serveur seulement (voir `mergeClientStyle`).
+ * Le pack d avatars et les illustrations (images generees, URL) ne sont JAMAIS
+ * acceptes du client : ils sont ecrits par le serveur seulement (voir `mergeClientStyle`).
  */
 
 export const STYLE_VERSION = 1;
@@ -97,6 +98,31 @@ function normalizePack(raw) {
   };
 }
 
+/** Pur : id d une illustration (ecrit par le serveur). */
+export const ILLUSTRATION_ID = /^ill-[a-z0-9]{6,12}$/;
+
+function normalizeIllustrations(raw) {
+  const seen = new Set();
+  const list = [];
+  for (const item of Array.isArray(raw) ? raw : []) {
+    const id = String(item?.id || '');
+    const url = String(item?.url || '');
+    if (!ILLUSTRATION_ID.test(id) || !url || seen.has(id)) continue;
+    seen.add(id);
+    list.push({
+      id,
+      kind: Object.hasOwn(ILLUSTRATION_KINDS, item?.kind) ? item.kind : 'photo',
+      label: text(item?.label, 80) || 'Illustration',
+      prompt: text(item?.prompt, MAX_ILLUSTRATION_PROMPT),
+      url,
+      source: ILLUSTRATION_SOURCES.includes(item?.source) ? item.source : 'generated',
+      createdAt: Number.isFinite(Number(item?.createdAt)) ? Number(item.createdAt) : 0,
+    });
+    if (list.length >= MAX_ILLUSTRATIONS) break;
+  }
+  return list;
+}
+
 /**
  * Pur : DA complete et sure. `keepPack` n est vrai que pour une lecture en base
  * (ecrite par le serveur), jamais pour une entree venant du client.
@@ -148,6 +174,7 @@ export function normalizeFacelessStyle(raw, { keepPack = false } = {}) {
       },
       pack: keepPack ? normalizePack(avatarIn.pack) : null,
     },
+    illustrations: keepPack ? normalizeIllustrations(input.illustrations) : [],
   };
 
   // Un pack choisi mais vide ne dessinerait aucun avatar : retour au dessin.
@@ -162,6 +189,7 @@ export function mergeClientStyle(existingStyle, clientStyle) {
   const next = normalizeFacelessStyle(clientStyle);
   const pack = existingStyle?.avatar?.pack || null;
   next.avatar.pack = pack;
+  next.illustrations = existingStyle?.illustrations || [];
   if (clientStyle?.avatar?.kind === 'pack' && pack && Object.values(pack.entries).some((e) => e.url)) next.avatar.kind = 'pack';
   return next;
 }
@@ -174,6 +202,26 @@ export function readyPackEntries(style) {
     if (entry.url) out[id] = { mode: entry.mode, url: entry.url };
   }
   return out;
+}
+
+/** Pur : illustrations utilisables : { id: { kind, label, url } }. */
+export function readyIllustrations(style) {
+  const out = {};
+  for (const item of style?.illustrations || []) {
+    if (item.url) out[item.id] = { kind: item.kind, label: item.label, url: item.url };
+  }
+  return out;
+}
+
+/** Pur : ajoute une illustration au dossier (les plus anciennes partent au-dela du plafond). */
+export function addIllustration(style, entry) {
+  const list = [...(style?.illustrations || []), entry];
+  return { ...style, illustrations: list.slice(-MAX_ILLUSTRATIONS) };
+}
+
+/** Pur : retire une illustration du dossier. */
+export function removeIllustration(style, id) {
+  return { ...style, illustrations: (style?.illustrations || []).filter((item) => item.id !== id) };
 }
 
 /** Pur : ajoute une regle de montage retenue (consigne de style) a la DA, sans doublon ni depassement. */

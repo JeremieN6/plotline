@@ -67,3 +67,26 @@ export function updateProfileStyle(prisma, profileId, userId, mutator) {
   queues.set(profileId, run);
   return run;
 }
+
+/**
+ * Toutes les personas du compte avec leur DA (pour la liste des dossiers).
+ * Meme repli que `loadPersonaStyle` si la colonne n existe pas encore.
+ */
+export async function listPersonaStyles(prisma, userId) {
+  let rows;
+  try {
+    rows = await prisma.profile.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+      select: { ...FACELESS_PERSONA_FIELDS, profileType: true, facelessStyle: true },
+    });
+  } catch (error) {
+    if (!isMissingColumnError(error)) throw error;
+    rows = await prisma.profile.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+      select: { ...FACELESS_PERSONA_FIELDS, profileType: true },
+    });
+  }
+  return rows.map(({ facelessStyle, ...persona }) => ({ persona, style: resolveProfileStyle(persona, facelessStyle), stored: Boolean(facelessStyle) }));
+}

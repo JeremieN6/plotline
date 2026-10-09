@@ -10,6 +10,7 @@ export default defineEventHandler(async (event) => {
     profileName: persona.name,
     gender: persona.gender,
     hasFaceRef: Boolean(persona.faceRefPath),
+    illustrationCount: (style.illustrations || []).length,
     stored,
     style: { ...style, avatar: { ...style.avatar, pack: null } },
     pack: summarizePack(style, AVATAR_PACK_CATALOG),

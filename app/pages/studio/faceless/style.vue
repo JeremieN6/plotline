@@ -198,92 +198,12 @@
           </div>
         </div>
 
-        <!-- Pack d images -->
         <div class="mt-6 border-t border-[#F0EEEA] pt-5">
-          <h3 class="text-sm font-bold text-[#111111]">Pack d’images de la persona <span class="ml-1 rounded-full bg-[#FFF1E3] px-2 py-0.5 text-[11px] font-semibold text-[#B45F1D]">payant</span></h3>
-          <p class="mt-1 text-xs text-[#666666]">
-            Des vraies images de ton personnage (expressions, gestes, tête seule ou buste), générées une fois à partir d’une image de base,
-            puis réutilisées dans toutes les vidéos. Environ {{ options.imageCostUsd }} $ par image (tarif indicatif, à vérifier sur la console du fournisseur).
-            Chaque génération demande ta confirmation.
+          <p class="text-sm text-[#444]">
+            Les <strong>images du pack</strong> (expressions, gestes) et les <strong>illustrations</strong> de cette persona se gèrent dans son dossier :
+            <NuxtLink :to="`/library/personas/${profileId}`" class="font-semibold text-[#B45F1D] hover:underline">ouvrir le dossier →</NuxtLink>
           </p>
-
-          <label class="mt-4 block text-xs font-semibold text-[#444]">
-            Style graphique de l’avatar
-            <textarea
-              v-model="da.avatarPrompt"
-              rows="2"
-              maxlength="400"
-              class="mt-1 w-full rounded-[10px] border border-[#E5E3DF] px-3 py-2 text-sm font-normal outline-none focus:border-[#E8873A]"
-            />
-          </label>
-
-          <div class="mt-4 flex flex-wrap items-start gap-4">
-            <div class="h-40 w-40 shrink-0 overflow-hidden rounded-[14px] border border-[#E5E3DF] bg-[#EAFBEA]">
-              <img v-if="pack.baseUrl" :src="pack.baseUrl" alt="Image de base" class="h-full w-full object-contain">
-              <p v-else class="flex h-full items-center justify-center p-3 text-center text-xs text-[#888]">Pas encore d’image de base</p>
-            </div>
-            <div class="space-y-2 text-sm">
-              <p class="text-xs font-semibold text-[#444]">Image de base du personnage</p>
-              <p v-if="dirty" class="max-w-xs text-xs text-[#B45F1D]">Enregistre la DA avant de générer : le style graphique ci-dessus est pris en compte.</p>
-              <button
-                type="button"
-                class="block rounded-[10px] border border-[#E6B78E] bg-[#FFF5EC] px-3 py-2 text-xs font-bold text-[#B45F1D] transition-colors hover:bg-[#FFEBDB] disabled:cursor-not-allowed disabled:opacity-50"
-                :disabled="!hasFaceRef || dirty || busy"
-                @click="generateBase"
-              >
-                Générer depuis la fiche de référence (≈ {{ options.imageCostUsd }} $)
-              </button>
-              <p v-if="!hasFaceRef" class="max-w-xs text-xs text-[#888]">Cette persona n’a pas de fiche de référence : importe ton image à la place.</p>
-              <label class="block cursor-pointer rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2 text-xs font-bold text-[#444] transition-colors hover:bg-[#FAFAF8]">
-                Importer mon image (gratuit, PNG ou JPG)
-                <input type="file" accept="image/png,image/jpeg" class="hidden" @change="importBase">
-              </label>
-              <p class="max-w-xs text-xs text-[#888]">Idéal : le personnage sur fond vert uni (#00FF00), pour un détourage propre.</p>
-            </div>
-          </div>
-
-          <div v-if="pack.baseUrl" class="mt-6">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <p class="text-xs font-semibold text-[#444]">Images à générer ({{ selected.length }} sélectionnée(s))</p>
-              <div class="flex gap-2 text-xs">
-                <button type="button" class="rounded-full border border-[#E5E3DF] px-3 py-1 hover:bg-[#FAFAF8]" @click="selected = pack.entries.filter((e) => !e.url).map((e) => e.id)">Les manquantes</button>
-                <button type="button" class="rounded-full border border-[#E5E3DF] px-3 py-1 hover:bg-[#FAFAF8]" @click="selected = pack.entries.map((e) => e.id)">Toutes</button>
-                <button type="button" class="rounded-full border border-[#E5E3DF] px-3 py-1 hover:bg-[#FAFAF8]" @click="selected = []">Aucune</button>
-              </div>
-            </div>
-
-            <div class="mt-3 grid grid-cols-3 gap-3 sm:grid-cols-5 lg:grid-cols-7">
-              <label
-                v-for="entry in pack.entries"
-                :key="entry.id"
-                class="relative cursor-pointer rounded-[12px] border p-2 text-center transition-colors"
-                :class="selected.includes(entry.id) ? 'border-[#E8873A] bg-[#FDF3EA]' : 'border-[#E5E3DF] bg-white'"
-              >
-                <input v-model="selected" type="checkbox" :value="entry.id" class="absolute left-2 top-2 h-4 w-4 accent-[#E8873A]">
-                <div class="mx-auto flex h-20 w-full items-center justify-center rounded-[8px] bg-[repeating-conic-gradient(#f3f3f3_0%_25%,#fff_0%_50%)] bg-[length:14px_14px]">
-                  <img v-if="entry.url" :src="entry.url" :alt="entry.label" class="max-h-20 max-w-full object-contain">
-                  <span v-else-if="entry.status === 'pending'" class="text-[11px] text-[#B45F1D]">…</span>
-                  <span v-else class="text-lg text-[#CCC]">{{ entry.mode === 'head' ? '◔' : '▮' }}</span>
-                </div>
-                <p class="mt-1 text-[11px] font-semibold leading-tight text-[#333]">{{ entry.label }}</p>
-                <p class="text-[10px] text-[#999]">{{ entry.mode === 'head' ? 'tête' : 'buste' }}<template v-if="entry.status === 'pending'"> · en cours</template></p>
-                <p v-if="entry.status === 'failed'" class="text-[10px] text-[#A33]" :title="entry.error">échec</p>
-              </label>
-            </div>
-
-            <div class="mt-4 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                class="rounded-[12px] bg-[#111111] px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-50"
-                :disabled="!selected.length || pack.generating || busy || dirty"
-                @click="generatePack"
-              >
-                {{ pack.generating ? 'Génération en cours…' : `Générer ${selected.length} image(s) — ≈ ${cost} $` }}
-              </button>
-              <p v-if="pack.generating" class="text-xs text-[#888]">Environ 20 à 40 s par image. Tu peux quitter la page, la génération continue.</p>
-            </div>
-          </div>
-          <p v-if="packMessage" class="mt-3 text-xs" :class="packError ? 'text-[#A33]' : 'text-[#2F7D4F]'">{{ packMessage }}</p>
+          <p class="mt-1 text-xs text-[#888]">Le style graphique de l’avatar se règle là aussi, avec l’image de base.</p>
         </div>
       </section>
 
@@ -332,31 +252,24 @@ const { data: profilesData } = await useFetch('/api/profiles', { key: 'faceless-
 const { data: optionsData } = await useFetch('/api/faceless/options', { key: 'faceless-da-options' })
 
 const profiles = computed(() => (Array.isArray(profilesData.value) ? profilesData.value : []))
-const options = computed(() => optionsData.value || { presets: [], fonts: [], cardStyles: [], backgrounds: [], motions: [], densities: [], captionStyles: [], hairStyles: [], accessories: [], paletteKeys: [], enters: [], voices: [], avatarCatalog: [], imageCostUsd: 0.134 })
+const options = computed(() => optionsData.value || { presets: [], fonts: [], cardStyles: [], backgrounds: [], motions: [], densities: [], captionStyles: [], hairStyles: [], accessories: [], paletteKeys: [], enters: [], voices: [] })
 
 const profileId = ref(String(route.query.profile || ''))
 const da = ref(null)
 const savedSnapshot = ref('')
 const stored = ref(false)
-const hasFaceRef = ref(false)
 const pack = ref({ kind: 'svg', baseUrl: '', generating: false, entries: [] })
 const loadError = ref('')
 const description = ref('')
 const fromScratch = ref(false)
 const composing = ref(false)
 const saving = ref(false)
-const busy = ref(false)
-const selected = ref([])
-const packMessage = ref('')
-const packError = ref(false)
 const preview = ref('')
 const previewing = ref(false)
 const previewError = ref('')
-let pollTimer = null
 
 const dirty = computed(() => Boolean(da.value) && JSON.stringify(da.value) !== savedSnapshot.value)
 const readyCount = computed(() => pack.value.entries.filter((entry) => entry.url).length)
-const cost = computed(() => (Math.round(selected.value.length * options.value.imageCostUsd * 100) / 100).toFixed(2))
 
 function takeStyle(result) {
   da.value = JSON.parse(JSON.stringify(result.style))
@@ -371,21 +284,17 @@ async function loadStyle(id) {
   preview.value = ''
   if (!id) return
   try {
-    const result = await $fetch(`/api/faceless/style/${id}`)
-    hasFaceRef.value = result.hasFaceRef
-    takeStyle(result)
-    selected.value = pack.value.entries.filter((entry) => !entry.url).map((entry) => entry.id)
-    if (pack.value.generating) startPolling()
+    takeStyle(await $fetch(`/api/faceless/style/${id}`))
   } catch (error) {
     loadError.value = error?.data?.statusMessage || 'Impossible de charger la DA de cette persona.'
   }
 }
 
-watch(profileId, (id) => { stopPolling(); loadStyle(id) }, { immediate: false })
+watch(profileId, (id) => { loadStyle(id) })
 onMounted(() => { if (profileId.value) loadStyle(profileId.value) })
 
 function applyPreset(preset) {
-  const keep = { avatar: da.value.avatar, voiceId: da.value.voiceId }
+  const keep = { avatar: da.value.avatar, voiceId: da.value.voiceId, avatarPrompt: da.value.avatarPrompt }
   da.value = { ...JSON.parse(JSON.stringify(preset.style)), ...keep }
 }
 
@@ -434,96 +343,4 @@ async function refreshPreview() {
     previewing.value = false
   }
 }
-
-async function reloadPack() {
-  const result = await $fetch(`/api/faceless/avatar/${profileId.value}`)
-  pack.value = result.pack
-  return result.pack
-}
-
-function stopPolling() {
-  if (pollTimer) clearInterval(pollTimer)
-  pollTimer = null
-}
-
-function startPolling() {
-  stopPolling()
-  pollTimer = setInterval(async () => {
-    try {
-      const current = await reloadPack()
-      if (!current.generating) {
-        stopPolling()
-        const failed = current.entries.filter((entry) => entry.status === 'failed').length
-        packMessage.value = failed ? `Terminé, ${failed} image(s) en échec : relance-les (elles ne sont pas facturées si le modèle n’a rien renvoyé).` : 'Pack généré.'
-        packError.value = failed > 0
-      }
-    } catch {
-      // Erreur transitoire : on reessaie au prochain tour.
-    }
-  }, 5000)
-}
-
-async function generateBase() {
-  if (!window.confirm(`Générer l’image de base ? Un appel payant (≈ ${options.value.imageCostUsd} $).`)) return
-  busy.value = true
-  packMessage.value = ''
-  try {
-    await $fetch(`/api/faceless/avatar/${profileId.value}/base`, { method: 'POST', body: { mode: 'generate', confirmCost: true, avatarPrompt: da.value.avatarPrompt } })
-    await reloadPack()
-    packMessage.value = 'Image de base créée.'
-    packError.value = false
-  } catch (error) {
-    packMessage.value = error?.data?.statusMessage || 'Génération impossible.'
-    packError.value = true
-  } finally {
-    busy.value = false
-  }
-}
-
-async function importBase(event) {
-  const file = event.target.files?.[0]
-  event.target.value = ''
-  if (!file) return
-  busy.value = true
-  packMessage.value = ''
-  try {
-    const dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(String(reader.result))
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })
-    await $fetch(`/api/faceless/avatar/${profileId.value}/base`, { method: 'POST', body: { mode: 'upload', imageBase64: dataUrl, avatarPrompt: da.value.avatarPrompt } })
-    await reloadPack()
-    packMessage.value = 'Image de base importée.'
-    packError.value = false
-  } catch (error) {
-    packMessage.value = error?.data?.statusMessage || 'Import impossible.'
-    packError.value = true
-  } finally {
-    busy.value = false
-  }
-}
-
-async function generatePack() {
-  const count = selected.value.length
-  if (!window.confirm(`Générer ${count} image(s) ? Ce sont ${count} appels payants, environ ${cost.value} $ au total.`)) return
-  busy.value = true
-  packMessage.value = ''
-  try {
-    await $fetch(`/api/faceless/avatar/${profileId.value}/pack`, {
-      method: 'POST',
-      body: { ids: selected.value, confirmCost: true, expectedCount: count },
-    })
-    await reloadPack()
-    startPolling()
-  } catch (error) {
-    packMessage.value = error?.data?.statusMessage || 'Génération impossible.'
-    packError.value = true
-  } finally {
-    busy.value = false
-  }
-}
-
-onBeforeUnmount(stopPolling)
 </script>

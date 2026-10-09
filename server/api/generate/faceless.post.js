@@ -6,6 +6,9 @@ import { resolveElevenLabsApiKey } from '../../utils/elevenLabsTts.js';
 import { findFacelessVoice } from '../../data/facelessCatalog.js';
 import { defaultFacelessStyle } from '../../utils/facelessStyle.js';
 import { loadPersonaStyle } from '../../utils/facelessStyleStore.js';
+import { describeIllustrationCost } from '../../utils/facelessIllustration.js';
+import { readyIllustrations } from '../../utils/facelessStyle.js';
+import { MAX_NEW_PER_VIDEO } from '../../data/facelessIllustrations.js';
 
 const MAX_IDEA_LENGTH = 2000;
 
@@ -63,6 +66,18 @@ export default defineEventHandler(async (event) => {
   }
   const captions = body?.captions === undefined ? style.captions.enabled : body.captions !== false;
 
+  // Illustrations : celles du dossier de la persona sont gratuites ; de NOUVELLES images (payantes)
+  // ne sont generees que si l utilisateur en autorise un nombre precis ET le confirme.
+  const maxNew = Math.max(0, Math.min(MAX_NEW_PER_VIDEO, Math.floor(Number(body?.illustrations?.maxNew) || 0)));
+  if (maxNew > 0) {
+    if (!persona) {
+      return sendError(event, createError({ statusCode: 400, statusMessage: 'Choisis une persona : les illustrations sont rangees dans son dossier' }));
+    }
+    if (body?.illustrations?.confirmCost !== true) {
+      return sendError(event, createError({ statusCode: 400, statusMessage: `Confirmation requise : jusqu a ${maxNew} image(s) payante(s), environ ${describeIllustrationCost(maxNew).usd} $ au maximum` }));
+    }
+  }
+
   const ownerId = persona?.id || (await getOrCreateDefaultProfile(prisma, user.id)).id;
 
   const generatedContent = await createGeneratedContentRecord(prisma, {
@@ -85,5 +100,8 @@ export default defineEventHandler(async (event) => {
     captions,
     voiceId,
     style,
+    userId: user.id,
+    illustrations: persona ? readyIllustrations(style) : {},
+    maxNew,
   });
 });

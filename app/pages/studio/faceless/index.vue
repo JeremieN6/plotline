@@ -45,9 +45,14 @@
                 <span class="font-semibold">DA : {{ styleInfo.style.name }}</span>
                 · avatar : {{ avatarSummary }}
               </p>
-              <NuxtLink :to="`/studio/faceless/style?profile=${profileId}`" class="mt-1 inline-block font-semibold text-[#B45F1D] hover:underline">
-                {{ styleInfo.stored ? 'Modifier la DA →' : 'Créer sa DA →' }}
-              </NuxtLink>
+              <p class="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                <NuxtLink :to="`/studio/faceless/style?profile=${profileId}`" class="inline-block font-semibold text-[#B45F1D] hover:underline">
+                  {{ styleInfo.stored ? 'Modifier la DA →' : 'Créer sa DA →' }}
+                </NuxtLink>
+                <NuxtLink :to="`/library/personas/${profileId}`" class="inline-block font-semibold text-[#B45F1D] hover:underline">
+                  Dossier de la persona →
+                </NuxtLink>
+              </p>
             </div>
           </div>
 
@@ -81,6 +86,22 @@
               <span class="block text-xs text-[#666666]">Seulement quand l écran ne montre pas déjà les mots dits.</span>
             </span>
           </label>
+        </div>
+
+        <div v-if="profileId" class="rounded-[12px] border border-[#E5E3DF] bg-[#FAFAF8] p-3">
+          <label class="text-sm font-semibold text-[#111111]" for="faceless-new-images">5. Illustrations</label>
+          <p class="mt-1 text-xs text-[#666666]">
+            Le dossier de la persona contient {{ styleInfo?.illustrationCount || 0 }} illustration(s) : Claude les utilise quand elles servent le propos (gratuit).
+          </p>
+          <select
+            id="faceless-new-images"
+            v-model.number="newIllustrations"
+            class="mt-2 w-full max-w-sm rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+          >
+            <option :value="0">Pas de nouvelle image</option>
+            <option v-for="n in [1, 2, 3]" :key="n" :value="n">Jusqu’à {{ n }} nouvelle(s) image(s) — ≈ {{ (Math.round(n * imageCost * 100) / 100).toFixed(2) }} $ au maximum</option>
+          </select>
+          <p v-if="newIllustrations > 0" class="mt-1 text-xs text-[#B45F1D]">Les nouvelles images sont rangées dans le dossier et réutilisables ensuite.</p>
         </div>
 
         <div class="flex flex-wrap items-center gap-3 border-t border-[#F0EEEA] pt-4">
@@ -169,7 +190,7 @@
 <script setup>
 useSeoMeta({ title: 'Vidéo faceless' })
 
-const { pushToast } = useUiFeedback()
+const { pushToast, requestConfirmation } = useUiFeedback()
 const route = useRoute()
 
 // Consignes types (inspirees des allers-retours du tuto) : un clic les place dans la zone de retouche.
@@ -181,7 +202,8 @@ const RETOUCH_SUGGESTIONS = [
 ]
 
 const idea = ref('')
-const profileId = ref('')
+const profileId = ref(String(route.query.profile || ''))
+const newIllustrations = ref(0)
 const voiceId = ref('')
 const durationSeconds = ref(30)
 const captions = ref(true)
@@ -207,6 +229,7 @@ const { data: options } = await useFetch('/api/faceless/options', { key: 'facele
 const profiles = computed(() => (Array.isArray(profilesData.value) ? profilesData.value : []))
 const voices = computed(() => options.value?.voices || [])
 const durations = computed(() => options.value?.durations || [20, 30, 45, 60])
+const imageCost = computed(() => options.value?.imageCostUsd || 0.134)
 
 watch(options, (value) => {
   if (!voiceId.value && value?.defaultVoiceId) voiceId.value = value.defaultVoiceId
@@ -220,8 +243,9 @@ const avatarSummary = computed(() => {
 })
 
 // Le choix d une persona applique sa DA : voix et sous-titres par defaut.
-watch(profileId, async (id) => {
+async function loadStyleInfo(id) {
   styleInfo.value = null
+  newIllustrations.value = 0
   if (!id) return
   try {
     const result = await $fetch(`/api/faceless/style/${id}`)
@@ -232,7 +256,11 @@ watch(profileId, async (id) => {
   } catch {
     styleInfo.value = null
   }
-})
+}
+
+watch(profileId, (id) => { loadStyleInfo(id) })
+// Persona deja choisie par l adresse (?profile=) : sa DA s applique des l ouverture.
+onMounted(() => { if (profileId.value) loadStyleInfo(profileId.value) })
 
 const canGenerate = computed(() => idea.value.trim().length > 0 && Boolean(voiceId.value) && !polling.value)
 const pollingLabel = computed(() => (pollingKind.value === 'retouch'
@@ -294,6 +322,15 @@ async function checkStatus(id) {
 }
 
 async function generate() {
+  if (newIllustrations.value > 0) {
+    const max = (Math.round(newIllustrations.value * imageCost.value * 100) / 100).toFixed(2)
+    const ok = await requestConfirmation({
+      title: 'Autoriser de nouvelles images ?',
+      message: `Claude peut générer jusqu'à ${newIllustrations.value} image(s) payante(s) pour cette vidéo, soit ${max} $ au maximum. Elles seront rangées dans le dossier de la persona.`,
+      confirmLabel: 'Générer la vidéo',
+    })
+    if (!ok) return
+  }
   errorMessage.value = ''
   lastFailure.value = ''
   videoUrl.value = ''
@@ -307,6 +344,7 @@ async function generate() {
         voiceId: voiceId.value,
         durationSeconds: durationSeconds.value,
         captions: captions.value,
+        illustrations: { maxNew: profileId.value ? newIllustrations.value : 0, confirmCost: newIllustrations.value > 0 },
       },
     })
     contentId.value = response.contentId

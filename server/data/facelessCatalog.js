@@ -57,6 +57,7 @@ export const FACELESS_LAYOUTS = {
   list: 'liste : title + items [{emoji, text, at}] (2 a 4 items) qui apparaissent sur un mot',
   avatar: 'avatar en buste qui monte du bas + courte carte text en haut ; ideal pour l appel a l action',
   word: 'un seul mot (champ word, 12 caracteres max) en tres grand + emoji optionnel',
+  photo: 'image dans un cadre (polaroid) pour illustrer concretement ce qui est dit : champ image (id d une illustration disponible) + champ text (legende de 1 a 5 mots)',
   logo: 'carte de nom pour une marque, un outil ou un service cite (champ word = le nom, emoji = son icone, tres courts)',
 };
 

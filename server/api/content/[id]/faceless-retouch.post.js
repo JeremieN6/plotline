@@ -1,6 +1,6 @@
 import { isFacelessRenderSpec, runFacelessRetouchJob } from '../../../utils/facelessVideoJob.js';
 import { findActiveFacelessSpec } from '../../../utils/facelessContent.js';
-import { appendStyleRule } from '../../../utils/facelessStyle.js';
+import { appendStyleRule, readyIllustrations } from '../../../utils/facelessStyle.js';
 import { loadPersonaStyle, updateProfileStyle } from '../../../utils/facelessStyleStore.js';
 
 const MAX_INSTRUCTION_LENGTH = 1000;
@@ -77,6 +77,7 @@ export default defineEventHandler(async (event) => {
     instruction,
     persona: loaded?.persona || null,
     rememberRule,
+    folderIllustrations: loaded ? readyIllustrations(loaded.style) : {},
     previousStatus: content.status,
   });
 });

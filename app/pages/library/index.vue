@@ -7,6 +7,7 @@
         Enregistre un objet ou un lieu (voiture, maison, rue, bijou, chaussures, chapeau, accessoire) avec une ou plusieurs photos.
         Plotline en fait une fiche de référence que tu pourras réutiliser ensuite.
       </p>
+      <div class="mt-4"><LibraryTabs /></div>
     </header>
 
     <section class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">

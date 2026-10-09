@@ -11,7 +11,7 @@ import { ensureStorageDir, resolveMediaPath, toMediaUrl } from './mediaStorage.j
 
 /**
  * Enregistre un buffer. `folder` : "generated" pour une voix, ou
- * "faceless-avatars/<profileId>" pour le pack d avatars.
+ * "faceless-assets/<profileId>/avatar" (pack) ou ".../illustrations".
  * @returns {Promise<string>} URL du media
  */
 export async function saveFacelessMedia(buffer, { folder = 'generated', extension = 'png', contentType = 'image/png' } = {}) {
@@ -53,11 +53,26 @@ export function usedPackIds(plan, packEntries) {
   return [...used];
 }
 
-/** Telecharge les images d avatar utilisees : Map "/avatar/<id>.png" -> Buffer (servies a Chromium). */
-export async function loadPackAssets(plan, packEntries, read = readFacelessMedia) {
+/** Pur : id des illustrations reellement utilisees par un plan. */
+export function usedIllustrationIds(plan, illustrationEntries) {
+  const used = new Set();
+  for (const scene of plan?.scenes || []) {
+    if (scene?.image && illustrationEntries[scene.image]) used.add(scene.image);
+  }
+  return [...used];
+}
+
+/**
+ * Telecharge les images utilisees par un plan : Map "/avatar/<id>.png" et
+ * "/illustration/<id>.jpg" -> Buffer (servies a Chromium).
+ */
+export async function loadPackAssets(plan, packEntries, read = readFacelessMedia, illustrationEntries = {}) {
   const assets = new Map();
   for (const id of usedPackIds(plan, packEntries)) {
     assets.set(`/avatar/${id}.png`, await read(packEntries[id].url));
+  }
+  for (const id of usedIllustrationIds(plan, illustrationEntries)) {
+    assets.set(`/illustration/${id}.jpg`, await read(illustrationEntries[id].url));
   }
   return assets;
 }

@@ -5,10 +5,13 @@ import { isAbsolute, join, resolve } from 'node:path';
 
 import { finalizeContentWithVersion, markGenerationFailure } from './contentVersions.js';
 import { synthesizeWithTimestamps } from './elevenLabsTts.js';
-import { generateFacelessPlan, retouchFacelessPlan, sanitizeFacelessPlan, spokenTextChanged } from './facelessPlanGenerator.js';
+import { applyNewImages, collectNewImageRequests, generateFacelessPlan, retouchFacelessPlan, sanitizeFacelessPlan, spokenTextChanged } from './facelessPlanGenerator.js';
+import { facelessAssetFolder, generateIllustration } from './facelessIllustration.js';
 import { loadPackAssets, readFacelessMedia, saveFacelessMedia } from './facelessMedia.js';
 import { enqueueRender, mixFacelessAudio, renderFacelessVideo } from './facelessRenderer.js';
-import { appendStyleRule, normalizeFacelessStyle, readyPackEntries } from './facelessStyle.js';
+import { addIllustration, appendStyleRule, normalizeFacelessStyle, readyPackEntries } from './facelessStyle.js';
+import { updateProfileStyle } from './facelessStyleStore.js';
+import { generateImageFromGeminiWithSafetyFallback } from './geminiImageGeneration.js';
 import { buildFacelessHtml } from './facelessTemplate.js';
 import { layoutFacelessTimelineFromTrack } from './facelessTimeline.js';
 import { normalizeErrorMessage, saveGeneratedVideoBuffer } from './videoGeneration.js';
@@ -63,11 +66,56 @@ async function readVoice(voiceUrl) {
   return readFacelessMedia(url);
 }
 
+/** Pur : les illustrations (parmi `available`) que le plan utilise reellement. */
+export function pickIllustrations(plan, available) {
+  const used = {};
+  for (const scene of plan?.scenes || []) {
+    if (scene?.image && available[scene.image]) used[scene.image] = available[scene.image];
+  }
+  return used;
+}
+
+/**
+ * Generateur des NOUVELLES illustrations demandees par un plan (appels payants,
+ * au plus le nombre autorise par l utilisateur). Chaque image reussie est rangee
+ * dans le dossier de la persona (reutilisable) ; un echec n arrete pas la video :
+ * la scene retombe sur une scene "avatar". `requests` : [{ kind, prompt }].
+ * @returns {(requests: object[]) => Promise<Array<object|null>>}
+ */
+export function makeIllustrationGenerator({ prisma, userId, persona, style, concurrency = 2, deps = null }) {
+  const effective = deps || {
+    generate: generateImageFromGeminiWithSafetyFallback,
+    save: (buffer, type) => saveFacelessMedia(buffer, { folder: facelessAssetFolder(persona.id, 'illustrations'), ...type }),
+  };
+
+  return async (requests) => {
+    const results = new Array(requests.length).fill(null);
+    let next = 0;
+    const worker = async () => {
+      while (next < requests.length) {
+        const index = next;
+        next += 1;
+        try {
+          const entry = await generateIllustration({ kind: requests[index].kind, prompt: requests[index].prompt, style, persona, deps: effective });
+          results[index] = entry;
+          // Rangee dans le dossier pour les prochaines videos ; si l ecriture echoue, l image sert quand meme a celle-ci.
+          await updateProfileStyle(prisma, persona.id, userId, (current) => addIllustration(current, entry))
+            .catch((error) => console.warn('[faceless] illustration non rangee dans le dossier :', error?.message));
+        } catch (error) {
+          console.warn(`[faceless] illustration en echec : ${error?.message || error}`);
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(concurrency, requests.length) }, worker));
+    return results;
+  };
+}
+
 /**
  * Montage seul, a partir d un plan et d une voix deja produite (aucun appel
  * Claude ni ElevenLabs). `voice` = { audio: Buffer mp3, words }.
  */
-export async function renderFacelessFromPlan(plan, voice, { style = null, packEntries = {} } = {}) {
+export async function renderFacelessFromPlan(plan, voice, { style = null, packEntries = {}, illustrations = {} } = {}) {
   const da = style || normalizeFacelessStyle({});
   const dir = await mkdtemp(join(tmpdir(), 'plotline-faceless-'));
   try {
@@ -89,10 +137,10 @@ export async function renderFacelessFromPlan(plan, voice, { style = null, packEn
     const audioRaw = join(dir, 'mix.f32');
     await mixFacelessAudio([...timeline.voice.map((v) => ({ path: v.path, start: v.start, gain: 1 })), ...sfxTracks], timeline.duration, audioRaw);
 
-    const assets = await loadPackAssets(plan, packEntries);
+    const assets = await loadPackAssets(plan, packEntries, undefined, illustrations);
     const output = join(dir, 'faceless.mp4');
     await enqueueRender(() => renderFacelessVideo({
-      html: buildFacelessHtml(timeline, { style: da, packEntries }), timeline, audioRawPath: audioRaw, outputPath: output, assets,
+      html: buildFacelessHtml(timeline, { style: da, packEntries, illustrations }), timeline, audioRawPath: audioRaw, outputPath: output, assets,
     }));
 
     return { video: await readFile(output), duration: timeline.duration };
@@ -110,22 +158,38 @@ async function synthesizePlanVoice(plan, voiceId) {
  * Le pipeline complet (sans base de donnees) : renvoie le MP4, le plan et la
  * voix. `plan` deja ecrit (essai) : Claude n est pas rappele.
  */
-export async function produceFacelessVideo({ idea, plan: givenPlan, persona, targetSeconds, captions, voiceId, style = null, onStep = () => {} } = {}) {
+export async function produceFacelessVideo({ idea, plan: givenPlan, persona, targetSeconds, captions, voiceId, style = null, illustrations = {}, maxNew = 0, generateNewIllustrations = null, onStep = () => {} } = {}) {
   const da = style || normalizeFacelessStyle({});
   const packEntries = readyPackEntries(da);
   const packIds = Object.keys(packEntries);
 
   onStep('plan');
-  const plan = givenPlan
-    ? sanitizeFacelessPlan(givenPlan, { captions, packIds })
-    : await generateFacelessPlan({ idea, persona, targetSeconds, captions, style: da, packEntries });
+  let plan = givenPlan
+    ? sanitizeFacelessPlan(givenPlan, { captions, packIds, illustrationIds: Object.keys(illustrations), maxNew })
+    : await generateFacelessPlan({ idea, persona, targetSeconds, captions, style: da, packEntries, illustrations, maxNew });
+
+  // Nouvelles images demandees par Claude (autorisees et plafonnees en amont) : generees AVANT la voix,
+  // pour ne rien depenser de plus si une etape echoue.
+  const available = { ...illustrations };
+  const requests = collectNewImageRequests(plan);
+  if (requests.length) {
+    const generated = generateNewIllustrations ? (onStep('images'), await generateNewIllustrations(requests)) : [];
+    const results = {};
+    requests.forEach((request, i) => {
+      const entry = generated[i];
+      if (!entry) return;
+      results[request.sceneIndex] = entry.id;
+      available[entry.id] = { kind: entry.kind, label: entry.label, url: entry.url };
+    });
+    plan = applyNewImages(plan, results);
+  }
 
   onStep('voice');
   const voice = await synthesizePlanVoice(plan, voiceId || da.voiceId);
 
   onStep('render');
-  const { video, duration } = await renderFacelessFromPlan(plan, voice, { style: da, packEntries });
-  return { video, plan, voice, duration, style: da, packEntries };
+  const { video, duration } = await renderFacelessFromPlan(plan, voice, { style: da, packEntries, illustrations: available });
+  return { video, plan, voice, duration, style: da, packEntries, illustrationEntries: pickIllustrations(plan, available) };
 }
 
 /**
@@ -133,13 +197,15 @@ export async function produceFacelessVideo({ idea, plan: givenPlan, persona, tar
  * la voix est reutilisee si le texte dit n a pas bouge, sinon regeneree.
  * `rememberRule` : la consigne est aussi ajoutee aux regles de la DA.
  */
-export async function retouchFacelessVideo({ spec, instruction, persona, rememberRule = false, onStep = () => {} } = {}) {
+export async function retouchFacelessVideo({ spec, instruction, persona, rememberRule = false, folderIllustrations = {}, onStep = () => {} } = {}) {
   let { style, packEntries } = styleFromSpec(spec);
+  // Images connues : celles du dossier aujourd hui + celles de la version retouchee (meme supprimees du dossier).
+  const known = { ...folderIllustrations, ...(spec?.illustrationEntries && typeof spec.illustrationEntries === 'object' ? spec.illustrationEntries : {}) };
   if (rememberRule) style = appendStyleRule(style, instruction);
 
   onStep('plan');
   const plan = await retouchFacelessPlan({
-    plan: spec.plan, instruction, persona, targetSeconds: spec.targetSeconds, captions: spec.captions !== false, style, packEntries,
+    plan: spec.plan, instruction, persona, targetSeconds: spec.targetSeconds, captions: spec.captions !== false, style, packEntries, illustrations: known,
   });
 
   const newVoice = spokenTextChanged(spec.plan, plan);
@@ -149,11 +215,11 @@ export async function retouchFacelessVideo({ spec, instruction, persona, remembe
     : { audio: await readVoice(spec.voiceUrl), words: spec.words };
 
   onStep('render');
-  const { video, duration } = await renderFacelessFromPlan(plan, voice, { style, packEntries });
-  return { video, plan, voice, newVoice, duration, style, packEntries };
+  const { video, duration } = await renderFacelessFromPlan(plan, voice, { style, packEntries, illustrations: known });
+  return { video, plan, voice, newVoice, duration, style, packEntries, illustrationEntries: pickIllustrations(plan, known) };
 }
 
-async function finalizeFaceless(prisma, contentId, { video, plan, voice, voiceUrl, duration, style, packEntries, base }) {
+async function finalizeFaceless(prisma, contentId, { video, plan, voice, voiceUrl, duration, style, packEntries, illustrationEntries = {}, base }) {
   const videoUrl = await saveGeneratedVideoBuffer(video, 'video_faceless');
   const renderSpec = {
     ...base,
@@ -165,6 +231,7 @@ async function finalizeFaceless(prisma, contentId, { video, plan, voice, voiceUr
     // DA et images d avatar du moment : une retouche garde exactement le meme style.
     style: { ...style, avatar: { ...style.avatar, pack: null } },
     packEntries,
+    illustrationEntries,
   };
 
   console.log(`[faceless] contentId=${contentId} termine (${duration.toFixed(1)} s, ${plan.scenes.length} scenes)`);
@@ -194,9 +261,12 @@ function inBackground(prisma, contentId, previousStatus, task) {
 const logStep = (contentId) => (step) => console.log(`[faceless] contentId=${contentId} etape=${step}`);
 
 /** Lance la generation en tache de fond ; la requete HTTP repond tout de suite. */
-export function runFacelessVideoJob({ prisma, contentId, idea, persona, targetSeconds, captions, voiceId, style, previousStatus }) {
+export function runFacelessVideoJob({ prisma, contentId, idea, persona, targetSeconds, captions, voiceId, style, userId, illustrations = {}, maxNew = 0, previousStatus }) {
   return inBackground(prisma, contentId, previousStatus, async () => {
-    const result = await produceFacelessVideo({ idea, persona, targetSeconds, captions, voiceId, style, onStep: logStep(contentId) });
+    const generateNewIllustrations = maxNew > 0 && persona && userId ? makeIllustrationGenerator({ prisma, userId, persona, style }) : null;
+    const result = await produceFacelessVideo({
+      idea, persona, targetSeconds, captions, voiceId, style, illustrations, maxNew, generateNewIllustrations, onStep: logStep(contentId),
+    });
     const voiceUrl = await saveFacelessMedia(result.voice.audio, { folder: 'generated', extension: 'mp3', contentType: 'audio/mpeg' });
     await finalizeFaceless(prisma, contentId, {
       ...result,
@@ -207,9 +277,9 @@ export function runFacelessVideoJob({ prisma, contentId, idea, persona, targetSe
 }
 
 /** Lance une retouche en tache de fond a partir du renderSpec de la version active. */
-export function runFacelessRetouchJob({ prisma, contentId, spec, instruction, persona, rememberRule = false, previousStatus }) {
+export function runFacelessRetouchJob({ prisma, contentId, spec, instruction, persona, rememberRule = false, folderIllustrations = {}, previousStatus }) {
   return inBackground(prisma, contentId, previousStatus, async () => {
-    const result = await retouchFacelessVideo({ spec, instruction, persona, rememberRule, onStep: logStep(contentId) });
+    const result = await retouchFacelessVideo({ spec, instruction, persona, rememberRule, folderIllustrations, onStep: logStep(contentId) });
     const voiceUrl = result.newVoice
       ? await saveFacelessMedia(result.voice.audio, { folder: 'generated', extension: 'mp3', contentType: 'audio/mpeg' })
       : spec.voiceUrl;

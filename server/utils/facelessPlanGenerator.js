@@ -11,6 +11,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { AVATAR_EXPRESSIONS } from './facelessAvatar.js';
 import { describeStyleForPrompt, normalizeFacelessStyle } from './facelessStyle.js';
 import { findCatalogEntry } from '../data/facelessAvatarCatalog.js';
+import { ILLUSTRATION_KINDS, MAX_ILLUSTRATION_PROMPT, MAX_NEW_PER_VIDEO } from '../data/facelessIllustrations.js';
 import { countSpokenTokens } from './facelessTimeline.js';
 import { FACELESS_LAYOUTS, FACELESS_POSES, FACELESS_SFX } from '../data/facelessCatalog.js';
 
@@ -82,7 +83,25 @@ function avatarPromptLines(packEntries) {
   ];
 }
 
-export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = null, captions = true, style = null, packEntries = null } = {}) {
+/** Pur : bloc de consignes sur les illustrations du dossier de la persona. */
+function illustrationPromptLines(illustrations, maxNew) {
+  const ids = Object.keys(illustrations || {});
+  const lines = ['', 'ILLUSTRATIONS DISPONIBLES (dossier de la persona)'];
+  if (ids.length) {
+    for (const id of ids) lines.push('- ' + id + ' : ' + (illustrations[id].label || id) + ' (' + (ILLUSTRATION_KINDS[illustrations[id].kind] || illustrations[id].kind) + ')');
+  } else {
+    lines.push('- aucune');
+  }
+  lines.push('Mise en page "photo" : une image dans un cadre, pour illustrer concretement ce qui est dit (un lieu, un objet, une situation), jamais pour decorer. Au plus une scene "photo" sur trois.');
+  if (maxNew > 0) {
+    lines.push('Tu peux demander AU PLUS ' + maxNew + ' nouvelle(s) image(s) : a la place de "image", mets "newImage": { "kind": "photo" | "illustration" | "mockup", "prompt": "<description EN ANGLAIS, une phrase concrete, sans visage ni texte>" }. Chaque image coute de l argent : ne la demande que si elle apporte vraiment quelque chose, et prefere reutiliser celles de la liste.');
+  } else {
+    lines.push('Tu n as PAS le droit de demander de nouvelle image : n utilise que les images de la liste, et si aucune ne convient, n utilise pas la mise en page "photo".');
+  }
+  return lines;
+}
+
+export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = null, captions = true, style = null, packEntries = null, illustrations = null, maxNew = 0 } = {}) {
   const words = Math.round(targetSeconds * WORDS_PER_SECOND);
   const personaText = describeFacelessPersona(persona);
   const da = style || normalizeFacelessStyle({});
@@ -111,6 +130,7 @@ export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = nu
     '- Le texte a l ecran RESUME, il ne recopie pas la phrase : 2 a 8 mots par carte. Entoure 1 mot cle de **double asterisques** pour le surligner.',
     '- "emoji" : UN seul emoji pertinent, ou rien. Jamais d emoji dans text, title, word ou items.text (il a deja sa place).',
     ...avatarPromptLines(packEntries),
+    '- "image" (layout photo) : l id EXACT d une illustration disponible ; "frame" facultatif : "polaroid" ou "plain".',
     '- "bg" : le fond de la scene, "main" (fond principal), "alt" (fond secondaire) ou "dark" (fond sombre). Varie les fonds toutes les 2 ou 3 scenes (jamais plus de 2 scenes "dark" d affilee).',
     '- "items" (layout list) : "at" = un mot EXACT du "say" de la scene, dans l ordre ou il est dit.',
     `- "sfx" : 0 a 2 bruitages par scene, [{ "name": ..., "at": 0 ou "mot exact" }]. Pas de musique de fond. Noms autorises :`,
@@ -118,9 +138,10 @@ export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = nu
     captions
       ? '- "captions": true seulement sur les scenes "avatar" et "word" (les autres affichent deja du texte), false ailleurs.'
       : '- "captions": false partout (pas de sous-titres).',
+    ...illustrationPromptLines(illustrations, maxNew),
     '',
     'Reponds uniquement avec un objet JSON brut, sans markdown ni commentaire. Forme exacte :',
-    '{"title": string, "caption": string (legende du post, 1 a 3 phrases), "hashtags": [string], "scenes": [{"say": string, "layout": string, "text"?: string, "title"?: string, "number"?: string, "word"?: string, "emoji"?: string, "items"?: [{"emoji": string, "text": string, "at": string}], "bg": string, "avatar": {...}, "sfx": [...], "captions": boolean}]}',
+    '{"title": string, "caption": string (legende du post, 1 a 3 phrases), "hashtags": [string], "scenes": [{"say": string, "layout": string, "text"?: string, "title"?: string, "number"?: string, "word"?: string, "image"?: string, "newImage"?: {"kind": string, "prompt": string}, "frame"?: string, "emoji"?: string, "items"?: [{"emoji": string, "text": string, "at": string}], "bg": string, "avatar": {...}, "sfx": [...], "captions": boolean}]}',
   ].join('\n');
 }
 
@@ -161,7 +182,7 @@ function sanitizeAvatar(avatar, layout, packIds = []) {
 }
 
 /** Pur : nettoie une scene ; renvoie null si elle n a rien a dire. */
-export function sanitizeFacelessScene(raw, { captions = true, packIds = [] } = {}) {
+export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illustrationIds = [], newBudget = { left: 0 } } = {}) {
   const say = clip(raw?.say, 320);
   if (!say) return null;
 
@@ -183,8 +204,23 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [] } = {
     captions: captions && raw?.captions === true,
   };
 
+  // Mise en page photo : une illustration du dossier, ou (si autorise, dans la limite du budget) une nouvelle image a generer.
+  if (layout === 'photo') {
+    scene.image = illustrationIds.includes(raw?.image) ? raw.image : '';
+    scene.newImage = null;
+    if (!scene.image && newBudget.left > 0 && raw?.newImage && typeof raw.newImage === 'object') {
+      const prompt = clip(raw.newImage.prompt, MAX_ILLUSTRATION_PROMPT);
+      if (prompt.length >= 8) {
+        scene.newImage = { kind: Object.hasOwn(ILLUSTRATION_KINDS, raw.newImage.kind) ? raw.newImage.kind : 'photo', prompt };
+        newBudget.left -= 1;
+      }
+    }
+    scene.frame = ['polaroid', 'plain'].includes(raw?.frame) ? raw.frame : '';
+  }
+
   // Une mise en page sans son contenu obligatoire retombe sur "avatar".
   const incomplete = (layout === 'hook' && !scene.text)
+    || (layout === 'photo' && !scene.image && !scene.newImage)
     || (layout === 'title' && !scene.title)
     || (layout === 'list' && scene.items.length < 2)
     || ((layout === 'word' || layout === 'logo') && !scene.word);
@@ -192,6 +228,9 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [] } = {
     layout = 'avatar';
     scene.layout = layout;
     scene.text = scene.text || scene.title || scene.word;
+    delete scene.image;
+    delete scene.newImage;
+    delete scene.frame;
   }
 
   scene.avatar = sanitizeAvatar(raw?.avatar, layout, packIds);
@@ -201,12 +240,13 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [] } = {
 }
 
 /** Pur : plan complet nettoye. Leve une erreur si moins de 2 scenes exploitables. */
-export function sanitizeFacelessPlan(raw, { captions = true, packIds = [] } = {}) {
+export function sanitizeFacelessPlan(raw, { captions = true, packIds = [], illustrationIds = [], maxNew = 0 } = {}) {
   const scenes = [];
+  const newBudget = { left: Math.max(0, Math.min(Number(maxNew) || 0, MAX_NEW_PER_VIDEO)) };
   let spokenChars = 0;
 
   for (const candidate of (Array.isArray(raw?.scenes) ? raw.scenes : []).slice(0, MAX_SCENES)) {
-    const scene = sanitizeFacelessScene(candidate, { captions, packIds });
+    const scene = sanitizeFacelessScene(candidate, { captions, packIds, illustrationIds, newBudget });
     if (!scene) continue;
     if (spokenChars + scene.say.length > MAX_SPOKEN_CHARS) break;
     // Une scene sans aucun mot (ponctuation seule) casserait la repartition des mots.
@@ -228,6 +268,32 @@ export function sanitizeFacelessPlan(raw, { captions = true, packIds = [] } = {}
   };
 }
 
+/** Pur : les nouvelles images demandees par un plan : [{ sceneIndex, kind, prompt }]. */
+export function collectNewImageRequests(plan) {
+  return (plan?.scenes || [])
+    .map((scene, sceneIndex) => (scene?.newImage ? { sceneIndex, kind: scene.newImage.kind, prompt: scene.newImage.prompt } : null))
+    .filter(Boolean);
+}
+
+/**
+ * Pur : range les images generees dans le plan. `results[sceneIndex]` = id de la
+ * nouvelle illustration, ou rien si la generation a echoue : la scene retombe
+ * alors sur une scene "avatar" avec son texte (la video se fait quand meme).
+ */
+export function applyNewImages(plan, results) {
+  return {
+    ...plan,
+    scenes: plan.scenes.map((scene, index) => {
+      if (!scene.newImage) return scene;
+      const { newImage, ...rest } = scene;
+      const id = results?.[index];
+      if (id) return { ...rest, image: id };
+      const { image, frame, ...fallback } = rest;
+      return { ...fallback, layout: 'avatar', text: fallback.text || fallback.title || '' };
+    }),
+  };
+}
+
 /** Pur : extrait l objet JSON de la reponse de Claude. */
 export function parseFacelessPlanResponse(rawText) {
   const text = String(rawText || '').trim()
@@ -238,7 +304,7 @@ export function parseFacelessPlanResponse(rawText) {
   return JSON.parse(text.slice(start, end + 1));
 }
 
-async function askClaudeForPlan({ system, userContent, captions, packIds, apiKey, createMessage }) {
+async function askClaudeForPlan({ system, userContent, captions, packIds, illustrationIds, maxNew, apiKey, createMessage }) {
   const key = String(apiKey || process.env.ANTHROPIC_API_KEY || '').trim();
   if (!createMessage && !key) throw new Error('ANTHROPIC_API_KEY non configuree');
 
@@ -251,16 +317,18 @@ async function askClaudeForPlan({ system, userContent, captions, packIds, apiKey
   const response = await (createMessage ? createMessage(request) : new Anthropic({ apiKey: key }).messages.create(request));
   const text = (response?.content || []).filter((b) => b?.type === 'text').map((b) => b.text).join('\n');
 
-  return sanitizeFacelessPlan(parseFacelessPlanResponse(text), { captions, packIds });
+  return sanitizeFacelessPlan(parseFacelessPlanResponse(text), { captions, packIds, illustrationIds, maxNew });
 }
 
 /** Appel Claude. `createMessage` est injectable (tests). */
-export async function generateFacelessPlan({ idea, persona, targetSeconds, captions = true, style = null, packEntries = null, apiKey, createMessage } = {}) {
+export async function generateFacelessPlan({ idea, persona, targetSeconds, captions = true, style = null, packEntries = null, illustrations = null, maxNew = 0, apiKey, createMessage } = {}) {
   return askClaudeForPlan({
-    system: buildFacelessPlanSystemPrompt({ targetSeconds: normalizeFacelessDuration(targetSeconds), persona, captions, style, packEntries }),
+    system: buildFacelessPlanSystemPrompt({ targetSeconds: normalizeFacelessDuration(targetSeconds), persona, captions, style, packEntries, illustrations, maxNew }),
     userContent: buildFacelessPlanUserPrompt(idea),
     captions,
     packIds: Object.keys(packEntries || {}),
+    illustrationIds: Object.keys(illustrations || {}),
+    maxNew,
     apiKey,
     createMessage,
   });
@@ -277,7 +345,7 @@ export function planForEditing(plan) {
     caption: plan?.caption || '',
     hashtags: plan?.hashtags || [],
     scenes: (plan?.scenes || []).map((scene) => Object.fromEntries(
-      ['say', 'layout', 'text', 'title', 'number', 'word', 'emoji', 'items', 'bg', 'avatar', 'sfx', 'captions']
+      ['say', 'layout', 'text', 'title', 'number', 'word', 'emoji', 'items', 'image', 'frame', 'bg', 'avatar', 'sfx', 'captions']
         .filter((key) => key === 'say' || key === 'layout' || key === 'avatar' || compact(scene[key]))
         .map((key) => [key, scene[key]]),
     )),
@@ -295,9 +363,9 @@ export function spokenTextChanged(previousPlan, nextPlan) {
   return spoken(previousPlan) !== spoken(nextPlan);
 }
 
-export function buildFacelessRetouchSystemPrompt({ targetSeconds = 30, persona = null, captions = true, style = null, packEntries = null } = {}) {
+export function buildFacelessRetouchSystemPrompt({ targetSeconds = 30, persona = null, captions = true, style = null, packEntries = null, illustrations = null } = {}) {
   return [
-    buildFacelessPlanSystemPrompt({ targetSeconds, persona, captions, style, packEntries }),
+    buildFacelessPlanSystemPrompt({ targetSeconds, persona, captions, style, packEntries, illustrations, maxNew: 0 }),
     '',
     'RETOUCHE',
     'Tu ne crees pas une nouvelle video : tu RETOUCHES un plan existant selon la consigne de l utilisateur.',
@@ -320,13 +388,15 @@ export function buildFacelessRetouchUserPrompt(plan, instruction) {
 }
 
 /** Retouche d un plan par Claude. `createMessage` est injectable (tests). */
-export async function retouchFacelessPlan({ plan, instruction, persona, targetSeconds, captions = true, style = null, packEntries = null, apiKey, createMessage } = {}) {
+export async function retouchFacelessPlan({ plan, instruction, persona, targetSeconds, captions = true, style = null, packEntries = null, illustrations = null, apiKey, createMessage } = {}) {
   if (!String(instruction || '').trim()) throw new Error('Consigne de retouche vide');
   return askClaudeForPlan({
-    system: buildFacelessRetouchSystemPrompt({ targetSeconds: normalizeFacelessDuration(targetSeconds), persona, captions, style, packEntries }),
+    system: buildFacelessRetouchSystemPrompt({ targetSeconds: normalizeFacelessDuration(targetSeconds), persona, captions, style, packEntries, illustrations }),
     userContent: buildFacelessRetouchUserPrompt(plan, instruction),
     captions,
     packIds: Object.keys(packEntries || {}),
+    illustrationIds: Object.keys(illustrations || {}),
+    maxNew: 0,
     apiKey,
     createMessage,
   });
