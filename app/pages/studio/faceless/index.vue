@@ -25,6 +25,74 @@
           />
         </div>
 
+        <div class="rounded-[12px] border border-[#E5E3DF] bg-[#FAFAF8] p-3">
+          <p class="text-sm font-semibold text-[#111111]">Quelle voix ?</p>
+          <div class="mt-2 flex flex-wrap gap-2">
+            <button
+              v-for="mode in VOICE_MODES"
+              :key="mode.id"
+              type="button"
+              class="rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
+              :class="voiceMode === mode.id ? 'border-[#E8873A] bg-[#FFF5EC] text-[#B45F1D]' : 'border-[#E5E3DF] bg-white text-[#444] hover:border-[#E6B78E]'"
+              @click="voiceMode = mode.id"
+            >
+              {{ mode.label }}
+            </button>
+          </div>
+
+          <div v-if="voiceMode === 'own'" class="mt-4 space-y-4">
+            <p class="text-xs text-[#666666]">
+              Tu enregistres ta voix, le reste est fait pour toi : transcription, suppression des silences et des reprises, puis montage sur ton audio.
+              Tu peux dire les changements de montage à voix haute (« là, fond sombre »).
+            </p>
+
+            <div>
+              <button
+                type="button"
+                class="rounded-[10px] bg-[#111111] px-3.5 py-2 text-xs font-bold text-white transition-colors hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-50"
+                :disabled="!idea.trim() || outlineLoading"
+                @click="makeOutline"
+              >
+                {{ outlineLoading ? 'Préparation de la trame…' : (outline ? 'Refaire la trame' : 'Que dire ? Générer la trame') }}
+              </button>
+              <p v-if="!idea.trim()" class="mt-1 text-xs text-[#888]">Écris d abord ton idée ci-dessus.</p>
+              <p v-if="outlineError" class="mt-2 text-xs text-[#A33]">{{ outlineError }}</p>
+            </div>
+
+            <div v-if="outline" class="space-y-3 rounded-[12px] border border-[#EFE3D6] bg-[#FFFAF4] p-3">
+              <p class="text-sm font-semibold text-[#7B5A3F]">{{ outline.title || 'Trame à suivre' }}</p>
+              <ol class="space-y-3">
+                <li v-for="(beat, index) in outline.beats" :key="index" class="text-xs text-[#444]">
+                  <p class="font-semibold text-[#111111]">{{ index + 1 }}. {{ beat.label }} <span class="font-normal text-[#888]">· ~{{ beat.seconds }} s</span></p>
+                  <p class="mt-0.5 text-[#666666]">{{ beat.goal }}</p>
+                  <ul v-if="beat.points.length" class="mt-1 list-disc pl-4">
+                    <li v-for="(point, k) in beat.points" :key="k">{{ point }}</li>
+                  </ul>
+                  <p v-if="beat.example" class="mt-1 italic text-[#7B5A3F]">Exemple : « {{ beat.example }} »</p>
+                  <p v-if="beat.cue" class="mt-1 text-[#B45F1D]">À dire à voix haute si tu veux : « {{ beat.cue }} »</p>
+                </li>
+              </ol>
+              <p class="text-xs text-[#888]">Ce n est pas un texte à lire : reformule avec tes mots, ça sonnera plus vrai.</p>
+            </div>
+
+            <ul class="list-disc space-y-1 pl-4 text-xs text-[#666666]">
+              <li v-for="tip in ownVoiceTips" :key="tip">{{ tip }}</li>
+            </ul>
+
+            <div>
+              <label class="text-sm font-semibold text-[#111111]" for="faceless-audio">Mon enregistrement</label>
+              <input
+                id="faceless-audio"
+                type="file"
+                accept="audio/*,.mp3,.wav,.m4a,.ogg,.flac,.webm"
+                class="mt-2 block w-full text-xs text-[#444] file:mr-3 file:rounded-[10px] file:border-0 file:bg-[#E8873A] file:px-3 file:py-2 file:text-xs file:font-bold file:text-white"
+                @change="onAudioChange"
+              >
+              <p v-if="audioFile" class="mt-1 text-xs text-[#666666]">{{ audioFile.name }} · {{ (audioFile.size / 1048576).toFixed(1) }} Mo</p>
+            </div>
+          </div>
+        </div>
+
         <div class="grid gap-4 sm:grid-cols-2">
           <div>
             <label class="text-sm font-semibold text-[#111111]" for="faceless-profile">2. Persona (optionnel)</label>
@@ -56,7 +124,7 @@
             </div>
           </div>
 
-          <div>
+          <div v-if="voiceMode === 'synth'">
             <label class="text-sm font-semibold text-[#111111]" for="faceless-voice">3. Voix</label>
             <p class="mt-1 text-xs text-[#666666]">Voix ElevenLabs qui parlent français.</p>
             <select
@@ -68,7 +136,7 @@
             </select>
           </div>
 
-          <div>
+          <div v-if="voiceMode === 'synth'">
             <label class="text-sm font-semibold text-[#111111]" for="faceless-duration">4. Durée visée</label>
             <select
               id="faceless-duration"
@@ -88,7 +156,7 @@
           </label>
         </div>
 
-        <div v-if="profileId" class="rounded-[12px] border border-[#E5E3DF] bg-[#FAFAF8] p-3">
+        <div v-if="profileId && voiceMode === 'synth'" class="rounded-[12px] border border-[#E5E3DF] bg-[#FAFAF8] p-3">
           <label class="text-sm font-semibold text-[#111111]" for="faceless-new-images">5. Illustrations</label>
           <p class="mt-1 text-xs text-[#666666]">
             Le dossier de la persona contient {{ styleInfo?.illustrationCount || 0 }} illustration(s) : Claude les utilise quand elles servent le propos (gratuit).
@@ -111,9 +179,9 @@
             :disabled="!canGenerate"
             @click="generate"
           >
-            {{ polling ? 'Montage en cours…' : 'Générer la vidéo' }}
+            {{ polling ? 'Montage en cours…' : (voiceMode === 'own' ? 'Monter avec ma voix' : 'Générer la vidéo') }}
           </button>
-          <p class="text-xs text-[#666666]">Environ 1 à 3 minutes. Tu peux quitter la page : la vidéo arrive dans Mes créations.</p>
+          <p class="text-xs text-[#666666]">{{ voiceMode === 'own' ? 'Environ 2 à 4 minutes (transcription, nettoyage, montage).' : 'Environ 1 à 3 minutes.' }} Tu peux quitter la page : la vidéo arrive dans Mes créations.</p>
         </div>
 
         <p v-if="errorMessage" class="rounded-[12px] border border-[#F3C1C1] bg-[#FFF4F4] p-3 text-sm text-[#A33]">{{ errorMessage }}</p>
@@ -201,7 +269,25 @@ const RETOUCH_SUGGESTIONS = [
   'Rends l appel à l action final plus percutant.',
 ]
 
+// Voix : synthetique (ElevenLabs, script ecrit par Claude) ou celle de l utilisateur (enregistrement).
+const VOICE_MODES = [
+  { id: 'synth', label: 'Voix de synthèse (Claude écrit le script)' },
+  { id: 'own', label: 'Ma propre voix' },
+]
+const DEFAULT_TIPS = [
+  'Enregistre dans une pièce calme, le micro à 15-20 cm de la bouche, et parle comme à une amie.',
+  'Tu te rates ? Pause d une seconde puis reprends la phrase depuis le début : la mauvaise prise est supprimée.',
+  'Tu peux dire une indication de montage à voix haute (« là, change de fond ») : elle est appliquée puis retirée.',
+  'Un seul fichier (mp3, wav, m4a, ogg, flac ou webm), 25 Mo maximum.',
+]
+
 const idea = ref('')
+const voiceMode = ref('synth')
+const audioFile = ref(null)
+const outline = ref(null)
+const outlineLoading = ref(false)
+const outlineError = ref('')
+const ownVoiceTips = computed(() => outline.value?.tips || DEFAULT_TIPS)
 const profileId = ref(String(route.query.profile || ''))
 const newIllustrations = ref(0)
 const voiceId = ref('')
@@ -262,7 +348,9 @@ watch(profileId, (id) => { loadStyleInfo(id) })
 // Persona deja choisie par l adresse (?profile=) : sa DA s applique des l ouverture.
 onMounted(() => { if (profileId.value) loadStyleInfo(profileId.value) })
 
-const canGenerate = computed(() => idea.value.trim().length > 0 && Boolean(voiceId.value) && !polling.value)
+const canGenerate = computed(() => !polling.value && (voiceMode.value === 'own'
+  ? Boolean(audioFile.value)
+  : idea.value.trim().length > 0 && Boolean(voiceId.value)))
 const pollingLabel = computed(() => (pollingKind.value === 'retouch'
   ? 'Retouche du plan, puis nouveau montage…'
   : 'Script, voix puis montage image par image…'))
@@ -321,8 +409,27 @@ async function checkStatus(id) {
   }
 }
 
+function onAudioChange(event) {
+  audioFile.value = event.target?.files?.[0] || null
+}
+
+async function makeOutline() {
+  outlineError.value = ''
+  outlineLoading.value = true
+  try {
+    outline.value = await $fetch('/api/faceless/outline', {
+      method: 'POST',
+      body: { idea: idea.value, profileId: profileId.value || undefined, durationSeconds: durationSeconds.value },
+    })
+  } catch (error) {
+    outlineError.value = error?.data?.statusMessage || error?.statusMessage || 'Impossible de préparer la trame.'
+  } finally {
+    outlineLoading.value = false
+  }
+}
+
 async function generate() {
-  if (newIllustrations.value > 0) {
+  if (voiceMode.value === 'synth' && newIllustrations.value > 0) {
     const max = (Math.round(newIllustrations.value * imageCost.value * 100) / 100).toFixed(2)
     const ok = await requestConfirmation({
       title: 'Autoriser de nouvelles images ?',
@@ -336,17 +443,27 @@ async function generate() {
   videoUrl.value = ''
   info.value = null
   try {
-    const response = await $fetch('/api/generate/faceless', {
-      method: 'POST',
-      body: {
-        idea: idea.value,
-        profileId: profileId.value || undefined,
-        voiceId: voiceId.value,
-        durationSeconds: durationSeconds.value,
-        captions: captions.value,
-        illustrations: { maxNew: profileId.value ? newIllustrations.value : 0, confirmCost: newIllustrations.value > 0 },
-      },
-    })
+    let response
+    if (voiceMode.value === 'own') {
+      const form = new FormData()
+      form.append('audio', audioFile.value)
+      form.append('idea', idea.value)
+      if (profileId.value) form.append('profileId', profileId.value)
+      form.append('captions', String(captions.value))
+      response = await $fetch('/api/generate/faceless-voice', { method: 'POST', body: form })
+    } else {
+      response = await $fetch('/api/generate/faceless', {
+        method: 'POST',
+        body: {
+          idea: idea.value,
+          profileId: profileId.value || undefined,
+          voiceId: voiceId.value,
+          durationSeconds: durationSeconds.value,
+          captions: captions.value,
+          illustrations: { maxNew: profileId.value ? newIllustrations.value : 0, confirmCost: newIllustrations.value > 0 },
+        },
+      })
+    }
     contentId.value = response.contentId
     startPolling(response.contentId, 'generate')
   } catch (error) {
