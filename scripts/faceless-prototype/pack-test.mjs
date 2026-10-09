@@ -2,6 +2,7 @@
 // Fait ce que fera l interface : image de base -> 2 images du pack (une tete, un buste) ->
 // detourage -> apercu de DA. S arrete a la premiere erreur (aucun appel de plus).
 // Usage : node scripts/faceless-prototype/pack-test.mjs <fiche-de-reference.jpg> [id1] [id2]
+//    ou : node scripts/faceless-prototype/pack-test.mjs <fiche-de-reference.jpg> base-only   (UNE image : controle du prompt de base)
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
@@ -17,7 +18,8 @@ const { renderStylePreview } = await import('../../server/utils/facelessPreview.
 const { defaultFacelessStyle } = await import('../../server/utils/facelessStyle.js');
 
 const referencePath = resolve(process.argv[2] || '');
-const ids = [process.argv[3] || 'happy', process.argv[4] || 'body-wave'];
+const baseOnly = process.argv[3] === 'base-only';
+const ids = baseOnly ? [] : [process.argv[3] || 'happy', process.argv[4] || 'body-wave'];
 const out = resolve('tmp/faceless/out/pack-test');
 mkdirSync(out, { recursive: true });
 
@@ -26,11 +28,11 @@ let counter = 0;
 const deps = {
   generate: async (prompt, parts) => {
     counter += 1;
-    console.log(`appel payant ${counter}/3...`);
+    console.log(`appel payant ${counter}/${baseOnly ? 1 : 3}...`);
     return generateImageFromGeminiWithSafetyFallback(prompt, parts);
   },
   save: async (buffer, { extension }) => {
-    const file = join(out, `image-${counter}.${extension}`);
+    const file = join(out, `${baseOnly ? 'controle' : 'image'}-${counter}.${extension}`);
     writeFileSync(file, buffer);
     return file;
   },
@@ -44,6 +46,10 @@ const baseUrl = await generateBaseAvatar({
   deps,
 });
 console.log(`base : ${baseUrl} (${((Date.now() - started) / 1000).toFixed(0)} s)`);
+if (baseOnly) {
+  console.log('controle termine (1 image).');
+  process.exit(0);
+}
 const baseBuffer = readFileSync(baseUrl);
 
 const packEntries = {};
