@@ -6,7 +6,7 @@
 //   node scripts/faceless-prototype/e2e.mjs "idee" [duree] [voiceId]
 //   node scripts/faceless-prototype/e2e.mjs plan.json                  (reprend un plan, sans Claude)
 //   node scripts/faceless-prototype/e2e.mjs --retouch "consigne"       (retouche le dernier essai)
-//   node scripts/faceless-prototype/e2e.mjs --render                   (re-monte le dernier essai : AUCUN appel payant)
+//   node scripts/faceless-prototype/e2e.mjs --render [preset] [FEMALE|MALE]   (re-monte le dernier essai, avec cette DA : AUCUN appel payant)
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
@@ -16,6 +16,7 @@ for (const line of readFileSync('.env.local', 'utf8').split(/\r?\n/)) {
 }
 
 const { produceFacelessVideo, renderFacelessFromPlan, retouchFacelessVideo, RENDER_SPEC_KIND } = await import('../../server/utils/facelessVideoJob.js');
+const { defaultFacelessStyle } = await import('../../server/utils/facelessStyle.js');
 const out = resolve('tmp/faceless/out');
 mkdirSync(out, { recursive: true });
 const started = Date.now();
@@ -24,8 +25,9 @@ const specPath = join(out, 'e2e-spec.json');
 
 if (process.argv[2] === '--render') {
   const spec = JSON.parse(readFileSync(specPath, 'utf8'));
-  const { video, duration } = await renderFacelessFromPlan(spec.plan, { audio: readFileSync(spec.voiceUrl), words: spec.words });
-  writeFileSync(join(out, 'e2e-render.mp4'), video);
+  const style = defaultFacelessStyle(process.argv[3] || 'papercraft-pastel', process.argv[4] || 'FEMALE');
+  const { video, duration } = await renderFacelessFromPlan(spec.plan, { audio: readFileSync(spec.voiceUrl), words: spec.words }, { style });
+  writeFileSync(join(out, `e2e-render-${style.preset}.mp4`), video);
   console.log(`OK : ${duration.toFixed(1)} s re-montees sans appel payant, ${((Date.now() - started) / 1000).toFixed(0)} s`);
 } else if (process.argv[2] === '--retouch') {
   const spec = JSON.parse(readFileSync(specPath, 'utf8'));

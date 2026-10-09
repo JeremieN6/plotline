@@ -131,20 +131,42 @@ function extras(list = []) {
   }).join('');
 }
 
+// Cheveux a l arriere du visage selon la coiffure.
+function hairBack(style, color) {
+  if (style === 'short') return `<path d="M76 214 Q70 92 200 80 Q330 92 324 214 Q306 150 200 142 Q94 150 76 214 Z" fill="${color}"/>`;
+  if (style === 'bun') {
+    return `<circle cx="200" cy="72" r="40" fill="${color}"/><path d="M168 98 Q200 112 232 98 L230 84 Q200 96 170 84 Z" fill="#ffffff" opacity="0.5"/>`
+      + `<path d="M76 214 Q70 92 200 80 Q330 92 324 214 Q306 150 200 142 Q94 150 76 214 Z" fill="${color}"/>`;
+  }
+  return `<path d="M68 232 Q58 88 200 74 Q342 88 332 232 L338 332 Q304 352 272 322 L128 322 Q96 352 62 332 Z" fill="${color}"/>`;
+}
+
+function accessory(kind, palette) {
+  if (kind === 'bow') {
+    return `<path d="M282 96 L322 70 L326 116 Z" fill="${palette.bow}"/><path d="M282 96 L248 74 L252 118 Z" fill="${palette.bow}"/><circle cx="284" cy="96" r="11" fill="${palette.bow}" stroke="#ffffff" stroke-width="3"/>`;
+  }
+  if (kind === 'glasses') {
+    const ring = (cx) => `<circle cx="${cx}" cy="228" r="34" fill="#ffffff" fill-opacity="0.18" stroke="${INK}" stroke-width="6"/>`;
+    return `${ring(150)}${ring(250)}<path d="M184 226 Q200 216 216 226" stroke="${INK}" stroke-width="6" fill="none"/>`;
+  }
+  return '';
+}
+
 function head(expression, palette) {
   const spec = AVATAR_EXPRESSIONS[expression] || AVATAR_EXPRESSIONS.neutral;
   const blush = spec.blush ?? 0.55;
   return [
-    // Cheveux (arriere), visage, frange, noeud.
-    `<path d="M68 232 Q58 88 200 74 Q342 88 332 232 L338 332 Q304 352 272 322 L128 322 Q96 352 62 332 Z" fill="${palette.hair}"/>`,
+    // Cheveux (arriere), visage, frange, accessoire.
+    hairBack(palette.hairStyle, palette.hair),
     `<ellipse cx="200" cy="216" rx="120" ry="110" fill="${palette.skin}"/>`,
     `<path d="M80 204 Q84 102 200 96 Q316 102 320 204 Q292 160 252 150 Q236 176 205 160 Q180 182 150 156 Q114 166 80 204 Z" fill="${palette.hair}"/>`,
-    `<path d="M282 96 L322 70 L326 116 Z" fill="${palette.bow}"/><path d="M282 96 L248 74 L252 118 Z" fill="${palette.bow}"/><circle cx="284" cy="96" r="11" fill="${palette.bow}" stroke="#ffffff" stroke-width="3"/>`,
     `<ellipse cx="128" cy="262" rx="24" ry="13" fill="${palette.blush}" opacity="${blush}"/>`,
     `<ellipse cx="272" cy="262" rx="24" ry="13" fill="${palette.blush}" opacity="${blush}"/>`,
+    palette.accessory === 'bow' ? accessory('bow', palette) : '',
     brows(spec.brows),
     eye(spec.eyes, 150, 228, -1),
     eye(spec.eyes, 250, 228, 1),
+    palette.accessory === 'glasses' ? accessory('glasses', palette) : '',
     mouth(spec.mouth),
     extras(spec.extras),
   ].join('');
@@ -180,8 +202,20 @@ function body(pose, palette) {
  * Pur : SVG de l avatar. `mode` = 'head' (tete seule) ou 'body' (buste).
  * Le contour blanc facon autocollant et l ombre portee sont dans le filtre.
  */
-export function buildChibiSvg({ expression = 'neutral', mode = 'head', pose = 'idle', palette = {}, id = 'av' } = {}) {
-  const colors = { ...DEFAULT_AVATAR_PALETTE, ...palette };
+/**
+ * `look` (reglages de la DA) : { hair, hairColor, skin, accessory, top }.
+ * `accent` colore le noeud. Sans `look`, l avatar d origine (cheveux longs, noeud).
+ */
+export function buildChibiSvg({ expression = 'neutral', mode = 'head', pose = 'idle', palette = {}, look = null, accent = '', id = 'av' } = {}) {
+  const colors = { hairStyle: 'long', accessory: 'bow', ...DEFAULT_AVATAR_PALETTE, ...palette };
+  if (look) {
+    colors.hairStyle = look.hair || 'long';
+    colors.hair = look.hairColor || colors.hair;
+    colors.skin = look.skin || colors.skin;
+    colors.top = look.top || colors.top;
+    colors.accessory = look.accessory || 'none';
+  }
+  if (accent) colors.bow = accent;
   const isBody = mode === 'body';
   const viewBox = isBody ? '0 40 420 580' : '30 50 340 320';
   const filterId = `fl-sticker-${id}`;

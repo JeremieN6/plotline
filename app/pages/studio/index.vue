@@ -4,12 +4,6 @@
       <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#E8873A]">Studio</p>
       <h1 class="mt-2 text-3xl font-bold tracking-tight text-[#111111]">Studio</h1>
       <p class="mt-2 text-sm text-[#666666]">Crée rapidement des visuels et vidéos pour ton activité.</p>
-      <NuxtLink
-        to="/studio/faceless"
-        class="mt-3 inline-flex items-center gap-2 rounded-[10px] border border-[#E6B78E] bg-[#FFF5EC] px-3 py-1.5 text-xs font-bold text-[#B45F1D] transition-colors hover:bg-[#FFEBDB]"
-      >
-        Nouveau : vidéo faceless (voix off + avatar animé) →
-      </NuxtLink>
     </header>
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.9fr)]">
@@ -341,6 +335,15 @@
               <p class="mt-2 text-sm font-bold text-[#111111]">{{ widget.nom }}</p>
               <p class="mt-1 text-xs text-[#888888]">{{ widget.typeGeneration.join(' / ') }}</p>
             </button>
+            <!-- Format a part : pas un widget de prompt, mais meme emplacement que les autres. -->
+            <NuxtLink
+              to="/studio/faceless"
+              class="rounded-[14px] border border-[#E5E3DF] bg-white p-3 text-left transition-colors hover:border-[#E8873A]/40"
+            >
+              <span class="text-xl">🎞️</span>
+              <p class="mt-2 text-sm font-bold text-[#111111]">Vidéo faceless</p>
+              <p class="mt-1 text-xs text-[#888888]">VIDEO · voix off + avatar, sans modèle vidéo</p>
+            </NuxtLink>
           </div>
           <p v-if="widgetsLoadError" class="mt-3 text-xs text-red-600">{{ widgetsLoadError }}</p>
 

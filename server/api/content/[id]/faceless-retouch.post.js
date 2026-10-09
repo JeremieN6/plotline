@@ -1,5 +1,7 @@
 import { isFacelessRenderSpec, runFacelessRetouchJob } from '../../../utils/facelessVideoJob.js';
-import { findActiveFacelessSpec, FACELESS_PERSONA_SELECT } from '../../../utils/facelessContent.js';
+import { findActiveFacelessSpec } from '../../../utils/facelessContent.js';
+import { appendStyleRule } from '../../../utils/facelessStyle.js';
+import { loadPersonaStyle, updateProfileStyle } from '../../../utils/facelessStyleStore.js';
 
 const MAX_INSTRUCTION_LENGTH = 1000;
 
@@ -19,8 +21,9 @@ async function getPrisma() {
 }
 
 // Retouche d une video faceless en langage naturel ("l intro est trop chargee").
-// Repart de la version ACTIVE ; nouvelle version en cas de succes, l ancienne
-// reste disponible dans l historique.
+// Repart de la version ACTIVE (avec sa DA du moment) ; nouvelle version en cas de succes,
+// l ancienne reste dans l historique. `rememberRule: true` ajoute aussi la consigne aux
+// regles de montage de la DA de la persona, pour les prochaines videos.
 export default defineEventHandler(async (event) => {
   const id = String(event.context?.params?.id || '').trim();
   const prisma = await getPrisma();
@@ -49,9 +52,17 @@ export default defineEventHandler(async (event) => {
     return sendError(event, createError({ statusCode: 409, statusMessage: 'Cette vidéo n a pas de plan de montage retouchable' }));
   }
 
-  const persona = spec.personaId
-    ? await prisma.profile.findFirst({ where: { id: spec.personaId, userId: user.id }, select: FACELESS_PERSONA_SELECT })
-    : null;
+  const loaded = spec.personaId ? await loadPersonaStyle(prisma, spec.personaId, user.id) : null;
+  const rememberRule = body?.rememberRule === true;
+
+  // La regle retenue rejoint la DA de la persona (sans toucher a son pack d avatars).
+  if (rememberRule && loaded) {
+    try {
+      await updateProfileStyle(prisma, loaded.persona.id, user.id, (style) => appendStyleRule(style, instruction));
+    } catch (error) {
+      console.warn('[faceless] regle non retenue (colonne facelessStyle absente ?)', error?.message);
+    }
+  }
 
   // Le rendu actuel reste en place jusqu au succes (meme regle que "Modifier").
   await prisma.generatedContent.update({
@@ -64,7 +75,8 @@ export default defineEventHandler(async (event) => {
     contentId: id,
     spec,
     instruction,
-    persona,
+    persona: loaded?.persona || null,
+    rememberRule,
     previousStatus: content.status,
   });
 });

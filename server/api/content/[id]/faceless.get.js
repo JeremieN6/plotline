@@ -42,6 +42,7 @@ export default defineEventHandler(async (event) => {
     retouchable,
     canRetouchNow: retouchable && content.status === 'PENDING',
     idea: retouchable ? spec.idea || '' : '',
+    personaId: retouchable ? spec.personaId || '' : '',
     retouches: retouchable && Array.isArray(spec.retouches) ? spec.retouches : [],
   };
 });

@@ -107,7 +107,7 @@ test('buildFacelessHtml : une section par scene et la fonction de rendu', () => 
     [{ path: 'a', duration: 1, words: [] }, { path: 'b', duration: 1, words: [] }],
   );
   const html = buildFacelessHtml(tl);
-  assert.equal(html.match(/<section class="scene">/g).length, 2);
+  assert.equal(html.match(/<section class="scene bg-main">/g).length, 2);
   assert.match(html, /window\.__seek/);
   assert.ok(!html.includes('<x>'));
 });

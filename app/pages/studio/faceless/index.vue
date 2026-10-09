@@ -5,8 +5,8 @@
       <p class="mt-3 text-xs font-semibold uppercase tracking-[0.22em] text-[#E8873A]">Studio</p>
       <h1 class="mt-2 text-3xl font-bold tracking-tight text-[#111111]">Vidéo faceless</h1>
       <p class="mt-2 text-sm text-[#666666]">
-        Une voix off, un avatar dessiné qui réagit et des cartes papier animées. Montage fait par du code :
-        aucun modèle de génération vidéo, seulement quelques centimes de texte et de voix.
+        Une voix off, un avatar qui réagit et des cartes animées, dans la direction artistique de ta persona.
+        Montage fait par du code : aucun modèle de génération vidéo, seulement quelques centimes de texte et de voix.
       </p>
     </header>
 
@@ -37,6 +37,18 @@
               <option value="">Aucune (narratrice neutre)</option>
               <option v-for="profile in profiles" :key="profile.id" :value="profile.id">{{ profile.name }}</option>
             </select>
+            <p v-if="!profileId" class="mt-2 text-xs text-[#888]">
+              Sans persona : DA par défaut (papercraft pastel, avatar dessiné). Choisis une persona pour utiliser sa DA.
+            </p>
+            <div v-else-if="styleInfo" class="mt-2 rounded-[10px] border border-[#EFE3D6] bg-[#FFFAF4] px-3 py-2 text-xs text-[#7B5A3F]">
+              <p>
+                <span class="font-semibold">DA : {{ styleInfo.style.name }}</span>
+                · avatar : {{ avatarSummary }}
+              </p>
+              <NuxtLink :to="`/studio/faceless/style?profile=${profileId}`" class="mt-1 inline-block font-semibold text-[#B45F1D] hover:underline">
+                {{ styleInfo.stored ? 'Modifier la DA →' : 'Créer sa DA →' }}
+              </NuxtLink>
+            </div>
           </div>
 
           <div>
@@ -126,6 +138,10 @@
             placeholder="Ex. : l intro a trop de texte, coupe-la en deux écrans. Garde l avatar qui sourit pendant toute la phrase sur la communauté."
             class="w-full rounded-[12px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A] focus:shadow-[0_0_0_3px_rgba(232,135,58,0.10)]"
           />
+          <label v-if="info.personaId" class="flex items-start gap-2 text-xs text-[#555]">
+            <input v-model="rememberRule" type="checkbox" class="mt-0.5 h-4 w-4 accent-[#E8873A]">
+            <span>Retenir pour les prochaines vidéos de cette persona (ajoute la consigne aux règles de sa DA)</span>
+          </label>
           <button
             type="button"
             class="rounded-[12px] bg-[#111111] px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-50"
@@ -169,6 +185,8 @@ const profileId = ref('')
 const voiceId = ref('')
 const durationSeconds = ref(30)
 const captions = ref(true)
+const styleInfo = ref(null)
+const rememberRule = ref(false)
 const errorMessage = ref('')
 const instruction = ref('')
 const contentId = ref(String(route.query.content || ''))
@@ -193,6 +211,28 @@ const durations = computed(() => options.value?.durations || [20, 30, 45, 60])
 watch(options, (value) => {
   if (!voiceId.value && value?.defaultVoiceId) voiceId.value = value.defaultVoiceId
 }, { immediate: true })
+
+const avatarSummary = computed(() => {
+  const pack = styleInfo.value?.pack
+  if (!pack || pack.kind !== 'pack') return 'dessiné'
+  const count = pack.entries.filter((entry) => entry.url).length
+  return `pack de ${count} images`
+})
+
+// Le choix d une persona applique sa DA : voix et sous-titres par defaut.
+watch(profileId, async (id) => {
+  styleInfo.value = null
+  if (!id) return
+  try {
+    const result = await $fetch(`/api/faceless/style/${id}`)
+    if (profileId.value !== id) return
+    styleInfo.value = result
+    voiceId.value = result.style.voiceId || voiceId.value
+    captions.value = result.style.captions.enabled
+  } catch {
+    styleInfo.value = null
+  }
+})
 
 const canGenerate = computed(() => idea.value.trim().length > 0 && Boolean(voiceId.value) && !polling.value)
 const pollingLabel = computed(() => (pollingKind.value === 'retouch'
@@ -281,7 +321,7 @@ async function retouch() {
   try {
     await $fetch(`/api/content/${contentId.value}/faceless-retouch`, {
       method: 'POST',
-      body: { instruction: instruction.value },
+      body: { instruction: instruction.value, rememberRule: rememberRule.value },
     })
     startPolling(contentId.value, 'retouch')
   } catch (error) {

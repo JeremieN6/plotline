@@ -153,6 +153,8 @@ async function scanBlobFiles(referencedUrls, referencedFilenames) {
       if (blob.pathname.startsWith('face-refs/')) continue;
       // Meme regle pour la bibliotheque d assets (photos sources et fiches).
       if (blob.pathname.startsWith('reference-assets/')) continue;
+      // Images d avatar des videos faceless (aussi gardees par les retouches de videos deja faites).
+      if (blob.pathname.startsWith('faceless-avatars/')) continue;
       if (referencedUrls.has(blob.url) || (name && referencedFilenames.has(name))) continue;
 
       orphans.push({ name: blob.pathname, url: blob.url, size: blob.size || 0 });

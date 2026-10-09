@@ -3,14 +3,14 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
 
-import { isAbsoluteHttpUrl, isBlobStorageEnabled, uploadPublicMediaBuffer } from './blobStorage.js';
 import { finalizeContentWithVersion, markGenerationFailure } from './contentVersions.js';
 import { synthesizeWithTimestamps } from './elevenLabsTts.js';
 import { generateFacelessPlan, retouchFacelessPlan, sanitizeFacelessPlan, spokenTextChanged } from './facelessPlanGenerator.js';
-import { mixFacelessAudio, renderFacelessVideo } from './facelessRenderer.js';
+import { loadPackAssets, readFacelessMedia, saveFacelessMedia } from './facelessMedia.js';
+import { enqueueRender, mixFacelessAudio, renderFacelessVideo } from './facelessRenderer.js';
+import { appendStyleRule, normalizeFacelessStyle, readyPackEntries } from './facelessStyle.js';
 import { buildFacelessHtml } from './facelessTemplate.js';
 import { layoutFacelessTimelineFromTrack } from './facelessTimeline.js';
-import { getGeneratedDir, resolveMediaPath, toMediaUrl } from './mediaStorage.js';
 import { normalizeErrorMessage, saveGeneratedVideoBuffer } from './videoGeneration.js';
 
 /**
@@ -19,20 +19,12 @@ import { normalizeErrorMessage, saveGeneratedVideoBuffer } from './videoGenerati
  * page HTML -> capture image par image -> MP4 -> Blob -> nouvelle version.
  * Aucun modele de generation video.
  *
- * Chaque version garde un `renderSpec` (plan + voix + temps des mots) : une
- * retouche repart de la version active, et reutilise la voix telle quelle tant
- * que le texte dit ne change pas.
+ * Chaque version garde un `renderSpec` (plan + voix + temps des mots + DA et
+ * images d avatar du moment) : une retouche repart de la version active avec
+ * la meme DA, et reutilise la voix tant que le texte dit ne change pas.
  */
 
 export const RENDER_SPEC_KIND = 'faceless';
-
-// Un rendu occupe Chromium et le processeur ~1 a 3 min : un seul a la fois.
-let renderQueue = Promise.resolve();
-function enqueueRender(task) {
-  const run = renderQueue.then(task, task);
-  renderQueue = run.catch(() => {});
-  return run;
-}
 
 /**
  * Bruitages : par defaut les sons SYNTHETISES du depot (resources/faceless/sfx,
@@ -56,36 +48,27 @@ export function isFacelessRenderSpec(spec) {
     && Boolean(spec?.voiceUrl) && Array.isArray(spec?.words) && spec.words.length > 0;
 }
 
-async function saveFacelessVoice(buffer) {
-  if (isBlobStorageEnabled()) {
-    return (await uploadPublicMediaBuffer('generated', 'mp3', buffer, 'audio/mpeg')).url;
-  }
-  const filename = `voice_faceless_${Date.now()}.mp3`;
-  await writeFile(join(getGeneratedDir(), filename), buffer);
-  return toMediaUrl('generated', filename);
+/** Pur : DA et images d avatar d un renderSpec (anciennes versions : DA par defaut). */
+export function styleFromSpec(spec) {
+  const style = normalizeFacelessStyle(spec?.style || {});
+  const packEntries = spec?.packEntries && typeof spec.packEntries === 'object' ? spec.packEntries : {};
+  return { style, packEntries };
 }
 
-async function readFacelessVoice(voiceUrl) {
+async function readVoice(voiceUrl) {
   const url = String(voiceUrl || '').trim();
-  if (isAbsoluteHttpUrl(url)) {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Voix introuvable (${response.status})`);
-    return Buffer.from(await response.arrayBuffer());
-  }
   // Chemin disque absolu : seulement pour les essais en ligne de commande
   // (scripts/faceless-prototype/e2e.mjs) ; le serveur n ecrit jamais que des URL.
   if (isAbsolute(url) && !url.startsWith('/api/') && existsSync(url)) return readFile(url);
-  const relative = url.replace(/^\/api\/media\//, '').split('/').map(decodeURIComponent).join('/');
-  const absolute = resolveMediaPath(relative);
-  if (!absolute) throw new Error('Adresse de voix invalide');
-  return readFile(absolute);
+  return readFacelessMedia(url);
 }
 
 /**
  * Montage seul, a partir d un plan et d une voix deja produite (aucun appel
  * Claude ni ElevenLabs). `voice` = { audio: Buffer mp3, words }.
  */
-export async function renderFacelessFromPlan(plan, voice) {
+export async function renderFacelessFromPlan(plan, voice, { style = null, packEntries = {} } = {}) {
+  const da = style || normalizeFacelessStyle({});
   const dir = await mkdtemp(join(tmpdir(), 'plotline-faceless-'));
   try {
     const voicePath = join(dir, 'voice.mp3');
@@ -106,8 +89,11 @@ export async function renderFacelessFromPlan(plan, voice) {
     const audioRaw = join(dir, 'mix.f32');
     await mixFacelessAudio([...timeline.voice.map((v) => ({ path: v.path, start: v.start, gain: 1 })), ...sfxTracks], timeline.duration, audioRaw);
 
+    const assets = await loadPackAssets(plan, packEntries);
     const output = join(dir, 'faceless.mp4');
-    await enqueueRender(() => renderFacelessVideo({ html: buildFacelessHtml(timeline), timeline, audioRawPath: audioRaw, outputPath: output }));
+    await enqueueRender(() => renderFacelessVideo({
+      html: buildFacelessHtml(timeline, { style: da, packEntries }), timeline, audioRawPath: audioRaw, outputPath: output, assets,
+    }));
 
     return { video: await readFile(output), duration: timeline.duration };
   } finally {
@@ -124,50 +110,61 @@ async function synthesizePlanVoice(plan, voiceId) {
  * Le pipeline complet (sans base de donnees) : renvoie le MP4, le plan et la
  * voix. `plan` deja ecrit (essai) : Claude n est pas rappele.
  */
-export async function produceFacelessVideo({ idea, plan: givenPlan, persona, targetSeconds, captions, voiceId, onStep = () => {} } = {}) {
+export async function produceFacelessVideo({ idea, plan: givenPlan, persona, targetSeconds, captions, voiceId, style = null, onStep = () => {} } = {}) {
+  const da = style || normalizeFacelessStyle({});
+  const packEntries = readyPackEntries(da);
+  const packIds = Object.keys(packEntries);
+
   onStep('plan');
   const plan = givenPlan
-    ? sanitizeFacelessPlan(givenPlan, { captions })
-    : await generateFacelessPlan({ idea, persona, targetSeconds, captions });
+    ? sanitizeFacelessPlan(givenPlan, { captions, packIds })
+    : await generateFacelessPlan({ idea, persona, targetSeconds, captions, style: da, packEntries });
 
   onStep('voice');
-  const voice = await synthesizePlanVoice(plan, voiceId);
+  const voice = await synthesizePlanVoice(plan, voiceId || da.voiceId);
 
   onStep('render');
-  const { video, duration } = await renderFacelessFromPlan(plan, voice);
-  return { video, plan, voice, duration };
+  const { video, duration } = await renderFacelessFromPlan(plan, voice, { style: da, packEntries });
+  return { video, plan, voice, duration, style: da, packEntries };
 }
 
 /**
  * Retouche (sans base de donnees) : Claude modifie le plan selon la consigne ;
  * la voix est reutilisee si le texte dit n a pas bouge, sinon regeneree.
+ * `rememberRule` : la consigne est aussi ajoutee aux regles de la DA.
  */
-export async function retouchFacelessVideo({ spec, instruction, persona, onStep = () => {} } = {}) {
+export async function retouchFacelessVideo({ spec, instruction, persona, rememberRule = false, onStep = () => {} } = {}) {
+  let { style, packEntries } = styleFromSpec(spec);
+  if (rememberRule) style = appendStyleRule(style, instruction);
+
   onStep('plan');
   const plan = await retouchFacelessPlan({
-    plan: spec.plan, instruction, persona, targetSeconds: spec.targetSeconds, captions: spec.captions !== false,
+    plan: spec.plan, instruction, persona, targetSeconds: spec.targetSeconds, captions: spec.captions !== false, style, packEntries,
   });
 
   const newVoice = spokenTextChanged(spec.plan, plan);
   onStep(newVoice ? 'voice' : 'voice-reused');
   const voice = newVoice
     ? await synthesizePlanVoice(plan, spec.voiceId)
-    : { audio: await readFacelessVoice(spec.voiceUrl), words: spec.words };
+    : { audio: await readVoice(spec.voiceUrl), words: spec.words };
 
   onStep('render');
-  const { video, duration } = await renderFacelessFromPlan(plan, voice);
-  return { video, plan, voice, newVoice, duration };
+  const { video, duration } = await renderFacelessFromPlan(plan, voice, { style, packEntries });
+  return { video, plan, voice, newVoice, duration, style, packEntries };
 }
 
-async function finalizeFaceless(prisma, contentId, { video, plan, voice, voiceUrl, duration, base }) {
+async function finalizeFaceless(prisma, contentId, { video, plan, voice, voiceUrl, duration, style, packEntries, base }) {
   const videoUrl = await saveGeneratedVideoBuffer(video, 'video_faceless');
   const renderSpec = {
     ...base,
     kind: RENDER_SPEC_KIND,
-    specVersion: 1,
+    specVersion: 2,
     plan,
     voiceUrl,
     words: voice.words,
+    // DA et images d avatar du moment : une retouche garde exactement le meme style.
+    style: { ...style, avatar: { ...style.avatar, pack: null } },
+    packEntries,
   };
 
   console.log(`[faceless] contentId=${contentId} termine (${duration.toFixed(1)} s, ${plan.scenes.length} scenes)`);
@@ -197,23 +194,25 @@ function inBackground(prisma, contentId, previousStatus, task) {
 const logStep = (contentId) => (step) => console.log(`[faceless] contentId=${contentId} etape=${step}`);
 
 /** Lance la generation en tache de fond ; la requete HTTP repond tout de suite. */
-export function runFacelessVideoJob({ prisma, contentId, idea, persona, targetSeconds, captions, voiceId, previousStatus }) {
+export function runFacelessVideoJob({ prisma, contentId, idea, persona, targetSeconds, captions, voiceId, style, previousStatus }) {
   return inBackground(prisma, contentId, previousStatus, async () => {
-    const result = await produceFacelessVideo({ idea, persona, targetSeconds, captions, voiceId, onStep: logStep(contentId) });
-    const voiceUrl = await saveFacelessVoice(result.voice.audio);
+    const result = await produceFacelessVideo({ idea, persona, targetSeconds, captions, voiceId, style, onStep: logStep(contentId) });
+    const voiceUrl = await saveFacelessMedia(result.voice.audio, { folder: 'generated', extension: 'mp3', contentType: 'audio/mpeg' });
     await finalizeFaceless(prisma, contentId, {
       ...result,
       voiceUrl,
-      base: { idea, voiceId, targetSeconds, captions, personaId: persona?.id || null },
+      base: { idea, voiceId: voiceId || result.style.voiceId, targetSeconds, captions, personaId: persona?.id || null },
     });
   });
 }
 
 /** Lance une retouche en tache de fond a partir du renderSpec de la version active. */
-export function runFacelessRetouchJob({ prisma, contentId, spec, instruction, persona, previousStatus }) {
+export function runFacelessRetouchJob({ prisma, contentId, spec, instruction, persona, rememberRule = false, previousStatus }) {
   return inBackground(prisma, contentId, previousStatus, async () => {
-    const result = await retouchFacelessVideo({ spec, instruction, persona, onStep: logStep(contentId) });
-    const voiceUrl = result.newVoice ? await saveFacelessVoice(result.voice.audio) : spec.voiceUrl;
+    const result = await retouchFacelessVideo({ spec, instruction, persona, rememberRule, onStep: logStep(contentId) });
+    const voiceUrl = result.newVoice
+      ? await saveFacelessMedia(result.voice.audio, { folder: 'generated', extension: 'mp3', contentType: 'audio/mpeg' })
+      : spec.voiceUrl;
     await finalizeFaceless(prisma, contentId, {
       ...result,
       voiceUrl,

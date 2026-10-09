@@ -8,6 +8,15 @@ import { FACELESS_ASSET_ORIGIN } from './facelessTemplate.js';
 
 const execFileAsync = promisify(execFile);
 
+// Un rendu occupe Chromium et le processeur ~1 a 3 min : un seul a la fois
+// (apercus de DA compris, pour ne jamais saturer le serveur).
+let renderQueue = Promise.resolve();
+export function enqueueRender(task) {
+  const run = renderQueue.then(task, task);
+  renderQueue = run.catch(() => {});
+  return run;
+}
+
 const ASSET_TYPES = { '.ttf': 'font/ttf', '.otf': 'font/otf', '.woff2': 'font/woff2', '.png': 'image/png', '.svg': 'image/svg+xml' };
 
 /** Dossier des fichiers du theme (polices...). FACELESS_ASSETS_DIR le remplace. */
@@ -28,8 +37,24 @@ export function facelessAssetPath(url, baseDir = resolveFacelessAssetsDir()) {
   return file.startsWith(baseDir + sep) ? file : null;
 }
 
-async function serveFacelessAsset(route) {
-  const file = facelessAssetPath(route.request().url());
+/**
+ * Sert les fichiers du theme : d abord les images fournies en memoire
+ * (`assets` : { "/avatar/happy.png": Buffer }), puis le dossier resources/faceless.
+ */
+async function serveFacelessAsset(route, assets) {
+  const url = route.request().url();
+  let pathname = '';
+  try {
+    pathname = decodeURIComponent(new URL(url).pathname);
+  } catch {
+    return route.abort();
+  }
+  const inMemory = assets?.get(pathname);
+  if (inMemory) {
+    return route.fulfill({ status: 200, body: inMemory, contentType: ASSET_TYPES[extname(pathname).toLowerCase()] || 'application/octet-stream' });
+  }
+
+  const file = facelessAssetPath(url);
   if (!file) return route.abort();
   try {
     const body = await readFile(file);
@@ -91,7 +116,7 @@ export async function mixFacelessAudio(tracks, duration, outputPath) {
  * Capture la page image par image (Chromium sans tete via Playwright) et
  * encode en MP4 avec la piste audio deja mixee.
  */
-export async function renderFacelessVideo({ html, timeline, audioRawPath, outputPath, onProgress } = {}) {
+export async function renderFacelessVideo({ html, timeline, audioRawPath, outputPath, onProgress, assets } = {}) {
   const { chromium } = await import('playwright');
   const { ffmpegPath } = resolveFfmpegPaths();
   const { width, height, fps, duration } = timeline;
@@ -117,7 +142,7 @@ export async function renderFacelessVideo({ html, timeline, audioRawPath, output
   const browser = await chromium.launch({ headless: true });
   try {
     const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
-    await page.route(`${FACELESS_ASSET_ORIGIN}/**`, (route) => serveFacelessAsset(route));
+    await page.route(`${FACELESS_ASSET_ORIGIN}/**`, (route) => serveFacelessAsset(route, assets));
     await page.setContent(html, { waitUntil: 'load' });
     await page.evaluate(() => window.__ready);
 
@@ -134,4 +159,29 @@ export async function renderFacelessVideo({ html, timeline, audioRawPath, output
 
   await finished;
   return outputPath;
+}
+
+/**
+ * Apercu : quelques images fixes de la page, a des instants donnes (secondes).
+ * `scale` reduit la taille de sortie (0,3 = 324 x 576). Renvoie des PNG.
+ */
+export async function renderFacelessStills({ html, times, assets, scale = 0.3 } = {}) {
+  const { chromium } = await import('playwright');
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1080, height: 1920 }, deviceScaleFactor: 1 });
+    await page.route(`${FACELESS_ASSET_ORIGIN}/**`, (route) => serveFacelessAsset(route, assets));
+    await page.setContent(html, { waitUntil: 'load' });
+    await page.evaluate(() => window.__ready);
+
+    const stills = [];
+    for (const t of times) {
+      await page.evaluate((time) => window.__seek(time), t);
+      const full = await page.screenshot({ type: 'png' });
+      stills.push({ time: t, png: full });
+    }
+    return { stills, scale };
+  } finally {
+    await browser.close();
+  }
 }

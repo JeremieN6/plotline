@@ -9,6 +9,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 import { AVATAR_EXPRESSIONS } from './facelessAvatar.js';
+import { describeStyleForPrompt, normalizeFacelessStyle } from './facelessStyle.js';
+import { findCatalogEntry } from '../data/facelessAvatarCatalog.js';
 import { countSpokenTokens } from './facelessTimeline.js';
 import { FACELESS_LAYOUTS, FACELESS_POSES, FACELESS_SFX } from '../data/facelessCatalog.js';
 
@@ -58,15 +60,40 @@ export function describeFacelessPersona(persona) {
   ].filter(Boolean).join('\n');
 }
 
-export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = null, captions = true } = {}) {
+/** Pur : bloc de consignes sur l avatar, selon qu il s agit d images du pack ou du dessin. */
+function avatarPromptLines(packEntries) {
+  const ids = Object.keys(packEntries || {});
+  if (ids.length) {
+    const lines = ids.map((id) => {
+      const entry = findCatalogEntry(id);
+      return '  - ' + id + ' : ' + (entry?.label || id) + ' (' + (packEntries[id].mode === 'body' ? 'buste' : 'tête seule') + ')';
+    });
+    return [
+      '- "avatar" : { "beats": [{ "at": 0, "expr": "<id>", "flip": false }, ...] } avec UNIQUEMENT ces images d avatar (un id = une image) :',
+      ...lines,
+      '  Choisis l image qui correspond à ce qui est dit (tête seule pour une simple réaction, buste quand le geste compte). 1 à 3 beats par scène ; le 1er à "at": 0 ; un beat suivant change d image SUR UN MOT ("at": "mot exact de say"). "flip": true retourne l avatar (varie de temps en temps).',
+    ];
+  }
+  const expressions = Object.keys(AVATAR_EXPRESSIONS).filter((e) => e !== 'blink');
+  return [
+    '- "avatar" : { "mode": "head"|"body", "pose": ' + FACELESS_POSES.map((p) => '"' + p + '"').join('|') + ', "beats": [{ "at": 0, "expr": "...", "flip": false }, ...] }',
+    '  expressions possibles : ' + expressions.join(', ') + '. 1 a 2 beats par scene ; le 1er a "at": 0 ; un beat suivant change d expression SUR UN MOT ("at": "mot exact de say").',
+    '  L expression suit l emotion de la phrase. "flip": true retourne l avatar (varie de temps en temps).',
+  ];
+}
+
+export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = null, captions = true, style = null, packEntries = null } = {}) {
   const words = Math.round(targetSeconds * WORDS_PER_SECOND);
   const personaText = describeFacelessPersona(persona);
-  const expressions = Object.keys(AVATAR_EXPRESSIONS).filter((e) => e !== 'blink');
+  const da = style || normalizeFacelessStyle({});
 
   return [
     'Tu es scenariste et monteur de videos verticales "faceless" (TikTok, Reels) pour Plotline.',
-    'La video : une voix off raconte, un petit avatar dessine (style chibi) reagit avec des expressions,',
-    'et des cartes de papier (style papercraft pastel) affichent les mots cles. Aucun visage filme.',
+    'La video : une voix off raconte, un avatar illustre reagit avec des expressions,',
+    'et des cartes affichent les mots cles dans la direction artistique ci-dessous. Aucun visage filme.',
+    '',
+    'DIRECTION ARTISTIQUE (a respecter)',
+    describeStyleForPrompt(da),
     '',
     'SCRIPT',
     `- En francais, environ ${words} mots au total (video d environ ${targetSeconds} s).`,
@@ -83,9 +110,8 @@ export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = nu
     '- Varie les mises en page, jamais deux fois la meme d affilee sauf "title" pour des chapitres numerotes.',
     '- Le texte a l ecran RESUME, il ne recopie pas la phrase : 2 a 8 mots par carte. Entoure 1 mot cle de **double asterisques** pour le surligner.',
     '- "emoji" : UN seul emoji pertinent, ou rien. Jamais d emoji dans text, title, word ou items.text (il a deja sa place).',
-    `- "avatar" : { "mode": "head"|"body", "pose": ${FACELESS_POSES.map((p) => `"${p}"`).join('|')}, "beats": [{ "at": 0, "expr": "...", "flip": false }, ...] }`,
-    `  expressions possibles : ${expressions.join(', ')}. 1 a 2 beats par scene ; le 1er a "at": 0 ; un beat suivant change d expression SUR UN MOT ("at": "mot exact de say").`,
-    '  L expression suit l emotion de la phrase. "flip": true retourne l avatar (varie de temps en temps).',
+    ...avatarPromptLines(packEntries),
+    '- "bg" : le fond de la scene, "main" (fond principal), "alt" (fond secondaire) ou "dark" (fond sombre). Varie les fonds toutes les 2 ou 3 scenes (jamais plus de 2 scenes "dark" d affilee).',
     '- "items" (layout list) : "at" = un mot EXACT du "say" de la scene, dans l ordre ou il est dit.',
     `- "sfx" : 0 a 2 bruitages par scene, [{ "name": ..., "at": 0 ou "mot exact" }]. Pas de musique de fond. Noms autorises :`,
     ...Object.entries(FACELESS_SFX).map(([name, desc]) => `  - ${name} : ${desc}`),
@@ -94,7 +120,7 @@ export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = nu
       : '- "captions": false partout (pas de sous-titres).',
     '',
     'Reponds uniquement avec un objet JSON brut, sans markdown ni commentaire. Forme exacte :',
-    '{"title": string, "caption": string (legende du post, 1 a 3 phrases), "hashtags": [string], "scenes": [{"say": string, "layout": string, "text"?: string, "title"?: string, "number"?: string, "word"?: string, "emoji"?: string, "items"?: [{"emoji": string, "text": string, "at": string}], "avatar": {...}, "sfx": [...], "captions": boolean}]}',
+    '{"title": string, "caption": string (legende du post, 1 a 3 phrases), "hashtags": [string], "scenes": [{"say": string, "layout": string, "text"?: string, "title"?: string, "number"?: string, "word"?: string, "emoji"?: string, "items"?: [{"emoji": string, "text": string, "at": string}], "bg": string, "avatar": {...}, "sfx": [...], "captions": boolean}]}',
   ].join('\n');
 }
 
@@ -108,7 +134,18 @@ function sanitizeCue(at) {
   return text || 0;
 }
 
-function sanitizeAvatar(avatar, layout) {
+function sanitizeAvatar(avatar, layout, packIds = []) {
+  // Images du pack : seuls les id disponibles sont acceptes (repli : la premiere tete).
+  if (packIds.length) {
+    const fallback = packIds.find((id) => findCatalogEntry(id)?.mode === 'head') || packIds[0];
+    const packBeats = (Array.isArray(avatar?.beats) ? avatar.beats : []).slice(0, 3).map((beat, i) => ({
+      at: i === 0 ? 0 : sanitizeCue(beat?.at),
+      expr: packIds.includes(beat?.expr) ? beat.expr : fallback,
+      flip: beat?.flip === true,
+    }));
+    return { beats: packBeats.length ? packBeats : [{ at: 0, expr: fallback, flip: false }] };
+  }
+
   const beats = (Array.isArray(avatar?.beats) ? avatar.beats : [])
     .slice(0, 3)
     .map((beat, i) => ({
@@ -124,7 +161,7 @@ function sanitizeAvatar(avatar, layout) {
 }
 
 /** Pur : nettoie une scene ; renvoie null si elle n a rien a dire. */
-export function sanitizeFacelessScene(raw, { captions = true } = {}) {
+export function sanitizeFacelessScene(raw, { captions = true, packIds = [] } = {}) {
   const say = clip(raw?.say, 320);
   if (!say) return null;
 
@@ -150,25 +187,26 @@ export function sanitizeFacelessScene(raw, { captions = true } = {}) {
   const incomplete = (layout === 'hook' && !scene.text)
     || (layout === 'title' && !scene.title)
     || (layout === 'list' && scene.items.length < 2)
-    || (layout === 'word' && !scene.word);
+    || ((layout === 'word' || layout === 'logo') && !scene.word);
   if (incomplete) {
     layout = 'avatar';
     scene.layout = layout;
     scene.text = scene.text || scene.title || scene.word;
   }
 
-  scene.avatar = sanitizeAvatar(raw?.avatar, layout);
+  scene.avatar = sanitizeAvatar(raw?.avatar, layout, packIds);
+  scene.bg = ['main', 'alt', 'dark'].includes(raw?.bg) ? raw.bg : 'main';
   scene.captions = scene.captions && CAPTION_LAYOUTS.has(layout);
   return scene;
 }
 
 /** Pur : plan complet nettoye. Leve une erreur si moins de 2 scenes exploitables. */
-export function sanitizeFacelessPlan(raw, { captions = true } = {}) {
+export function sanitizeFacelessPlan(raw, { captions = true, packIds = [] } = {}) {
   const scenes = [];
   let spokenChars = 0;
 
   for (const candidate of (Array.isArray(raw?.scenes) ? raw.scenes : []).slice(0, MAX_SCENES)) {
-    const scene = sanitizeFacelessScene(candidate, { captions });
+    const scene = sanitizeFacelessScene(candidate, { captions, packIds });
     if (!scene) continue;
     if (spokenChars + scene.say.length > MAX_SPOKEN_CHARS) break;
     // Une scene sans aucun mot (ponctuation seule) casserait la repartition des mots.
@@ -200,7 +238,7 @@ export function parseFacelessPlanResponse(rawText) {
   return JSON.parse(text.slice(start, end + 1));
 }
 
-async function askClaudeForPlan({ system, userContent, captions, apiKey, createMessage }) {
+async function askClaudeForPlan({ system, userContent, captions, packIds, apiKey, createMessage }) {
   const key = String(apiKey || process.env.ANTHROPIC_API_KEY || '').trim();
   if (!createMessage && !key) throw new Error('ANTHROPIC_API_KEY non configuree');
 
@@ -213,15 +251,16 @@ async function askClaudeForPlan({ system, userContent, captions, apiKey, createM
   const response = await (createMessage ? createMessage(request) : new Anthropic({ apiKey: key }).messages.create(request));
   const text = (response?.content || []).filter((b) => b?.type === 'text').map((b) => b.text).join('\n');
 
-  return sanitizeFacelessPlan(parseFacelessPlanResponse(text), { captions });
+  return sanitizeFacelessPlan(parseFacelessPlanResponse(text), { captions, packIds });
 }
 
 /** Appel Claude. `createMessage` est injectable (tests). */
-export async function generateFacelessPlan({ idea, persona, targetSeconds, captions = true, apiKey, createMessage } = {}) {
+export async function generateFacelessPlan({ idea, persona, targetSeconds, captions = true, style = null, packEntries = null, apiKey, createMessage } = {}) {
   return askClaudeForPlan({
-    system: buildFacelessPlanSystemPrompt({ targetSeconds: normalizeFacelessDuration(targetSeconds), persona, captions }),
+    system: buildFacelessPlanSystemPrompt({ targetSeconds: normalizeFacelessDuration(targetSeconds), persona, captions, style, packEntries }),
     userContent: buildFacelessPlanUserPrompt(idea),
     captions,
+    packIds: Object.keys(packEntries || {}),
     apiKey,
     createMessage,
   });
@@ -231,13 +270,14 @@ export async function generateFacelessPlan({ idea, persona, targetSeconds, capti
 
 /** Pur : le plan tel qu on le montre a Claude (sans champs internes vides). */
 export function planForEditing(plan) {
-  const compact = (value) => (Array.isArray(value) ? value.length > 0 : value !== '' && value != null && value !== false);
+  // Le fond principal est la valeur par defaut : inutile de l afficher a Claude.
+  const compact = (value) => (Array.isArray(value) ? value.length > 0 : value !== '' && value != null && value !== false && value !== 'main');
   return {
     title: plan?.title || '',
     caption: plan?.caption || '',
     hashtags: plan?.hashtags || [],
     scenes: (plan?.scenes || []).map((scene) => Object.fromEntries(
-      ['say', 'layout', 'text', 'title', 'number', 'word', 'emoji', 'items', 'avatar', 'sfx', 'captions']
+      ['say', 'layout', 'text', 'title', 'number', 'word', 'emoji', 'items', 'bg', 'avatar', 'sfx', 'captions']
         .filter((key) => key === 'say' || key === 'layout' || key === 'avatar' || compact(scene[key]))
         .map((key) => [key, scene[key]]),
     )),
@@ -255,9 +295,9 @@ export function spokenTextChanged(previousPlan, nextPlan) {
   return spoken(previousPlan) !== spoken(nextPlan);
 }
 
-export function buildFacelessRetouchSystemPrompt({ targetSeconds = 30, persona = null, captions = true } = {}) {
+export function buildFacelessRetouchSystemPrompt({ targetSeconds = 30, persona = null, captions = true, style = null, packEntries = null } = {}) {
   return [
-    buildFacelessPlanSystemPrompt({ targetSeconds, persona, captions }),
+    buildFacelessPlanSystemPrompt({ targetSeconds, persona, captions, style, packEntries }),
     '',
     'RETOUCHE',
     'Tu ne crees pas une nouvelle video : tu RETOUCHES un plan existant selon la consigne de l utilisateur.',
@@ -280,12 +320,13 @@ export function buildFacelessRetouchUserPrompt(plan, instruction) {
 }
 
 /** Retouche d un plan par Claude. `createMessage` est injectable (tests). */
-export async function retouchFacelessPlan({ plan, instruction, persona, targetSeconds, captions = true, apiKey, createMessage } = {}) {
+export async function retouchFacelessPlan({ plan, instruction, persona, targetSeconds, captions = true, style = null, packEntries = null, apiKey, createMessage } = {}) {
   if (!String(instruction || '').trim()) throw new Error('Consigne de retouche vide');
   return askClaudeForPlan({
-    system: buildFacelessRetouchSystemPrompt({ targetSeconds: normalizeFacelessDuration(targetSeconds), persona, captions }),
+    system: buildFacelessRetouchSystemPrompt({ targetSeconds: normalizeFacelessDuration(targetSeconds), persona, captions, style, packEntries }),
     userContent: buildFacelessRetouchUserPrompt(plan, instruction),
     captions,
+    packIds: Object.keys(packEntries || {}),
     apiKey,
     createMessage,
   });
