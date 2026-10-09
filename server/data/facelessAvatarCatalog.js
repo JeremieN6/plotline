@@ -8,7 +8,7 @@
 export const AVATAR_PACK_CATALOG = [
   // Tetes seules
   { id: 'neutral', mode: 'head', label: 'Neutre', prompt: 'calm neutral expression, slight closed-mouth smile' },
-  { id: 'happy', mode: 'head', label: 'Content', prompt: 'big happy smile, eyes closed in joy, small sparkles around' },
+  { id: 'happy', mode: 'head', label: 'Content', prompt: 'big happy smile, eyes closed in joy' },
   { id: 'laugh', mode: 'head', label: 'Éclat de rire', prompt: 'laughing out loud, open mouth, eyes squeezed shut, blushing cheeks' },
   { id: 'wink', mode: 'head', label: 'Clin d\'œil', prompt: 'playful wink with one eye, tongue slightly out' },
   { id: 'cat-eyes', mode: 'head', label: 'Yeux de chat', prompt: 'eyes closed shaped like a sideways V (cat eyes, rotated 90 degrees), cute smug smile' },

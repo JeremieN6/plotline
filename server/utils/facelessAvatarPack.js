@@ -16,7 +16,8 @@ const GREEN_RULES = 'Flat solid pure green background (#00FF00), no shadow, no f
 /** Pur : consigne de l image de base (a partir de la fiche de reference de la persona). */
 export function buildBaseAvatarPrompt(avatarPrompt) {
   return [
-    'Create ONE stylized avatar character based on the person in the attached reference image: keep the recognizable features (hair, face shape, skin tone, glasses, piercings, signature accessories).',
+    'Create ONE stylized avatar character based on the person in the attached reference image: keep the recognizable features that are VISIBLE in it (hair, face shape, skin tone, piercings, jewelry).',
+    'Do NOT add anything that is not in the reference: no glasses, no hat, no extra accessories.',
     `Art direction: ${avatarPrompt || 'chibi sticker style, big head, flat colors, clean outline'}.`,
     'Show the character from the head to the waist, facing the camera, friendly neutral expression, simple everyday outfit.',
     GREEN_RULES,

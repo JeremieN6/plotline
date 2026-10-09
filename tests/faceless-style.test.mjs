@@ -471,3 +471,30 @@ test('generateFacelessStyle : voix par defaut selon le genre de la persona', asy
   const female = await generateFacelessStyle({ description: 'sobre', persona: { gender: 'FEMALE' }, createMessage });
   assert.equal(female.voiceId, 'cgSgspJ2msm6clMCkdW9');
 });
+
+test('modeles de DA : 7 au total, chacun complet et normalisable sans perte', async () => {
+  const { FACELESS_PRESETS } = await import('../server/data/facelessThemes.js');
+  const keys = Object.keys(FACELESS_PRESETS);
+  assert.deepEqual(keys, ['papercraft-pastel', 'brutalisme', 'cahier-ecolier', 'neon-nuit', 'kraft-carnet', 'luxe-minimal', 'pop-jaune']);
+  for (const key of keys) {
+    const base = FACELESS_PRESETS[key].style;
+    assert.equal(base.preset, key);
+    const style = normalizeFacelessStyle({ ...base });
+    assert.equal(style.name, base.name);
+    assert.equal(style.font, base.font);
+    assert.equal(style.card, base.card);
+    assert.equal(style.background, base.background);
+    assert.deepEqual(style.palette, base.palette);
+    assert.deepEqual(style.enters, base.enters);
+    assert.equal(defaultFacelessStyle(key, 'MALE').preset, key);
+  }
+});
+
+test('prompt de base : ne rien ajouter qui ne soit pas sur la reference', () => {
+  const prompt = buildBaseAvatarPrompt('chibi');
+  assert.match(prompt, /VISIBLE/);
+  assert.match(prompt, /Do NOT add anything/);
+  assert.match(prompt, /no glasses/);
+  assert.ok(!prompt.includes('skin tone, glasses'));
+  assert.ok(!findCatalogEntry('happy').prompt.includes('sparkles'));
+});
