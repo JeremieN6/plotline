@@ -30,6 +30,18 @@ const HEX = /^#[0-9a-f]{6}$/i;
 const pick = (value, allowed, fallback) => (Object.hasOwn(allowed, value) ? value : fallback);
 const text = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 
+/**
+ * Pur : regles de montage en texte, une par ligne. Claude renvoie parfois une
+ * LISTE : on la met en lignes "- ..." au lieu de la coller avec des virgules.
+ */
+export function rulesText(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item ?? '').trim()).filter(Boolean).map((item) => (item.startsWith('-') ? item : `- ${item}`)).join('\n');
+  }
+  // Une liste "- a,- b" collee sur une seule ligne : on la redecoupe.
+  return String(value ?? '').replace(/,\s*(?=- )/g, '\n');
+}
+
 export function isHexColor(value) {
   return HEX.test(String(value || ''));
 }
@@ -122,7 +134,7 @@ export function normalizeFacelessStyle(raw, { keepPack = false } = {}) {
       style: pick(caps.style, FACELESS_CAPTION_STYLES, base.captions.style),
     },
     density: pick(input.density, FACELESS_DENSITIES, base.density),
-    rules: String(input.rules ?? base.rules ?? '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, MAX_RULES),
+    rules: rulesText(input.rules ?? base.rules ?? '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, MAX_RULES),
     avatarPrompt: text(input.avatarPrompt ?? base.avatarPrompt, MAX_AVATAR_PROMPT),
     voiceId: findFacelessVoice(String(input.voiceId || '')) ? String(input.voiceId) : DEFAULT_FACELESS_VOICE_ID,
     avatar: {

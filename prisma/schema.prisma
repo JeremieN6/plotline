@@ -197,6 +197,9 @@ model Profile {
   postsPerWeek         Int                @default(3)
   formatRotation       String             @default("FEED,STORY,REEL")
   publishHour          Int                @default(18)
+  /// Video faceless : direction artistique (DA) de la persona + pack d avatars.
+  /// Forme et validation : server/utils/facelessStyle.js. NULL = DA par defaut.
+  facelessStyle        Json?
   createdAt            DateTime           @default(now())
 
   user                 User               @relation(fields: [userId], references: [id])

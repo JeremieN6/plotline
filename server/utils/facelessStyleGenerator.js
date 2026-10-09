@@ -13,7 +13,7 @@ import {
   FACELESS_PRESETS,
 } from '../data/facelessThemes.js';
 import { describeFacelessPersona } from './facelessPlanGenerator.js';
-import { normalizeFacelessStyle } from './facelessStyle.js';
+import { defaultVoiceFor, normalizeFacelessStyle } from './facelessStyle.js';
 
 /**
  * "Generer ma DA" : Claude traduit une description libre ("brutaliste, orange
@@ -96,7 +96,7 @@ export async function generateFacelessStyle({ description, current = null, perso
   // Ce que Claude ne remplit pas reste tel que la DA actuelle (ou le preset choisi).
   const merged = current ? { ...current, ...raw, palette: { ...current.palette, ...(raw.palette || {}) } } : raw;
   const style = normalizeFacelessStyle(merged);
-  // La voix n est pas decidee par Claude : on garde celle de la DA actuelle.
-  if (current?.voiceId) style.voiceId = current.voiceId;
+  // La voix n est pas decidee par Claude : celle de la DA actuelle, sinon celle qui va au genre de la persona.
+  style.voiceId = current?.voiceId || defaultVoiceFor(persona?.gender === 'MALE' ? 'MALE' : 'FEMALE');
   return style;
 }

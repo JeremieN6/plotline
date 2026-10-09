@@ -454,3 +454,20 @@ test('readableTextOn : texte sombre sur un accent clair, blanc sur un accent fon
   assert.equal(readableTextOn('#1a1a1a'), '#ffffff');
   assert.equal(readableTextOn('n importe quoi'), '#ffffff');
 });
+
+test('regles de montage : une liste de Claude devient une ligne par regle', () => {
+  const fromArray = normalizeFacelessStyle({ rules: ['Pas d emoji', '- Rythme sec'] });
+  assert.equal(fromArray.rules, '- Pas d emoji\n- Rythme sec');
+  const glued = normalizeFacelessStyle({ rules: '- Une regle,- Une autre,- Une troisieme' });
+  assert.equal(glued.rules, '- Une regle\n- Une autre\n- Une troisieme');
+  assert.equal(normalizeFacelessStyle({ rules: 'Une phrase, avec une virgule.' }).rules, 'Une phrase, avec une virgule.');
+});
+
+test('generateFacelessStyle : voix par defaut selon le genre de la persona', async () => {
+  const createMessage = async () => ({ content: [{ type: 'text', text: JSON.stringify({ name: 'X', rules: ['a', 'b'] }) }] });
+  const male = await generateFacelessStyle({ description: 'sobre', persona: { gender: 'MALE' }, createMessage });
+  assert.equal(male.voiceId, 'bIHbv24MWmeRgasZH58o');
+  assert.equal(male.rules, '- a\n- b');
+  const female = await generateFacelessStyle({ description: 'sobre', persona: { gender: 'FEMALE' }, createMessage });
+  assert.equal(female.voiceId, 'cgSgspJ2msm6clMCkdW9');
+});
