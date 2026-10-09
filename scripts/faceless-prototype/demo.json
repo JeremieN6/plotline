@@ -1,0 +1,67 @@
+{
+  "theme": "papercraft-pastel",
+  "scenes": [
+    {
+      "say": "Trois business que tu peux lancer ce soir, avec zéro euro.",
+      "layout": "hook",
+      "text": "3 business à lancer **ce soir**\navec 0 €",
+      "emoji": "💸",
+      "avatar": { "beats": [{ "at": 0, "expr": "surprised" }, { "at": "zéro", "expr": "happy", "flip": true }] },
+      "sfx": [{ "name": "paper/paper-cutout-place", "at": 0 }, { "name": "girly/sparkle-twinkle", "at": "zéro" }]
+    },
+    {
+      "say": "Un : l'affiliation. Tu recommandes un produit, et tu touches une commission.",
+      "layout": "title",
+      "number": "1",
+      "title": "L'**affiliation**",
+      "text": "Tu recommandes,\ntu touches une **commission**.",
+      "emoji": "🔗",
+      "avatar": { "beats": [{ "at": 0, "expr": "neutral" }, { "at": "recommandes", "expr": "wink", "flip": true }] },
+      "sfx": [{ "name": "paper/paper-slide", "at": 0 }, { "name": "girly/coin-spin", "at": "commission" }]
+    },
+    {
+      "say": "Il te faut un lien en bio, du contenu autour, et chaque vente te rapporte.",
+      "layout": "list",
+      "title": "Le **combo**",
+      "items": [
+        { "emoji": "📌", "text": "Un lien en bio", "at": "lien" },
+        { "emoji": "🎥", "text": "Du contenu", "at": "contenu" },
+        { "emoji": "💰", "text": "Des commissions", "at": "vente" }
+      ],
+      "avatar": { "beats": [{ "at": 0, "expr": "thinking" }, { "at": "vente", "expr": "cat" }] },
+      "sfx": [
+        { "name": "paper/sticker-peel", "at": "lien" },
+        { "name": "paper/sticker-peel", "at": "contenu" },
+        { "name": "girly/cash-cute", "at": "vente" }
+      ]
+    },
+    {
+      "say": "Deux : le produit digital. Un guide, un template, ou un mini e-book sur un truc que tu maîtrises.",
+      "layout": "title",
+      "number": "2",
+      "title": "Produit **digital**",
+      "text": "Un guide, un template,\nun mini e-book…",
+      "emoji": "📒",
+      "avatar": { "beats": [{ "at": 0, "expr": "thinking", "flip": true }, { "at": "maîtrises", "expr": "happy" }] },
+      "sfx": [{ "name": "paper/paper-flip", "at": 0 }, { "name": "girly/chime-ding-soft", "at": "maîtrises" }]
+    },
+    {
+      "say": "Trois : la communauté. Pas une formation, un club. Les gens paient pour être ensemble.",
+      "layout": "title",
+      "number": "3",
+      "title": "La **communauté**",
+      "text": "Pas une formation :\nun **club**.",
+      "emoji": "💌",
+      "avatar": { "beats": [{ "at": 0, "expr": "smug" }, { "at": "club", "expr": "love" }] },
+      "sfx": [{ "name": "paper/paper-slide", "at": 0 }, { "name": "girly/heart-boop", "at": "club" }]
+    },
+    {
+      "say": "Abonne-toi, je te montre comment je lance les trois.",
+      "layout": "avatar",
+      "text": "Abonne-toi ✨",
+      "captions": true,
+      "avatar": { "pose": "wave", "beats": [{ "at": 0, "expr": "happy" }, { "at": "trois", "expr": "wink", "flip": true }] },
+      "sfx": [{ "name": "girly/kawaii-pop", "at": 0 }, { "name": "girly/sparkle-wand", "at": "trois" }]
+    }
+  ]
+}

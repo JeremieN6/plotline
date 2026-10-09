@@ -1,7 +1,8 @@
 import { createGeneratedContentRecord } from '../generate/video.post.js';
 import { resolveVideoModelOrThrow, runVideoGenerationJob } from '../../utils/videoGeneration.js';
+import { normalizeBrollCount } from '../../utils/brollGeneration.js';
 
-const DEFAULT_SCENE_PROMPT = 'A person speaking directly to the camera in a tidy, softly lit home office, natural daylight, relaxed and authentic atmosphere';
+import { normalizeArtDirectionId, resolveExternalScene } from '../../utils/artDirections.js';
 
 let prismaClient;
 
@@ -43,9 +44,15 @@ export default defineEventHandler(async (event) => {
   // dossier de rangement, jamais la personne a l ecran (withFaceRef: false plus
   // bas). `influencerId` reste accepte: c est l ancien nom du parametre, encore
   // envoye par les versions de sassify deja deployees.
+  // Direction artistique optionnelle (voir server/data/artDirections.js) : sans
+  // elle, le decor du pilier puis la scene par defaut s appliquent comme avant.
+  const artDirectionRaw = String(body?.artDirection || '').trim();
+  const artDirection = artDirectionRaw ? normalizeArtDirectionId(artDirectionRaw) : null;
   const profileId = String(body?.profileId || body?.influencerId || '').trim();
   const decorPrompt = String(body?.decorPrompt || '').trim();
   const scriptText = String(body?.scriptText || '').trim();
+  // Plans de coupe (images B-roll posees par ffmpeg, payantes) : jamais actifs sans demande explicite.
+  const brollCount = normalizeBrollCount(body?.brollCount);
   const slug = String(body?.slug || '').trim();
   const sourceProject = String(body?.sourceProject || '').trim();
 
@@ -56,6 +63,12 @@ export default defineEventHandler(async (event) => {
   if (!scriptText) {
     return sendError(event, createError({ statusCode: 400, statusMessage: 'scriptText requis' }));
   }
+
+  if (artDirectionRaw && !artDirection) {
+    return sendError(event, createError({ statusCode: 400, statusMessage: 'artDirection inconnue' }));
+  }
+
+  const sceneText = resolveExternalScene({ artDirection, decorPrompt });
 
   const influencer = await prisma.profile.findUnique({
     where: { id: profileId },
@@ -76,7 +89,7 @@ export default defineEventHandler(async (event) => {
   // continuite visuelle importe), on laisse desormais le modele inventer un
   // personnage librement : resultat plus propre, moins cher, deja valide par
   // le tout premier test de cette integration.
-  const prompt = [decorPrompt, scriptText].filter(Boolean).join('. ');
+  const prompt = [artDirection ? sceneText : decorPrompt, scriptText].filter(Boolean).join('. ');
 
   let model;
   try {
@@ -126,8 +139,9 @@ export default defineEventHandler(async (event) => {
       // Jamais le script en repli : sans decor, le script entier se retrouvait
       // dans la description de scene ET dans les repliques, et le modele en
       // reprenait des phrases hors de leur segment.
-      scenePrompt: decorPrompt || DEFAULT_SCENE_PROMPT,
+      scenePrompt: sceneText,
       dialogueText: scriptText,
+      brollCount,
     });
 
     return { contentId, ...result };

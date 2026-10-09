@@ -81,8 +81,12 @@ async function collectReferencedMedia(prisma) {
   contents.forEach((row) => remember(row.imageUrl));
 
   try {
-    const versions = await prisma.contentVersion.findMany({ select: { imageUrl: true } });
-    versions.forEach((row) => remember(row.imageUrl));
+    const versions = await prisma.contentVersion.findMany({ select: { imageUrl: true, renderSpec: true } });
+    versions.forEach((row) => {
+      remember(row.imageUrl);
+      // Voix d une video faceless (reutilisee par ses retouches).
+      remember(row.renderSpec?.voiceUrl);
+    });
   } catch (error) {
     console.warn('[avertissement] versions illisibles, elles seront ignorees:', error?.message);
   }
@@ -149,6 +153,8 @@ async function scanBlobFiles(referencedUrls, referencedFilenames) {
       if (blob.pathname.startsWith('face-refs/')) continue;
       // Meme regle pour la bibliotheque d assets (photos sources et fiches).
       if (blob.pathname.startsWith('reference-assets/')) continue;
+      // Dossiers faceless (pack d avatars, illustrations) : aussi gardes par les retouches de videos deja faites.
+      if (blob.pathname.startsWith('faceless-assets/') || blob.pathname.startsWith('faceless-avatars/')) continue;
       if (referencedUrls.has(blob.url) || (name && referencedFilenames.has(name))) continue;
 
       orphans.push({ name: blob.pathname, url: blob.url, size: blob.size || 0 });

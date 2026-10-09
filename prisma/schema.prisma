@@ -200,6 +200,9 @@ model Profile {
   /// Personnalite structuree (identite, histoire, voix, ligne editoriale, bios).
   /// Forme et validation : server/utils/personality.js. NULL = pas encore generee.
   personality          Json?
+  /// Video faceless : direction artistique (DA) de la persona + pack d avatars.
+  /// Forme et validation : server/utils/facelessStyle.js. NULL = DA par defaut.
+  facelessStyle        Json?
   createdAt            DateTime           @default(now())
 
   user                 User               @relation(fields: [userId], references: [id])
@@ -312,6 +315,8 @@ model ContentVersion {
   caption         String?
   prompt          String?
   generationModel String?
+  /// Video faceless : plan de montage + voix + temps des mots, pour la retouche.
+  renderSpec      Json?
   isActive        Boolean  @default(false)
   createdAt       DateTime @default(now())
 

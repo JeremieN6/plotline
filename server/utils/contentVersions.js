@@ -24,17 +24,26 @@ export function versionCapFor(format, imageUrl) {
  * arriere recopie l URL d une version dans GeneratedContent, les deux peuvent
  * donc pointer sur le meme fichier.
  */
-function collectSafelyDeletableUrls({ versionsToPurge, keptVersions, currentImageUrl }) {
+/**
+ * Medias d une version : son rendu, et pour une video faceless sa piste de voix
+ * (partagee entre versions tant que le texte dit ne change pas).
+ */
+export function versionMediaUrls(version) {
+  return [version?.imageUrl, version?.renderSpec?.voiceUrl]
+    .map((url) => String(url || '').trim())
+    .filter(Boolean);
+}
+
+export function collectSafelyDeletableUrls({ versionsToPurge, keptVersions, currentImageUrl }) {
   const stillReferenced = new Set(
     [
       String(currentImageUrl || '').trim(),
-      ...keptVersions.map((version) => String(version.imageUrl || '').trim()),
+      ...keptVersions.flatMap(versionMediaUrls),
     ].filter(Boolean),
   );
 
-  return versionsToPurge
-    .map((version) => String(version.imageUrl || '').trim())
-    .filter((url) => url && !stillReferenced.has(url));
+  return [...new Set(versionsToPurge.flatMap(versionMediaUrls))]
+    .filter((url) => !stillReferenced.has(url));
 }
 
 /**
@@ -47,6 +56,7 @@ export async function recordContentVersion(prisma, contentId, {
   prompt,
   generationModel,
   format,
+  renderSpec,
 } = {}) {
   const id = String(contentId || '').trim();
   if (!id) {
@@ -67,6 +77,8 @@ export async function recordContentVersion(prisma, contentId, {
           caption: caption || null,
           prompt: prompt || null,
           generationModel: generationModel || null,
+          // Seulement quand il existe : les autres generations n ecrivent rien de plus.
+          ...(renderSpec ? { renderSpec } : {}),
           isActive: true,
         },
         select: { id: true },
@@ -98,7 +110,7 @@ export async function recordContentVersion(prisma, contentId, {
  * Point de passage unique pour finaliser un rendu: met a jour l etat courant du
  * contenu puis archive ce rendu comme nouvelle version active.
  */
-export async function finalizeContentWithVersion(prisma, contentId, data, { generationModel } = {}) {
+export async function finalizeContentWithVersion(prisma, contentId, data, { generationModel, renderSpec } = {}) {
   const updated = await prisma.generatedContent.update({
     where: { id: contentId },
     data,
@@ -116,6 +128,7 @@ export async function finalizeContentWithVersion(prisma, contentId, data, { gene
     prompt: updated.prompt,
     format: updated.format,
     generationModel,
+    renderSpec,
   });
 
   return updated;
@@ -158,7 +171,7 @@ export async function purgeExcessVersions(prisma, contentId, { format, imageUrl 
   const versions = await prisma.contentVersion.findMany({
     where: { contentId },
     orderBy: { createdAt: 'desc' },
-    select: { id: true, imageUrl: true, isActive: true },
+    select: { id: true, imageUrl: true, isActive: true, renderSpec: true },
   });
 
   if (versions.length <= cap) {
@@ -207,9 +220,9 @@ export async function deleteAllContentMedia(prisma, contentId, currentImageUrl) 
   try {
     const versions = await prisma.contentVersion.findMany({
       where: { contentId },
-      select: { imageUrl: true },
+      select: { imageUrl: true, renderSpec: true },
     });
-    urls.push(...versions.map((version) => String(version.imageUrl || '').trim()).filter(Boolean));
+    urls.push(...versions.flatMap(versionMediaUrls));
   } catch (error) {
     console.warn('[content-versions] lecture des versions impossible avant suppression', {
       contentId,
@@ -217,5 +230,5 @@ export async function deleteAllContentMedia(prisma, contentId, currentImageUrl) 
     });
   }
 
-  return await deleteMediaUrls(urls);
+  return await deleteMediaUrls([...new Set(urls)]);
 }

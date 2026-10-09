@@ -335,6 +335,15 @@
               <p class="mt-2 text-sm font-bold text-[#111111]">{{ widget.nom }}</p>
               <p class="mt-1 text-xs text-[#888888]">{{ widget.typeGeneration.join(' / ') }}</p>
             </button>
+            <!-- Format a part : pas un widget de prompt, mais meme emplacement que les autres. -->
+            <NuxtLink
+              to="/studio/faceless"
+              class="rounded-[14px] border border-[#E5E3DF] bg-white p-3 text-left transition-colors hover:border-[#E8873A]/40"
+            >
+              <span class="text-xl">🎞️</span>
+              <p class="mt-2 text-sm font-bold text-[#111111]">Vidéo faceless</p>
+              <p class="mt-1 text-xs text-[#888888]">VIDEO · voix off + avatar, sans modèle vidéo</p>
+            </NuxtLink>
           </div>
           <p v-if="widgetsLoadError" class="mt-3 text-xs text-red-600">{{ widgetsLoadError }}</p>
 
@@ -402,6 +411,18 @@
                 <p class="mt-1.5 text-xs text-[#7B5A3F]">Optionnel : sert seulement à retrouver le contenu dans Mes créations. Sans choix, il sera classé sous un profil générique "Contenus sans persona".</p>
               </div>
 
+              <div v-if="artDirectionsList.length">
+                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Direction artistique (optionnel)</label>
+                <select
+                  v-model="selectedArtDirectionId"
+                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+                >
+                  <option value="">Aucune : je décris tout dans la scène</option>
+                  <option v-for="item in artDirectionsList" :key="item.id" :value="item.id">{{ item.label }}</option>
+                </select>
+                <p v-if="selectedArtDirection" class="mt-1.5 text-xs text-[#7B5A3F]">{{ selectedArtDirection.description }} Ajoutée en tête de la scène au moment de générer.</p>
+              </div>
+
               <div>
                 <label class="inline-flex items-center gap-2 text-sm font-semibold text-[#111111]">
                   <input v-model="scenarioLockIdentity" type="checkbox" class="accent-[#E8873A]" />
@@ -426,6 +447,23 @@
                     🎲 Le modèle invente librement qui apparaît à l'écran, via {{ widgetVideoModelLabel }}.
                   </p>
                 </div>
+              </div>
+
+              <div v-if="widgetVideoModel === 'omniflash'">
+                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Plans de coupe (B-roll)</label>
+                <select
+                  v-model.number="scenarioBrollCount"
+                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+                >
+                  <option :value="0">Aucun (par défaut)</option>
+                  <option :value="1">1 plan de coupe</option>
+                  <option :value="2">2 plans de coupe</option>
+                  <option :value="3">3 plans de coupe</option>
+                </select>
+                <p class="mt-1.5 text-xs text-[#7B5A3F]">
+                  Des images qui illustrent ce qui est dit, posées par-dessus la vidéo pendant environ 2 secondes. La voix continue, le son d'origine n'est pas touché.
+                  Chaque plan génère une image (payant, quelques dizaines de centimes).
+                </p>
               </div>
             </template>
 
@@ -794,7 +832,7 @@ const selectedProfileHasFaceRef = computed(() => Boolean(String(selectedProfileF
 // Widgets: blocs selectionnables qui pre-remplissent un prompt a partir d'un
 // template. La generation reutilise ensuite les memes endpoints que le prompt
 // libre (/api/generate/image, /api/generate/video).
-const { widgets: widgetsList, patterns: patternsList, loadError: widgetsLoadError, loadWidgets, resolveWidget } = useWidgets()
+const { widgets: widgetsList, patterns: patternsList, artDirections: artDirectionsList, artDirectionWidgetIds, loadError: widgetsLoadError, loadWidgets, resolveWidget } = useWidgets()
 const { assistFreePrompt, assistWidgetFields, assistCarouselSlides } = usePromptAssist()
 const selectedWidgetId = ref('')
 const selectedPatternId = ref('')
@@ -804,6 +842,11 @@ const widgetProfileId = ref('')
 const widgetInputs = ref({})
 const widgetAssetUrls = ref({})
 const widgetAssetUploading = ref({})
+
+// Direction artistique de la scene (Video Scenario) : ajoutee en tete de la
+// scene cote serveur au moment de resoudre le widget.
+const selectedArtDirectionId = ref('')
+const selectedArtDirection = computed(() => artDirectionsList.value.find((item) => item.id === selectedArtDirectionId.value) || null)
 
 // Assistant Claude widgets (generique, tous les widgets) : idee libre ->
 // valeurs pour tous les champs texte du widget selectionne (deja des
@@ -816,6 +859,10 @@ const widgetFieldsAssistError = ref('')
 // Video Scenario uniquement : verrouillage d identite optionnel (independant
 // du profil choisi comme proprietaire du contenu -- voir server/data/widgets.js).
 const scenarioLockIdentity = ref(false)
+
+// Video Scenario + Omni Flash : nombre d images B-roll posees par-dessus la
+// video (0 = aucune, valeur par defaut : chaque image est payante).
+const scenarioBrollCount = ref(0)
 
 loadWidgets()
 
@@ -836,11 +883,13 @@ function selectWidget(widgetId) {
   widgetVideoModel.value = widgetId === 'SCENARIO_BLOG' ? 'omniflash' : 'auto'
   widgetProfileId.value = ''
   selectedPatternId.value = ''
+  selectedArtDirectionId.value = ''
   widgetInputs.value = {}
   widgetAssetUrls.value = {}
   widgetIdea.value = ''
   widgetFieldsAssistError.value = ''
   scenarioLockIdentity.value = false
+  scenarioBrollCount.value = 0
 }
 
 // Changer de recette invalide les champs deja remplis: un pattern different
@@ -1069,6 +1118,7 @@ async function submitWidget() {
   const { finalPrompt } = await resolveWidget({
     widgetId: widget.id,
     patternId: selectedPatternId.value,
+    artDirectionId: artDirectionWidgetIds.value.includes(widget.id) ? selectedArtDirectionId.value : undefined,
     profileId: widget.requiresPersona ? widgetProfileId.value : undefined,
     inputs: widgetInputs.value,
   })
@@ -1093,6 +1143,7 @@ async function submitWidget() {
         model: widgetVideoModel.value,
         customReferenceImageUrl: referenceImageUrl || undefined,
         dialogueText: isScenarioWidget ? widgetInputs.value.scriptText : undefined,
+        brollCount: isScenarioWidget && widgetVideoModel.value === 'omniflash' ? scenarioBrollCount.value : undefined,
       },
     })
     lastResult.value = result
