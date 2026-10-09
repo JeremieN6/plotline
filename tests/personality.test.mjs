@@ -14,6 +14,7 @@ import {
   normalizeEccentricity,
   normalizePersonality,
   normalizeProvided,
+  buildProfileConstraints,
   stripColumnFields,
   truncateClean,
 } from '../server/utils/personality.js';
@@ -426,6 +427,51 @@ test('stripColumnFields : retire les champs portés par une colonne, garde le re
 
   const onlyColumn = stripColumnFields({ blocks: { identity: { displayName: { value: 'X', origin: 'user' } } } }, 'PERSONA');
   assert.equal(onlyColumn.blocks.identity, undefined);
+});
+
+test('profil existant : le physique déjà figé est imposé à Claude et jamais stocké', async () => {
+  const profile = {
+    gender: 'MALE',
+    silhouette: 'ATHLETIC',
+    eyeColor: 'vert',
+    ethnicity: 'peau mate, origine maghrébine',
+    hairPrompt: 'cheveux courts noirs, légèrement bouclés',
+    bodyPrompt: null,
+    faceRefPath: '/media/face.jpg',
+  };
+  const constraints = buildProfileConstraints(profile);
+  assert.ok(constraints.some((line) => /Genre du personnage : homme/.test(line)));
+  assert.ok(constraints.some((line) => /yeux déjà définie : vert/.test(line)));
+  assert.ok(constraints.some((line) => /Cheveux déjà définis/.test(line)));
+  assert.ok(constraints.some((line) => /fiche de référence visage existe déjà/.test(line)));
+  // Le prompt de corps (technique, explicite) et la silhouette (souvent un défaut) ne sont jamais transmis.
+  const withBody = buildProfileConstraints({ ...profile, bodyPrompt: 'voluptuous hourglass figure', silhouette: 'VOLUPTUOUS' });
+  assert.ok(!withBody.join(' ').match(/voluptuous|Silhouette|Corps/i));
+
+  // Rien pour un profil absent ; un profil sans physique renseigné n invente rien.
+  assert.deepEqual(buildProfileConstraints(null), []);
+  assert.deepEqual(buildProfileConstraints({ ethnicity: '  ', eyeColor: null, hairPrompt: '' }), []);
+
+  // Une valeur trop longue est tronquée.
+  const long = buildProfileConstraints({ hairPrompt: 'x'.repeat(600) })[0];
+  assert.ok(long.length < 300);
+
+  // Les contraintes arrivent dans le prompt envoyé à Claude, pas dans la personnalité stockée.
+  const client = fakeClient(fullResponse('PERSONA'));
+  const { personality } = await generatePersonality(
+    { kind: 'PERSONA', profileConstraints: constraints },
+    { client, rng: createSeededRng(11) },
+  );
+  const system = client.calls[0].system;
+  assert.match(system, /Champs imposés/);
+  assert.match(system, /Genre du personnage : homme/);
+  assert.match(system, /Cheveux déjà définis : cheveux courts noirs/);
+  assert.ok(!JSON.stringify(personality).includes('Genre du personnage'));
+
+  // Sans contraintes, aucune ligne de ce type dans le prompt.
+  const plain = fakeClient(fullResponse('PERSONA'));
+  await generatePersonality({ kind: 'PERSONA' }, { client: plain, rng: createSeededRng(11) });
+  assert.doesNotMatch(plain.calls[0].system, /Genre du personnage|déjà définie/);
 });
 
 test('graines d obsessions : toutes les formes ne sont pas des collections', () => {

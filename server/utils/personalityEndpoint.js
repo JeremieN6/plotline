@@ -10,6 +10,7 @@ import { createError } from 'h3';
 import { requireAuthUser } from './auth.js';
 import {
   PERSONALITY_MAX_BYTES,
+  buildProfileConstraints,
   buildProvidedFromProfile,
   fieldId,
   getAdminGuardStatus,
@@ -29,6 +30,12 @@ const PROFILE_COLUMNS = {
   description: true,
   targetAudience: true,
   profileType: true,
+  // Physique deja fige d un profil existant : transmis a Claude comme contraintes.
+  gender: true,
+  eyeColor: true,
+  ethnicity: true,
+  hairPrompt: true,
+  faceRefPath: true,
 };
 
 export async function requireAdminUser(event) {
@@ -178,6 +185,7 @@ export async function handlePersonalityGeneration(event, { blockOnly = false } =
     platforms: body.platforms,
     language: body.language,
     onlyBlocks,
+    profileConstraints: buildProfileConstraints(profile),
     seedOverride: body.seedOverride,
   });
 

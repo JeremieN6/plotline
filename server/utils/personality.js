@@ -236,6 +236,41 @@ export function buildProvidedFromProfile(profile, kind) {
   return normalizeProvided(provided, kind);
 }
 
+const GENDER_LABELS = { FEMALE: 'femme', MALE: 'homme' };
+
+function clipText(value, max) {
+  const text = String(value || '').replace(/\s+/g, ' ').trim();
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text;
+}
+
+/**
+ * Faits du profil existant que la personnalite ne doit pas contredire (genre,
+ * physique deja fige par la fiche de reference visage). Renvoie des phrases
+ * imposees a Claude ; rien n est copie dans la personnalite stockee.
+ * Un profil neuf ou sans ces colonnes renvoie une liste vide.
+ */
+export function buildProfileConstraints(profile) {
+  if (!profile) return [];
+  const lines = [];
+
+  const gender = GENDER_LABELS[String(profile.gender || '').toUpperCase()];
+  if (gender) {
+    lines.push(`Genre du personnage : ${gender} (prénom, pronoms et accords cohérents avec ce genre)`);
+  }
+  if (clipText(profile.ethnicity, 120)) lines.push(`Origine / apparence déjà définie : ${clipText(profile.ethnicity, 120)}`);
+  if (clipText(profile.eyeColor, 60)) lines.push(`Couleur des yeux déjà définie : ${clipText(profile.eyeColor, 60)}`);
+  if (clipText(profile.hairPrompt, 240)) lines.push(`Cheveux déjà définis : ${clipText(profile.hairPrompt, 240)}`);
+  // Volontairement ignores : `bodyPrompt` (prompt d image technique, pas un
+  // texte de personnalite) et `silhouette` (valeur par defaut de la plupart des
+  // profils, pas un choix) ; les transmettre pousserait des descriptions
+  // corporelles dans la voix et la biographie.
+  if (String(profile.faceRefPath || '').trim()) {
+    lines.push('Une fiche de référence visage existe déjà : l apparence est figée, la section apparence doit rester compatible avec les éléments ci-dessus sans inventer de traits qui les contredisent');
+  }
+
+  return lines;
+}
+
 // --- Fusion -----------------------------------------------------------------
 
 export function isProtectedField(entry) {

@@ -283,6 +283,12 @@ export async function generatePersonality(input = {}, deps = {}) {
     }
   }
 
+  // Faits du profil existant (genre, physique deja fige) : imposes, jamais stockes.
+  const profileConstraints = Array.isArray(input.profileConstraints)
+    ? input.profileConstraints.map((line) => String(line).slice(0, 320)).filter(Boolean).slice(0, 12)
+    : [];
+  for (const line of profileConstraints) fixed.push(line);
+
   const relevantSeeds = {};
   for (const [key, value] of Object.entries(allSeeds)) {
     const isTargetSeed = targets.some(({ field }) => field.key === key);
