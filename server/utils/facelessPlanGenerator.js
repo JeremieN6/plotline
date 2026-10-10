@@ -10,6 +10,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 import { AVATAR_EXPRESSIONS } from './facelessAvatar.js';
 import { describeStyleForPrompt, normalizeFacelessStyle } from './facelessStyle.js';
+import { buildPersonalityBrief } from './personalityBrief.js';
 import { findCatalogEntry } from '../data/facelessAvatarCatalog.js';
 import { ILLUSTRATION_KINDS, MAX_ILLUSTRATION_PROMPT, MAX_NEW_PER_VIDEO } from '../data/facelessIllustrations.js';
 import { countSpokenTokens } from './facelessTimeline.js';
@@ -48,17 +49,24 @@ function withoutEmoji(value) {
 // Seules ces mises en page laissent la place aux sous-titres.
 const CAPTION_LAYOUTS = new Set(['avatar', 'word']);
 
-/** Pur : description de la persona injectee dans le prompt (vide si aucune). */
-export function describeFacelessPersona(persona) {
+/**
+ * Pur : description de la persona injectee dans le prompt (vide si aucune).
+ * Si la persona a une personnalite enregistree (`persona.personality`), sa voix et sa
+ * ligne editoriale sont ajoutees (voir personalityBrief.js) ; `withPersonality: false`
+ * les retire, pour les usages purement visuels (composition de la DA).
+ */
+export function describeFacelessPersona(persona, { withPersonality = true } = {}) {
   if (!persona) return '';
-  return [
+  const lines = [
     persona.name ? `Nom : ${persona.name}` : '',
     persona.gender ? `Genre : ${persona.gender === 'MALE' ? 'homme' : 'femme'}` : '',
     persona.niche ? `Niche : ${persona.niche}` : '',
     persona.style ? `Style / ton : ${persona.style}` : '',
     persona.targetAudience ? `Public : ${persona.targetAudience}` : '',
     persona.description ? `Presentation : ${persona.description}` : '',
-  ].filter(Boolean).join('\n');
+  ];
+  if (withPersonality) lines.push(buildPersonalityBrief(persona.personality));
+  return lines.filter(Boolean).join('\n');
 }
 
 /** Pur : bloc de consignes sur l avatar, selon qu il s agit d images du pack ou du dessin. */

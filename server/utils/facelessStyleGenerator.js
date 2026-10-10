@@ -28,7 +28,8 @@ const MAX_TOKENS = 1800;
 const list = (obj) => Object.keys(obj).join(' | ');
 
 export function buildFacelessStyleSystemPrompt({ persona = null } = {}) {
-  const personaText = describeFacelessPersona(persona);
+  // La DA est purement visuelle : la voix de la personnalite n y a pas sa place.
+  const personaText = describeFacelessPersona(persona, { withPersonality: false });
   return [
     'Tu es directeur artistique de videos verticales "faceless" (TikTok, Reels) pour Plotline.',
     'A partir de la description de l utilisateur, tu remplis les champs de la direction artistique (DA) d une persona.',

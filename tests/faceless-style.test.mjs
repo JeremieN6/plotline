@@ -420,7 +420,8 @@ test('loadPersonaStyle : repli sans la colonne facelessStyle (migration pas pass
   assert.equal(loaded.persona.name, 'Max');
   assert.equal(loaded.stored, false);
   assert.equal(loaded.style.avatar.svg.hair, 'short');
-  assert.equal(calls.length, 2);
+  // 2 lectures de la DA (avec puis sans la colonne) ; la requete a part de la personnalite ne compte pas ici.
+  assert.equal(calls.filter((keys) => !(keys.length === 1 && keys[0] === 'personality')).length, 2);
   assert.equal(await loadPersonaStyle({ profile: { findFirst: async () => null } }, 'x', 'u'), null);
   await assert.rejects(loadPersonaStyle({ profile: { findFirst: async () => { throw new Error('connexion perdue'); } } }, 'x', 'u'), /connexion/);
 });
