@@ -1,188 +1,221 @@
 <template>
-  <div class="space-y-6">
-    <header class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-      <NuxtLink to="/studio" class="text-xs font-semibold text-[#B45F1D] hover:underline">← Studio</NuxtLink>
-      <p class="mt-3 text-xs font-semibold uppercase tracking-[0.22em] text-[#E8873A]">Studio</p>
-      <h1 class="mt-2 text-3xl font-bold tracking-tight text-[#111111]">Vidéo faceless</h1>
-      <p class="mt-2 text-sm text-[#666666]">
+  <div class="font-ui">
+    <header>
+      <NuxtLink to="/studio" class="text-xs font-semibold text-ui-accent hover:underline">← Studio</NuxtLink>
+      <p class="mt-3 text-xs font-semibold uppercase tracking-[0.08em] text-ui-accent">Studio</p>
+      <h1 class="mt-1 text-2xl font-bold tracking-[-0.01em] text-ui-ink">Vidéo faceless</h1>
+      <p class="mt-2 max-w-3xl text-sm leading-6 text-ui-ink-2">
         Une voix off, un avatar qui réagit et des cartes animées, dans la direction artistique de ta persona.
         Montage fait par du code : aucun modèle de génération vidéo, seulement quelques centimes de texte et de voix.
       </p>
     </header>
 
-    <div class="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.9fr)]">
-      <section class="space-y-5 rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-        <div>
-          <label class="text-sm font-semibold text-[#111111]" for="faceless-idea">1. Ton idée</label>
-          <p class="mt-1 text-xs text-[#666666]">Le sujet, l angle, ce qu il faut absolument dire. Claude écrit le script et le montage.</p>
-          <textarea
-            id="faceless-idea"
-            v-model="idea"
-            rows="5"
-            maxlength="2000"
-            placeholder="Ex. : 3 business simples à lancer avec 0 € : affiliation, produit digital, communauté. Ton motivant, pour des filles de 18-30 ans."
-            class="mt-2 w-full rounded-[12px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A] focus:shadow-[0_0_0_3px_rgba(232,135,58,0.10)]"
-          />
-        </div>
+    <div class="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.9fr)]">
+      <UiCard>
+        <template #title>Ta vidéo</template>
 
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label class="text-sm font-semibold text-[#111111]" for="faceless-profile">2. Persona (optionnel)</label>
-            <p class="mt-1 text-xs text-[#666666]">Donne son ton et son public au script, et range la vidéo chez elle.</p>
-            <select
-              id="faceless-profile"
-              v-model="profileId"
-              class="mt-2 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
-            >
-              <option value="">Aucune (narratrice neutre)</option>
-              <option v-for="profile in profiles" :key="profile.id" :value="profile.id">{{ profile.name }}</option>
-            </select>
-            <p v-if="!profileId" class="mt-2 text-xs text-[#888]">
-              Sans persona : DA par défaut (papercraft pastel, avatar dessiné). Choisis une persona pour utiliser sa DA.
+        <div class="space-y-5">
+          <UiField
+            label="1. Ton idée"
+            for-id="faceless-idea"
+            hint="Le sujet, l’angle, ce qu’il faut absolument dire. Claude écrit le script et le montage."
+          >
+            <UiTextarea
+              id="faceless-idea"
+              v-model="idea"
+              :rows="5"
+              :maxlength="2000"
+              placeholder="Ex. : 3 business simples à lancer avec 0 € : affiliation, produit digital, communauté. Ton motivant, pour des filles de 18-30 ans."
+            />
+          </UiField>
+
+          <UiField label="Quelle voix ?">
+            <UiSegmented v-model="voiceMode" label="Quelle voix ?" :options="VOICE_MODES" />
+          </UiField>
+
+          <div v-if="voiceMode === 'own'" class="space-y-4 rounded-ui-card border border-ui-line-soft bg-ui-subtle p-4">
+            <p class="text-sm leading-6 text-ui-ink-2">
+              Tu enregistres ta voix, le reste est fait pour toi : transcription, suppression des silences et des reprises, puis montage sur ton audio.
+              Tu peux dire les changements de montage à voix haute (« là, fond sombre »).
             </p>
-            <div v-else-if="styleInfo" class="mt-2 rounded-[10px] border border-[#EFE3D6] bg-[#FFFAF4] px-3 py-2 text-xs text-[#7B5A3F]">
-              <p>
-                <span class="font-semibold">DA : {{ styleInfo.style.name }}</span>
-                · avatar : {{ avatarSummary }}
+
+            <div>
+              <UiButton variant="dark" size="sm" :loading="outlineLoading" :disabled="!idea.trim()" @click="makeOutline">
+                {{ outlineLoading ? 'Préparation de la trame…' : (outline ? 'Refaire la trame' : 'Que dire ? Générer la trame') }}
+              </UiButton>
+              <p v-if="!idea.trim()" class="mt-1.5 text-xs text-ui-ink-muted">Écris d’abord ton idée ci-dessus.</p>
+              <UiAlert v-if="outlineError" class="mt-3" title="La trame n’a pas pu être préparée">
+                {{ outlineError }}
+                <template #action><UiButton variant="secondary" size="sm" @click="makeOutline">Réessayer</UiButton></template>
+              </UiAlert>
+            </div>
+
+            <div v-if="outline" class="space-y-3 rounded-ui-card border border-ui-line bg-ui-surface p-4">
+              <p class="text-[15px] font-semibold text-ui-ink">{{ outline.title || 'Trame à suivre' }}</p>
+              <ol class="space-y-4">
+                <li v-for="(beat, index) in outline.beats" :key="index" class="text-sm text-ui-ink-2">
+                  <p class="font-semibold text-ui-ink">
+                    {{ index + 1 }}. {{ beat.label }}
+                    <span class="font-ui-mono text-xs font-medium text-ui-ink-muted">~{{ beat.seconds }} s</span>
+                  </p>
+                  <p class="mt-0.5 text-xs text-ui-ink-muted">{{ beat.goal }}</p>
+                  <ul v-if="beat.points.length" class="mt-1 list-disc pl-5">
+                    <li v-for="(point, k) in beat.points" :key="k">{{ point }}</li>
+                  </ul>
+                  <p v-if="beat.example" class="mt-1 italic text-ui-ink">Exemple : « {{ beat.example }} »</p>
+                  <p v-if="beat.cue" class="mt-1 text-xs text-ui-accent-ink">À dire à voix haute si tu veux : « {{ beat.cue }} »</p>
+                </li>
+              </ol>
+              <p class="text-xs text-ui-ink-muted">Ce n’est pas un texte à lire : reformule avec tes mots, ça sonnera plus vrai.</p>
+            </div>
+
+            <ul class="list-disc space-y-1 pl-5 text-xs text-ui-ink-muted">
+              <li v-for="tip in ownVoiceTips" :key="tip">{{ tip }}</li>
+            </ul>
+
+            <UiField
+              label="Mon enregistrement"
+              for-id="faceless-audio"
+              :error="audioError"
+              :hint="audioFile ? `${audioFile.name} · ${(audioFile.size / 1048576).toFixed(1)} Mo` : `mp3, wav, m4a, ogg, flac ou webm — ${OWN_VOICE_MAX_MB} Mo maximum.`"
+            >
+              <input
+                id="faceless-audio"
+                type="file"
+                accept="audio/*,.mp3,.wav,.m4a,.ogg,.flac,.webm"
+                class="block w-full text-sm text-ui-ink-2 file:mr-3 file:h-10 file:cursor-pointer file:rounded-ui-ctl file:border file:border-ui-line-input file:bg-ui-surface file:px-4 file:text-sm file:font-semibold file:text-ui-ink hover:file:bg-ui-subtle"
+                @change="onAudioChange"
+              >
+            </UiField>
+          </div>
+
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+              <UiField label="2. Persona (optionnel)" for-id="faceless-profile" hint="Donne son ton et son public au script, et range la vidéo chez elle.">
+                <UiSelect id="faceless-profile" v-model="profileId" :options="profileOptions" />
+              </UiField>
+              <p v-if="!profileId" class="mt-2 text-xs text-ui-ink-muted">
+                Sans persona : DA par défaut (papercraft pastel, avatar dessiné). Choisis une persona pour utiliser sa DA.
               </p>
-              <p class="mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                <NuxtLink :to="`/studio/faceless/style?profile=${profileId}`" class="inline-block font-semibold text-[#B45F1D] hover:underline">
-                  {{ styleInfo.stored ? 'Modifier la DA →' : 'Créer sa DA →' }}
-                </NuxtLink>
-                <NuxtLink :to="`/library/personas/${profileId}`" class="inline-block font-semibold text-[#B45F1D] hover:underline">
-                  Dossier de la persona →
-                </NuxtLink>
-              </p>
+              <div v-else-if="styleInfo" class="mt-2 rounded-ui-ctl border border-ui-line-soft bg-ui-subtle px-3 py-2 text-xs text-ui-ink-2">
+                <p>
+                  <span class="font-semibold text-ui-ink">DA : {{ styleInfo.style.name }}</span>
+                  · avatar : {{ avatarSummary }}
+                </p>
+                <p class="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+                  <NuxtLink :to="`/studio/faceless/style?profile=${profileId}`" class="font-semibold text-ui-accent hover:underline">
+                    {{ styleInfo.stored ? 'Modifier la DA →' : 'Créer sa DA →' }}
+                  </NuxtLink>
+                  <NuxtLink :to="`/library/personas/${profileId}`" class="font-semibold text-ui-accent hover:underline">
+                    Dossier de la persona →
+                  </NuxtLink>
+                </p>
+              </div>
+            </div>
+
+            <UiField v-if="voiceMode === 'synth'" label="3. Voix" for-id="faceless-voice" hint="Voix ElevenLabs qui parlent français.">
+              <UiSelect id="faceless-voice" v-model="voiceId" :options="voiceOptions" />
+            </UiField>
+
+            <UiField v-if="voiceMode === 'synth'" label="4. Durée visée" for-id="faceless-duration">
+              <UiSelect id="faceless-duration" :model-value="durationSeconds" :options="durationOptions" @update:model-value="durationSeconds = Number($event)" />
+            </UiField>
+
+            <label class="flex items-start gap-3 self-end rounded-ui-ctl border border-ui-line bg-ui-surface p-3 text-sm">
+              <input v-model="captions" type="checkbox" class="mt-0.5 h-4 w-4 accent-ui-accent">
+              <span>
+                <span class="font-semibold text-ui-ink">Sous-titres</span>
+                <span class="block text-xs text-ui-ink-muted">Seulement quand l’écran ne montre pas déjà les mots dits.</span>
+              </span>
+            </label>
+          </div>
+
+          <div v-if="profileId && voiceMode === 'synth'" class="rounded-ui-ctl border border-ui-line bg-ui-subtle p-3">
+            <UiField
+              label="5. Illustrations"
+              for-id="faceless-new-images"
+              :hint="`Le dossier de la persona contient ${styleInfo?.illustrationCount || 0} illustration(s) : Claude les utilise quand elles servent le propos (gratuit).`"
+            >
+              <UiSelect
+                id="faceless-new-images"
+                :model-value="newIllustrations"
+                :options="newImageOptions"
+                @update:model-value="newIllustrations = Number($event)"
+              />
+            </UiField>
+            <p v-if="newIllustrations > 0" class="mt-2 text-xs text-ui-accent-ink">Les nouvelles images sont rangées dans le dossier et réutilisables ensuite.</p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3 border-t border-ui-line-soft pt-4">
+            <UiButton variant="primary" :loading="polling" :disabled="!canGenerate" @click="generate">
+              {{ polling ? 'Montage en cours…' : (voiceMode === 'own' ? 'Monter avec ma voix' : 'Générer la vidéo') }}
+            </UiButton>
+            <p class="text-xs text-ui-ink-muted">
+              {{ voiceMode === 'own' ? 'Environ 2 à 4 minutes (transcription, nettoyage, montage).' : 'Environ 1 à 3 minutes.' }}
+              Tu peux quitter la page : la vidéo arrive dans Mes créations.
+            </p>
+          </div>
+
+          <UiAlert v-if="errorMessage" title="La génération n’a pas pu démarrer">{{ errorMessage }}</UiAlert>
+        </div>
+      </UiCard>
+
+      <UiCard>
+        <template #title>Résultat</template>
+
+        <div class="space-y-4">
+          <UiAlert v-if="polling" tone="info">{{ pollingLabel }} ({{ elapsedLabel }})</UiAlert>
+          <UiAlert v-if="lastFailure" title="Échec">{{ lastFailure }}</UiAlert>
+
+          <div v-if="videoUrl" class="space-y-3">
+            <video :key="videoUrl" :src="videoUrl" controls playsinline class="w-full rounded-ui-card border border-ui-line bg-black" />
+            <NuxtLink to="/content" class="inline-block text-sm font-semibold text-ui-accent hover:underline">Voir dans Mes créations →</NuxtLink>
+          </div>
+          <UiEmptyState v-else-if="!polling" title="Pas encore de vidéo" text="La vidéo apparaîtra ici." />
+
+          <div v-if="info?.retouchable && videoUrl && !polling" class="space-y-3 border-t border-ui-line-soft pt-4">
+            <UiField
+              label="Retoucher"
+              for-id="faceless-retouch"
+              hint="Dis ce qui ne va pas, comme à un monteur. Si le texte dit ne change pas, la même voix est réutilisée."
+            >
+              <div class="mb-2 flex flex-wrap gap-2">
+                <button
+                  v-for="suggestion in RETOUCH_SUGGESTIONS"
+                  :key="suggestion"
+                  type="button"
+                  class="rounded-full border border-ui-line-input bg-ui-surface px-3 py-1.5 text-xs text-ui-ink-2 transition-colors hover:bg-ui-subtle focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ui-accent/20"
+                  @click="instruction = suggestion"
+                >
+                  {{ suggestion }}
+                </button>
+              </div>
+              <UiTextarea
+                id="faceless-retouch"
+                v-model="instruction"
+                :rows="3"
+                :maxlength="1000"
+                placeholder="Ex. : l’intro a trop de texte, coupe-la en deux écrans. Garde l’avatar qui sourit pendant toute la phrase sur la communauté."
+              />
+            </UiField>
+            <label v-if="info.personaId" class="flex items-start gap-2 text-xs text-ui-ink-2">
+              <input v-model="rememberRule" type="checkbox" class="mt-0.5 h-4 w-4 accent-ui-accent">
+              <span>Retenir pour les prochaines vidéos de cette persona (ajoute la consigne aux règles de sa DA)</span>
+            </label>
+            <UiButton variant="dark" :disabled="!instruction.trim() || !info.canRetouchNow" @click="retouch">Créer la version retouchée</UiButton>
+            <p v-if="!info.canRetouchNow" class="text-xs text-ui-ink-muted">Seule une vidéo « en attente » peut être retouchée.</p>
+            <div v-if="info.retouches?.length" class="text-xs text-ui-ink-muted">
+              <p class="font-semibold text-ui-ink-2">Retouches déjà appliquées</p>
+              <ol class="mt-1 list-decimal space-y-1 pl-4">
+                <li v-for="(item, index) in info.retouches" :key="index">{{ item }}</li>
+              </ol>
             </div>
           </div>
-
-          <div>
-            <label class="text-sm font-semibold text-[#111111]" for="faceless-voice">3. Voix</label>
-            <p class="mt-1 text-xs text-[#666666]">Voix ElevenLabs qui parlent français.</p>
-            <select
-              id="faceless-voice"
-              v-model="voiceId"
-              class="mt-2 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
-            >
-              <option v-for="voice in voices" :key="voice.id" :value="voice.id">{{ voice.label }}</option>
-            </select>
-          </div>
-
-          <div>
-            <label class="text-sm font-semibold text-[#111111]" for="faceless-duration">4. Durée visée</label>
-            <select
-              id="faceless-duration"
-              v-model.number="durationSeconds"
-              class="mt-2 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
-            >
-              <option v-for="d in durations" :key="d" :value="d">{{ d }} secondes</option>
-            </select>
-          </div>
-
-          <label class="flex items-start gap-3 self-end rounded-[12px] border border-[#E5E3DF] bg-[#FAFAF8] p-3 text-sm">
-            <input v-model="captions" type="checkbox" class="mt-0.5 h-4 w-4 accent-[#E8873A]">
-            <span>
-              <span class="font-semibold text-[#111111]">Sous-titres</span>
-              <span class="block text-xs text-[#666666]">Seulement quand l écran ne montre pas déjà les mots dits.</span>
-            </span>
-          </label>
-        </div>
-
-        <div v-if="profileId" class="rounded-[12px] border border-[#E5E3DF] bg-[#FAFAF8] p-3">
-          <label class="text-sm font-semibold text-[#111111]" for="faceless-new-images">5. Illustrations</label>
-          <p class="mt-1 text-xs text-[#666666]">
-            Le dossier de la persona contient {{ styleInfo?.illustrationCount || 0 }} illustration(s) : Claude les utilise quand elles servent le propos (gratuit).
+          <p v-else-if="info && !info.retouchable && videoUrl && !polling" class="border-t border-ui-line-soft pt-4 text-xs text-ui-ink-muted">
+            Cette vidéo a été créée avant les retouches : elle n’a pas de plan de montage enregistré.
           </p>
-          <select
-            id="faceless-new-images"
-            v-model.number="newIllustrations"
-            class="mt-2 w-full max-w-sm rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
-          >
-            <option :value="0">Pas de nouvelle image</option>
-            <option v-for="n in [1, 2, 3]" :key="n" :value="n">Jusqu’à {{ n }} nouvelle(s) image(s) — ≈ {{ (Math.round(n * imageCost * 100) / 100).toFixed(2) }} $ au maximum</option>
-          </select>
-          <p v-if="newIllustrations > 0" class="mt-1 text-xs text-[#B45F1D]">Les nouvelles images sont rangées dans le dossier et réutilisables ensuite.</p>
         </div>
-
-        <div class="flex flex-wrap items-center gap-3 border-t border-[#F0EEEA] pt-4">
-          <button
-            type="button"
-            class="rounded-[12px] bg-[#E8873A] px-5 py-2.5 text-sm font-bold text-white shadow-[0_1px_2px_rgba(0,0,0,0.12)] transition-colors hover:bg-[#D97629] disabled:cursor-not-allowed disabled:opacity-50"
-            :disabled="!canGenerate"
-            @click="generate"
-          >
-            {{ polling ? 'Montage en cours…' : 'Générer la vidéo' }}
-          </button>
-          <p class="text-xs text-[#666666]">Environ 1 à 3 minutes. Tu peux quitter la page : la vidéo arrive dans Mes créations.</p>
-        </div>
-
-        <p v-if="errorMessage" class="rounded-[12px] border border-[#F3C1C1] bg-[#FFF4F4] p-3 text-sm text-[#A33]">{{ errorMessage }}</p>
-      </section>
-
-      <aside class="space-y-4 rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-        <p class="text-sm font-semibold text-[#111111]">Résultat</p>
-        <div v-if="polling" class="rounded-[14px] border border-[#F2CCAA] bg-[#FFF5EC] p-4 text-sm text-[#B45F1D]">
-          {{ pollingLabel }} ({{ elapsedLabel }})
-        </div>
-        <p v-if="lastFailure" class="rounded-[12px] border border-[#F3C1C1] bg-[#FFF4F4] p-3 text-sm text-[#A33]">
-          {{ lastFailure }}
-        </p>
-        <div v-if="videoUrl" class="space-y-3">
-          <video :key="videoUrl" :src="videoUrl" controls playsinline class="w-full rounded-[14px] border border-[#E5E3DF] bg-black" />
-          <NuxtLink to="/content" class="inline-block text-sm font-semibold text-[#B45F1D] hover:underline">Voir dans Mes créations →</NuxtLink>
-        </div>
-        <p v-else-if="!polling" class="text-sm text-[#888]">La vidéo apparaîtra ici.</p>
-
-        <div v-if="info?.retouchable && videoUrl && !polling" class="space-y-3 border-t border-[#F0EEEA] pt-4">
-          <div>
-            <label class="text-sm font-semibold text-[#111111]" for="faceless-retouch">Retoucher</label>
-            <p class="mt-1 text-xs text-[#666666]">
-              Dis ce qui ne va pas, comme à un monteur. Si le texte dit ne change pas, la même voix est réutilisée.
-            </p>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="suggestion in RETOUCH_SUGGESTIONS"
-              :key="suggestion"
-              type="button"
-              class="rounded-full border border-[#E5E3DF] bg-[#FAFAF8] px-3 py-1 text-xs text-[#444] transition-colors hover:border-[#E6B78E] hover:bg-[#FFF5EC]"
-              @click="instruction = suggestion"
-            >
-              {{ suggestion }}
-            </button>
-          </div>
-          <textarea
-            id="faceless-retouch"
-            v-model="instruction"
-            rows="3"
-            maxlength="1000"
-            placeholder="Ex. : l intro a trop de texte, coupe-la en deux écrans. Garde l avatar qui sourit pendant toute la phrase sur la communauté."
-            class="w-full rounded-[12px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A] focus:shadow-[0_0_0_3px_rgba(232,135,58,0.10)]"
-          />
-          <label v-if="info.personaId" class="flex items-start gap-2 text-xs text-[#555]">
-            <input v-model="rememberRule" type="checkbox" class="mt-0.5 h-4 w-4 accent-[#E8873A]">
-            <span>Retenir pour les prochaines vidéos de cette persona (ajoute la consigne aux règles de sa DA)</span>
-          </label>
-          <button
-            type="button"
-            class="rounded-[12px] bg-[#111111] px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-50"
-            :disabled="!instruction.trim() || !info.canRetouchNow"
-            @click="retouch"
-          >
-            Créer la version retouchée
-          </button>
-          <p v-if="!info.canRetouchNow" class="text-xs text-[#888]">Seule une vidéo « en attente » peut être retouchée.</p>
-          <div v-if="info.retouches?.length" class="text-xs text-[#666666]">
-            <p class="font-semibold text-[#444]">Retouches déjà appliquées</p>
-            <ol class="mt-1 list-decimal space-y-1 pl-4">
-              <li v-for="(item, index) in info.retouches" :key="index">{{ item }}</li>
-            </ol>
-          </div>
-        </div>
-        <p v-else-if="info && !info.retouchable && videoUrl && !polling" class="border-t border-[#F0EEEA] pt-4 text-xs text-[#888]">
-          Cette vidéo a été créée avant les retouches : elle n a pas de plan de montage enregistré.
-        </p>
-      </aside>
+      </UiCard>
     </div>
   </div>
 </template>
@@ -201,7 +234,28 @@ const RETOUCH_SUGGESTIONS = [
   'Rends l appel à l action final plus percutant.',
 ]
 
+// Voix : synthetique (ElevenLabs, script ecrit par Claude) ou celle de l utilisateur (enregistrement).
+const VOICE_MODES = [
+  { value: 'synth', label: 'Voix de synthèse (Claude écrit le script)' },
+  { value: 'own', label: 'Ma propre voix' },
+]
+const DEFAULT_TIPS = [
+  'Enregistre dans une pièce calme, le micro à 15-20 cm de la bouche, et parle comme à une amie.',
+  'Tu te rates ? Pause d une seconde puis reprends la phrase depuis le début : la mauvaise prise est supprimée.',
+  'Tu peux dire une indication de montage à voix haute (« là, change de fond ») : elle est appliquée puis retirée.',
+  'Un seul fichier (mp3, wav, m4a, ogg, flac ou webm), 24 Mo maximum.',
+]
+
 const idea = ref('')
+const voiceMode = ref('synth')
+// Un peu sous la limite du serveur web (nginx : 25 Mo pour tout le formulaire, en-têtes compris).
+const OWN_VOICE_MAX_MB = 24
+const audioFile = ref(null)
+const audioError = ref('')
+const outline = ref(null)
+const outlineLoading = ref(false)
+const outlineError = ref('')
+const ownVoiceTips = computed(() => outline.value?.tips || DEFAULT_TIPS)
 const profileId = ref(String(route.query.profile || ''))
 const newIllustrations = ref(0)
 const voiceId = ref('')
@@ -230,6 +284,18 @@ const profiles = computed(() => (Array.isArray(profilesData.value) ? profilesDat
 const voices = computed(() => options.value?.voices || [])
 const durations = computed(() => options.value?.durations || [20, 30, 45, 60])
 const imageCost = computed(() => options.value?.imageCostUsd || 0.134)
+
+// Listes des selects du kit UI.
+const profileOptions = computed(() => [
+  { value: '', label: 'Aucune (narratrice neutre)' },
+  ...profiles.value.map((profile) => ({ value: profile.id, label: profile.name })),
+])
+const voiceOptions = computed(() => voices.value.map((voice) => ({ value: voice.id, label: voice.label })))
+const durationOptions = computed(() => durations.value.map((d) => ({ value: d, label: `${d} secondes` })))
+const newImageOptions = computed(() => [
+  { value: 0, label: 'Pas de nouvelle image' },
+  ...[1, 2, 3].map((n) => ({ value: n, label: `Jusqu’à ${n} nouvelle(s) image(s) — ≈ ${(Math.round(n * imageCost.value * 100) / 100).toFixed(2)} $ au maximum` })),
+])
 
 watch(options, (value) => {
   if (!voiceId.value && value?.defaultVoiceId) voiceId.value = value.defaultVoiceId
@@ -262,7 +328,9 @@ watch(profileId, (id) => { loadStyleInfo(id) })
 // Persona deja choisie par l adresse (?profile=) : sa DA s applique des l ouverture.
 onMounted(() => { if (profileId.value) loadStyleInfo(profileId.value) })
 
-const canGenerate = computed(() => idea.value.trim().length > 0 && Boolean(voiceId.value) && !polling.value)
+const canGenerate = computed(() => !polling.value && (voiceMode.value === 'own'
+  ? Boolean(audioFile.value)
+  : idea.value.trim().length > 0 && Boolean(voiceId.value)))
 const pollingLabel = computed(() => (pollingKind.value === 'retouch'
   ? 'Retouche du plan, puis nouveau montage…'
   : 'Script, voix puis montage image par image…'))
@@ -321,8 +389,36 @@ async function checkStatus(id) {
   }
 }
 
+function onAudioChange(event) {
+  const file = event.target?.files?.[0] || null
+  audioError.value = ''
+  if (file && file.size > OWN_VOICE_MAX_MB * 1048576) {
+    // Le serveur web (nginx) refuserait l'envoi avant même qu'il arrive à l'application, sans message utile.
+    audioError.value = `Ce fichier fait ${(file.size / 1048576).toFixed(1)} Mo : trop lourd pour être envoyé (maximum ${OWN_VOICE_MAX_MB} Mo). Exporte-le en mp3 ou en m4a, ou coupe-le en deux enregistrements.`
+    audioFile.value = null
+    event.target.value = ''
+    return
+  }
+  audioFile.value = file
+}
+
+async function makeOutline() {
+  outlineError.value = ''
+  outlineLoading.value = true
+  try {
+    outline.value = await $fetch('/api/faceless/outline', {
+      method: 'POST',
+      body: { idea: idea.value, profileId: profileId.value || undefined, durationSeconds: durationSeconds.value },
+    })
+  } catch (error) {
+    outlineError.value = error?.data?.statusMessage || error?.statusMessage || 'Impossible de préparer la trame.'
+  } finally {
+    outlineLoading.value = false
+  }
+}
+
 async function generate() {
-  if (newIllustrations.value > 0) {
+  if (voiceMode.value === 'synth' && newIllustrations.value > 0) {
     const max = (Math.round(newIllustrations.value * imageCost.value * 100) / 100).toFixed(2)
     const ok = await requestConfirmation({
       title: 'Autoriser de nouvelles images ?',
@@ -336,21 +432,34 @@ async function generate() {
   videoUrl.value = ''
   info.value = null
   try {
-    const response = await $fetch('/api/generate/faceless', {
-      method: 'POST',
-      body: {
-        idea: idea.value,
-        profileId: profileId.value || undefined,
-        voiceId: voiceId.value,
-        durationSeconds: durationSeconds.value,
-        captions: captions.value,
-        illustrations: { maxNew: profileId.value ? newIllustrations.value : 0, confirmCost: newIllustrations.value > 0 },
-      },
-    })
+    let response
+    if (voiceMode.value === 'own') {
+      const form = new FormData()
+      form.append('audio', audioFile.value)
+      form.append('idea', idea.value)
+      if (profileId.value) form.append('profileId', profileId.value)
+      form.append('captions', String(captions.value))
+      response = await $fetch('/api/generate/faceless-voice', { method: 'POST', body: form })
+    } else {
+      response = await $fetch('/api/generate/faceless', {
+        method: 'POST',
+        body: {
+          idea: idea.value,
+          profileId: profileId.value || undefined,
+          voiceId: voiceId.value,
+          durationSeconds: durationSeconds.value,
+          captions: captions.value,
+          illustrations: { maxNew: profileId.value ? newIllustrations.value : 0, confirmCost: newIllustrations.value > 0 },
+        },
+      })
+    }
     contentId.value = response.contentId
     startPolling(response.contentId, 'generate')
   } catch (error) {
-    errorMessage.value = error?.data?.statusMessage || error?.statusMessage || 'Impossible de lancer la génération.'
+    // 413 : refus du serveur web, la réponse n'a pas de message exploitable.
+    errorMessage.value = (error?.statusCode || error?.status) === 413
+      ? `Enregistrement trop lourd pour être envoyé (maximum ${OWN_VOICE_MAX_MB} Mo). Exporte-le en mp3 ou en m4a, ou coupe-le en deux.`
+      : (error?.data?.statusMessage || error?.statusMessage || 'Impossible de lancer la génération.')
   }
 }
 

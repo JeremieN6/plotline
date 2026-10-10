@@ -394,3 +394,9 @@
 **Cause racine** : (1) un modele d image traite un mot d une liste "a conserver" comme un element a dessiner, meme absent de la reference. (2) les worktrees partagent `node_modules` par jonction, donc le client Prisma genere : le dernier `prisma generate` gagne, quelle que soit la branche.
 **Solution** : (1) le prompt ne cite plus que ce qui est VISIBLE sur la reference et interdit explicitement tout ajout (lunettes, chapeau, accessoires) ; l etincelle de l entree "content" retiree (elle donnait un contour pointille). (2) client regenere depuis une copie TEMPORAIRE du schema (placee dans prisma/, supprimee ensuite) qui contient les champs des deux branches ; `personality` jamais commite ici.
 **Regle** : (1) dans un prompt d image, ne jamais enumerer des accessoires "a garder" : decrire ce qu il faut conserver de facon generale et interdire les ajouts, puis regarder le resultat contre la reference avant de generaliser. (2) avant de tester sur une branche qui ajoute des champs Prisma, verifier avec `Prisma.dmmf` que le client contient tous les champs utilises ; ne jamais regenerer sans prevenir si un autre worktree depend du meme client.
+
+## 2026-10-10 : modifier un fichier serveur pendant un job de fond en `nuxt dev`
+Recharger un fichier de `server/` pendant qu un job de fond (video faceless, etc.) tourne relance Nitro et TUE le job : le contenu reste bloque en PROCESSING. Ne rien editer cote serveur pendant un essai de generation en dev ; si ca arrive, supprimer le contenu bloque et relancer.
+
+## 2026-10-10 : limite d envoi nginx
+Le corps de requete vu par nginx inclut les en-tetes du formulaire multipart : une limite applicative egale a `client_max_body_size` laisse passer des fichiers refuses en 413 sans message. Garder la limite cote page legerement sous celle de nginx et gerer le 413.
