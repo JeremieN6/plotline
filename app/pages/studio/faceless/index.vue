@@ -73,7 +73,12 @@
               <li v-for="tip in ownVoiceTips" :key="tip">{{ tip }}</li>
             </ul>
 
-            <UiField label="Mon enregistrement" for-id="faceless-audio" :hint="audioFile ? `${audioFile.name} · ${(audioFile.size / 1048576).toFixed(1)} Mo` : 'mp3, wav, m4a, ogg, flac ou webm — 25 Mo maximum.'">
+            <UiField
+              label="Mon enregistrement"
+              for-id="faceless-audio"
+              :error="audioError"
+              :hint="audioFile ? `${audioFile.name} · ${(audioFile.size / 1048576).toFixed(1)} Mo` : `mp3, wav, m4a, ogg, flac ou webm — ${OWN_VOICE_MAX_MB} Mo maximum.`"
+            >
               <input
                 id="faceless-audio"
                 type="file"
@@ -238,12 +243,15 @@ const DEFAULT_TIPS = [
   'Enregistre dans une pièce calme, le micro à 15-20 cm de la bouche, et parle comme à une amie.',
   'Tu te rates ? Pause d une seconde puis reprends la phrase depuis le début : la mauvaise prise est supprimée.',
   'Tu peux dire une indication de montage à voix haute (« là, change de fond ») : elle est appliquée puis retirée.',
-  'Un seul fichier (mp3, wav, m4a, ogg, flac ou webm), 25 Mo maximum.',
+  'Un seul fichier (mp3, wav, m4a, ogg, flac ou webm), 24 Mo maximum.',
 ]
 
 const idea = ref('')
 const voiceMode = ref('synth')
+// Un peu sous la limite du serveur web (nginx : 25 Mo pour tout le formulaire, en-têtes compris).
+const OWN_VOICE_MAX_MB = 24
 const audioFile = ref(null)
+const audioError = ref('')
 const outline = ref(null)
 const outlineLoading = ref(false)
 const outlineError = ref('')
@@ -382,7 +390,16 @@ async function checkStatus(id) {
 }
 
 function onAudioChange(event) {
-  audioFile.value = event.target?.files?.[0] || null
+  const file = event.target?.files?.[0] || null
+  audioError.value = ''
+  if (file && file.size > OWN_VOICE_MAX_MB * 1048576) {
+    // Le serveur web (nginx) refuserait l'envoi avant même qu'il arrive à l'application, sans message utile.
+    audioError.value = `Ce fichier fait ${(file.size / 1048576).toFixed(1)} Mo : trop lourd pour être envoyé (maximum ${OWN_VOICE_MAX_MB} Mo). Exporte-le en mp3 ou en m4a, ou coupe-le en deux enregistrements.`
+    audioFile.value = null
+    event.target.value = ''
+    return
+  }
+  audioFile.value = file
 }
 
 async function makeOutline() {
@@ -439,7 +456,10 @@ async function generate() {
     contentId.value = response.contentId
     startPolling(response.contentId, 'generate')
   } catch (error) {
-    errorMessage.value = error?.data?.statusMessage || error?.statusMessage || 'Impossible de lancer la génération.'
+    // 413 : refus du serveur web, la réponse n'a pas de message exploitable.
+    errorMessage.value = (error?.statusCode || error?.status) === 413
+      ? `Enregistrement trop lourd pour être envoyé (maximum ${OWN_VOICE_MAX_MB} Mo). Exporte-le en mp3 ou en m4a, ou coupe-le en deux.`
+      : (error?.data?.statusMessage || error?.statusMessage || 'Impossible de lancer la génération.')
   }
 }
 

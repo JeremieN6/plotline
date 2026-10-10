@@ -17,7 +17,7 @@ export const RECORDING_TIPS = [
   'Parle comme à une amie, pas comme si tu lisais : des phrases courtes, un temps pour respirer entre deux idées.',
   'Tu te rates ? Fais une pause d’une seconde et reprends la phrase depuis le début : la reprise est repérée et la mauvaise prise supprimée.',
   'Tu peux dire une indication de montage à voix haute, au bon moment (« là, change de fond », « ici, l’avatar est surpris ») : elle sera appliquée puis retirée de la voix.',
-  'Un seul fichier, sans musique ni bruit de fond. Mp3, wav, m4a, ogg, flac ou webm, 25 Mo maximum.',
+  'Un seul fichier, sans musique ni bruit de fond. Mp3, wav, m4a, ogg, flac ou webm, 24 Mo maximum.',
 ];
 
 export function buildOutlineSystemPrompt({ targetSeconds = 30, persona = null } = {}) {
