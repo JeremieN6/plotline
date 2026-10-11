@@ -25,10 +25,35 @@ function isMissingColumnError(error) {
 }
 
 /**
- * Persona du compte + sa DA. `null` si la persona n existe pas (ou n est pas au compte).
+ * Personnalite (facultative) d une persona du compte, lue dans une requete A PART.
+ *
+ * Volontairement separee de la lecture de la DA : si cette lecture echoue (colonne
+ * absente, client Prisma plus ancien...), la DA n est ni lue differemment ni perdue,
+ * et surtout jamais reecrite a partir d une lecture degradee (`updateProfileStyle`
+ * relit puis REECRIT la DA entiere). L echec est journalise, jamais silencieux.
+ * @returns {Promise<object|null>}
+ */
+async function loadPersonality(prisma, profileId, userId) {
+  try {
+    const row = await prisma.profile.findFirst({ where: { id: profileId, userId }, select: { personality: true } });
+    return row?.personality || null;
+  } catch (error) {
+    console.warn('[faceless] personnalite indisponible : la persona sera traitee sans sa voix', {
+      reason: String(error?.message || error).split('\n')[0].slice(0, 160),
+    });
+    return null;
+  }
+}
+
+/**
+ * Persona du compte + sa DA (+ sa personnalite, voir `loadPersonality`).
+ * `null` si la persona n existe pas (ou n est pas au compte).
+ *
+ * La lecture de la DA est INCHANGEE. `withPersonality: false` saute la lecture de la
+ * personnalite : obligatoire pour toute lecture suivie d une ecriture.
  * @returns {Promise<{ persona: object, style: object, stored: boolean } | null>}
  */
-export async function loadPersonaStyle(prisma, profileId, userId) {
+export async function loadPersonaStyle(prisma, profileId, userId, { withPersonality = true } = {}) {
   let row;
   try {
     row = await prisma.profile.findFirst({ where: { id: profileId, userId }, select: { ...FACELESS_PERSONA_FIELDS, facelessStyle: true } });
@@ -39,6 +64,10 @@ export async function loadPersonaStyle(prisma, profileId, userId) {
   if (!row) return null;
 
   const { facelessStyle, ...persona } = row;
+  if (withPersonality) {
+    const personality = await loadPersonality(prisma, profileId, userId);
+    if (personality) persona.personality = personality;
+  }
   return { persona, style: resolveProfileStyle(persona, facelessStyle), stored: Boolean(facelessStyle) };
 }
 
@@ -58,7 +87,8 @@ const queues = new Map();
 export function updateProfileStyle(prisma, profileId, userId, mutator) {
   const previous = queues.get(profileId) || Promise.resolve();
   const run = previous.catch(() => {}).then(async () => {
-    const loaded = await loadPersonaStyle(prisma, profileId, userId);
+    // Lecture suivie d une ECRITURE de la DA : aucune lecture annexe (personnalite) ici.
+    const loaded = await loadPersonaStyle(prisma, profileId, userId, { withPersonality: false });
     if (!loaded) throw new Error('Profil introuvable');
     const next = await mutator(loaded.style, loaded.persona);
     await saveProfileStyle(prisma, profileId, next);
