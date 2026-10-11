@@ -73,13 +73,28 @@ function mergeProvided(typed, fromColumns) {
   return result;
 }
 
+/** Trace serveur de la consommation (tokens seulement, jamais de contenu) pour recouper avec la facture. */
+function logUsage(usage, label) {
+  if (!usage || !usage.calls) return;
+  console.info('[personality] usage', {
+    label,
+    model: usage.model,
+    calls: usage.calls,
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    costUsd: usage.costUsd,
+  });
+}
+
 export function toHttpError(error) {
   if (error?.statusCode) return error;
   if (isPersonalityError(error)) {
+    logUsage(error.usage, `echec ${error.code}`);
     return createError({
       statusCode: error.status,
       statusMessage: error.message,
-      data: { code: error.code },
+      // `usage` : tokens deja factures par un appel qui a quand meme echoue.
+      data: { code: error.code, usage: error.usage || null },
     });
   }
   console.error('[personality] failure', { name: error?.name, message: error?.message });
@@ -190,11 +205,14 @@ export async function handlePersonalityGeneration(event, { blockOnly = false } =
     seedOverride: body.seedOverride,
   });
 
+  logUsage(result.usage, blockOnly ? 'bloc' : 'generation');
+
   return {
     kind,
     personality: result.personality,
     seeds: result.seeds,
     generated: result.generated,
+    usage: result.usage,
     // Champs dont la colonne du profil fait foi : a afficher en lecture seule.
     readOnlyFields: Object.entries(fromColumns).flatMap(([blockKey, fields]) =>
       Object.keys(fields).map((fieldKey) => fieldId(blockKey, fieldKey))),

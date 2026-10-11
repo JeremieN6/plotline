@@ -25,8 +25,13 @@ import {
   normalizePersonality,
   normalizeProvided,
 } from './personality.js';
+import {
+  addPersonalityUsage,
+  emptyPersonalityUsage,
+  getPersonalityModel,
+  summarizePersonalityUsage,
+} from './personalityUsage.js';
 
-const DEFAULT_MODEL = 'claude-sonnet-4-6';
 const REQUEST_TIMEOUT_MS = 90000;
 const MAX_FREE_TEXT = 1500;
 const ALL_PLATFORMS = Object.keys(PLATFORM_BIO_FIELDS);
@@ -61,10 +66,6 @@ const AGE_RANGES = ['18 à 25 ans', '26 à 35 ans', '36 à 50 ans', '51 à 70 an
 
 export function drawAgeRange(rng = Math.random) {
   return AGE_RANGES[Math.min(AGE_RANGES.length - 1, Math.floor(rng() * AGE_RANGES.length))];
-}
-
-function getAnthropicModel() {
-  return String(process.env.ANTHROPIC_MODEL || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
 }
 
 function formatValue(value) {
@@ -270,7 +271,12 @@ export async function generatePersonality(input = {}, deps = {}) {
   const allSeeds = { ...existing.seeds, ...seeds };
 
   if (!targets.length) {
-    return { personality: { ...withProvided, eccentricity, seeds: allSeeds }, seeds: allSeeds, generated: 0 };
+    return {
+      personality: { ...withProvided, eccentricity, seeds: allSeeds },
+      seeds: allSeeds,
+      generated: 0,
+      usage: summarizePersonalityUsage(emptyPersonalityUsage(), getPersonalityModel()),
+    };
   }
 
   const apiKey = String(deps.apiKey || process.env.ANTHROPIC_API_KEY || '').trim();
@@ -325,19 +331,25 @@ export async function generatePersonality(input = {}, deps = {}) {
   // Un bloc seul : court ; une moitie de personnalite (plusieurs blocs) : moyen ; tout : long.
   const maxTokens = !onlyBlocks ? 7000 : onlyBlocks.length > 1 ? 4500 : 2500;
 
+  // Consommation cumulee sur les (au plus 2) appels de cette generation, relance
+  // comprise : une relance est facturee comme le premier appel.
+  const model = getPersonalityModel();
+  let usage = emptyPersonalityUsage();
+
   let result = null;
   for (let attempt = 0; attempt < 2 && !result; attempt += 1) {
     let response;
     try {
       response = await client.messages.create({
-        model: getAnthropicModel(),
+        model,
         max_tokens: maxTokens,
         system,
         messages: [{ role: 'user', content: 'Génère les champs demandés maintenant.' }],
       });
     } catch (error) {
-      throw mapAnthropicError(error);
+      throw withUsage(mapAnthropicError(error), usage, model);
     }
+    usage = addPersonalityUsage(usage, response?.usage);
 
     const text = (response?.content || [])
       .filter((block) => block?.type === 'text')
@@ -347,7 +359,11 @@ export async function generatePersonality(input = {}, deps = {}) {
   }
 
   if (!result) {
-    throw createPersonalityError('Claude n a pas renvoyé une personnalité exploitable. Réessaie.', { code: 'invalid', status: 502 });
+    throw withUsage(
+      createPersonalityError('Claude n a pas renvoyé une personnalité exploitable. Réessaie.', { code: 'invalid', status: 502 }),
+      usage,
+      model,
+    );
   }
 
   const merged = mergePersonality(
@@ -361,5 +377,12 @@ export async function generatePersonality(input = {}, deps = {}) {
     personality: merged,
     seeds: allSeeds,
     generated: Object.values(result.blocks).reduce((sum, fields) => sum + Object.keys(fields).length, 0),
+    usage: summarizePersonalityUsage(usage, model),
   };
+}
+
+/** Joint la consommation deja facturee a une erreur (un appel echoue peut avoir consomme des tokens). */
+function withUsage(error, usage, model) {
+  error.usage = summarizePersonalityUsage(usage, model);
+  return error;
 }

@@ -91,6 +91,27 @@
             <UiSectionNav :items="navItems" :active="mode === 'block' ? activeKey : ''" label="Blocs de la personnalité" @update:active="openBlock" />
           </div>
         </UiCard>
+
+        <UiCard v-if="usageTotal.calls">
+          <template #title>Consommation</template>
+          <template #actions>
+            <UiButton variant="ghost" size="sm" :disabled="isBusy" @click="resetUsage">Remettre à zéro</UiButton>
+          </template>
+          <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            <dt class="text-ui-ink-muted">Appels Claude</dt>
+            <dd class="text-right font-ui-mono font-medium text-ui-ink">{{ usageTotal.calls }}</dd>
+            <dt class="text-ui-ink-muted">Tokens envoyés</dt>
+            <dd class="text-right font-ui-mono font-medium text-ui-ink">{{ formatCount(usageTotal.inputTokens) }}</dd>
+            <dt class="text-ui-ink-muted">Tokens reçus</dt>
+            <dd class="text-right font-ui-mono font-medium text-ui-ink">{{ formatCount(usageTotal.outputTokens) }}</dd>
+            <dt class="text-ui-ink-muted">Coût estimé</dt>
+            <dd class="text-right font-ui-mono font-medium text-ui-ink">{{ usageCostLabel }}</dd>
+          </dl>
+          <p class="mt-3 text-xs text-ui-ink-muted">
+            Modèle : <span class="font-ui-mono">{{ usageTotal.model || 'inconnu' }}</span>. Les tokens sont exacts (renvoyés par Anthropic) et comptent
+            depuis l'ouverture de cette page ; le coût est une estimation à vérifier sur la console Anthropic.
+          </p>
+        </UiCard>
       </aside>
 
       <!-- Colonne centrale -->
@@ -355,6 +376,9 @@ const personality = ref(null)
 const readOnly = ref([])
 const errorMessage = ref('')
 const lastDuration = ref(0)
+// Consommation cumulee depuis l'ouverture de la page. `costUsd` vaut null des qu'un appel
+// n'a pas de tarif connu (jamais un total partiel presente comme complet).
+const usageTotal = ref({ calls: 0, inputTokens: 0, outputTokens: 0, costUsd: 0, model: '' })
 const hasStored = ref(false)
 const saving = ref(false)
 const saveMessage = ref('')
@@ -613,7 +637,36 @@ function requestBody(extra) {
   }
 }
 
+const formatCount = (value) => new Intl.NumberFormat('fr-FR').format(value || 0)
+
+const usageCostLabel = computed(() => {
+  const cost = usageTotal.value.costUsd
+  if (cost === null) return 'tarif inconnu'
+  return `≈ ${cost.toLocaleString('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} $`
+})
+
+/** Ajoute la consommation d'une reponse (ou d'un echec qui a quand meme ete facture) au cumul. */
+function recordUsage(usage) {
+  if (!usage || !usage.calls) return
+  const total = usageTotal.value
+  usageTotal.value = {
+    calls: total.calls + usage.calls,
+    inputTokens: total.inputTokens + usage.inputTokens,
+    outputTokens: total.outputTokens + usage.outputTokens,
+    costUsd: total.costUsd === null || usage.costUsd === null ? null : total.costUsd + usage.costUsd,
+    model: usage.model || total.model,
+  }
+}
+
+function resetUsage() {
+  usageTotal.value = { calls: 0, inputTokens: 0, outputTokens: 0, costUsd: 0, model: '' }
+}
+
+// Corps d'une erreur renvoyee par le serveur : `error.data` = { statusMessage, data: { code, usage } }.
+const usageOfError = (error) => error?.data?.data?.usage || null
+
 function applyResult(result) {
+  recordUsage(result.usage)
   personality.value = result.personality
   readOnly.value = result.readOnlyFields || []
   if (result.kind) kind.value = result.kind
@@ -678,6 +731,7 @@ async function runChain(fromGroup = 0) {
     } catch (error) {
       failed = true
       for (const key of keys) blockState[key] = 'error'
+      recordUsage(usageOfError(error))
       groupErrors[index] = { keys, message: errorText(error, 'La génération a échoué.') }
       break
     }
@@ -710,6 +764,7 @@ async function regenerateBlock(blockKey) {
     delete blockState[blockKey]
   } catch (error) {
     blockState[blockKey] = 'error'
+    recordUsage(usageOfError(error))
     blockErrors[blockKey] = errorText(error, 'La régénération a échoué.')
   }
 }
