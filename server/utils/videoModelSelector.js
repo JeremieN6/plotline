@@ -1,3 +1,5 @@
+import { isVeoEnabled } from './veoAvailability.js';
+
 const DYNAMIC_KEYWORDS = [
   'dance', 'danse', 'action', 'fight', 'run', 'course', 'jump', 'saut',
   'dynamic', 'dynamique', 'sport', 'mouvement', 'energy', 'energetic',
@@ -13,19 +15,27 @@ function containsKeyword(prompt, keywords) {
   return keywords.some((keyword) => new RegExp(`\\b${keyword}\\b`).test(normalized));
 }
 
-export function selectVideoModel(prompt) {
+/**
+ * @param {string} prompt
+ * @param {{ veoEnabled?: boolean }} [options] `veoEnabled` : injectable (tests) ; par defaut
+ *   `isVeoEnabled()`. Veo etant retire le 22 octobre 2026 (voir veoAvailability.js), Kling le remplace.
+ */
+export function selectVideoModel(prompt, options = {}) {
+  const veoEnabled = options.veoEnabled ?? isVeoEnabled();
+
   if (containsKeyword(prompt, DYNAMIC_KEYWORDS)) {
     return 'kling';
   }
 
   if (containsKeyword(prompt, CINEMATIC_KEYWORDS)) {
-    return 'veo';
+    return veoEnabled ? 'veo' : 'kling';
   }
 
-  // Veo par defaut: c est le seul fournisseur verifie de bout en bout en production.
-  // Seedance reste selectionnable explicitement depuis le studio, mais ne devient
-  // pas le choix automatique tant qu il n a pas ete eprouve sur de vrais rendus.
-  return 'veo';
+  // Veo par defaut tant qu il existe: c etait le seul fournisseur verifie de bout en
+  // bout en production. Une fois retire, Kling (texte ou image vers video) prend la
+  // suite. Seedance reste selectionnable explicitement depuis le studio, mais ne
+  // devient pas le choix automatique tant qu il n a pas ete eprouve sur de vrais rendus.
+  return veoEnabled ? 'veo' : 'kling';
 }
 
 /**

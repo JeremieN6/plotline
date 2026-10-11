@@ -83,14 +83,28 @@ test('selectVideoModel chooses kling for dynamic prompt', () => {
   assert.equal(model, 'kling');
 });
 
-test('selectVideoModel chooses veo for cinematic prompt', () => {
-  const model = selectVideoModel('A cinematic slow landscape with atmospheric ambiance');
+// `veoEnabled` est fixe : sans cela ces tests changeraient de resultat le 22 octobre 2026.
+test('selectVideoModel chooses veo for cinematic prompt (tant que Veo existe)', () => {
+  const model = selectVideoModel('A cinematic slow landscape with atmospheric ambiance', { veoEnabled: true });
   assert.equal(model, 'veo');
 });
 
-test('selectVideoModel defaults to veo', () => {
-  const model = selectVideoModel('Create a clean product shot with studio lighting');
+test('selectVideoModel defaults to veo (tant que Veo existe)', () => {
+  const model = selectVideoModel('Create a clean product shot with studio lighting', { veoEnabled: true });
   assert.equal(model, 'veo');
+});
+
+test('Veo retire : Automatique ne choisit plus jamais veo, Kling prend la suite', () => {
+  const prompts = [
+    'A cinematic slow landscape with atmospheric ambiance',
+    'Create a clean product shot with studio lighting',
+    'Une femme prepare un cafe dans sa cuisine',
+    'A dynamic dance action scene with high energy movement',
+    '',
+  ];
+  for (const prompt of prompts) {
+    assert.equal(selectVideoModel(prompt, { veoEnabled: false }), 'kling', prompt);
+  }
 });
 
 test('selectVideoModel ne renvoie jamais seedance par defaut', () => {

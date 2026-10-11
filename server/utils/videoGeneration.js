@@ -13,6 +13,7 @@ import { getGeneratedDir, toMediaUrl } from './mediaStorage.js';
 import { resolveAspectRatio } from './aspectRatio.js';
 import { generateSeedanceVideo, isSeedanceEnabled } from './seedanceGenerator.js';
 import { selectVideoModel } from './videoModelSelector.js';
+import { isVeoEnabled, VEO_RETIRED_MESSAGE } from './veoAvailability.js';
 import { splitScriptIntoSegments } from './scriptSegmentation.js';
 import { buildFirstSegmentPrompt, buildContinuationPrompt } from './omniFlashPrompts.js';
 import { isSpeechVerificationEnabled, verifySegmentSpeech } from './speechVerification.js';
@@ -529,6 +530,12 @@ export function resolveVideoModelOrThrow({ prompt, withFaceRef, influencer, runt
     throw createError({ statusCode: 409, statusMessage: 'Aucune face ref disponible pour ce profil actif' });
   }
 
+  // Garde serveur (comme Seedance) : une requete forgee ou un ancien ecran qui
+  // demanderait encore Veo ne doit pas partir vers un modele que Google a retire.
+  if (model === 'veo' && !isVeoEnabled()) {
+    throw createError({ statusCode: 503, statusMessage: VEO_RETIRED_MESSAGE });
+  }
+
   if (model === 'veo' || model === 'omniflash') {
     const geminiApiKey = resolveGeminiApiKey(runtimeConfig);
     if (!geminiApiKey) {
@@ -542,7 +549,7 @@ export function resolveVideoModelOrThrow({ prompt, withFaceRef, influencer, runt
     if (!isSeedanceEnabled()) {
       throw createError({
         statusCode: 503,
-        statusMessage: 'Seedance est hors service (credits epuises). Choisissez Veo ou Kling.',
+        statusMessage: 'Seedance est hors service (credits epuises). Choisissez Kling.',
       });
     }
 

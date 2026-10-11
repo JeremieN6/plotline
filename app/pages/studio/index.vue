@@ -54,7 +54,7 @@
               class="mt-1.5 w-full rounded-[10px] border border-[#E6B78E] bg-white px-3 py-2 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
             >
               <option value="auto">Automatique (selon le prompt)</option>
-              <option value="veo">Veo</option>
+              <option v-if="veoEnabled" value="veo">Veo</option>
               <option value="kling">Kling</option>
               <option v-if="seedanceEnabled" value="seedance">Seedance</option>
             </select>
@@ -380,7 +380,7 @@
                 class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
               >
                 <option value="auto">Automatique (selon le prompt)</option>
-                <option value="veo">Veo</option>
+                <option v-if="veoEnabled" value="veo">Veo</option>
                 <option value="kling">Kling</option>
                 <option v-if="seedanceEnabled" value="seedance">Seedance</option>
                 <!-- Omni Flash : reserve a ce widget, jamais choisi par "Automatique"
@@ -673,6 +673,14 @@ const freePromptAssistError = ref('')
 
 // Seedance n est propose que si le compte est credite (voir SEEDANCE_ENABLED).
 const seedanceEnabled = computed(() => Boolean(useRuntimeConfig().public?.seedanceEnabled))
+
+// Veo disparait le 22 octobre 2026 (Google retire ses modeles preview) : le serveur
+// dit s il est encore propose, evalue a chaque requete (voir /api/video/models).
+const { data: videoModelsData } = await useFetch('/api/video/models', {
+  key: 'studio-video-models',
+  default: () => ({ veoEnabled: false }),
+})
+const veoEnabled = computed(() => Boolean(videoModelsData.value?.veoEnabled))
 
 const VIDEO_PROVIDER_LABELS = { veo: 'Veo', kling: 'Kling', seedance: 'Seedance', omniflash: 'Omni Flash' }
 
