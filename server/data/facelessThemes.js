@@ -206,6 +206,95 @@ export const FACELESS_PRESETS = {
       avatarPrompt: 'illustration pop, aplats vifs, contour noir épais, expressions exagérées',
     },
   },
+  // Famille "Atelier" (premium sobre) : crème + une couleur, avec fond secondaire et fond
+  // profond TEINTES pour que la couleur couvre une bonne part de la video, pas seulement les
+  // mots cles. Texte teinte (jamais noir pur). Le fond profond est reserve a l appel a l action :
+  // l accent n y serait pas assez lisible pour un mot cle.
+  'atelier-vert': {
+    label: 'Atelier vert',
+    description: 'Crème, sauge et vert sapin : sobre et posé, une seule idée par écran.',
+    style: {
+      name: 'Atelier vert',
+      preset: 'atelier-vert',
+      palette: {
+        background: '#f4efe6', backgroundAlt: '#c9e2d0', dark: '#0e3a29', text: '#10241a', accent: '#1d6b47', accent2: '#e0a93b', card: '#ffffff', cardText: '#10241a',
+      },
+      font: 'spacegrotesk',
+      card: 'sticker',
+      background: 'solid',
+      decor: 'none',
+      motion: 'smooth',
+      enters: ['rise', 'cut'],
+      captions: { enabled: true, position: 'bottom', style: 'plain' },
+      density: 'sobre',
+      rules: 'Alterner les fonds : crème, teinte douce, puis fond profond réservé à l\'appel à l\'action, pour que la couleur soit présente dans toute la vidéo. Beaucoup d\'espace. Un seul élément à la fois. Phrases courtes, ton posé et direct. Un mot clé en couleur d\'accent par écran. Aucun emoji. Transitions lentes.',
+      avatarPrompt: 'fidèle à l\'image de base du personnage, expressions marquées, rendu net et propre, contour très fin',
+    },
+  },
+  'atelier-bleu': {
+    label: 'Atelier bleu',
+    description: 'Crème, bleu clair et bleu nuit : la même ambiance posée, plus corporate.',
+    style: {
+      name: 'Atelier bleu',
+      preset: 'atelier-bleu',
+      palette: {
+        background: '#f4efe6', backgroundAlt: '#cbdcf3', dark: '#13294b', text: '#13233f', accent: '#2f4b7c', accent2: '#e07a2f', card: '#ffffff', cardText: '#13233f',
+      },
+      font: 'spacegrotesk',
+      card: 'sticker',
+      background: 'solid',
+      decor: 'none',
+      motion: 'smooth',
+      enters: ['rise', 'cut'],
+      captions: { enabled: true, position: 'bottom', style: 'plain' },
+      density: 'sobre',
+      rules: 'Alterner les fonds : crème, teinte douce, puis fond profond réservé à l\'appel à l\'action, pour que la couleur soit présente dans toute la vidéo. Beaucoup d\'espace. Un seul élément à la fois. Phrases courtes, ton posé et direct. Un mot clé en couleur d\'accent par écran. Aucun emoji. Transitions lentes.',
+      avatarPrompt: 'fidèle à l\'image de base du personnage, expressions marquées, rendu net et propre, contour très fin',
+    },
+  },
+  'atelier-bordeaux': {
+    label: 'Atelier bordeaux',
+    description: 'Crème, rose poudré et aubergine : plus éditorial, très « Parisien chic ».',
+    style: {
+      name: 'Atelier bordeaux',
+      preset: 'atelier-bordeaux',
+      palette: {
+        background: '#f4efe6', backgroundAlt: '#f1cfd4', dark: '#3a0f19', text: '#2a0f16', accent: '#8c2434', accent2: '#d4a24c', card: '#ffffff', cardText: '#2a0f16',
+      },
+      font: 'spacegrotesk',
+      card: 'sticker',
+      background: 'solid',
+      decor: 'none',
+      motion: 'smooth',
+      enters: ['rise', 'cut'],
+      captions: { enabled: true, position: 'bottom', style: 'plain' },
+      density: 'sobre',
+      rules: 'Alterner les fonds : crème, teinte douce, puis fond profond réservé à l\'appel à l\'action, pour que la couleur soit présente dans toute la vidéo. Beaucoup d\'espace. Un seul élément à la fois. Phrases courtes, ton posé et direct. Un mot clé en couleur d\'accent par écran. Aucun emoji. Transitions lentes.',
+      avatarPrompt: 'fidèle à l\'image de base du personnage, expressions marquées, rendu net et propre, contour très fin',
+    },
+  },
+  // Brut / tech : fond nuit, vert menthe, coupes franches, mockups de code.
+  terminal: {
+    label: 'Terminal',
+    description: 'Fond nuit quadrillé, vert menthe, cartes plates, coupes franches : l\'esprit développeur.',
+    style: {
+      name: 'Terminal',
+      preset: 'terminal',
+      palette: {
+        background: '#0d1117', backgroundAlt: '#161b22', dark: '#010409', text: '#e6edf3', accent: '#3ef0b4', accent2: '#ff8a3d', card: '#161b22', cardText: '#e6edf3',
+      },
+      font: 'spacegrotesk',
+      card: 'flat',
+      background: 'grid',
+      decor: 'none',
+      motion: 'smooth',
+      enters: ['cut', 'slide-left', 'slide-right'],
+      captions: { enabled: true, position: 'top', style: 'box' },
+      density: 'normal',
+      rules: 'Esthétique terminal. Mots clés et chiffres en vert menthe, un par écran. Coupes franches. Mockups de code et de commandes bienvenus.',
+      avatarPrompt: 'fidèle à l\'image de base du personnage, expressions marquées, rendu net, lueur verte discrète sur le contour',
+    },
+  },
 };
 
 export const DEFAULT_PRESET = 'papercraft-pastel';
