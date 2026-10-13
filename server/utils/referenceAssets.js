@@ -23,49 +23,80 @@ export const ASSET_TYPES = [
 const OTHER = { role: 'OTHER', label: 'Autre', promptLabel: 'other view' };
 const DETAIL = { role: 'DETAIL', label: 'Détail', promptLabel: 'close-up detail' };
 
-// Le premier rôle de chaque liste est le rôle par défaut.
+// Le premier rôle de chaque liste est le rôle par défaut. Les identifiants sont
+// stockés en base : n'en retirer aucun (un rôle inconnu retombe sur le défaut).
+// Les libellés anglais alimentent le prompt de la fiche ; ceux des vues
+// intérieures contiennent le mot "interior" (le bloc intérieur n'est construit
+// que si une photo en porte la mention, voir assetSheetPrompts.js).
 export const ASSET_SOURCE_ROLES = {
   CAR: [
-    { role: 'EXTERIOR', label: 'Extérieur', promptLabel: 'exterior' },
-    { role: 'INTERIOR', label: 'Intérieur', promptLabel: 'interior' },
+    { role: 'EXTERIOR', label: 'Extérieur (général)', promptLabel: 'exterior' },
+    { role: 'FRONT', label: 'Avant', promptLabel: 'exterior, front view' },
+    { role: 'REAR', label: 'Arrière', promptLabel: 'exterior, rear view' },
+    { role: 'SIDE', label: 'Profil', promptLabel: 'exterior, side profile' },
+    { role: 'WHEEL', label: 'Jante / roue', promptLabel: 'exterior, close-up of a wheel' },
+    { role: 'INTERIOR', label: 'Intérieur (général)', promptLabel: 'interior' },
+    { role: 'DASHBOARD', label: 'Tableau de bord', promptLabel: 'interior, dashboard and steering wheel' },
+    { role: 'FRONT_SEATS', label: 'Sièges avant', promptLabel: 'interior, front seats' },
+    { role: 'REAR_SEATS', label: 'Sièges arrière', promptLabel: 'interior, rear seats' },
     { role: 'TRUNK', label: 'Coffre', promptLabel: 'trunk' },
     DETAIL,
     OTHER,
   ],
   HOUSE: [
-    { role: 'EXTERIOR', label: 'Extérieur', promptLabel: 'exterior' },
-    { role: 'INTERIOR', label: 'Intérieur', promptLabel: 'interior' },
+    { role: 'EXTERIOR', label: 'Extérieur (général)', promptLabel: 'exterior' },
+    { role: 'FACADE', label: 'Façade', promptLabel: 'exterior, main facade' },
+    { role: 'REAR_SIDE', label: 'Arrière / côté', promptLabel: 'exterior, rear or side of the building' },
     { role: 'GARDEN', label: 'Jardin', promptLabel: 'garden' },
+    { role: 'INTERIOR', label: 'Intérieur (général)', promptLabel: 'interior' },
+    { role: 'LIVING', label: 'Salon / séjour', promptLabel: 'interior, living room' },
+    { role: 'KITCHEN', label: 'Cuisine', promptLabel: 'interior, kitchen' },
+    { role: 'BEDROOM', label: 'Chambre', promptLabel: 'interior, bedroom' },
+    { role: 'BATHROOM', label: 'Salle de bain', promptLabel: 'interior, bathroom' },
     DETAIL,
     OTHER,
   ],
   STREET: [
     { role: 'WIDE', label: 'Vue large', promptLabel: 'wide view' },
+    { role: 'ANGLE', label: 'Autre angle', promptLabel: 'another angle along the street' },
+    { role: 'GROUND', label: 'Sol / revêtement', promptLabel: 'close-up of the ground surface' },
+    { role: 'FACADES', label: 'Façades', promptLabel: 'building facades' },
     DETAIL,
     OTHER,
   ],
   JEWEL: [
     { role: 'FRONT', label: 'Pièce seule', promptLabel: 'isolated piece' },
+    { role: 'SIDE', label: 'Profil', promptLabel: 'isolated piece, side view' },
     { role: 'WORN', label: 'Porté', promptLabel: 'worn' },
+    { role: 'INSIDE', label: "Intérieur de l'anneau", promptLabel: 'inside of the band' },
     { role: 'DETAIL', label: 'Détail', promptLabel: 'macro detail' },
     OTHER,
   ],
   SHOES: [
-    { role: 'OVERALL', label: 'Vue d\'ensemble', promptLabel: 'overall view' },
+    { role: 'OVERALL', label: "Vue d'ensemble", promptLabel: 'overall view' },
+    { role: 'THREE_QUARTER', label: 'Trois-quarts', promptLabel: 'three-quarter view' },
     { role: 'SIDE', label: 'Profil', promptLabel: 'side view' },
+    { role: 'TOP', label: 'Dessus', promptLabel: 'top view' },
     { role: 'SOLE', label: 'Semelle', promptLabel: 'sole' },
+    { role: 'HEEL', label: 'Talon', promptLabel: 'heel and back view' },
     DETAIL,
     OTHER,
   ],
   HAT: [
-    { role: 'OVERALL', label: 'Vue d\'ensemble', promptLabel: 'overall view' },
+    { role: 'OVERALL', label: "Vue d'ensemble", promptLabel: 'overall view' },
+    { role: 'FRONT', label: 'Face', promptLabel: 'front view' },
     { role: 'SIDE', label: 'Profil', promptLabel: 'side view' },
+    { role: 'BACK', label: 'Arrière', promptLabel: 'back view' },
+    { role: 'TOP', label: 'Dessus', promptLabel: 'top view' },
     { role: 'INSIDE', label: 'Intérieur', promptLabel: 'inside lining' },
     DETAIL,
     OTHER,
   ],
   PROP: [
-    { role: 'OVERALL', label: 'Vue d\'ensemble', promptLabel: 'overall view' },
+    { role: 'OVERALL', label: "Vue d'ensemble", promptLabel: 'overall view' },
+    { role: 'FRONT', label: 'Face', promptLabel: 'front view' },
+    { role: 'SIDE', label: 'Profil', promptLabel: 'side view' },
+    { role: 'BACK', label: 'Arrière', promptLabel: 'back view' },
     DETAIL,
     OTHER,
   ],

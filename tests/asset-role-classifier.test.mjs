@@ -45,3 +45,27 @@ test('describeGeminiFailure : credit epuise, quota, indisponibilite, cle refusee
   assert.equal(describeGeminiFailure(new Error('boum')), null);
   assert.equal(describeGeminiFailure(null), null);
 });
+
+test('vues detaillees : anciens identifiants conserves, vues interieures marquees "interior" pour le prompt', () => {
+  const legacy = {
+    CAR: ['EXTERIOR', 'INTERIOR', 'TRUNK', 'DETAIL', 'OTHER'],
+    HOUSE: ['EXTERIOR', 'INTERIOR', 'GARDEN', 'DETAIL', 'OTHER'],
+    STREET: ['WIDE', 'DETAIL', 'OTHER'],
+    JEWEL: ['FRONT', 'WORN', 'DETAIL', 'OTHER'],
+    SHOES: ['OVERALL', 'SIDE', 'SOLE', 'DETAIL', 'OTHER'],
+    HAT: ['OVERALL', 'SIDE', 'INSIDE', 'DETAIL', 'OTHER'],
+    PROP: ['OVERALL', 'DETAIL', 'OTHER'],
+  };
+  for (const [type, ids] of Object.entries(legacy)) {
+    const have = ASSET_SOURCE_ROLES[type].map((item) => item.role);
+    for (const id of ids) assert.ok(have.includes(id), `${type} garde ${id}`);
+    assert.equal(new Set(have).size, have.length, `${type} : pas de doublon`);
+  }
+  for (const type of ['CAR', 'HOUSE']) {
+    for (const item of ASSET_SOURCE_ROLES[type].filter((r) => ['INTERIOR', 'DASHBOARD', 'FRONT_SEATS', 'REAR_SEATS', 'LIVING', 'KITCHEN', 'BEDROOM', 'BATHROOM'].includes(r.role))) {
+      assert.match(item.promptLabel, /interior/, `${type}/${item.role}`);
+    }
+  }
+  // Une voiture a plus de vues qu une maison n en partage avec elle.
+  assert.ok(ASSET_SOURCE_ROLES.CAR.some((r) => r.role === 'WHEEL') && !ASSET_SOURCE_ROLES.HOUSE.some((r) => r.role === 'WHEEL'));
+});

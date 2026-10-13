@@ -28,6 +28,7 @@ export function buildRoleClassifierPrompt(type) {
     '',
     'Regles :',
     '- Juge uniquement ce qui est visible sur la photo, pas ce qui est probable.',
+    '- Choisis le role le plus precis (ex. sieges avant plutot qu\'interieur general) ; un role general seulement si la photo en montre plusieurs parties.',
     '- Choisis OTHER seulement si aucun autre role ne convient, et ne l\'utilise jamais par defaut.',
     '- Un gros plan sur un element precis (volant, jante, logo, ecran...) est DETAIL si ce role existe.',
     '',
