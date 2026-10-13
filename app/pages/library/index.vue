@@ -51,7 +51,7 @@
         <div>
           <label class="mb-1.5 block text-sm font-semibold text-gray-800">Photos ({{ form.photos.length }}/{{ maxSources }})</label>
           <p class="mb-2 text-xs text-[#7B5A3F]">
-            Ajoute une photo par vue et indique ce qu'elle montre. Exemple pour une voiture : une photo « Extérieur » et une photo « Intérieur ».
+            Ajoute tes photos en une fois : par défaut, Claude reconnaît ce que montre chacune (extérieur, intérieur, détail...), tu peux corriger ensuite.
             Ce que les photos ne montrent pas ne sera pas inventé.
           </p>
 
@@ -66,6 +66,7 @@
                 v-model="photo.role"
                 class="min-w-0 flex-1 rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2 text-sm outline-none focus:border-[#E8873A]"
               >
+                <option value="AUTO">Détecter automatiquement</option>
                 <option v-for="role in rolesFor(form.type)" :key="role.role" :value="role.role">{{ role.label }}</option>
               </select>
               <button type="button" class="rounded-lg border border-[#E5E3DF] bg-white px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50" @click="removeFormPhoto(index)">
@@ -192,7 +193,15 @@
             <figure v-for="(source, index) in openedAsset.sources" :key="source.url" class="rounded-[12px] border border-[#E5E3DF] bg-[#FAFAF8] p-2">
               <img :src="source.url" alt="" class="aspect-square w-full rounded-[8px] object-cover" />
               <figcaption class="mt-2 flex items-center justify-between gap-2 text-xs">
-                <span class="font-semibold text-[#111111]">{{ roleLabel(openedAsset.type, source.role) }}</span>
+                <select
+                  :value="source.role"
+                  :disabled="busyId === openedAsset.id"
+                  class="min-w-0 flex-1 rounded-lg border border-[#E5E3DF] bg-white px-2 py-1 text-xs font-semibold text-[#111111] outline-none focus:border-[#E8873A]"
+                  :aria-label="`Vue de la photo ${index + 1}`"
+                  @change="changeSourceRole(openedAsset, index, $event.target.value)"
+                >
+                  <option v-for="role in rolesFor(openedAsset.type)" :key="role.role" :value="role.role">{{ role.label }}</option>
+                </select>
                 <button
                   type="button"
                   class="font-bold text-red-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
@@ -205,11 +214,21 @@
             </figure>
           </div>
 
+          <button
+            type="button"
+            class="mt-3 rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="busyId === openedAsset.id"
+            @click="detectRoles(openedAsset)"
+          >
+            {{ busyId === openedAsset.id ? 'Reconnaissance…' : 'Reconnaître les vues automatiquement' }}
+          </button>
+
           <div v-if="openedAsset.sources.length < maxSources" class="mt-3 flex flex-wrap items-center gap-2">
             <select
               v-model="addRole"
               class="rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2 text-sm outline-none focus:border-[#E8873A]"
             >
+              <option value="AUTO">Détecter automatiquement</option>
               <option v-for="role in rolesFor(openedAsset.type)" :key="role.role" :value="role.role">{{ role.label }}</option>
             </select>
             <label class="inline-flex cursor-pointer items-center rounded-[10px] border border-dashed border-[#D9C6B4] bg-white px-4 py-2.5 text-sm font-semibold text-[#7B5A3F] hover:bg-[#FDF3EA]">
@@ -243,14 +262,10 @@ const maxSources = computed(() => data.value?.meta?.maxSources || 8)
 function rolesFor(type) {
   return rolesByType.value[type] || []
 }
-function defaultRole(type) {
-  return rolesFor(type)[0]?.role || ''
-}
+// Choix par defaut des photos : le serveur (Claude) reconnait la vue. Valeur front seulement, jamais stockee.
+const AUTO_ROLE = 'AUTO'
 function typeLabel(type) {
   return types.value.find((item) => item.type === type)?.label || type
-}
-function roleLabel(type, role) {
-  return rolesFor(type).find((item) => item.role === role)?.label || 'Autre'
 }
 
 const form = reactive({ type: 'CAR', name: '', description: '', photos: [], generateNow: true })
@@ -268,7 +283,7 @@ const previewCode = computed(() => {
 const canSubmit = computed(() => Boolean(form.name.trim()) && form.photos.length > 0)
 
 function resetRoles() {
-  form.photos.forEach((photo) => { photo.role = defaultRole(form.type) })
+  form.photos.forEach((photo) => { photo.role = AUTO_ROLE })
 }
 
 function onFormFiles(event) {
@@ -276,7 +291,7 @@ function onFormFiles(event) {
   event.target.value = ''
   for (const file of files) {
     if (form.photos.length >= maxSources.value) break
-    form.photos.push({ file, preview: URL.createObjectURL(file), role: defaultRole(form.type) })
+    form.photos.push({ file, preview: URL.createObjectURL(file), role: AUTO_ROLE })
   }
 }
 
@@ -320,6 +335,12 @@ async function submitAsset() {
     for (let i = 0; i < others.length; i += 1) {
       submitLabel.value = `Envoi de la photo ${i + 2}/${form.photos.length}…`
       await sendPhoto(`/api/assets/${created.id}/sources`, others[i])
+    }
+
+    const autoIndexes = form.photos.map((photo, index) => (photo.role === AUTO_ROLE ? index : -1)).filter((index) => index >= 0)
+    if (autoIndexes.length) {
+      submitLabel.value = 'Reconnaissance des vues…'
+      await $fetch(`/api/assets/${created.id}/classify`, { method: 'POST', body: { indexes: autoIndexes } })
     }
 
     if (form.generateNow) {
@@ -366,16 +387,16 @@ async function generateSheet(asset) {
 
 const openedId = ref('')
 const openedAsset = computed(() => assets.value.find((item) => item.id === openedId.value) || null)
-const addRole = ref('')
+const addRole = ref(AUTO_ROLE)
 
 function openAsset(asset) {
   openedId.value = asset.id
-  addRole.value = defaultRole(asset.type)
+  addRole.value = AUTO_ROLE
 }
 
 watch(openedAsset, (asset) => {
-  if (asset && !rolesFor(asset.type).some((item) => item.role === addRole.value)) {
-    addRole.value = defaultRole(asset.type)
+  if (asset && addRole.value !== AUTO_ROLE && !rolesFor(asset.type).some((item) => item.role === addRole.value)) {
+    addRole.value = AUTO_ROLE
   }
 })
 
@@ -386,9 +407,37 @@ async function addSource(asset, event) {
   busyId.value = asset.id
   try {
     await sendPhoto(`/api/assets/${asset.id}/sources`, { file, role: addRole.value })
+    if (addRole.value === AUTO_ROLE) {
+      await $fetch(`/api/assets/${asset.id}/classify`, { method: 'POST', body: { indexes: [asset.sources.length] } })
+    }
     pushToast({ title: 'Photo ajoutée', message: asset.sheetUrl ? 'La fiche est à régénérer.' : asset.code, tone: 'success' })
   } catch (err) {
     pushToast({ title: 'Ajout impossible', message: errorMessage(err, 'Erreur inconnue'), tone: 'error', duration: 6000 })
+  } finally {
+    busyId.value = ''
+    await refresh()
+  }
+}
+
+async function changeSourceRole(asset, index, role) {
+  busyId.value = asset.id
+  try {
+    await $fetch(`/api/assets/${asset.id}/sources/${index}`, { method: 'PATCH', body: { role } })
+  } catch (err) {
+    pushToast({ title: 'Modification impossible', message: errorMessage(err, 'Erreur inconnue'), tone: 'error', duration: 6000 })
+  } finally {
+    busyId.value = ''
+    await refresh()
+  }
+}
+
+async function detectRoles(asset) {
+  busyId.value = asset.id
+  try {
+    await $fetch(`/api/assets/${asset.id}/classify`, { method: 'POST' })
+    pushToast({ title: 'Vues reconnues', message: asset.sheetUrl ? 'La fiche est à régénérer si les vues ont changé.' : asset.code, tone: 'success' })
+  } catch (err) {
+    pushToast({ title: 'Détection impossible', message: errorMessage(err, 'Erreur inconnue'), tone: 'error', duration: 6000 })
   } finally {
     busyId.value = ''
     await refresh()

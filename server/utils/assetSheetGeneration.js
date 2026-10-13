@@ -27,6 +27,30 @@ export function buildAssetSheetParts(type, images) {
   return parts;
 }
 
+/**
+ * Traduit un refus du fournisseur en message lisible (statut HTTP + texte), ou
+ * null si l'erreur n'est pas reconnue. Sans ca, un solde epuise apparaissait
+ * comme un "Generation impossible" generique.
+ */
+export function describeGeminiFailure(error) {
+  const message = String(error?.message || '');
+  const status = Number(error?.status) || Number(message.match(/"code"\s*:\s*(\d{3})/)?.[1]) || 0;
+
+  if (status === 402 || /prepayment credits|credits are depleted/i.test(message)) {
+    return { statusCode: 402, statusMessage: 'Le crédit Gemini est épuisé : recharge le solde sur Google AI Studio, puis relance la génération.' };
+  }
+  if (status === 429 || /RESOURCE_EXHAUSTED|quota/i.test(message)) {
+    return { statusCode: 429, statusMessage: 'Limite de requêtes Gemini atteinte : réessaie dans quelques minutes.' };
+  }
+  if (status === 503 || status === 504 || /overloaded|UNAVAILABLE|DEADLINE_EXCEEDED|timed? ?out/i.test(message)) {
+    return { statusCode: 503, statusMessage: 'Gemini est indisponible ou trop lent pour le moment : réessaie dans quelques minutes.' };
+  }
+  if (status === 401 || status === 403 || /API key/i.test(message)) {
+    return { statusCode: 502, statusMessage: 'La clé Gemini est refusée : vérifie GEMINI_API_KEY sur le serveur.' };
+  }
+  return null;
+}
+
 function extractInlineData(response) {
   const candidate = response?.candidates?.[0];
   const parts = candidate?.content?.parts ?? [];

@@ -1,4 +1,4 @@
-import { generateAssetSheet } from '../../../utils/assetSheetGeneration.js';
+import { describeGeminiFailure, generateAssetSheet } from '../../../utils/assetSheetGeneration.js';
 import {
   deleteAssetFile,
   detectImageType,
@@ -44,6 +44,11 @@ export default defineEventHandler(async (event) => {
       }
       if (String(err?.message || '').includes('GEMINI_API_KEY')) {
         return sendError(event, createError({ statusCode: 500, statusMessage: 'GEMINI_API_KEY non configurée' }));
+      }
+      const known = describeGeminiFailure(err);
+      if (known) {
+        console.error('[asset-sheet] Gemini a refusé la génération', { status: known.statusCode, message: String(err?.message || '').slice(0, 300) });
+        return sendError(event, createError(known));
       }
       throw err;
     }
