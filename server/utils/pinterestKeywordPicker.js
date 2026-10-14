@@ -52,6 +52,17 @@ export function detectPinterestCategory(text) {
 }
 
 /**
+ * Categorie REELLEMENT utilisee pour une STORY : la categorie devinee, ou "lifestyle" si la banque des stories
+ * n a pas cette categorie (ex. cosplay et location n existent que pour les REEL). Sert a l afficher a l utilisateur.
+ */
+export async function describeStoryCategory({ niche, style }) {
+  const variables = await getVariables();
+  const bank = variables?.pinterest_video_tags_story || {};
+  const category = detectPinterestCategory(`${niche || ''} ${style || ''}`);
+  return Array.isArray(bank[category]) && bank[category].length ? category : 'lifestyle';
+}
+
+/**
  * @param {{ format: 'STORY'|'REEL', niche?: string, style?: string }} params
  * @returns {Promise<{ keyword: string, category: string }>}
  */

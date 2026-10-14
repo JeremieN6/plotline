@@ -1,4 +1,5 @@
 import { describeAllFormatProductions, getReelEngine } from '../../utils/reelEngine.js';
+import { describeStoryCategory } from '../../utils/pinterestKeywordPicker.js';
 
 let prismaClient;
 
@@ -36,7 +37,7 @@ export default defineEventHandler(async (event) => {
         days: true,
         createdAt: true,
         campaignId: true,
-        profile: { select: { id: true, name: true } },
+        profile: { select: { id: true, name: true, niche: true, style: true } },
         items: {
           orderBy: { position: 'asc' },
           select: {
@@ -60,7 +61,10 @@ export default defineEventHandler(async (event) => {
     }
 
     const reelEngine = getReelEngine();
-    return { plan, reelEngine, productionLabels: describeAllFormatProductions(reelEngine) };
+    // niche et style ne servent qu a annoncer la categorie du clip des STORY : on ne les renvoie pas au navigateur.
+    const storyCategory = await describeStoryCategory({ niche: plan.profile?.niche, style: plan.profile?.style }).catch(() => 'lifestyle');
+    const { niche: _niche, style: _style, ...publicProfile } = plan.profile || {};
+    return { plan: { ...plan, profile: publicProfile }, reelEngine, storyCategory, productionLabels: describeAllFormatProductions(reelEngine) };
   } catch (err) {
     if (err?.statusCode) {
       return sendError(event, err);

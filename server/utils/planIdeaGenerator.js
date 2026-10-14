@@ -19,6 +19,10 @@ function getAnthropicModel() {
   return String(process.env.ANTHROPIC_MODEL || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
 }
 
+// Une STORY n a pas de scene : son clip est choisi a la generation dans une banque Pinterest, jamais depuis un texte ecrit ici.
+// Ce texte est ce qui est enregistre comme "prompt" du contenu : il dit la verite plutot que de laisser croire a une scene.
+export const STORY_CLIP_NOTE = 'Clip choisi automatiquement dans la banque Pinterest (paysage, objets, pièce, sans personnage).';
+
 /**
  * @param {object} profile
  * @param {{ personality?: unknown, reelEngine?: 'faceless'|'legacy' }} [options]
@@ -51,8 +55,9 @@ export function buildPlanSystemPrompt(profile, { personality, reelEngine = 'lega
     '',
     'Contraintes:',
     faceless
-      ? '- Le champ "prompt" depend du format. FEED : la scene d une image fixe (sujet, cadrage, lumiere, decor, pas de texte a incruster). REEL : une video faceless (voix off, avatar dessine, textes animes) : ecris le SUJET et l angle precis, en francais, avec les 3 ou 4 idees que la voix va developper ; aucune scene a filmer, aucun decor reel. STORY : une ambiance courte (paysage, objets, piece), sans personnage.'
+      ? '- Le champ "prompt" depend du format. FEED : la scene d une image fixe (sujet, cadrage, lumiere, decor, pas de texte a incruster). REEL : une video faceless (voix off, avatar dessine, textes animes) : ecris le SUJET et l angle precis, en francais, avec les 3 ou 4 idees que la voix va developper ; aucune scene a filmer, aucun decor reel.'
       : '- Le champ "prompt" decrit la scene a generer en image ou video. Il doit etre\n  concret et visuel: sujet, cadrage, lumiere, decor. Pas de texte a incruster.',
+    '- Pour un creneau STORY, le clip est choisi automatiquement dans une banque de videos (paysage, objets, piece, sans personnage) : laisse "prompt" vide et ecris seulement la legende et les hashtags ; la legende evoque une ambiance, sans parler d un personnage a l ecran.',
     '- Le champ "caption" est la legende publiee, en francais, ton naturel.',
     '- Le champ "hashtags" contient 3 a 6 hashtags separes par des espaces.',
     '- Les idees d un meme plan doivent se completer, pas se repeter.',
@@ -109,7 +114,7 @@ export function parsePlanIdeas(rawText) {
       caption: String(item?.caption || '').trim(),
       hashtags: String(item?.hashtags || '').trim(),
     }))
-    .filter((item) => Number.isFinite(item.position) && item.prompt);
+    .filter((item) => Number.isFinite(item.position) && (item.prompt || item.caption));
 }
 
 /**
@@ -121,15 +126,16 @@ export function mergeIdeasIntoSlots(slots, ideas, profile, { reelEngine } = {}) 
 
   return slots.map((slot) => {
     const idea = byPosition.get(slot.position);
+    const isStory = String(slot.format || '').toUpperCase() === 'STORY';
 
     if (!idea) {
       const fallback = buildFallbackIdea({ profile, format: slot.format, position: slot.position, reelEngine });
-      return { ...slot, ...fallback };
+      return { ...slot, ...fallback, ...(isStory ? { prompt: STORY_CLIP_NOTE } : {}) };
     }
 
     return {
       ...slot,
-      prompt: idea.prompt,
+      prompt: isStory ? STORY_CLIP_NOTE : (idea.prompt || buildFallbackIdea({ profile, format: slot.format, position: slot.position, reelEngine }).prompt),
       caption: idea.caption,
       hashtags: idea.hashtags,
       isFallback: false,

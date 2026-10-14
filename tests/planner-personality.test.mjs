@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { buildFallbackIdea } from '../server/utils/contentPlanner.js';
-import { buildPlanSystemPrompt, buildPlanUserPrompt, mergeIdeasIntoSlots } from '../server/utils/planIdeaGenerator.js';
+import { STORY_CLIP_NOTE, buildPlanSystemPrompt, buildPlanUserPrompt, mergeIdeasIntoSlots, parsePlanIdeas } from '../server/utils/planIdeaGenerator.js';
+import { describeStoryCategory } from '../server/utils/pinterestKeywordPicker.js';
 import {
   buildPlannerPersonalityBlock,
   buildPreferredForms,
@@ -121,7 +122,46 @@ test('prompt systeme : le REEL faceless demande un sujet a raconter, pas une sce
   const prompt = buildPlanSystemPrompt({ name: 'X' }, { reelEngine: 'faceless' });
   assert.match(prompt, /REEL : une video faceless/);
   assert.match(prompt, /aucune scene a filmer/);
-  assert.match(prompt, /STORY : une ambiance courte/);
+  assert.doesNotMatch(prompt, /STORY : une ambiance courte/, 'la STORY n a plus de scene decrite');
+});
+
+test('STORY : le prompt vient du code (clip automatique), Claude n ecrit que legende et hashtags', () => {
+  for (const reelEngine of ['faceless', 'legacy']) {
+    const prompt = buildPlanSystemPrompt({ name: 'X' }, { reelEngine });
+    assert.match(prompt, /creneau STORY, le clip est choisi automatiquement/);
+    assert.match(prompt, /laisse "prompt" vide/);
+  }
+
+  // Une STORY sans prompt mais avec legende est conservee (avant : ecartee).
+  const ideas = parsePlanIdeas(JSON.stringify([
+    { position: 2, prompt: '', caption: 'Un mardi de feuilles', hashtags: '#automne' },
+    { position: 9, prompt: '', caption: '', hashtags: '' },
+  ]));
+  assert.equal(ideas.length, 1);
+
+  const storySlots = [{ position: 2, scheduledAt: new Date(), format: 'STORY', platform: 'INSTAGRAM' }, ...slots.slice(0, 1)];
+  const merged = mergeIdeasIntoSlots(storySlots, [
+    { position: 2, prompt: 'Candid shot of a shy Asian young woman', caption: 'Un mardi de feuilles', hashtags: '#automne' },
+  ], { name: 'Usagi', niche: 'x' });
+  assert.equal(merged[0].prompt, STORY_CLIP_NOTE, 'meme si Claude a ecrit une scene avec une personne, elle n est pas conservee');
+  assert.equal(merged[0].caption, 'Un mardi de feuilles');
+  assert.equal(merged[1].format, 'FEED');
+  assert.notEqual(merged[1].prompt, STORY_CLIP_NOTE);
+
+  // Repli (Claude indisponible) : la STORY garde la note, pas une scene inventee.
+  assert.equal(mergeIdeasIntoSlots(storySlots, [], { name: 'Usagi' })[0].prompt, STORY_CLIP_NOTE);
+  // Un FEED dont Claude a laisse le prompt vide retombe sur l amorce, jamais sur du vide.
+  const empty = mergeIdeasIntoSlots(slots.slice(0, 1), [{ position: 1, prompt: '', caption: 'c', hashtags: '' }], { name: 'Usagi', niche: 'n' });
+  assert.ok(empty[0].prompt.length > 10);
+});
+
+test('categorie du clip des STORY : celle de la banque des stories, jamais une categorie qui n y existe pas', async () => {
+  assert.equal(await describeStoryCategory({ niche: 'lifestyle', style: 'green eyes shy asian' }), 'lifestyle');
+  assert.equal(await describeStoryCategory({ niche: 'plage, ete' }), 'beach');
+  assert.equal(await describeStoryCategory({ niche: 'mode' }), 'outfit');
+  // "anime" donne "cosplay" cote REEL, mais la banque des stories n a pas cette categorie.
+  assert.equal(await describeStoryCategory({ niche: 'analyse anime' }), 'lifestyle');
+  assert.equal(await describeStoryCategory({}), 'lifestyle');
 });
 
 test('prompt utilisateur : un pilier par creneau, rotation et reprise ; sans piliers la ligne est inchangee', () => {

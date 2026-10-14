@@ -112,13 +112,21 @@
 
           <div class="mt-4 space-y-3">
             <div>
-              <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">{{ promptLabel(item) }}</label>
-              <textarea
-                v-model="item.prompt"
-                :disabled="Boolean(item.contentId)"
-                class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-[#FAFAF8] p-3 text-sm text-[#111111] outline-none focus:border-[#E8873A] disabled:opacity-60"
-                style="min-height: 90px;"
-              />
+              <template v-if="item.format === 'STORY'">
+                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Clip</label>
+                <p class="mt-1.5 rounded-[10px] border border-dashed border-[#E5E3DF] bg-[#FAFAF8] p-3 text-sm text-[#666666]">
+                  Choisi automatiquement à la génération dans la banque Pinterest (catégorie : {{ storyCategoryLabel }}), sans personnage. Rien à écrire ici : seule la légende compte.
+                </p>
+              </template>
+              <template v-else>
+                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">{{ promptLabel(item) }}</label>
+                <textarea
+                  v-model="item.prompt"
+                  :disabled="Boolean(item.contentId)"
+                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-[#FAFAF8] p-3 text-sm text-[#111111] outline-none focus:border-[#E8873A] disabled:opacity-60"
+                  style="min-height: 90px;"
+                />
+              </template>
             </div>
 
             <div>
@@ -180,6 +188,10 @@ const plan = computed(() => data.value?.plan ?? null)
 
 // Comment chaque format sera produit (libelles fournis par le serveur, qui connait le moteur actif).
 const productionLabels = computed(() => data.value?.productionLabels || {})
+
+// Categorie du clip des STORY (devinee depuis la niche du profil par le serveur).
+const STORY_CATEGORY_LABELS = { lifestyle: 'lifestyle', beach: 'plage', outfit: 'tenues', other: 'divers' }
+const storyCategoryLabel = computed(() => STORY_CATEGORY_LABELS[data.value?.storyCategory] || 'lifestyle')
 
 function promptLabel(item) {
   // Une video faceless n a pas de scene : l idee est le sujet que la voix va raconter.
