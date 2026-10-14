@@ -28,6 +28,7 @@ import { generateVideoMotionControl } from './klingGenerator.js';
 import { getGeneratedDir, toMediaUrl } from './mediaStorage.js';
 import { scrapePinterestImage } from './pinterestScraper.js';
 import { scrapePinterestVideo } from './pinterestVideoScraper.js';
+import { readPlanCaption } from './planCaption.js';
 import {
   HASHTAG_BLOCKS,
   PROMPT_CAPTION_CONTEXTUALIZED,
@@ -184,7 +185,9 @@ async function persistContentRecord(prisma, contentId, data, options = {}) {
 async function finalizeStoryVideo({ prisma, contentId, influencer, anthropicApiKey, sourceVideoPath, keyword, sceneDescription }) {
   const persistedVideo = await persistGeneratedVideo(sourceVideoPath);
   const fallbackCaption = `Ambiance du jour autour de ${String(keyword || '').trim() || 'cette vibe'} ✨\n\n#story #instagram #vibes`;
-  const caption = await generateCaption({
+  // Legende deja relue dans un plan : on la garde (et on economise un appel Claude).
+  const planCaption = await readPlanCaption(prisma, contentId);
+  const caption = planCaption || await generateCaption({
     anthropicApiKey,
     influencerName: influencer.name,
     contentType: 'story',
@@ -337,7 +340,8 @@ async function runReelWorkflow({
 
     const resolvedTagCategory = String(tagCategory || 'lifestyle').trim().toLowerCase();
     const hashtagBlock = HASHTAG_BLOCKS[resolvedTagCategory] || HASHTAG_BLOCKS.lifestyle || '';
-    let caption = await generateCaption({
+    const planCaption = await readPlanCaption(prisma, contentId);
+    let caption = planCaption || await generateCaption({
       anthropicApiKey,
       influencerName: influencer.name,
       contentType: 'reel',
@@ -351,7 +355,8 @@ async function runReelWorkflow({
       fallbackCaption: `Serving a new motion moment around ${String(keyword || '').trim() || 'this scene'}.`,
     });
 
-    if (hashtagBlock) {
+    // La legende d un plan contient deja ses hashtags : pas de bloc generique par-dessus.
+    if (hashtagBlock && !planCaption) {
       caption = `${caption}\n\n${hashtagBlock}`;
     }
 
@@ -831,11 +836,13 @@ export async function processGenerationJob(jobData, options = {}) {
       imageUrl = toMediaUrl('generated', filename);
     }
 
-    let caption = '';
+    // Legende deja relue dans un plan : conservee telle quelle (hashtags compris).
+    const planCaption = await readPlanCaption(prisma, contentId);
+    let caption = planCaption;
     const resolvedTagCategory = String(tagCategory || 'lifestyle').trim().toLowerCase();
-    const hashtagBlock = HASHTAG_BLOCKS[resolvedTagCategory] || HASHTAG_BLOCKS.lifestyle || '';
+    const hashtagBlock = planCaption ? '' : (HASHTAG_BLOCKS[resolvedTagCategory] || HASHTAG_BLOCKS.lifestyle || '');
 
-    if (anthropicApiKey) {
+    if (!planCaption && anthropicApiKey) {
       const anthropic = new Anthropic({ apiKey: anthropicApiKey });
       const captionPrompt = PROMPT_CAPTION_CONTEXTUALIZED.replace('{influencer_name}', influencer.name)
         .replace('{content_type}', normalizedContentType)
