@@ -5,10 +5,11 @@
  * style que useWidgets.js : de simples wrappers $fetch, aucune logique.
  */
 export function usePromptAssist() {
-  async function assistFreePrompt({ idea, mediaType, profileId, libraryAssetIds }) {
+  // `contextProfileId` : profil actif du Studio ; s il s agit d une marque, le serveur ajoute sa fiche et son site au contexte.
+  async function assistFreePrompt({ idea, mediaType, profileId, libraryAssetIds, contextProfileId }) {
     return await $fetch('/api/generate/prompt-assist', {
       method: 'POST',
-      body: { idea, mediaType, profileId, libraryAssetIds: libraryAssetIds?.length ? libraryAssetIds : undefined },
+      body: { idea, mediaType, profileId, contextProfileId: contextProfileId || undefined, libraryAssetIds: libraryAssetIds?.length ? libraryAssetIds : undefined },
     })
   }
 
@@ -19,10 +20,10 @@ export function usePromptAssist() {
     })
   }
 
-  async function assistCarouselSlides({ idea, profileId }) {
+  async function assistCarouselSlides({ idea, profileId, contextProfileId }) {
     return await $fetch('/api/generate/carousel-assist', {
       method: 'POST',
-      body: { idea, profileId },
+      body: { idea, profileId, contextProfileId: contextProfileId || undefined },
     })
   }
 

@@ -1,4 +1,5 @@
 import { generateCarouselSlides, CAROUSEL_ASSIST_MIN, CAROUSEL_ASSIST_MAX } from '../../utils/carouselAssistGenerator.js';
+import { buildBrandContextBlock, loadBrandContext } from '../../utils/brandContext.js';
 import { buildPersonaDescription } from '../../utils/personaDescription.js';
 import { findPersonaCompatible } from '../../utils/personaLookup.js';
 
@@ -42,9 +43,16 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    // Marque (profil actif du Studio de type BRAND) : sa fiche et le texte de son site guident les slides.
+    const contextProfileId = String(body?.contextProfileId || '').trim();
+    const brandContext = contextProfileId
+      ? buildBrandContextBlock(await loadBrandContext(await getPrisma(), contextProfileId, user.id))
+      : '';
+
     const slides = await generateCarouselSlides({
       idea,
       personaDescription,
+      brandContext,
       apiKey: runtimeConfig.anthropicApiKey,
       min: CAROUSEL_ASSIST_MIN,
       max: CAROUSEL_ASSIST_MAX,

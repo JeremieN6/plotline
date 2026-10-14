@@ -130,7 +130,7 @@
                 type="button"
                 class="mt-2 rounded-[10px] bg-[#FDE7D6] px-4 py-2 text-sm font-bold text-[#B45F1D] transition-colors hover:bg-[#FAD9BE] disabled:cursor-not-allowed disabled:opacity-60"
                 :disabled="!carouselIdea.trim() || carouselAssistLoading"
-                @click="generateCarouselSlidesFromIdea"
+                @click="openIdeaReview('carousel')"
               >
                 {{ carouselAssistLoading ? 'Génération des slides...' : 'Générer les slides avec Claude' }}
               </button>
@@ -191,7 +191,7 @@
                 type="button"
                 class="mt-2 rounded-[10px] bg-[#FDE7D6] px-4 py-2 text-sm font-bold text-[#B45F1D] transition-colors hover:bg-[#FAD9BE] disabled:cursor-not-allowed disabled:opacity-60"
                 :disabled="!freePromptIdea.trim() || freePromptAssistLoading"
-                @click="generateFreePromptFromIdea"
+                @click="openIdeaReview('free')"
               >
                 {{ freePromptAssistLoading ? 'Écriture du prompt...' : 'Écrire le prompt avec Claude' }}
               </button>
@@ -581,7 +581,7 @@
           type="button"
           class="mt-5 rounded-[12px] bg-[#E8873A] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#d4762f] disabled:cursor-not-allowed disabled:opacity-60"
           :disabled="loading || !canGenerate"
-          @click="submit"
+          @click="requestSubmit"
         >
           {{ loading ? 'Génération en cours...' : (editingContentId ? 'Régénérer' : 'Générer') }}
         </button>
@@ -655,11 +655,75 @@
         <p v-else class="mt-4 text-sm text-[#777]">Aucun résultat pour le moment.</p>
       </aside>
     </div>
+
+    <!-- Verification avant l ecriture des prompts par Claude (prompt libre : slides de carrousel ou prompt unique). -->
+    <StudioReviewDialog
+      :open="ideaReview.open"
+      title="Claude a-t-il bien compris ton besoin ?"
+      :description="ideaReview.target === 'carousel'
+        ? 'Claude va s\'appuyer sur ce texte pour écrire les slides. Relis-le et modifie-le si besoin avant de lancer.'
+        : 'Claude va s\'appuyer sur ce texte pour écrire le prompt. Relis-le et modifie-le si besoin avant de lancer.'"
+      :confirm-label="ideaReview.target === 'carousel' ? 'C\'est bon, écrire les slides' : 'C\'est bon, écrire le prompt'"
+      cancel-label="Annuler"
+      :confirm-disabled="!ideaReview.draft.trim()"
+      @confirm="confirmIdeaReview"
+      @cancel="ideaReview.open = false"
+    >
+      <label for="idea-review-text" class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Ton besoin</label>
+      <textarea
+        id="idea-review-text"
+        v-model="ideaReview.draft"
+        rows="6"
+        class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-[#FAFAF8] p-3 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+      />
+      <ul class="mt-3 list-disc space-y-1 pl-5 text-xs text-[#7B5A3F]">
+        <li>Les images sont créées <strong>sans texte</strong> par défaut.</li>
+        <li>Pour du texte sur une image, demande-le clairement, avec la langue (ex : « titre en français : Ma routine du matin »).</li>
+        <li v-if="ideaReview.target === 'carousel'">Pense à préciser le nombre de slides ou le ton si ça compte.</li>
+      </ul>
+    </StudioReviewDialog>
+
+    <!-- Verification avant la generation des images (prompt libre) : c est ici que les credits sont depenses. -->
+    <StudioReviewDialog
+      :open="generationReview.open"
+      :title="generationReviewTitle"
+      description="Relis les prompts : une fois lancée, chaque image est facturée. Tu peux revenir modifier avant."
+      confirm-label="Lancer la génération"
+      cancel-label="Revenir modifier"
+      @confirm="confirmGenerationReview"
+      @cancel="generationReview.open = false"
+    >
+      <p class="rounded-[10px] bg-[#FDF3EA] px-3 py-2 text-sm font-semibold text-[#B45F1D]">
+        {{ generationReviewCount }} image{{ generationReviewCount > 1 ? 's' : '' }} à générer, environ {{ generationReviewCost }} $ (tarif Gemini indicatif).
+      </p>
+      <ol class="mt-3 space-y-2">
+        <li
+          v-for="(item, index) in generationReviewItems"
+          :key="index"
+          class="rounded-[10px] border border-[#E5E3DF] bg-[#FAFAF8] p-3"
+        >
+          <div class="mb-1 flex items-center justify-between gap-2">
+            <span class="text-xs font-bold uppercase tracking-[0.12em] text-[#9A9A9A]">{{ generationReviewItems.length > 1 ? `Slide ${index + 1}` : 'Prompt' }}</span>
+            <span
+              v-if="item.textHint"
+              class="rounded-full px-2 py-0.5 text-[11px] font-bold"
+              :class="item.textHint === 'with' ? 'bg-[#E8F1FB] text-[#2C5C8F]' : 'bg-[#F1EFEA] text-[#6B6B6B]'"
+            >
+              {{ item.textHint === 'with' ? 'Texte demandé' : 'Sans texte' }}
+            </span>
+          </div>
+          <p class="whitespace-pre-wrap text-sm text-[#111111]">{{ item.text }}</p>
+        </li>
+      </ol>
+      <p v-if="generationReviewAssets" class="mt-3 text-xs text-[#7B5A3F]">
+        {{ generationReviewAssets }} asset{{ generationReviewAssets > 1 ? 's' : '' }} de la bibliothèque joint{{ generationReviewAssets > 1 ? 's' : '' }} à cette image.
+      </p>
+    </StudioReviewDialog>
   </div>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 const { pushToast } = useUiFeedback()
@@ -965,6 +1029,7 @@ async function generateFreePromptFromIdea() {
       idea: freePromptIdea.value.trim(),
       mediaType: mode.value,
       profileId: wantsAmbassador.value ? resolvedAmbassadorId.value : '',
+      contextProfileId: primaryInfluencerId.value,
       libraryAssetIds: mode.value === 'image' && imageGenerationKind.value === 'single' && !editingContentId.value ? libraryAssetIds.value : undefined,
     })
     prompt.value = assistedPrompt
@@ -973,6 +1038,74 @@ async function generateFreePromptFromIdea() {
   } finally {
     freePromptAssistLoading.value = false
   }
+}
+
+// --- Verification avant l ecriture des prompts par Claude ---
+const ideaReview = reactive({ open: false, target: 'carousel', draft: '' })
+
+function openIdeaReview(target) {
+  const isCarousel = target === 'carousel'
+  if (isCarousel ? carouselAssistLoading.value : freePromptAssistLoading.value) return
+  ideaReview.target = isCarousel ? 'carousel' : 'free'
+  ideaReview.draft = isCarousel ? carouselIdea.value : freePromptIdea.value
+  ideaReview.open = true
+}
+
+async function confirmIdeaReview() {
+  const draft = ideaReview.draft.trim()
+  if (!draft) return
+  ideaReview.open = false
+
+  // Le besoin relu (et peut-etre corrige) devient le besoin de la page : c est lui que Claude recoit.
+  if (ideaReview.target === 'carousel') {
+    carouselIdea.value = draft
+    await generateCarouselSlidesFromIdea()
+  } else {
+    freePromptIdea.value = draft
+    await generateFreePromptFromIdea()
+  }
+}
+
+// --- Verification avant la generation des images (prompt libre, image seulement) ---
+// Tarif indicatif d une image Gemini (a verifier sur la console Google), le meme que celui du dossier faceless.
+const ESTIMATED_IMAGE_COST_USD = 0.134
+
+const generationReview = reactive({ open: false })
+
+// "without" si le prompt dit "no text" ; "with" si le prompt cite du texte a afficher. Sinon aucune etiquette.
+function detectTextHint(text) {
+  const value = String(text || '')
+  if (/\bno text\b/i.test(value)) return 'without'
+  if (/\b(reading|headline|title|caption|lettering|written|says|texte|titre)\b/i.test(value)) return 'with'
+  return ''
+}
+
+const generationReviewItems = computed(() => {
+  const prompts = imageGenerationKind.value === 'carousel' ? trimmedCarouselPrompts.value : [prompt.value.trim()]
+  return prompts.map((text) => ({ text, textHint: detectTextHint(text) }))
+})
+const generationReviewCount = computed(() => generationReviewItems.value.length)
+const generationReviewCost = computed(() => (generationReviewCount.value * ESTIMATED_IMAGE_COST_USD).toFixed(2).replace('.', ','))
+const generationReviewAssets = computed(() => (imageGenerationKind.value === 'single' ? libraryAssetIds.value.length : 0))
+const generationReviewTitle = computed(() => (
+  imageGenerationKind.value === 'carousel' ? 'Lancer la génération du carrousel ?' : 'Lancer la génération de l\'image ?'
+))
+
+// Les generations d images du prompt libre passent par la verification ; widgets, videos et regenerations
+// d un contenu existant partent directement comme avant.
+function requestSubmit() {
+  if (loading.value || !canGenerate.value) return
+  const needsReview = mode.value === 'image' && entryMode.value !== 'widget' && !editingContentId.value
+  if (needsReview) {
+    generationReview.open = true
+    return
+  }
+  submit()
+}
+
+async function confirmGenerationReview() {
+  generationReview.open = false
+  await submit()
 }
 
 async function generateCarouselSlidesFromIdea() {
@@ -984,6 +1117,7 @@ async function generateCarouselSlidesFromIdea() {
     const { slides } = await assistCarouselSlides({
       idea: carouselIdea.value.trim(),
       profileId: wantsAmbassador.value ? resolvedAmbassadorId.value : '',
+      contextProfileId: primaryInfluencerId.value,
     })
     if (Array.isArray(slides) && slides.length) {
       carouselPrompts.value = slides.map((text) => createCarouselPrompt(text))

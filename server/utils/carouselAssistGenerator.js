@@ -9,6 +9,9 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 
+import { BRAND_ASSIST_RULE } from './brandAssistRule.js';
+import { IMAGE_TEXT_RULE_LINES } from './imageTextRule.js';
+
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 const MAX_TOKENS = 1536;
 
@@ -19,7 +22,7 @@ function getAnthropicModel() {
   return String(process.env.ANTHROPIC_MODEL || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
 }
 
-export function buildCarouselAssistSystemPrompt({ personaDescription, min, max } = {}) {
+export function buildCarouselAssistSystemPrompt({ personaDescription, brandContext, min, max } = {}) {
   const lo = Number.isFinite(min) ? min : CAROUSEL_ASSIST_MIN;
   const hi = Number.isFinite(max) ? max : CAROUSEL_ASSIST_MAX;
 
@@ -35,11 +38,17 @@ export function buildCarouselAssistSystemPrompt({ personaDescription, min, max }
     '  visuel : sujet, cadrage, decor, lumiere.',
     '- Les slides doivent former une sequence coherente (meme personnage,',
     '  meme univers visuel d une slide a l autre si pertinent).',
-    '- Pas de texte a incruster dans les images, pas de watermark.',
+    ...IMAGE_TEXT_RULE_LINES,
+    '- Si du texte est demande sur les images, garde la meme langue et le meme style de texte d une slide a l autre.',
   ];
 
   if (personaDescription) {
     lines.push('', `Persona concerne, doit rester reconnaissable : ${personaDescription}.`);
+  }
+
+  // Marque : fiche + texte de son site (brandContext.js), pour que les slides collent a son offre reelle.
+  if (brandContext) {
+    lines.push('', brandContext, BRAND_ASSIST_RULE);
   }
 
   lines.push(
@@ -88,7 +97,7 @@ export function parseCarouselAssistResult(rawText, { min, max } = {}) {
   return slides.length > hi ? slides.slice(0, hi) : slides;
 }
 
-export async function generateCarouselSlides({ idea, personaDescription, apiKey, min, max }) {
+export async function generateCarouselSlides({ idea, personaDescription, brandContext, apiKey, min, max }) {
   const key = String(apiKey || process.env.ANTHROPIC_API_KEY || '').trim();
   const trimmedIdea = String(idea || '').trim();
 
@@ -103,7 +112,7 @@ export async function generateCarouselSlides({ idea, personaDescription, apiKey,
   const response = await anthropic.messages.create({
     model: getAnthropicModel(),
     max_tokens: MAX_TOKENS,
-    system: buildCarouselAssistSystemPrompt({ personaDescription, min, max }),
+    system: buildCarouselAssistSystemPrompt({ personaDescription, brandContext, min, max }),
     messages: [{ role: 'user', content: buildCarouselAssistUserPrompt(trimmedIdea) }],
   });
 

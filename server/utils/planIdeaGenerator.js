@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 import { buildFallbackIdea } from './contentPlanner.js';
+import { autoHashtagsEnabled } from './hashtagPolicy.js';
 import { buildPlannerPersonalityBlock, buildVisualUniverse, pillarForSlot } from './personalityPlanning.js';
 
 /**
@@ -29,7 +30,7 @@ export const STORY_CLIP_NOTE = 'Clip choisi automatiquement dans la banque Pinte
  *   `personality` : personnalite enregistree du profil (facultative) ;
  *   `reelEngine` : comment les REEL seront produits (voir reelEngine.js).
  */
-export function buildPlanSystemPrompt(profile, { personality, reelEngine = 'legacy' } = {}) {
+export function buildPlanSystemPrompt(profile, { personality, reelEngine = 'legacy', hashtags = autoHashtagsEnabled() } = {}) {
   const name = String(profile?.name || '').trim();
   const niche = String(profile?.niche || '').trim();
   const style = String(profile?.style || '').trim();
@@ -57,9 +58,11 @@ export function buildPlanSystemPrompt(profile, { personality, reelEngine = 'lega
     faceless
       ? '- Le champ "prompt" depend du format. FEED : la scene d une image fixe (sujet, cadrage, lumiere, decor, pas de texte a incruster). REEL : une video faceless (voix off, avatar dessine, textes animes) : ecris le SUJET et l angle precis, en francais, avec les 3 ou 4 idees que la voix va developper ; aucune scene a filmer, aucun decor reel.'
       : '- Le champ "prompt" decrit la scene a generer en image ou video. Il doit etre\n  concret et visuel: sujet, cadrage, lumiere, decor. Pas de texte a incruster.',
-    '- Pour un creneau STORY, le clip est choisi automatiquement dans une banque de videos (paysage, objets, piece, sans personnage) : laisse "prompt" vide et ecris seulement la legende et les hashtags ; la legende evoque une ambiance, sans parler d un personnage a l ecran.',
+    '- Pour un creneau STORY, le clip est choisi automatiquement dans une banque de videos (paysage, objets, piece, sans personnage) : laisse "prompt" vide et ecris seulement la legende' + (hashtags ? ' et les hashtags' : '') + ' ; la legende evoque une ambiance, sans parler d un personnage a l ecran.',
     '- Le champ "caption" est la legende publiee, en francais, ton naturel.',
-    '- Le champ "hashtags" contient 3 a 6 hashtags separes par des espaces.',
+    hashtags
+      ? '- Le champ "hashtags" contient 3 a 6 hashtags separes par des espaces.'
+      : '- Le champ "hashtags" reste une chaine vide : aucun hashtag. Place plutot dans la legende, naturellement, les mots que le public cherche (domaine, sujet precis).',
     '- Les idees d un meme plan doivent se completer, pas se repeter.',
     '- Un format STORY est spontane, FEED est soigne, REEL est en mouvement.',
     '',
@@ -172,7 +175,8 @@ export async function generatePlanIdeas({ profile, slots, apiKey, personality, r
       .map((block) => block.text)
       .join('\n');
 
-    const ideas = parsePlanIdeas(text);
+    // Hashtags automatiques desactives (hashtagPolicy.js) : meme si Claude en renvoie, on ne les garde pas.
+    const ideas = parsePlanIdeas(text).map((idea) => (autoHashtagsEnabled() ? idea : { ...idea, hashtags: '' }));
     const items = mergeIdeasIntoSlots(slots, ideas, profile, { reelEngine });
     const missing = items.filter((item) => item.isFallback).length;
 
