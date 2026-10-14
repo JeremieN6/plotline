@@ -5,17 +5,17 @@
  * style que useWidgets.js : de simples wrappers $fetch, aucune logique.
  */
 export function usePromptAssist() {
-  async function assistFreePrompt({ idea, mediaType, profileId }) {
+  async function assistFreePrompt({ idea, mediaType, profileId, libraryAssetIds }) {
     return await $fetch('/api/generate/prompt-assist', {
       method: 'POST',
-      body: { idea, mediaType, profileId },
+      body: { idea, mediaType, profileId, libraryAssetIds: libraryAssetIds?.length ? libraryAssetIds : undefined },
     })
   }
 
-  async function assistWidgetFields({ widgetId, patternId, idea, profileId }) {
+  async function assistWidgetFields({ widgetId, patternId, idea, profileId, libraryAssetIds }) {
     return await $fetch('/api/widgets/fields-assist', {
       method: 'POST',
-      body: { widgetId, patternId: patternId || undefined, idea, profileId },
+      body: { widgetId, patternId: patternId || undefined, idea, profileId, libraryAssetIds: libraryAssetIds?.length ? libraryAssetIds : undefined },
     })
   }
 

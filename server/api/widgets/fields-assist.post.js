@@ -3,6 +3,8 @@ import { generateWidgetFields } from '../../utils/widgetFieldsAssistGenerator.js
 import { buildPersonaDescription } from '../../utils/personaDescription.js';
 import { findPersonaCompatible } from '../../utils/personaLookup.js';
 import { buildEffectiveWidget, resolvePatternForAccount } from '../../utils/promptPatternSelector.js';
+import { loadLibraryAssetBriefs } from '../../utils/libraryReferenceLoader.js';
+import { normalizeLibraryAssetIds } from '../../utils/libraryReferences.js';
 
 let prismaClient;
 
@@ -67,10 +69,18 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    // Codes des assets joints (retrouves en base, par compte) : l assistant les
+    // cite dans la scene. Sans asset, le prompt de l assistant est inchange.
+    const libraryIds = normalizeLibraryAssetIds(body?.libraryAssetIds);
+    const libraryAssets = libraryIds.length
+      ? await loadLibraryAssetBriefs({ prisma: await getPrisma(), ids: libraryIds, ownerUserId: user.id })
+      : [];
+
     const fields = await generateWidgetFields({
       widget: effectiveWidget,
       idea,
       personaDescription,
+      libraryAssets,
       apiKey: runtimeConfig.anthropicApiKey,
     });
 

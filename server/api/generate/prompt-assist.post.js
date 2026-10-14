@@ -1,6 +1,8 @@
 import { generateAssistedPrompt } from '../../utils/promptAssistGenerator.js';
 import { buildPersonaDescription } from '../../utils/personaDescription.js';
 import { findPersonaCompatible } from '../../utils/personaLookup.js';
+import { loadLibraryAssetBriefs } from '../../utils/libraryReferenceLoader.js';
+import { normalizeLibraryAssetIds } from '../../utils/libraryReferences.js';
 
 let prismaClient;
 
@@ -44,10 +46,17 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    // Assets de la bibliotheque (images seulement) : codes retrouves en base, par compte.
+    const libraryIds = mediaType === 'image' ? normalizeLibraryAssetIds(body?.libraryAssetIds) : [];
+    const libraryAssets = libraryIds.length
+      ? await loadLibraryAssetBriefs({ prisma: await getPrisma(), ids: libraryIds, ownerUserId: user.id })
+      : [];
+
     const { prompt } = await generateAssistedPrompt({
       idea,
       mediaType,
       personaDescription,
+      libraryAssets,
       identityLocked: Boolean(profileId && personaDescription),
       apiKey: runtimeConfig.anthropicApiKey,
     });

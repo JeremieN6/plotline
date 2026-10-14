@@ -2,6 +2,27 @@ import { readImageSourceBuffer } from './faceRefReader.js';
 import { buildReferenceLabelText, normalizeLibraryAssetIds } from './libraryReferences.js';
 
 /**
+ * Codes et types des assets selectionnes, pour les assistants "idee -> prompt".
+ * Meme garde que le reste : retrouves en base, filtres par proprietaire, dans
+ * l'ordre demande ; un asset inconnu ou sans fiche est simplement ignore.
+ */
+export async function loadLibraryAssetBriefs({ prisma, ids, ownerUserId } = {}) {
+  const wanted = normalizeLibraryAssetIds(ids);
+  const owner = String(ownerUserId || '').trim();
+  if (!wanted.length || !owner) return [];
+
+  const rows = await prisma.referenceAsset.findMany({
+    where: { id: { in: wanted }, userId: owner },
+    select: { id: true, code: true, type: true, sheetUrl: true },
+  });
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return wanted
+    .map((id) => byId.get(id))
+    .filter((row) => row && String(row.sheetUrl || '').trim())
+    .map((row) => ({ code: row.code, type: row.type }));
+}
+
+/**
  * Charge les fiches des assets de la bibliotheque a joindre a une generation
  * d'image. Les assets sont retrouves en base (jamais d'URL venue du client),
  * filtres par proprietaire, et renvoyes dans l'ordre demande. Un asset supprime,
