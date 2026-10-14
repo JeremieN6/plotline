@@ -400,3 +400,12 @@ Recharger un fichier de `server/` pendant qu un job de fond (video faceless, etc
 
 ## 2026-10-10 : limite d envoi nginx
 Le corps de requete vu par nginx inclut les en-tetes du formulaire multipart : une limite applicative egale a `client_max_body_size` laisse passer des fichiers refuses en 413 sans message. Garder la limite cote page legerement sous celle de nginx et gerer le 413.
+
+## 2026-10-13 : un catch general peut aplatir une erreur d authentification en 500
+`POST /api/generate/image` enveloppait tout, y compris `requireAuthUser`, dans un catch qui renvoyait 500 "Image generation failed" : une requete sans session n obtenait jamais 401 (trouve en verifiant les garde-fous du lot 2 des assets). **Regle** : dans une route dont le catch final fabrique un 500, laisser passer les erreurs deja typees (au minimum le 401) avant de les logguer comme des echecs de generation, et verifier le code reel renvoye sans session.
+
+## 2026-10-13 : fins de ligne CRLF et edition par motifs multi-lignes
+Apres un commit ou un rebase sur cette machine, certains fichiers du depot sont en CRLF dans le dossier de travail (`core.autocrlf`) : un remplacement de texte multi-lignes ecrit en LF ne trouve plus rien et le script s arrete sans rien ecrire. **Regle** : un script d edition par motifs normalise en LF a la lecture et restaure les fins de ligne a l ecriture, ou s appuie sur des ancres d une seule ligne.
+
+## 2026-10-14 : "phone photo" dans un prompt d image peut dessiner l interface de l appareil photo
+Sur un essai reel (Madison + voiture + maison), le mot "candid phone photo" a fait produire une capture d ecran d iPhone (eclair, barre SLO-MO/VIDEO/PHOTO, declencheur) au lieu d une photo ; les deux autres essais, avec la meme formulation, etaient normaux (effet aleatoire). **Regle** : pour un rendu "style telephone", decrire le rendu (grain, lumiere, cadrage de snapshot) et ajouter "no camera interface, no UI overlay, no on-screen controls" plutot que citer "phone photo" seul.

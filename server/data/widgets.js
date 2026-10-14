@@ -66,7 +66,12 @@ export const WIDGETS = [
       },
       { key: 'persona.description', source: 'persona' },
     ],
-    assetsRequis: [{ key: 'personaFaceRef', source: 'persona', required: true }],
+    assetsRequis: [
+      { key: 'personaFaceRef', source: 'persona', required: true },
+      // Fiches de la bibliotheque (voiture, lieu, bijou...) : choisies dans un
+      // selecteur dedie du Studio, jamais un upload ni un pre-requis.
+      { key: 'libraryAssets', source: 'library', required: false, label: 'Assets de la bibliothèque' },
+    ],
     negativePrompt: 'identity change, plastic skin, extra fingers, CGI appearance, text, watermark',
   },
   {

@@ -248,6 +248,9 @@ model GeneratedContent {
   /// autonome, avec son propre historique de versions et sa propre modification.
   carouselId       String?
   carouselPosition Int?
+  /// Identifiants (tableau JSON de chaines, dans l ordre de selection) des assets
+  /// de la bibliotheque joints a la generation: rejoues par "Modifier".
+  referenceAssetIds Json?
   platform      ContentPlatform @default(INSTAGRAM)
   format        ContentFormat
   status        ContentStatus   @default(PENDING)

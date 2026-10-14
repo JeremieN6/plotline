@@ -40,6 +40,9 @@ test('describeGeminiFailure : credit epuise, quota, indisponibilite, cle refusee
   // Statut absent de l objet : retrouve dans le texte JSON de l erreur.
   assert.equal(describeGeminiFailure({ message: '{"error":{"code":402,"message":"x"}}' }).statusCode, 402);
   assert.equal(describeGeminiFailure({ status: 429, message: 'x' }).statusCode, 429);
+  const cap = describeGeminiFailure({ status: 429, message: 'Your project has exceeded its monthly spending cap.' });
+  assert.equal(cap.statusCode, 429);
+  assert.match(cap.statusMessage, /plafond de dépense mensuel/);
   assert.equal(describeGeminiFailure({ message: 'The model is overloaded' }).statusCode, 503);
   assert.equal(describeGeminiFailure({ status: 403, message: 'x' }).statusCode, 502);
   assert.equal(describeGeminiFailure(new Error('boum')), null);
