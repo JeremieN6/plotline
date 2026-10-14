@@ -409,3 +409,6 @@ Apres un commit ou un rebase sur cette machine, certains fichiers du depot sont 
 
 ## 2026-10-14 : "phone photo" dans un prompt d image peut dessiner l interface de l appareil photo
 Sur un essai reel (Madison + voiture + maison), le mot "candid phone photo" a fait produire une capture d ecran d iPhone (eclair, barre SLO-MO/VIDEO/PHOTO, declencheur) au lieu d une photo ; les deux autres essais, avec la meme formulation, etaient normaux (effet aleatoire). **Regle** : pour un rendu "style telephone", decrire le rendu (grain, lumiere, cadrage de snapshot) et ajouter "no camera interface, no UI overlay, no on-screen controls" plutot que citer "phone photo" seul.
+
+## 2026-10-15 : une limite de longueur qui coupe en silence perd la conclusion
+Le champ "idee" du formulaire faceless etait borne a 2 000 caracteres par `maxlength` (page) ET `slice` (serveur) sans aucun message : un article colle y perdait sa fin, c est-a-dire sa conclusion et son appel a l action, sans que personne le voie. **Regle** : pour un texte que l utilisateur colle (article, notes), afficher un compteur, refuser (400 clair) plutot que couper, et prevoir une limite adaptee a un vrai article ; ne tronquer en silence que ce qu on ne montre jamais (ex. un extrait pour un titre).

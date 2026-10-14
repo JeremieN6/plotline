@@ -1,7 +1,7 @@
 import { createGeneratedContentRecord } from './video.post.js';
 import { getOrCreateDefaultProfile } from '../../utils/defaultProfile.js';
 import { runFacelessVideoJob } from '../../utils/facelessVideoJob.js';
-import { normalizeFacelessDuration } from '../../utils/facelessPlanGenerator.js';
+import { MAX_SOURCE_TEXT, normalizeFacelessDuration, normalizeSourceText } from '../../utils/facelessPlanGenerator.js';
 import { resolveElevenLabsApiKey } from '../../utils/elevenLabsTts.js';
 import { findFacelessVoice } from '../../data/facelessCatalog.js';
 import { defaultFacelessStyle } from '../../utils/facelessStyle.js';
@@ -41,8 +41,15 @@ export default defineEventHandler(async (event) => {
   const profileId = String(body?.profileId || '').trim();
   const targetSeconds = normalizeFacelessDuration(body?.durationSeconds);
 
-  if (!idea) {
-    return sendError(event, createError({ statusCode: 400, statusMessage: 'idee requise' }));
+  // Texte source (article, notes) : matiere premiere pour le script. Refuse s il est trop long
+  // plutot que de le couper en silence (la fin d un article est souvent sa conclusion).
+  const sourceText = normalizeSourceText(body?.sourceText);
+  if (sourceText.length > MAX_SOURCE_TEXT) {
+    return sendError(event, createError({ statusCode: 400, statusMessage: `Texte source trop long (${MAX_SOURCE_TEXT.toLocaleString('fr-FR')} caracteres maximum, ${sourceText.length.toLocaleString('fr-FR')} recus)` }));
+  }
+
+  if (!idea && !sourceText) {
+    return sendError(event, createError({ statusCode: 400, statusMessage: 'idee ou texte source requis' }));
   }
   if (!resolveElevenLabsApiKey()) {
     return sendError(event, createError({ statusCode: 503, statusMessage: 'ELEVEN_LABS_API_KEY non configuree' }));
@@ -88,13 +95,14 @@ export default defineEventHandler(async (event) => {
     platform: 'INSTAGRAM',
     format: 'REEL',
     status: 'PROCESSING',
-    prompt: idea,
+    prompt: idea || sourceText.slice(0, 200),
   });
 
   return runFacelessVideoJob({
     prisma,
     contentId: generatedContent.id,
     idea,
+    sourceText,
     persona,
     targetSeconds,
     captions,

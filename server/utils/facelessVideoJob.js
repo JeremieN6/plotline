@@ -155,10 +155,32 @@ async function synthesizePlanVoice(plan, voiceId) {
 }
 
 /**
+ * Genere les nouvelles images demandees par le plan (si le generateur est fourni) et les
+ * range avec les illustrations disponibles. Une image qui n a pas pu etre generee ramene
+ * sa scene en "avatar" (applyNewImages) : la video se fait quand meme. Commun aux deux
+ * modes (voix de synthese et voix du createur). Sans demande, rien n est appele.
+ */
+export async function attachNewImages({ plan, illustrations = {}, generateNewIllustrations = null, onStep = () => {} } = {}) {
+  const available = { ...illustrations };
+  const requests = collectNewImageRequests(plan);
+  if (!requests.length) return { plan, available };
+
+  const generated = generateNewIllustrations ? (onStep('images'), await generateNewIllustrations(requests)) : [];
+  const results = {};
+  requests.forEach((request, i) => {
+    const entry = generated[i];
+    if (!entry) return;
+    results[request.sceneIndex] = entry.id;
+    available[entry.id] = { kind: entry.kind, label: entry.label, url: entry.url };
+  });
+  return { plan: applyNewImages(plan, results), available };
+}
+
+/**
  * Le pipeline complet (sans base de donnees) : renvoie le MP4, le plan et la
  * voix. `plan` deja ecrit (essai) : Claude n est pas rappele.
  */
-export async function produceFacelessVideo({ idea, plan: givenPlan, persona, targetSeconds, captions, voiceId, style = null, illustrations = {}, maxNew = 0, generateNewIllustrations = null, onStep = () => {} } = {}) {
+export async function produceFacelessVideo({ idea, sourceText = '', plan: givenPlan, persona, targetSeconds, captions, voiceId, style = null, illustrations = {}, maxNew = 0, generateNewIllustrations = null, onStep = () => {} } = {}) {
   const da = style || normalizeFacelessStyle({});
   const packEntries = readyPackEntries(da);
   const packIds = Object.keys(packEntries);
@@ -166,23 +188,13 @@ export async function produceFacelessVideo({ idea, plan: givenPlan, persona, tar
   onStep('plan');
   let plan = givenPlan
     ? sanitizeFacelessPlan(givenPlan, { captions, packIds, illustrationIds: Object.keys(illustrations), maxNew })
-    : await generateFacelessPlan({ idea, persona, targetSeconds, captions, style: da, packEntries, illustrations, maxNew });
+    : await generateFacelessPlan({ idea, sourceText, persona, targetSeconds, captions, style: da, packEntries, illustrations, maxNew });
 
   // Nouvelles images demandees par Claude (autorisees et plafonnees en amont) : generees AVANT la voix,
   // pour ne rien depenser de plus si une etape echoue.
-  const available = { ...illustrations };
-  const requests = collectNewImageRequests(plan);
-  if (requests.length) {
-    const generated = generateNewIllustrations ? (onStep('images'), await generateNewIllustrations(requests)) : [];
-    const results = {};
-    requests.forEach((request, i) => {
-      const entry = generated[i];
-      if (!entry) return;
-      results[request.sceneIndex] = entry.id;
-      available[entry.id] = { kind: entry.kind, label: entry.label, url: entry.url };
-    });
-    plan = applyNewImages(plan, results);
-  }
+  const attached = await attachNewImages({ plan, illustrations, generateNewIllustrations, onStep });
+  plan = attached.plan;
+  const available = attached.available;
 
   onStep('voice');
   const voice = await synthesizePlanVoice(plan, voiceId || da.voiceId);
@@ -272,18 +284,19 @@ export function inBackground(prisma, contentId, previousStatus, task) {
 
 export const logStep = (contentId) => (step) => console.log(`[faceless] contentId=${contentId} etape=${step}`);
 
-function facelessVideoTask({ prisma, contentId, idea, persona, targetSeconds, captions, voiceId, style, userId, illustrations = {}, maxNew = 0, caption }) {
+function facelessVideoTask({ prisma, contentId, idea, sourceText = '', persona, targetSeconds, captions, voiceId, style, userId, illustrations = {}, maxNew = 0, caption }) {
   return async () => {
     const generateNewIllustrations = maxNew > 0 && persona && userId ? makeIllustrationGenerator({ prisma, userId, persona, style }) : null;
     const result = await produceFacelessVideo({
-      idea, persona, targetSeconds, captions, voiceId, style, illustrations, maxNew, generateNewIllustrations, onStep: logStep(contentId),
+      idea, sourceText, persona, targetSeconds, captions, voiceId, style, illustrations, maxNew, generateNewIllustrations, onStep: logStep(contentId),
     });
     const voiceUrl = await saveFacelessMedia(result.voice.audio, { folder: 'generated', extension: 'mp3', contentType: 'audio/mpeg' });
     await finalizeFaceless(prisma, contentId, {
       ...result,
       voiceUrl,
       caption,
-      base: { idea, voiceId: voiceId || result.style.voiceId, targetSeconds, captions, personaId: persona?.id || null },
+      // Le texte source (un article entier) n est pas conserve dans le rendu : seule l idee l est.
+      base: { idea: idea || String(sourceText || '').slice(0, 300), voiceId: voiceId || result.style.voiceId, targetSeconds, captions, personaId: persona?.id || null },
     });
   };
 }
