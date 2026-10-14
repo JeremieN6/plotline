@@ -119,7 +119,7 @@ export function buildPlanSlots({
  * une reponse inexploitable. Elle n a pas vocation a etre publiee telle quelle:
  * elle donne un point de depart editable plutot qu un plan vide.
  */
-export function buildFallbackIdea({ profile, format, position }) {
+export function buildFallbackIdea({ profile, format, position, reelEngine }) {
   const name = String(profile?.name || 'le profil').trim();
   const niche = String(profile?.niche || '').split(/[,|]/)[0]?.trim() || 'son univers';
   const style = String(profile?.style || '').split(/[,|]/)[0]?.trim() || 'naturel';
@@ -132,6 +132,16 @@ export function buildFallbackIdea({ profile, format, position }) {
   };
 
   const angle = angleByFormat[String(format || '').toUpperCase()] || angleByFormat.FEED;
+
+  // Un REEL faceless n a pas de scene a filmer : son "prompt" est le sujet que la voix va raconter.
+  if (reelEngine === 'faceless' && String(format || '').toUpperCase() === 'REEL') {
+    return {
+      prompt: `${name} explique un point précis autour de ${niche}, en quelques idées simples.`,
+      caption: '',
+      hashtags: '',
+      isFallback: true,
+    };
+  }
 
   return {
     prompt: `${name}, ${angle}, dans un style ${style}.`,

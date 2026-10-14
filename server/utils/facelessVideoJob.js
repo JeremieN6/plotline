@@ -227,7 +227,7 @@ export async function retouchFacelessVideo({ spec, instruction, persona, remembe
   return { video, plan, voice, newVoice, duration, style, packEntries, illustrationEntries: pickIllustrations(plan, known) };
 }
 
-export async function finalizeFaceless(prisma, contentId, { video, plan, voice, voiceUrl, duration, style, packEntries, illustrationEntries = {}, base }) {
+export async function finalizeFaceless(prisma, contentId, { video, plan, voice, voiceUrl, duration, style, packEntries, illustrationEntries = {}, base, caption }) {
   const videoUrl = await saveGeneratedVideoBuffer(video, 'video_faceless');
   const renderSpec = {
     ...base,
@@ -246,31 +246,34 @@ export async function finalizeFaceless(prisma, contentId, { video, plan, voice, 
   await finalizeContentWithVersion(
     prisma,
     contentId,
-    { imageUrl: videoUrl, caption: buildFacelessCaption(plan), status: 'PENDING', errorMessage: null },
+    // `caption` fourni = legende deja relue (idee d un plan editorial) : on la garde au lieu d en ecrire une autre.
+    { imageUrl: videoUrl, caption: caption || buildFacelessCaption(plan), status: 'PENDING', errorMessage: null },
     { generationModel: 'faceless', renderSpec },
   );
 }
 
+/** Execute la tache ; un echec est consigne sur le contenu (statut FAILED), jamais propage. */
+async function runSettled(prisma, contentId, previousStatus, task) {
+  try {
+    await task();
+  } catch (error) {
+    console.warn(`[faceless] contentId=${contentId} echec : ${error?.message || error}`);
+    await markGenerationFailure(prisma, contentId, {
+      errorMessage: normalizeErrorMessage(error, 'faceless'),
+      previousStatus,
+    });
+  }
+}
+
 export function inBackground(prisma, contentId, previousStatus, task) {
-  (async () => {
-    try {
-      await task();
-    } catch (error) {
-      console.warn(`[faceless] contentId=${contentId} echec : ${error?.message || error}`);
-      await markGenerationFailure(prisma, contentId, {
-        errorMessage: normalizeErrorMessage(error, 'faceless'),
-        previousStatus,
-      });
-    }
-  })();
+  runSettled(prisma, contentId, previousStatus, task);
   return { contentId, status: 'processing', model: 'faceless' };
 }
 
 export const logStep = (contentId) => (step) => console.log(`[faceless] contentId=${contentId} etape=${step}`);
 
-/** Lance la generation en tache de fond ; la requete HTTP repond tout de suite. */
-export function runFacelessVideoJob({ prisma, contentId, idea, persona, targetSeconds, captions, voiceId, style, userId, illustrations = {}, maxNew = 0, previousStatus }) {
-  return inBackground(prisma, contentId, previousStatus, async () => {
+function facelessVideoTask({ prisma, contentId, idea, persona, targetSeconds, captions, voiceId, style, userId, illustrations = {}, maxNew = 0, caption }) {
+  return async () => {
     const generateNewIllustrations = maxNew > 0 && persona && userId ? makeIllustrationGenerator({ prisma, userId, persona, style }) : null;
     const result = await produceFacelessVideo({
       idea, persona, targetSeconds, captions, voiceId, style, illustrations, maxNew, generateNewIllustrations, onStep: logStep(contentId),
@@ -279,9 +282,24 @@ export function runFacelessVideoJob({ prisma, contentId, idea, persona, targetSe
     await finalizeFaceless(prisma, contentId, {
       ...result,
       voiceUrl,
+      caption,
       base: { idea, voiceId: voiceId || result.style.voiceId, targetSeconds, captions, personaId: persona?.id || null },
     });
-  });
+  };
+}
+
+/** Lance la generation en tache de fond ; la requete HTTP repond tout de suite. */
+export function runFacelessVideoJob(args) {
+  return inBackground(args.prisma, args.contentId, args.previousStatus, facelessVideoTask(args));
+}
+
+/**
+ * Meme generation, mais attend la fin (reussie ou en echec consigne) : pour les
+ * enchainements en serie, ou lancer plusieurs rendus Chromium a la fois saturerait la machine.
+ */
+export async function runFacelessVideoJobAndWait(args) {
+  await runSettled(args.prisma, args.contentId, args.previousStatus, facelessVideoTask(args));
+  return { contentId: args.contentId, model: 'faceless' };
 }
 
 /** Lance une retouche en tache de fond a partir du renderSpec de la version active. */

@@ -1,3 +1,5 @@
+import { describeAllFormatProductions, getReelEngine } from '../../utils/reelEngine.js';
+
 let prismaClient;
 
 async function getPrisma() {
@@ -57,7 +59,8 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 404, statusMessage: 'Plan introuvable' }));
     }
 
-    return { plan };
+    const reelEngine = getReelEngine();
+    return { plan, reelEngine, productionLabels: describeAllFormatProductions(reelEngine) };
   } catch (err) {
     if (err?.statusCode) {
       return sendError(event, err);

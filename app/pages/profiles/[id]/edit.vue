@@ -343,7 +343,7 @@
                 class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none"
                 placeholder="FEED,STORY,REEL"
               />
-              <p class="mt-1.5 text-xs text-gray-500">Séparés par des virgules, parmi FEED, STORY, REEL.</p>
+              <p class="mt-1.5 text-xs text-gray-500">Séparés par des virgules, parmi FEED (image), STORY (clip Pinterest), REEL (vidéo faceless pour l'instant).</p>
             </div>
           </div>
         </div>

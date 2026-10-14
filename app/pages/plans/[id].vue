@@ -83,6 +83,13 @@
               <span class="rounded-full bg-[#FDF0E4] px-2.5 py-1 text-xs font-bold text-[#B45F1D]">
                 {{ item.format }}
               </span>
+              <span
+                v-if="productionLabels[item.format]"
+                class="text-[11px] font-medium text-[#AAAAAA]"
+                title="Comment ce contenu sera produit"
+              >
+                {{ productionLabels[item.format] }}
+              </span>
               <span class="text-xs font-semibold text-[#8A8A8A]">{{ formatDate(item.scheduledAt) }}</span>
               <span
                 v-if="item.contentId"
@@ -105,7 +112,7 @@
 
           <div class="mt-4 space-y-3">
             <div>
-              <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Scène à générer</label>
+              <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">{{ promptLabel(item) }}</label>
               <textarea
                 v-model="item.prompt"
                 :disabled="Boolean(item.contentId)"
@@ -170,6 +177,14 @@ const { data, pending, error, refresh } = await useFetch(() => `/api/plans/${pla
 })
 
 const plan = computed(() => data.value?.plan ?? null)
+
+// Comment chaque format sera produit (libelles fournis par le serveur, qui connait le moteur actif).
+const productionLabels = computed(() => data.value?.productionLabels || {})
+
+function promptLabel(item) {
+  // Une video faceless n a pas de scene : l idee est le sujet que la voix va raconter.
+  return item.format === 'REEL' && data.value?.reelEngine === 'faceless' ? 'Sujet de la vidéo' : 'Scène à générer'
+}
 
 const savingIds = ref([])
 const savedIds = ref([])

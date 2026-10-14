@@ -6,6 +6,12 @@ import { chooseCustomPromptWidgetAndPattern } from '../../../utils/customPromptS
 import { resolveWidgetPrompt } from '../../../utils/widgetEngine.js';
 import { buildPersonaDescription } from '../../../utils/personaDescription.js';
 import { generateWidgetFields } from '../../../utils/widgetFieldsAssistGenerator.js';
+import { getReelEngine } from '../../../utils/reelEngine.js';
+import { runFacelessVideoJobAndWait } from '../../../utils/facelessVideoJob.js';
+import { loadPersonaStyle } from '../../../utils/facelessStyleStore.js';
+import { readyIllustrations } from '../../../utils/facelessStyle.js';
+import { normalizeFacelessDuration } from '../../../utils/facelessPlanGenerator.js';
+import { resolveElevenLabsApiKey } from '../../../utils/elevenLabsTts.js';
 
 let prismaClient;
 
@@ -45,9 +51,34 @@ function isCustomPromptStudioFormat(format) {
  * personnage obligatoire (decor, ambiance). Le routage ci-dessous suit cette
  * definition plutot qu un simple nom de format.
  */
-async function generateForItem({ prisma, runtimeConfig, item, profile, withFaceRef }) {
+async function generateForItem({ prisma, runtimeConfig, item, profile, withFaceRef, reelEngine, userId }) {
   try {
     if (isVideoFormat(item.format)) {
+      // Moteur par defaut (2026-10-14) : video faceless -- aucun modele de generation video,
+      // donc rien a recharger chez Kling ni a juger sur Omni Flash. `REEL_ENGINE=legacy` rend
+      // l ancien routage ci-dessous. L idee du plan (sujet + angle) devient le sujet de la video,
+      // avec la DA et la voix de la persona ; la legende relue est conservee telle quelle.
+      if (reelEngine === 'faceless') {
+        const loaded = await loadPersonaStyle(prisma, profile.id, userId);
+        if (!loaded) throw new Error('Profil introuvable pour la video faceless');
+        const { persona, style } = loaded;
+        await runFacelessVideoJobAndWait({
+          prisma,
+          contentId: item.contentId,
+          idea: item.prompt,
+          persona,
+          targetSeconds: normalizeFacelessDuration(undefined),
+          captions: style.captions.enabled,
+          voiceId: style.voiceId,
+          style,
+          userId,
+          illustrations: readyIllustrations(style),
+          maxNew: 0,
+          caption: [item.caption, item.hashtags].filter(Boolean).join('\n\n') || undefined,
+        });
+        return;
+      }
+
       if (withFaceRef) {
         // Persona du catalogue: on reutilise le pipeline Pinterest + Kling
         // Motion Control (runReelWorkflow, via processGenerationJob) au lieu
@@ -316,6 +347,15 @@ export default defineEventHandler(async (event) => {
 
     const profile = plan.profile;
     const withFaceRef = Boolean(String(profile?.faceRefPath || '').trim());
+    const reelEngine = getReelEngine();
+
+    // Refus avant toute creation : sans cle de voix, les REEL echoueraient un par un apres avoir cree leurs contenus.
+    if (reelEngine === 'faceless' && plan.items.some((item) => isVideoFormat(item.format)) && !resolveElevenLabsApiKey()) {
+      return sendError(event, createError({
+        statusCode: 503,
+        statusMessage: 'Les REEL sont produits en vidéo faceless : ELEVEN_LABS_API_KEY n\'est pas configurée sur le serveur.',
+      }));
+    }
 
     // On cree d abord tous les contenus et on les relie au plan: si la generation
     // echoue plus loin, on sait deja ce qui a ete engage et on ne le refera pas.
@@ -356,7 +396,7 @@ export default defineEventHandler(async (event) => {
     // En serie: dix generations lancees d un coup satureraient les fournisseurs.
     (async () => {
       for (const item of prepared) {
-        await generateForItem({ prisma, runtimeConfig, item, profile, withFaceRef });
+        await generateForItem({ prisma, runtimeConfig, item, profile, withFaceRef, reelEngine, userId: user.id });
       }
     })();
 

@@ -6,6 +6,9 @@ import {
   parseFormatRotation,
 } from '../../utils/contentPlanner.js';
 import { generatePlanIdeas } from '../../utils/planIdeaGenerator.js';
+import { getContentPillars } from '../../utils/personalityPlanning.js';
+import { getReelEngine } from '../../utils/reelEngine.js';
+import { loadPersonality } from '../../utils/facelessStyleStore.js';
 
 let prismaClient;
 
@@ -98,11 +101,21 @@ export default defineEventHandler(async (event) => {
       rotationOffset: Math.max(0, Number(profile.calendarStep || 1) - 1),
     });
 
+    // La personnalite est lue a part : si sa lecture echoue, le plan se fait sans (jamais d echec pour ca).
+    const personality = await loadPersonality(prisma, profile.id, user.id);
+    const reelEngine = getReelEngine();
+    const pillarOffset = Math.max(0, Number(profile.calendarStep || 1) - 1);
+
     const runtimeConfig = useRuntimeConfig(event);
     const { items, usedFallback, reason } = await generatePlanIdeas({
       profile,
       slots,
       apiKey: runtimeConfig.anthropicApiKey,
+      personality,
+      reelEngine,
+      // Les piliers tournent creneau apres creneau et reprennent d un plan a l autre.
+      pillars: getContentPillars(personality),
+      pillarOffset,
     });
 
     const plan = await prisma.contentPlan.create({
@@ -154,7 +167,7 @@ export default defineEventHandler(async (event) => {
       data: { calendarStep: Number(profile.calendarStep || 1) + slots.length },
     }).catch(() => {});
 
-    return { plan, usedFallback, reason: reason || null };
+    return { plan, usedFallback, reason: reason || null, reelEngine };
   } catch (err) {
     if (err?.statusCode) {
       return sendError(event, err);

@@ -33,7 +33,7 @@ function isMissingColumnError(error) {
  * relit puis REECRIT la DA entiere). L echec est journalise, jamais silencieux.
  * @returns {Promise<object|null>}
  */
-async function loadPersonality(prisma, profileId, userId) {
+export async function loadPersonality(prisma, profileId, userId) {
   try {
     const row = await prisma.profile.findFirst({ where: { id: profileId, userId }, select: { personality: true } });
     return row?.personality || null;

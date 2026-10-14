@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 import { buildFallbackIdea } from './contentPlanner.js';
+import { buildPlannerPersonalityBlock, buildVisualUniverse, pillarForSlot } from './personalityPlanning.js';
 
 /**
  * Redaction des idees d un plan editorial.
@@ -18,26 +19,40 @@ function getAnthropicModel() {
   return String(process.env.ANTHROPIC_MODEL || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
 }
 
-export function buildPlanSystemPrompt(profile) {
+/**
+ * @param {object} profile
+ * @param {{ personality?: unknown, reelEngine?: 'faceless'|'legacy' }} [options]
+ *   `personality` : personnalite enregistree du profil (facultative) ;
+ *   `reelEngine` : comment les REEL seront produits (voir reelEngine.js).
+ */
+export function buildPlanSystemPrompt(profile, { personality, reelEngine = 'legacy' } = {}) {
   const name = String(profile?.name || '').trim();
   const niche = String(profile?.niche || '').trim();
   const style = String(profile?.style || '').trim();
   const audience = String(profile?.targetAudience || '').trim();
   const description = String(profile?.description || '').trim();
+  const personalityBlock = buildPlannerPersonalityBlock(personality);
+  const hasPillars = /Piliers de contenu/.test(personalityBlock);
+  const hasUniverse = Boolean(buildVisualUniverse(personality));
+  const faceless = reelEngine === 'faceless';
 
   return [
     `Tu es directeur artistique pour ${name || 'un compte social'}.`,
-    niche ? `Niche: ${niche}.` : '',
-    style ? `Style visuel: ${style}.` : '',
+    niche ? `Niche: ${niche}${personalityBlock ? ' (indicative : la personnalité ci-dessous prime).' : '.'}` : '',
+    // Le champ "style" du profil est souvent une description physique : l univers visuel de la personnalite le remplace quand il existe.
+    style && !hasUniverse ? `Style visuel: ${style}.` : '',
     audience ? `Audience visee: ${audience}.` : '',
     description ? `Contexte: ${description}` : '',
+    personalityBlock ? `\n${personalityBlock}` : '',
     '',
     'On te donne des creneaux de publication deja dates, avec leur format impose.',
     'Pour chaque creneau, ecris une idee de contenu coherente avec la ligne editoriale.',
+    hasPillars ? 'Chaque creneau indique un pilier de contenu : l idee doit le traiter vraiment, sans recopier son intitule. Respecte les lignes rouges.' : '',
     '',
     'Contraintes:',
-    '- Le champ "prompt" decrit la scene a generer en image ou video. Il doit etre',
-    '  concret et visuel: sujet, cadrage, lumiere, decor. Pas de texte a incruster.',
+    faceless
+      ? '- Le champ "prompt" depend du format. FEED : la scene d une image fixe (sujet, cadrage, lumiere, decor, pas de texte a incruster). REEL : une video faceless (voix off, avatar dessine, textes animes) : ecris le SUJET et l angle precis, en francais, avec les 3 ou 4 idees que la voix va developper ; aucune scene a filmer, aucun decor reel. STORY : une ambiance courte (paysage, objets, piece), sans personnage.'
+      : '- Le champ "prompt" decrit la scene a generer en image ou video. Il doit etre\n  concret et visuel: sujet, cadrage, lumiere, decor. Pas de texte a incruster.',
     '- Le champ "caption" est la legende publiee, en francais, ton naturel.',
     '- Le champ "hashtags" contient 3 a 6 hashtags separes par des espaces.',
     '- Les idees d un meme plan doivent se completer, pas se repeter.',
@@ -48,12 +63,13 @@ export function buildPlanSystemPrompt(profile) {
   ].filter(Boolean).join('\n');
 }
 
-export function buildPlanUserPrompt(slots) {
+export function buildPlanUserPrompt(slots, { pillars = [], pillarOffset = 0 } = {}) {
   const lines = slots.map((slot) => {
     const date = slot.scheduledAt instanceof Date
       ? slot.scheduledAt.toISOString().slice(0, 16).replace('T', ' ')
       : String(slot.scheduledAt);
-    return `- position ${slot.position} | ${date} | format ${slot.format} | plateforme ${slot.platform}`;
+    const pillar = pillarForSlot(pillars, slot.position, pillarOffset);
+    return `- position ${slot.position} | ${date} | format ${slot.format} | plateforme ${slot.platform}${pillar ? ` | pilier : ${pillar}` : ''}`;
   });
 
   return `Creneaux a remplir:\n${lines.join('\n')}`;
@@ -100,14 +116,14 @@ export function parsePlanIdeas(rawText) {
  * Associe chaque creneau a son idee. Un creneau sans idee exploitable recoit
  * l amorce deterministe: le plan reste complet et editable.
  */
-export function mergeIdeasIntoSlots(slots, ideas, profile) {
+export function mergeIdeasIntoSlots(slots, ideas, profile, { reelEngine } = {}) {
   const byPosition = new Map(ideas.map((idea) => [idea.position, idea]));
 
   return slots.map((slot) => {
     const idea = byPosition.get(slot.position);
 
     if (!idea) {
-      const fallback = buildFallbackIdea({ profile, format: slot.format, position: slot.position });
+      const fallback = buildFallbackIdea({ profile, format: slot.format, position: slot.position, reelEngine });
       return { ...slot, ...fallback };
     }
 
@@ -125,12 +141,12 @@ export function mergeIdeasIntoSlots(slots, ideas, profile) {
  * Remplit les creneaux. Ne leve jamais: un plan de repli vaut mieux qu une
  * erreur, l utilisateur relira de toute facon chaque idee avant generation.
  */
-export async function generatePlanIdeas({ profile, slots, apiKey }) {
+export async function generatePlanIdeas({ profile, slots, apiKey, personality, reelEngine = 'legacy', pillars = [], pillarOffset = 0 }) {
   const key = String(apiKey || process.env.ANTHROPIC_API_KEY || '').trim();
 
   if (!key || !slots.length) {
     return {
-      items: mergeIdeasIntoSlots(slots, [], profile),
+      items: mergeIdeasIntoSlots(slots, [], profile, { reelEngine }),
       usedFallback: true,
       reason: key ? 'Aucun creneau a remplir' : 'ANTHROPIC_API_KEY non configuree',
     };
@@ -141,8 +157,8 @@ export async function generatePlanIdeas({ profile, slots, apiKey }) {
     const response = await anthropic.messages.create({
       model: getAnthropicModel(),
       max_tokens: MAX_TOKENS,
-      system: buildPlanSystemPrompt(profile),
-      messages: [{ role: 'user', content: buildPlanUserPrompt(slots) }],
+      system: buildPlanSystemPrompt(profile, { personality, reelEngine }),
+      messages: [{ role: 'user', content: buildPlanUserPrompt(slots, { pillars, pillarOffset }) }],
     });
 
     const text = (response?.content || [])
@@ -151,7 +167,7 @@ export async function generatePlanIdeas({ profile, slots, apiKey }) {
       .join('\n');
 
     const ideas = parsePlanIdeas(text);
-    const items = mergeIdeasIntoSlots(slots, ideas, profile);
+    const items = mergeIdeasIntoSlots(slots, ideas, profile, { reelEngine });
     const missing = items.filter((item) => item.isFallback).length;
 
     return {
@@ -161,7 +177,7 @@ export async function generatePlanIdeas({ profile, slots, apiKey }) {
     };
   } catch (error) {
     return {
-      items: mergeIdeasIntoSlots(slots, [], profile),
+      items: mergeIdeasIntoSlots(slots, [], profile, { reelEngine }),
       usedFallback: true,
       reason: String(error?.message || 'Appel Claude impossible'),
     };
