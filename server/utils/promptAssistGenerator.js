@@ -7,6 +7,8 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 
+import { BRAND_ASSIST_RULE } from './brandAssistRule.js';
+import { IMAGE_TEXT_RULE_LINES } from './imageTextRule.js';
 import { buildLibraryAssetsPromptBlock } from './libraryReferences.js';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
@@ -16,7 +18,7 @@ function getAnthropicModel() {
   return String(process.env.ANTHROPIC_MODEL || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
 }
 
-export function buildPromptAssistSystemPrompt({ mediaType, personaDescription, identityLocked, libraryAssets } = {}) {
+export function buildPromptAssistSystemPrompt({ mediaType, personaDescription, identityLocked, libraryAssets, brandContext } = {}) {
   const kind = mediaType === 'video' ? 'video' : 'image';
   const lines = [
     `Tu ecris un prompt de generation ${kind} photorealiste pour Plotline, a`,
@@ -25,7 +27,8 @@ export function buildPromptAssistSystemPrompt({ mediaType, personaDescription, i
     'Contraintes :',
     '- Reponse en anglais, concrete et visuelle : sujet, cadrage, decor,',
     '  lumiere, ambiance. Les modeles de generation suivent mieux l anglais.',
-    '- Pas de texte a incruster dans l image/la video, pas de watermark.',
+    // Image : sans texte par defaut, texte seulement s il est demande (imageTextRule.js). Video : jamais de texte incruste.
+    ...(kind === 'image' ? IMAGE_TEXT_RULE_LINES : ['- Pas de texte a incruster dans la video, pas de watermark.']),
   ];
 
   if (kind === 'video') {
@@ -41,7 +44,7 @@ export function buildPromptAssistSystemPrompt({ mediaType, personaDescription, i
       '- Si l idee est vague (ex: "fille dans un cafe"), invente toi-meme les details manquants de decor, de lumiere et de style pour obtenir une image complete.',
       '- Sauf si l idee demande explicitement un autre style (editorial, studio, cinema), vise une photo de telephone haut de gamme : format vertical 9:16, focale 24 mm (ou 13 mm ultra grand-angle, 77 mm teleobjectif), lumiere naturelle de fenetre, golden hour ou flash direct de nuit, bruit numerique leger, haute lumieres un peu brulees, cadrage de snapshot naturel, texture de peau reelle.',
       '- Dans ce cas, evite les halos anamorphiques, le bokeh de cinema exagere et le grain de pellicule.',
-      '- Ecris toujours une photographie naturelle, jamais une capture d ecran : ajoute "no camera interface, no UI overlay, no on-screen controls, no text" et ne cite pas "phone photo" seul (le modele dessine alors l interface de l appareil photo).',
+      '- Ecris toujours une photographie naturelle, jamais une capture d ecran : ajoute "no camera interface, no UI overlay, no on-screen controls" (et "no text" sauf si du texte est demande) et ne cite pas "phone photo" seul (le modele dessine alors l interface de l appareil photo).',
     );
   }
 
@@ -51,6 +54,11 @@ export function buildPromptAssistSystemPrompt({ mediaType, personaDescription, i
     );
   } else {
     lines.push('- Aucune contrainte d identite : invente librement qui apparait a l ecran si besoin.');
+  }
+
+  // Marque : fiche + texte de son site (brandContext.js), images seulement.
+  if (brandContext && kind === 'image') {
+    lines.push('', brandContext, BRAND_ASSIST_RULE);
   }
 
   // Assets de la bibliotheque : images seulement (aucune video dans ce lot).
@@ -96,7 +104,7 @@ export function parsePromptAssistResult(rawText) {
   return prompt ? { prompt } : null;
 }
 
-export async function generateAssistedPrompt({ idea, mediaType, personaDescription, identityLocked, libraryAssets, apiKey }) {
+export async function generateAssistedPrompt({ idea, mediaType, personaDescription, identityLocked, libraryAssets, brandContext, apiKey }) {
   const key = String(apiKey || process.env.ANTHROPIC_API_KEY || '').trim();
   const trimmedIdea = String(idea || '').trim();
 
@@ -111,7 +119,7 @@ export async function generateAssistedPrompt({ idea, mediaType, personaDescripti
   const response = await anthropic.messages.create({
     model: getAnthropicModel(),
     max_tokens: MAX_TOKENS,
-    system: buildPromptAssistSystemPrompt({ mediaType, personaDescription, identityLocked, libraryAssets }),
+    system: buildPromptAssistSystemPrompt({ mediaType, personaDescription, identityLocked, libraryAssets, brandContext }),
     messages: [{ role: 'user', content: buildPromptAssistUserPrompt(trimmedIdea) }],
   });
 

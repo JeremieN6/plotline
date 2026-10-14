@@ -1,3 +1,4 @@
+import { buildBrandContextBlock, loadBrandContext } from '../../utils/brandContext.js';
 import { generateAssistedPrompt } from '../../utils/promptAssistGenerator.js';
 import { buildPersonaDescription } from '../../utils/personaDescription.js';
 import { findPersonaCompatible } from '../../utils/personaLookup.js';
@@ -52,11 +53,18 @@ export default defineEventHandler(async (event) => {
       ? await loadLibraryAssetBriefs({ prisma: await getPrisma(), ids: libraryIds, ownerUserId: user.id })
       : [];
 
+    // Marque (profil actif du Studio de type BRAND) : sa fiche et le texte de son site guident le prompt (images).
+    const contextProfileId = String(body?.contextProfileId || '').trim();
+    const brandContext = contextProfileId && mediaType === 'image'
+      ? buildBrandContextBlock(await loadBrandContext(await getPrisma(), contextProfileId, user.id))
+      : '';
+
     const { prompt } = await generateAssistedPrompt({
       idea,
       mediaType,
       personaDescription,
       libraryAssets,
+      brandContext,
       identityLocked: Boolean(profileId && personaDescription),
       apiKey: runtimeConfig.anthropicApiKey,
     });
