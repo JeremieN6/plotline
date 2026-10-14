@@ -1,10 +1,31 @@
 <template>
-  <section class="rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-3 font-ui">
+  <!-- Replié par défaut : la plupart des générations n'utilisent aucun asset, le bloc n'a pas à prendre de place. -->
+  <div v-if="!open" class="font-ui">
+    <button
+      type="button"
+      class="text-xs font-semibold text-[#7B5A3F] underline-offset-2 transition-colors hover:text-[#B45F1D] hover:underline"
+      @click="open = true"
+    >
+      + Joindre des assets de la bibliothèque (voiture, lieu, bijou…)
+    </button>
+  </div>
+
+  <section v-else class="rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-3 font-ui">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#A37A58]">Assets de la bibliothèque (optionnel)</p>
-      <p class="text-xs font-semibold" :class="selected.length >= maxSlots ? 'text-ui-danger-ink' : 'text-[#7B5A3F]'">
-        {{ selected.length }} / {{ maxSlots }} références
-      </p>
+      <div class="flex items-center gap-3">
+        <p class="text-xs font-semibold" :class="selected.length >= maxSlots ? 'text-ui-danger-ink' : 'text-[#7B5A3F]'">
+          {{ selected.length }} / {{ maxSlots }} références
+        </p>
+        <button
+          v-if="collapsible && !selected.length"
+          type="button"
+          class="text-xs font-semibold text-[#7B5A3F] underline-offset-2 hover:text-[#B45F1D] hover:underline"
+          @click="open = false"
+        >
+          Masquer
+        </button>
+      </div>
     </div>
     <p class="mt-1 text-xs text-[#7B5A3F]">
       La fiche de chaque asset est envoyée au modèle pour que la voiture, le lieu ou le bijou reste fidèle. Choisis-les dans l'ordre où ils comptent.
@@ -79,10 +100,12 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },
+  // Replié tant qu'aucun asset n'est choisi (clic pour l'ouvrir). `false` : toujours déployé.
+  collapsible: { type: Boolean, default: true },
   // Emplacements restants (14 moins la face ref et le packshot).
   maxSlots: { type: Number, default: 14 },
   recommendedMax: { type: Number, default: 6 },
@@ -91,6 +114,12 @@ const props = defineProps({
   insertLabel: { type: String, default: 'Ajouter au prompt :' },
 })
 const emit = defineEmits(['update:modelValue', 'insert-code'])
+
+// Déployé d'emblée seulement s'il y a déjà des assets choisis (ou si le bloc n'est pas repliable) ; s'ouvre dès qu'un asset est choisi.
+const open = ref(!props.collapsible || props.modelValue.length > 0)
+watch(() => props.modelValue.length, (count) => {
+  if (count > 0) open.value = true
+})
 
 // useFetch (et non un $fetch brut) : il transmet le cookie de session au rendu serveur.
 const { data, error: loadError, status, refresh } = await useFetch('/api/assets', { key: 'studio-library-assets' })
