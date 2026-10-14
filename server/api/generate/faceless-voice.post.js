@@ -5,6 +5,8 @@ import { OWN_VOICE_MAX_BYTES } from '../../utils/ownVoice.js';
 import { resolveElevenLabsApiKey } from '../../utils/elevenLabsTts.js';
 import { defaultFacelessStyle, readyIllustrations } from '../../utils/facelessStyle.js';
 import { loadPersonaStyle } from '../../utils/facelessStyleStore.js';
+import { describeIllustrationCost } from '../../utils/facelessIllustration.js';
+import { MAX_NEW_PER_VIDEO } from '../../data/facelessIllustrations.js';
 
 let prismaClient;
 
@@ -23,7 +25,8 @@ async function getPrisma() {
 
 // Video faceless avec la VRAIE voix du createur (formulaire multipart : `audio`, `idea`, `profileId`, `captions`).
 // Transcription (ElevenLabs Scribe, quelques centimes), nettoyage par Claude, montage par code.
-// Pas de nouvelle image payante dans ce mode : les illustrations du dossier de la persona restent utilisables.
+// Illustrations : celles du dossier de la persona sont gratuites ; de NOUVELLES images (payantes) ne sont
+// generees que si l utilisateur en autorise un nombre precis ET le confirme (memes garde-fous que la voix de synthese).
 export default defineEventHandler(async (event) => {
   const prisma = await getPrisma();
   const authModule = await import('../../utils/auth.js');
@@ -62,6 +65,16 @@ export default defineEventHandler(async (event) => {
   }
   const captions = field('captions') === '' ? style.captions.enabled : field('captions') !== 'false';
 
+  const maxNew = Math.max(0, Math.min(MAX_NEW_PER_VIDEO, Math.floor(Number(field('maxNewImages')) || 0)));
+  if (maxNew > 0) {
+    if (!persona) {
+      return sendError(event, createError({ statusCode: 400, statusMessage: 'Choisis une persona : les illustrations sont rangees dans son dossier' }));
+    }
+    if (field('confirmCost') !== 'true') {
+      return sendError(event, createError({ statusCode: 400, statusMessage: `Confirmation requise : jusqu a ${maxNew} image(s) payante(s), environ ${describeIllustrationCost(maxNew).usd} $ au maximum` }));
+    }
+  }
+
   const ownerId = persona?.id || (await getOrCreateDefaultProfile(prisma, user.id)).id;
   const generatedContent = await createGeneratedContentRecord(prisma, {
     influencerId: ownerId,
@@ -83,5 +96,7 @@ export default defineEventHandler(async (event) => {
     captions,
     style,
     illustrations: persona ? readyIllustrations(style) : {},
+    maxNew,
+    userId: user.id,
   });
 });

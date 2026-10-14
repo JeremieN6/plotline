@@ -153,8 +153,45 @@ export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = nu
   ].join('\n');
 }
 
-export function buildFacelessPlanUserPrompt(idea) {
-  return `Idee de la video :\n${String(idea || '').trim()}`;
+/** Longueur maximale du texte source (article, notes) accepte pour une video. */
+export const MAX_SOURCE_TEXT = 12000;
+
+/**
+ * Pur : nettoie un texte source colle par l utilisateur (article en markdown) :
+ * retire le frontmatter, les images et les lignes vides en trop. Ne tronque PAS :
+ * l appelant refuse un texte trop long plutot que de le couper en silence.
+ */
+export function normalizeSourceText(value) {
+  return String(value || '')
+    .replace(/^\uFEFF/, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/^---\n[\s\S]*?\n---\n/, '')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+export function buildFacelessPlanUserPrompt(idea, sourceText = '') {
+  const cleanIdea = String(idea || '').trim();
+  const source = normalizeSourceText(sourceText).slice(0, MAX_SOURCE_TEXT);
+  if (!source) return `Idee de la video :\n${cleanIdea}`;
+
+  return [
+    'Consigne de la video :',
+    cleanIdea || '(aucune consigne : choisis toi-meme l angle le plus fort du texte)',
+    '',
+    'TEXTE SOURCE (matiere premiere : ce n est ni un script a lire, ni un texte a resumer) :',
+    '"""',
+    source,
+    '"""',
+    '',
+    'Comment l utiliser :',
+    '- Ne fais PAS un resume fidele. Choisis UNE seule idee, la plus tranchee du texte, et construis toute la video autour.',
+    '- Ouvre par la prise de position la plus nette du texte, dite a l oral et sans precaution (pas de "il me semble", "probablement", "je ne pretends pas").',
+    '- Garde un seul exemple concret du texte. Abandonne le reste, meme interessant : une video courte ne tient pas deux idees.',
+    '- Si le texte nuance sa position, garde la position et laisse tomber la nuance. Ne prete jamais a l auteur une opinion qu il n exprime pas, et n invente aucun fait absent du texte.',
+    '- Termine par une invitation a lire la suite ou a reagir.',
+  ].join('\n');
 }
 
 function sanitizeCue(at) {
@@ -329,10 +366,10 @@ async function askClaudeForPlan({ system, userContent, captions, packIds, illust
 }
 
 /** Appel Claude. `createMessage` est injectable (tests). */
-export async function generateFacelessPlan({ idea, persona, targetSeconds, captions = true, style = null, packEntries = null, illustrations = null, maxNew = 0, apiKey, createMessage } = {}) {
+export async function generateFacelessPlan({ idea, sourceText = '', persona, targetSeconds, captions = true, style = null, packEntries = null, illustrations = null, maxNew = 0, apiKey, createMessage } = {}) {
   return askClaudeForPlan({
     system: buildFacelessPlanSystemPrompt({ targetSeconds: normalizeFacelessDuration(targetSeconds), persona, captions, style, packEntries, illustrations, maxNew }),
-    userContent: buildFacelessPlanUserPrompt(idea),
+    userContent: buildFacelessPlanUserPrompt(idea, sourceText),
     captions,
     packIds: Object.keys(packEntries || {}),
     illustrationIds: Object.keys(illustrations || {}),

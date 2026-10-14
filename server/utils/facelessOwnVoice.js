@@ -10,7 +10,7 @@ import { resolveFfmpegPaths } from './ffmpegBinaries.js';
 import {
   buildFacelessPlanSystemPrompt, parseFacelessPlanResponse, sanitizeFacelessPlan,
 } from './facelessPlanGenerator.js';
-import { finalizeFaceless, inBackground, logStep, pickIllustrations, renderFacelessFromPlan } from './facelessVideoJob.js';
+import { attachNewImages, finalizeFaceless, inBackground, logStep, makeIllustrationGenerator, pickIllustrations, renderFacelessFromPlan } from './facelessVideoJob.js';
 import { saveFacelessMedia } from './facelessMedia.js';
 import { normalizeFacelessStyle, readyPackEntries } from './facelessStyle.js';
 import {
@@ -104,10 +104,10 @@ function ownVoiceSection(scenes, directives) {
  * Plan de montage pour des scenes figees (voix du createur). Les `say` sont ecrits
  * par le code, jamais par Claude : le decompte des mots reste exact.
  */
-export async function generateOwnVoicePlan({ scenes, directives = [], idea = '', persona, captions = true, style = null, packEntries = null, illustrations = null, createMessage, apiKey } = {}) {
+export async function generateOwnVoicePlan({ scenes, directives = [], idea = '', persona, captions = true, style = null, packEntries = null, illustrations = null, maxNew = 0, createMessage, apiKey } = {}) {
   const directiveLines = directives.map((d) => ({ ...d, scene: Math.max(0, scenes.findIndex((s) => d.atWord >= s.from && d.atWord <= s.to)) }));
   const system = [
-    buildFacelessPlanSystemPrompt({ targetSeconds: 30, persona, captions, style, packEntries, illustrations, maxNew: 0 }),
+    buildFacelessPlanSystemPrompt({ targetSeconds: 30, persona, captions, style, packEntries, illustrations, maxNew }),
     ownVoiceSection(scenes, directiveLines),
   ].join('\n');
   const user = idea ? `Sujet de la video :\n${String(idea).trim()}` : 'Monte cette video d apres les scenes figees.';
@@ -119,7 +119,7 @@ export async function generateOwnVoicePlan({ scenes, directives = [], idea = '',
 
   return sanitizeFacelessPlan(
     { ...raw, scenes: merged },
-    { captions, packIds: Object.keys(packEntries || {}), illustrationIds: Object.keys(illustrations || {}), maxNew: 0, maxScenes: MAX_SCENES, maxChars: MAX_CHARS },
+    { captions, packIds: Object.keys(packEntries || {}), illustrationIds: Object.keys(illustrations || {}), maxNew, maxScenes: MAX_SCENES, maxChars: MAX_CHARS },
   );
 }
 
@@ -128,7 +128,7 @@ export async function generateOwnVoicePlan({ scenes, directives = [], idea = '',
  * transcription -> coupes (Claude) -> audio nettoye -> plan -> montage.
  * `deps` rend chaque etape reseau injectable (tests).
  */
-export async function produceOwnVoiceVideo({ audio, idea = '', persona, captions = true, style = null, illustrations = {}, onStep = () => {}, deps = {} } = {}) {
+export async function produceOwnVoiceVideo({ audio, idea = '', persona, captions = true, style = null, illustrations = {}, maxNew = 0, generateNewIllustrations = null, onStep = () => {}, deps = {} } = {}) {
   const type = detectAudioType(audio);
   if (!type) throw new Error('Format audio non reconnu (mp3, wav, m4a, ogg, flac ou webm)');
   const da = style || normalizeFacelessStyle({});
@@ -156,22 +156,26 @@ export async function produceOwnVoiceVideo({ audio, idea = '', persona, captions
   onStep('plan');
   const sceneRanges = splitIntoScenes(cleanWords.map((w, i) => ({ ...w, i })));
   const directives = remapDirectives(cleaning.directives, kept);
-  const montage = await plan({ scenes: sceneRanges, directives, idea, persona, captions, style: da, packEntries, illustrations });
+  const planned = await plan({ scenes: sceneRanges, directives, idea, persona, captions, style: da, packEntries, illustrations, maxNew });
+
+  // Nouvelles images (payantes, autorisees et plafonnees en amont) : generees avant le rendu, comme en voix de synthese.
+  const { plan: montage, available } = await attachNewImages({ plan: planned, illustrations, generateNewIllustrations, onStep });
 
   onStep('render');
   const voice = { audio: cleaned, words: cleanWords };
-  const { video, duration } = await render(montage, voice, { style: da, packEntries, illustrations });
+  const { video, duration } = await render(montage, voice, { style: da, packEntries, illustrations: available });
 
   return {
-    video, plan: montage, voice, duration, style: da, packEntries, illustrationEntries: pickIllustrations(montage, illustrations),
+    video, plan: montage, voice, duration, style: da, packEntries, illustrationEntries: pickIllustrations(montage, available),
     report: { wordsHeard: words.length, wordsKept: kept.length, cuts: cleaning.cuts, directives: cleaning.directives, transcript: numberedTranscript(words).slice(0, 4000) },
   };
 }
 
 /** Lance le montage "ma voix" en tache de fond ; la requete HTTP repond tout de suite. */
-export function runOwnVoiceJob({ prisma, contentId, audio, idea, persona, captions, style, illustrations = {}, previousStatus }) {
+export function runOwnVoiceJob({ prisma, contentId, audio, idea, persona, captions, style, illustrations = {}, maxNew = 0, userId, previousStatus }) {
   return inBackground(prisma, contentId, previousStatus, async () => {
-    const result = await produceOwnVoiceVideo({ audio, idea, persona, captions, style, illustrations, onStep: logStep(contentId) });
+    const generateNewIllustrations = maxNew > 0 && persona && userId ? makeIllustrationGenerator({ prisma, userId, persona, style }) : null;
+    const result = await produceOwnVoiceVideo({ audio, idea, persona, captions, style, illustrations, maxNew, generateNewIllustrations, onStep: logStep(contentId) });
     console.log(`[faceless-voice] contentId=${contentId} ${result.report.wordsHeard} mots entendus, ${result.report.wordsKept} gardes, ${result.report.cuts.length} coupe(s)`);
     const voiceUrl = await saveFacelessMedia(result.voice.audio, { folder: 'generated', extension: 'mp3', contentType: 'audio/mpeg' });
     await finalizeFaceless(prisma, contentId, {

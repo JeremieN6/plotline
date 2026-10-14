@@ -29,6 +29,24 @@
             />
           </UiField>
 
+          <UiField
+            v-if="voiceMode === 'synth'"
+            label="Texte source (optionnel)"
+            for-id="faceless-source"
+            hint="Colle un article ou des notes : Claude en tire UNE idée forte et la met en scène, il ne résume pas. Ton idée ci-dessus devient une simple consigne (angle, ton)."
+          >
+            <UiTextarea
+              id="faceless-source"
+              v-model="sourceText"
+              :rows="6"
+              :maxlength="SOURCE_MAX"
+              placeholder="Colle ici le texte de ton article…"
+            />
+            <p class="mt-1 text-xs" :class="sourceText.length > SOURCE_MAX * 0.9 ? 'text-ui-danger-ink' : 'text-ui-ink-muted'">
+              {{ sourceText.length.toLocaleString('fr-FR') }} / {{ SOURCE_MAX.toLocaleString('fr-FR') }} caractères
+            </p>
+          </UiField>
+
           <UiField label="Quelle voix ?">
             <UiSegmented v-model="voiceMode" label="Quelle voix ?" :options="VOICE_MODES" />
           </UiField>
@@ -130,7 +148,7 @@
             </label>
           </div>
 
-          <div v-if="profileId && voiceMode === 'synth'" class="rounded-ui-ctl border border-ui-line bg-ui-subtle p-3">
+          <div v-if="profileId" class="rounded-ui-ctl border border-ui-line bg-ui-subtle p-3">
             <UiField
               label="5. Illustrations"
               for-id="faceless-new-images"
@@ -247,6 +265,8 @@ const DEFAULT_TIPS = [
 ]
 
 const idea = ref('')
+const SOURCE_MAX = 12000
+const sourceText = ref('')
 const voiceMode = ref('synth')
 // Un peu sous la limite du serveur web (nginx : 25 Mo pour tout le formulaire, en-têtes compris).
 const OWN_VOICE_MAX_MB = 24
@@ -330,7 +350,7 @@ onMounted(() => { if (profileId.value) loadStyleInfo(profileId.value) })
 
 const canGenerate = computed(() => !polling.value && (voiceMode.value === 'own'
   ? Boolean(audioFile.value)
-  : idea.value.trim().length > 0 && Boolean(voiceId.value)))
+  : (idea.value.trim().length > 0 || sourceText.value.trim().length > 0) && Boolean(voiceId.value)))
 const pollingLabel = computed(() => (pollingKind.value === 'retouch'
   ? 'Retouche du plan, puis nouveau montage…'
   : 'Script, voix puis montage image par image…'))
@@ -418,7 +438,7 @@ async function makeOutline() {
 }
 
 async function generate() {
-  if (voiceMode.value === 'synth' && newIllustrations.value > 0) {
+  if (profileId.value && newIllustrations.value > 0) {
     const max = (Math.round(newIllustrations.value * imageCost.value * 100) / 100).toFixed(2)
     const ok = await requestConfirmation({
       title: 'Autoriser de nouvelles images ?',
@@ -439,12 +459,17 @@ async function generate() {
       form.append('idea', idea.value)
       if (profileId.value) form.append('profileId', profileId.value)
       form.append('captions', String(captions.value))
+      if (profileId.value && newIllustrations.value > 0) {
+        form.append('maxNewImages', String(newIllustrations.value))
+        form.append('confirmCost', 'true')
+      }
       response = await $fetch('/api/generate/faceless-voice', { method: 'POST', body: form })
     } else {
       response = await $fetch('/api/generate/faceless', {
         method: 'POST',
         body: {
           idea: idea.value,
+          sourceText: sourceText.value.trim() || undefined,
           profileId: profileId.value || undefined,
           voiceId: voiceId.value,
           durationSeconds: durationSeconds.value,
