@@ -15,10 +15,14 @@ import { normalizePersonality } from './personality.js';
  *  - le contenu est normalise avant usage (jamais pris tel quel de la base).
  */
 
-// ~400 tokens au plus par appel. 1 100 faisait sauter les lignes editoriales (lignes rouges
-// comprises) sur une personnalite reelle bien remplie.
-const DEFAULT_MAX_CHARS = 1600;
-const HEADER = 'Personnalité détaillée (prioritaire sur le style ci-dessus en cas de contradiction) :';
+// ~550 tokens au plus par appel. 1 100 faisait sauter les lignes editoriales (lignes rouges
+// comprises) sur une personnalite reelle bien remplie ; 1 600 ne suffisait plus une fois les elements de
+// liste portes a 100 caracteres (les piliers et la promesse sautaient sur la personnalite d Usagi).
+const DEFAULT_MAX_CHARS = 2200;
+// Longueur max d un element de liste dans le brief. 60 coupait les lignes rouges et les piliers en milieu de
+// phrase ("...streaming qui géo-…"), donc leur sens ; 100 couvre les limites du registre (90 par pilier).
+const LIST_ITEM_MAX = 100;
+const HEADER ='Personnalité détaillée (prioritaire sur le style ci-dessus en cas de contradiction) :';
 
 // `priority` : plus le chiffre est petit, plus la ligne est importante (elle saute en dernier).
 const LINES = [
@@ -53,7 +57,7 @@ export function buildPersonalityBrief(personality, { maxChars = DEFAULT_MAX_CHAR
   for (const line of LINES) {
     const value = normalized.blocks?.[line.block]?.[line.key]?.value;
     const text = line.type === 'list'
-      ? (Array.isArray(value) ? value.map((item) => oneLine(item, 60)).filter(Boolean).slice(0, 6).join(', ') : '')
+      ? (Array.isArray(value) ? value.map((item) => oneLine(item, LIST_ITEM_MAX)).filter(Boolean).slice(0, 6).join(', ') : '')
       : (typeof value === 'string' ? oneLine(value, 220) : '');
     if (text) entries.push({ ...line, text: `${line.label} : ${text}` });
   }
