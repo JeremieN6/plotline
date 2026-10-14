@@ -48,6 +48,15 @@ export function pillarForSlot(pillars, position, offset = 0) {
   return pillars[index];
 }
 
+/**
+ * Mots-cles de recherche Pinterest choisis pour les STORY de la persona (liste vide si aucun).
+ * Saisis a la main apres essai, jamais generes : s ils existent, ils remplacent la banque par categorie.
+ */
+export function getStoryKeywords(personality) {
+  if (!personality) return [];
+  return listValue(normalizePersonality(personality), 'editorial', 'storyKeywords', 40, 8);
+}
+
 /** Univers visuel de la persona (palette, decors recurrents, lieux) ; '' si rien. */
 export function buildVisualUniverse(personality) {
   if (!personality) return '';

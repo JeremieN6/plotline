@@ -87,6 +87,8 @@ export function selectTargetFields(kind, { onlyBlocks, platforms, protectedField
     if (Array.isArray(onlyBlocks) && onlyBlocks.length && !onlyBlocks.includes(block.key)) continue;
     for (const field of block.fields) {
       if (protectedFields.has(fieldId(block.key, field.key))) continue;
+      // Champs saisis a la main uniquement (ex. mots-cles de stories) : Claude ne les invente jamais.
+      if (field.curatedOnly) continue;
       if (block.key === 'platforms' && skippedBios.has(field.key)) continue;
       targets.push({ block, field });
     }

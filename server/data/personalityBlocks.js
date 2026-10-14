@@ -133,6 +133,17 @@ function editorialBlock(subject) {
         assistHint: 'De 2 a 4 formats (Reel face camera, carrousel tutoriel, story sondage...) avec, si utile, la duree ou le nombre de slides.',
       },
       {
+        // Mots-cles de recherche Pinterest des STORY de cette persona (voir pinterestKeywordPicker.js). Jamais
+        // generes par Claude : un mot-cle non essaye peut ne renvoyer aucune video, on ne garde que ceux testes.
+        key: 'storyKeywords',
+        label: 'Mots-cles des stories (clips Pinterest)',
+        type: 'list',
+        max: 8,
+        itemMax: 40,
+        curatedOnly: true,
+        assistHint: 'Mots-cles de recherche de video d ambiance, en anglais, sans personne, ex : "video rainy window aesthetic". Saisis a la main apres essai.',
+      },
+      {
         key: 'redLines',
         label: 'Lignes rouges',
         type: 'list',

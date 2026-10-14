@@ -115,7 +115,13 @@
               <template v-if="item.format === 'STORY'">
                 <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Clip</label>
                 <p class="mt-1.5 rounded-[10px] border border-dashed border-[#E5E3DF] bg-[#FAFAF8] p-3 text-sm text-[#666666]">
-                  Choisi automatiquement à la génération dans la banque Pinterest (catégorie : {{ storyCategoryLabel }}), sans personnage. Rien à écrire ici : seule la légende compte.
+                  <template v-if="storyKeywordCount > 0">
+                    Choisi automatiquement à la génération parmi les {{ storyKeywordCount }} mots-clés de stories de la personnalité (clips Pinterest), sans personnage.
+                  </template>
+                  <template v-else>
+                    Choisi automatiquement à la génération dans la banque Pinterest (catégorie : {{ storyCategoryLabel }}), sans personnage.
+                  </template>
+                  Rien à écrire ici : seule la légende compte.
                 </p>
               </template>
               <template v-else>
@@ -191,6 +197,7 @@ const productionLabels = computed(() => data.value?.productionLabels || {})
 
 // Categorie du clip des STORY (devinee depuis la niche du profil par le serveur).
 const STORY_CATEGORY_LABELS = { lifestyle: 'lifestyle', beach: 'plage', outfit: 'tenues', other: 'divers' }
+const storyKeywordCount = computed(() => Number(data.value?.storyKeywordCount) || 0)
 const storyCategoryLabel = computed(() => STORY_CATEGORY_LABELS[data.value?.storyCategory] || 'lifestyle')
 
 function promptLabel(item) {

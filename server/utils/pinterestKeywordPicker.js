@@ -66,13 +66,20 @@ export async function describeStoryCategory({ niche, style }) {
  * @param {{ format: 'STORY'|'REEL', niche?: string, style?: string }} params
  * @returns {Promise<{ keyword: string, category: string }>}
  */
-export async function pickPinterestKeyword({ format, niche, style }) {
+export async function pickPinterestKeyword({ format, niche, style, storyKeywords = [] }) {
   const variables = await getVariables();
-  const bankKey = String(format || '').trim().toUpperCase() === 'REEL'
-    ? 'pinterest_video_tags_reel'
-    : 'pinterest_video_tags_story';
+  const isReel = String(format || '').trim().toUpperCase() === 'REEL';
+  const bankKey = isReel ? 'pinterest_video_tags_reel' : 'pinterest_video_tags_story';
   const bank = variables?.[bankKey] || {};
   const category = detectPinterestCategory(`${niche || ''} ${style || ''}`);
+
+  // Une persona qui a choisi ses propres mots-cles de stories (personnalite) : ils priment sur la banque par categorie.
+  // Les REEL gardent la banque par categorie.
+  const own = Array.isArray(storyKeywords) ? storyKeywords.map((item) => String(item || '').trim()).filter(Boolean) : [];
+  if (!isReel && own.length) {
+    return { keyword: randomItem(own), category };
+  }
+
   const list = Array.isArray(bank[category]) && bank[category].length ? bank[category] : bank.lifestyle;
 
   return { keyword: randomItem(list), category };

@@ -3,12 +3,16 @@ import assert from 'node:assert/strict';
 
 import { buildFallbackIdea } from '../server/utils/contentPlanner.js';
 import { STORY_CLIP_NOTE, buildPlanSystemPrompt, buildPlanUserPrompt, mergeIdeasIntoSlots, parsePlanIdeas } from '../server/utils/planIdeaGenerator.js';
-import { describeStoryCategory } from '../server/utils/pinterestKeywordPicker.js';
+import { describeStoryCategory, pickPinterestKeyword } from '../server/utils/pinterestKeywordPicker.js';
+import { PERSONALITY_BLOCKS } from '../server/data/personalityBlocks.js';
+import { selectTargetFields } from '../server/utils/personalityGenerator.js';
+import { buildPersonalityBrief } from '../server/utils/personalityBrief.js';
 import {
   buildPlannerPersonalityBlock,
   buildPreferredForms,
   buildVisualUniverse,
   getContentPillars,
+  getStoryKeywords,
   pillarForSlot,
 } from '../server/utils/personalityPlanning.js';
 import { describeAllFormatProductions, describeFormatProduction, getReelEngine } from '../server/utils/reelEngine.js';
@@ -36,6 +40,68 @@ const slots = [1, 2, 3, 4].map((position) => ({
   format: position === 2 ? 'REEL' : 'FEED',
   platform: 'INSTAGRAM',
 }));
+
+test('brief : un element de liste va jusqu a 100 caracteres, et piliers + promesse ne sautent plus sur une personnalite bien remplie', () => {
+  const ninety = 'Pas de contenu sponsorise pour un produit qu elle ne possede pas physiquement, jamais, nulle part.';
+  assert.ok(ninety.length > 90 && ninety.length <= 100);
+  const long = 'x'.repeat(150);
+  const full = {
+    version: 1,
+    kind: 'PERSONA',
+    blocks: {
+      voice: { tone: field('Sobre, précis, un peu sec. '.repeat(8)), humor: field('Pince-sans-rire. '.repeat(9)), address: field('Tutoie. '.repeat(25)) },
+      editorial: {
+        redLines: field([ninety, ninety, ninety, ninety, long]),
+        contentPillars: field(Array.from({ length: 5 }, (_, i) => `Pilier ${i + 1} : ${'un contenu précis '.repeat(4)}`.slice(0, 90))),
+        promise: field('Savoir lire un animé autrement qu en surface. '.repeat(5)),
+      },
+    },
+  };
+  const brief = buildPersonalityBrief(full);
+  assert.ok(brief.includes(ninety), 'un element de 98 caracteres n est plus coupe');
+  // Un element trop long est borne (par le registre a la normalisation, puis par le brief a 100 au plus).
+  assert.ok(/x{50,}/.test(brief) && !/x{101,}/.test(brief));
+  assert.match(brief, /Piliers de contenu/);
+  assert.match(brief, /Promesse faite/);
+  assert.ok(brief.length <= 2200);
+});
+
+test('mots-cles de stories : lus de la personnalite, bornes, vides sans donnees', () => {
+  const withKeywords = {
+    version: 1,
+    kind: 'PERSONA',
+    blocks: { editorial: { storyKeywords: field(['  video rainy window aesthetic ', 'video anime desk setup', '']) } },
+  };
+  assert.deepEqual(getStoryKeywords(withKeywords), ['video rainy window aesthetic', 'video anime desk setup']);
+  assert.deepEqual(getStoryKeywords(personality), []);
+  assert.deepEqual(getStoryKeywords(null), []);
+});
+
+test('mots-cles de stories : le champ existe pour les 3 types de profil et Claude ne le genere jamais', () => {
+  for (const kind of Object.keys(PERSONALITY_BLOCKS)) {
+    const fields = PERSONALITY_BLOCKS[kind].flatMap((block) => block.fields.map((f) => ({ block: block.key, ...f })));
+    const found = fields.find((f) => f.block === 'editorial' && f.key === 'storyKeywords');
+    assert.ok(found, `${kind} : champ storyKeywords`);
+    assert.equal(found.curatedOnly, true);
+    const targets = selectTargetFields(kind, { onlyBlocks: null, platforms: null, protectedFields: new Set() });
+    assert.ok(!targets.some((t) => t.field.key === 'storyKeywords'), `${kind} : jamais genere`);
+    assert.ok(targets.some((t) => t.field.key === 'contentPillars'), `${kind} : les autres champs restent generes`);
+  }
+});
+
+test('choix du clip : les mots-cles de la persona priment pour une STORY, jamais pour un REEL, sinon la banque par categorie', async () => {
+  const own = ['video rainy window aesthetic', 'video cozy cafe rain'];
+  for (let i = 0; i < 20; i += 1) {
+    const story = await pickPinterestKeyword({ format: 'STORY', niche: 'lifestyle', style: 'x', storyKeywords: own });
+    assert.ok(own.includes(story.keyword), story.keyword);
+  }
+  const reel = await pickPinterestKeyword({ format: 'REEL', niche: 'lifestyle', storyKeywords: own });
+  assert.ok(!own.includes(reel.keyword), 'un REEL garde la banque par categorie');
+  const bank = await pickPinterestKeyword({ format: 'STORY', niche: 'lifestyle', storyKeywords: [] });
+  assert.ok(bank.keyword.startsWith('video '), 'sans mots-cles propres : la banque');
+  const blank = await pickPinterestKeyword({ format: 'STORY', niche: 'lifestyle', storyKeywords: ['  ', ''] });
+  assert.ok(blank.keyword.startsWith('video '));
+});
 
 test('moteur REEL : faceless par defaut, legacy seulement sur demande explicite', () => {
   assert.equal(getReelEngine({}), 'faceless');

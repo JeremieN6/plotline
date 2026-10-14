@@ -1,5 +1,7 @@
 import { describeAllFormatProductions, getReelEngine } from '../../utils/reelEngine.js';
 import { describeStoryCategory } from '../../utils/pinterestKeywordPicker.js';
+import { loadPersonality } from '../../utils/facelessStyleStore.js';
+import { getStoryKeywords } from '../../utils/personalityPlanning.js';
 
 let prismaClient;
 
@@ -64,7 +66,15 @@ export default defineEventHandler(async (event) => {
     // niche et style ne servent qu a annoncer la categorie du clip des STORY : on ne les renvoie pas au navigateur.
     const storyCategory = await describeStoryCategory({ niche: plan.profile?.niche, style: plan.profile?.style }).catch(() => 'lifestyle');
     const { niche: _niche, style: _style, ...publicProfile } = plan.profile || {};
-    return { plan: { ...plan, profile: publicProfile }, reelEngine, storyCategory, productionLabels: describeAllFormatProductions(reelEngine) };
+    // Nombre de mots-cles de stories choisis dans la personnalite (s il y en a, ils remplacent la categorie).
+    const storyKeywordCount = getStoryKeywords(await loadPersonality(prisma, plan.profile?.id, user.id)).length;
+    return {
+      plan: { ...plan, profile: publicProfile },
+      reelEngine,
+      storyCategory,
+      storyKeywordCount,
+      productionLabels: describeAllFormatProductions(reelEngine),
+    };
   } catch (err) {
     if (err?.statusCode) {
       return sendError(event, err);

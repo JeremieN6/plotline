@@ -8,7 +8,8 @@ import { buildPersonaDescription } from '../../../utils/personaDescription.js';
 import { generateWidgetFields } from '../../../utils/widgetFieldsAssistGenerator.js';
 import { getReelEngine } from '../../../utils/reelEngine.js';
 import { runFacelessVideoJobAndWait } from '../../../utils/facelessVideoJob.js';
-import { loadPersonaStyle } from '../../../utils/facelessStyleStore.js';
+import { loadPersonaStyle, loadPersonality } from '../../../utils/facelessStyleStore.js';
+import { getStoryKeywords } from '../../../utils/personalityPlanning.js';
 import { readyIllustrations } from '../../../utils/facelessStyle.js';
 import { normalizeFacelessDuration } from '../../../utils/facelessPlanGenerator.js';
 import { resolveElevenLabsApiKey } from '../../../utils/elevenLabsTts.js';
@@ -235,10 +236,13 @@ async function generateForItem({ prisma, runtimeConfig, item, profile, withFaceR
       // une recherche Pinterest exploitable). Bug corrige le 2026-09-22: ce
       // format echouait a 100% ("No Pinterest video found for query:
       // undefined"), faute de mot-cle du tout.
+      // Mots-cles choisis par la persona (personnalite), s ils existent : ils remplacent la banque par categorie.
+      const personality = await loadPersonality(prisma, profile.id, userId);
       const { keyword, category } = await pickPinterestKeyword({
         format: 'STORY',
         niche: profile.niche,
         style: profile.style,
+        storyKeywords: getStoryKeywords(personality),
       });
 
       await processGenerationJob({
