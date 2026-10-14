@@ -548,7 +548,8 @@ export async function processGenerationJob(jobData, options = {}) {
     const anthropicApiKey = process.env.ANTHROPIC_API_KEY || process.env.anthropicApiKey;
 
     if (normalizedContentType === 'story') {
-      const storyVideoSource = await scrapePinterestVideo(keyword);
+      // Story : la variante la plus definie du clip (la premiere de la liste Pinterest est la plus petite, 234x416).
+      const storyVideoSource = await scrapePinterestVideo(keyword, { preferHighQuality: true });
 
       if (!storyVideoSource) {
         throw new Error(`No Pinterest video found for query: ${keyword}`);

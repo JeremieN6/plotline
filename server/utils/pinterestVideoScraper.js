@@ -119,12 +119,27 @@ async function fetchText(url, userAgent) {
   return response.text();
 }
 
-async function fetchBinary(url, userAgent) {
+/**
+ * Plage d octets d une liste HLS ("longueur@decalage", decalage facultatif = suite de la plage precedente) (pur).
+ * Pinterest sert souvent tout le flux dans UN seul fichier decoupe en plages : sans elles, chaque segment
+ * telecharge le fichier ENTIER (poids multiplie par le nombre de segments).
+ */
+export function parseByteRange(value, previousEnd = 0) {
+  const match = /^(\d+)(?:@(\d+))?$/.exec(String(value || '').trim());
+  if (!match) return null;
+  const length = Number(match[1]);
+  const offset = match[2] === undefined ? Number(previousEnd) || 0 : Number(match[2]);
+  if (!(length > 0)) return null;
+  return { length, offset };
+}
+
+async function fetchBinary(url, userAgent, range = null) {
   const response = await fetch(url, {
     headers: {
       'user-agent': userAgent,
       referer: 'https://www.pinterest.com/',
       accept: '*/*',
+      ...(range ? { range: `bytes=${range.offset}-${range.offset + range.length - 1}` } : {}),
     },
   });
 
@@ -133,10 +148,60 @@ async function fetchBinary(url, userAgent) {
   }
 
   const arrayBuffer = await response.arrayBuffer();
-  return Buffer.from(arrayBuffer);
+  const buffer = Buffer.from(arrayBuffer);
+  // Serveur qui ignore la plage et renvoie tout le fichier : on decoupe nous-memes.
+  if (range && response.status === 200 && buffer.length > range.length) {
+    return buffer.subarray(range.offset, range.offset + range.length);
+  }
+  return buffer;
 }
 
-async function downloadPinterestHlsAsMp4(playlistUrl, userAgent) {
+// Duree max d un clip recupere en haute qualite (un clip de story ne depasse pas ~15 s).
+const HIGH_QUALITY_MAX_SECONDS = 15;
+// Definition max demandee (hauteur) : Pinterest propose rarement plus de 720x1280.
+const HIGH_QUALITY_MAX_HEIGHT = 1920;
+
+/**
+ * Choisit, dans la liste maitresse d un flux HLS, la variante de plus grande definition (pur).
+ * La liste n est PAS triee (234x416 puis 360x640, ou 360x640 puis 234x416...) : prendre la premiere donnait
+ * presque toujours la plus petite. Renvoie le chemin de la variante, ou null s il n y a pas de variante.
+ * Sans resolution annoncee, on retombe sur la premiere variante (ancien comportement).
+ */
+export function pickHlsVariant(playlistText, { maxHeight = HIGH_QUALITY_MAX_HEIGHT } = {}) {
+  const lines = parsePlaylistLines(playlistText);
+  const variants = [];
+
+  lines.forEach((line, index) => {
+    if (!line.startsWith('#EXT-X-STREAM-INF:')) return;
+    const path = lines[index + 1];
+    if (!path || path.startsWith('#')) return;
+    const resolution = /RESOLUTION=(\d+)x(\d+)/i.exec(line);
+    const bandwidth = Number(/(?:^|[,:])BANDWIDTH=(\d+)/i.exec(line)?.[1] || 0);
+    variants.push({
+      path,
+      width: resolution ? Number(resolution[1]) : 0,
+      height: resolution ? Number(resolution[2]) : 0,
+      bandwidth,
+    });
+  });
+
+  if (!variants.length) return null;
+
+  const known = variants.filter((variant) => variant.width && variant.height);
+  if (!known.length) return variants[0].path;
+
+  const allowed = known.filter((variant) => Math.max(variant.width, variant.height) <= maxHeight);
+  const pool = allowed.length ? allowed : known;
+  const best = pool.reduce((a, b) => {
+    const areaA = a.width * a.height;
+    const areaB = b.width * b.height;
+    if (areaB !== areaA) return areaB > areaA ? b : a;
+    return b.bandwidth > a.bandwidth ? b : a;
+  });
+  return best.path;
+}
+
+async function downloadPinterestHlsAsMp4(playlistUrl, userAgent, { preferHighQuality = false } = {}) {
   let currentPlaylistUrl = playlistUrl;
   let playlistText = await fetchText(currentPlaylistUrl, userAgent);
 
@@ -149,7 +214,8 @@ async function downloadPinterestHlsAsMp4(playlistUrl, userAgent) {
     }
 
     const variantIndex = lines.indexOf(variantLine);
-    const variantPath = lines[variantIndex + 1];
+    // Haute qualite (stories) : la variante la plus definie ; sinon la premiere, comme avant.
+    const variantPath = preferHighQuality ? pickHlsVariant(playlistText) : lines[variantIndex + 1];
     if (!variantPath) {
       break;
     }
@@ -162,19 +228,37 @@ async function downloadPinterestHlsAsMp4(playlistUrl, userAgent) {
   const baseUrl = currentPlaylistUrl;
   const parts = [];
   let totalSize = 0;
+  let lastRangeEnd = 0;
 
-  const mapLine = lines.find((line) => line.startsWith('#EXT-X-MAP:'));
+  const mapLine =lines.find((line) => line.startsWith('#EXT-X-MAP:'));
   if (mapLine) {
     const attributes = parseAttributeList(mapLine.replace('#EXT-X-MAP:', ''));
     const mapUrl = attributes.URI ? absoluteUrl(attributes.URI, baseUrl) : '';
     if (mapUrl) {
-      const initBuffer = await fetchBinary(mapUrl, userAgent);
+      // Haute qualite : l en-tete du flux n est qu une plage du fichier, pas le fichier entier.
+      const mapRange = preferHighQuality ? parseByteRange(attributes.BYTERANGE) : null;
+      const initBuffer = await fetchBinary(mapUrl, userAgent, mapRange);
       parts.push(initBuffer);
       totalSize += initBuffer.length;
+      lastRangeEnd = mapRange ? mapRange.offset + mapRange.length : 0;
     }
   }
 
+  let elapsedSeconds = 0;
+  let nextSegmentSeconds = 0;
+  let pendingRange = null;
+
   for (const line of lines) {
+    if (line.startsWith('#EXTINF:')) {
+      nextSegmentSeconds = Number.parseFloat(line.slice('#EXTINF:'.length)) || 0;
+      continue;
+    }
+
+    if (line.startsWith('#EXT-X-BYTERANGE:')) {
+      pendingRange = parseByteRange(line.slice('#EXT-X-BYTERANGE:'.length), lastRangeEnd);
+      continue;
+    }
+
     if (!line || line.startsWith('#')) {
       continue;
     }
@@ -184,11 +268,24 @@ async function downloadPinterestHlsAsMp4(playlistUrl, userAgent) {
       continue;
     }
 
-    const segmentBuffer = await fetchBinary(segmentUrl, userAgent);
+    const segmentRange = preferHighQuality ? pendingRange : null;
+    if (pendingRange) {
+      lastRangeEnd = pendingRange.offset + pendingRange.length;
+    }
+    pendingRange = null;
+
+    const segmentBuffer = await fetchBinary(segmentUrl, userAgent, segmentRange);
     parts.push(segmentBuffer);
     totalSize += segmentBuffer.length;
+    elapsedSeconds += nextSegmentSeconds;
+    nextSegmentSeconds = 0;
 
-    if (totalSize > 500 * 1024) {
+    if (preferHighQuality) {
+      // En haute qualite 500 Ko ne representent que 2 a 3 s : on borne par la duree, pas par le poids.
+      if (elapsedSeconds >= HIGH_QUALITY_MAX_SECONDS) {
+        break;
+      }
+    } else if (totalSize > 500 * 1024) {
       break;
     }
   }
@@ -248,7 +345,12 @@ function getVideoUrlType(value) {
   return /\.mp4(\?|$)/i.test(normalized) ? 'mp4' : 'hls';
 }
 
-export async function scrapePinterestVideo(query) {
+/**
+ * @param {string} query
+ * @param {{ preferHighQuality?: boolean }} [options] `preferHighQuality` : variante la plus definie du flux
+ *   (jusqu a 15 s) au lieu de la premiere de la liste. Utilise par les stories ; les REEL gardent l ancien choix.
+ */
+export async function scrapePinterestVideo(query, { preferHighQuality = false } = {}) {
   const keyword = String(query || '').trim();
   if (!keyword) {
     return null;
@@ -324,7 +426,7 @@ export async function scrapePinterestVideo(query) {
         }
 
         if (videoType === 'hls') {
-          const savedPath = await downloadPinterestHlsAsMp4(candidateUrl, userAgent);
+          const savedPath = await downloadPinterestHlsAsMp4(candidateUrl, userAgent, { preferHighQuality });
           if (savedPath) {
             return savedPath;
           }
@@ -417,7 +519,7 @@ export async function scrapePinterestVideo(query) {
             }
 
             if (videoType === 'hls') {
-              const savedPath = await downloadPinterestHlsAsMp4(candidateUrl, userAgent);
+              const savedPath = await downloadPinterestHlsAsMp4(candidateUrl, userAgent, { preferHighQuality });
               if (savedPath) {
                 return savedPath;
               }
