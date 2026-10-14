@@ -41,6 +41,24 @@ export function remainingReferenceSlots({ hasFaceRef = false, hasExtraReference 
   return MAX_REFERENCE_IMAGES - (hasFaceRef ? 1 : 0) - (hasExtraReference ? 1 : 0);
 }
 
+/**
+ * Bloc ajoute au prompt systeme des assistants "idee -> prompt / champs" quand
+ * des assets sont joints : Claude connait leurs CODES (pas leur apparence, les
+ * fiches s'en chargent) et doit les citer tels quels dans la scene. Vide s'il
+ * n'y a pas d'asset : le prompt des assistants reste alors identique.
+ * `libraryAssets` : [{ code, type }] dans l'ordre de selection.
+ */
+export function buildLibraryAssetsPromptBlock(libraryAssets = []) {
+  if (!Array.isArray(libraryAssets) || !libraryAssets.length) return '';
+  const lines = libraryAssets.map((asset) => `- ${asset.code} : ${ASSET_TYPE_NOUN[asset.type] || 'an object'}`);
+  return [
+    "Assets de la bibliotheque joints a cette image (leurs fiches de reference sont envoyees a part au modele) :",
+    ...lines,
+    'Quand l idee parle de ces objets ou lieux, cite leur code EXACT dans la scene, par exemple "walking from CAR_xxx, parked in the driveway, toward the front door of HOUSE_yyy".',
+    "N invente jamais d autre code et ne decris pas l apparence de ces assets : les fiches s en chargent.",
+  ].join('\n');
+}
+
 /** Etiquette placee juste avant l'image d'un asset dans les parts envoyees a Gemini. */
 export function buildReferenceLabelText(index, code) {
   return `Image ${index}: ${code}`;

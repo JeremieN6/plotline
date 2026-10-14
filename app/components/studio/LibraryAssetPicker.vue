@@ -64,7 +64,7 @@
     </ul>
 
     <div v-if="insertable && selectedAssets.length" class="mt-3 flex flex-wrap items-center gap-2">
-      <span class="text-xs text-[#7B5A3F]">Ajouter au prompt :</span>
+      <span class="text-xs text-[#7B5A3F]">{{ insertLabel }}</span>
       <button
         v-for="asset in selectedAssets"
         :key="asset.id"
@@ -88,6 +88,7 @@ const props = defineProps({
   recommendedMax: { type: Number, default: 6 },
   // Affiche les chips qui ajoutent le code de l'asset au prompt (Prompt libre).
   insertable: { type: Boolean, default: false },
+  insertLabel: { type: String, default: 'Ajouter au prompt :' },
 })
 const emit = defineEmits(['update:modelValue', 'insert-code'])
 

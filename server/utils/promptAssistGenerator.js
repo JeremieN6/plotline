@@ -7,6 +7,8 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 
+import { buildLibraryAssetsPromptBlock } from './libraryReferences.js';
+
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 const MAX_TOKENS = 1024;
 
@@ -14,7 +16,7 @@ function getAnthropicModel() {
   return String(process.env.ANTHROPIC_MODEL || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
 }
 
-export function buildPromptAssistSystemPrompt({ mediaType, personaDescription, identityLocked } = {}) {
+export function buildPromptAssistSystemPrompt({ mediaType, personaDescription, identityLocked, libraryAssets } = {}) {
   const kind = mediaType === 'video' ? 'video' : 'image';
   const lines = [
     `Tu ecris un prompt de generation ${kind} photorealiste pour Plotline, a`,
@@ -49,6 +51,12 @@ export function buildPromptAssistSystemPrompt({ mediaType, personaDescription, i
     );
   } else {
     lines.push('- Aucune contrainte d identite : invente librement qui apparait a l ecran si besoin.');
+  }
+
+  // Assets de la bibliotheque : images seulement (aucune video dans ce lot).
+  const libraryBlock = kind === 'image' ? buildLibraryAssetsPromptBlock(libraryAssets) : '';
+  if (libraryBlock) {
+    lines.push('', libraryBlock);
   }
 
   lines.push(
@@ -88,7 +96,7 @@ export function parsePromptAssistResult(rawText) {
   return prompt ? { prompt } : null;
 }
 
-export async function generateAssistedPrompt({ idea, mediaType, personaDescription, identityLocked, apiKey }) {
+export async function generateAssistedPrompt({ idea, mediaType, personaDescription, identityLocked, libraryAssets, apiKey }) {
   const key = String(apiKey || process.env.ANTHROPIC_API_KEY || '').trim();
   const trimmedIdea = String(idea || '').trim();
 
@@ -103,7 +111,7 @@ export async function generateAssistedPrompt({ idea, mediaType, personaDescripti
   const response = await anthropic.messages.create({
     model: getAnthropicModel(),
     max_tokens: MAX_TOKENS,
-    system: buildPromptAssistSystemPrompt({ mediaType, personaDescription, identityLocked }),
+    system: buildPromptAssistSystemPrompt({ mediaType, personaDescription, identityLocked, libraryAssets }),
     messages: [{ role: 'user', content: buildPromptAssistUserPrompt(trimmedIdea) }],
   });
 

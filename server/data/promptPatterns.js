@@ -197,6 +197,35 @@ export const PROMPT_PATTERNS = [
     source: 'tmp/autres/PROMPTS-INBOX.md #40, #43 (Cannes), #44 (luxe)',
   },
   {
+    id: 'PORTRAIT_AVEC_ASSETS',
+    nom: 'Portrait avec assets de la bibliotheque (voiture, lieu...)',
+    type: 'IMAGE',
+    widgetId: 'PORTRAIT_STUDIO',
+    tier: null,
+    accountTypeRestriction: null,
+    selectable: true,
+    // La cadence ne joint jamais d assets de la bibliotheque (choisis a la main dans le Studio).
+    automatable: false,
+    tags: ['portrait', 'assets', 'voiture', 'lieu', 'exterieur', 'naturel'],
+    template:
+      'Natural candid full-length photograph of {{persona.description}}, {{cadrage}}, keeping the face and identity fully consistent with the reference. Wearing {{tenue}}. Scene: {{decor}}. The face is turned toward the camera with a relaxed, natural expression. Each attached reference sheet (car, house, object) is the ONLY reference for its subject: keep its exact proportions, shape, colors, materials and details, and make every referenced subject clearly recognizable in the frame. {{lumiere}}. Natural candid photograph with a slight grain, {{style_photo}} aesthetic, {{aspect_ratio}} composition. No camera interface, no UI overlay, no on-screen controls, no text.',
+    negativePrompt:
+      'changed facial features, plastic skin, deformed hands, extra limbs, extra people, distorted or altered vehicle, changed wheels or body shape, wrong building, reproduced reference sheet layout, panels, beige background, camera interface, UI overlay, added logos, watermark, text',
+    assistHintOverrides: {
+      cadrage:
+        'Cadrage en anglais : "full-length shot" (corps entier) des que plusieurs assets doivent rester reconnaissables, sinon "medium-wide shot".',
+      decor:
+        'La scene complete, en anglais : le lieu ET ce que fait la personne avec les assets. Cite tels quels les codes d assets (ex : CAR_xxx, HOUSE_yyy) quand l idee les mentionne, par exemple "walking from CAR_xxx, parked in the driveway, toward the front door of HOUSE_yyy". N invente jamais de code.',
+      lumiere:
+        'Lumiere naturelle coherente avec le lieu, en anglais, une phrase (ex : warm late-afternoon sunlight).',
+      style_photo:
+        'Style photographique naturel, en anglais, court (ex : candid lifestyle, documentary). N ecris jamais "phone photo" seul : le modele dessinerait l interface de l appareil photo.',
+    },
+    statut: 'experimental',
+    limites: 'Essai reel du 2026-10-14 (ancetre direct : Madison + Audi + maison, rendu fidele des assets, visage plus ressemblant qu avec un prompt sans visage tourne vers l objectif) ; la recette elle-meme n a pas ete regeneree. L assistant ne connait pas les codes d assets : ils doivent figurer dans l idee ou etre ecrits a la main. Sans asset joint, elle reste un portrait en exterieur valide.',
+    source: 'prompt de l essai reel b2 (2026-10-14) + tmp/PROMPTS/PROMPTS-INBOX.md #16 (elements a garder constants), #47/#48 (fiche = unique reference, proportions exactes)',
+  },
+  {
     id: 'VLOG_DV_CAMCORDER',
     nom: 'Vlog camescope DV annees 2000',
     type: 'VIDEO',

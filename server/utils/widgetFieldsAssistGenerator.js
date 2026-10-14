@@ -9,6 +9,8 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 
+import { buildLibraryAssetsPromptBlock } from './libraryReferences.js';
+
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 const MAX_TOKENS = 1536;
 
@@ -20,7 +22,7 @@ function inputVariablesOf(widget) {
   return (widget?.variables || []).filter((item) => item?.source === 'input');
 }
 
-export function buildWidgetFieldsSystemPrompt({ widget, personaDescription } = {}) {
+export function buildWidgetFieldsSystemPrompt({ widget, personaDescription, libraryAssets } = {}) {
   const variables = inputVariablesOf(widget);
 
   const fieldLines = variables.map((variable) => {
@@ -46,6 +48,11 @@ export function buildWidgetFieldsSystemPrompt({ widget, personaDescription } = {
 
   if (widget?.negativePrompt) {
     lines.push('', `A eviter : ${widget.negativePrompt}.`);
+  }
+
+  const libraryBlock = buildLibraryAssetsPromptBlock(libraryAssets);
+  if (libraryBlock) {
+    lines.push('', libraryBlock);
   }
 
   lines.push(
@@ -91,7 +98,7 @@ export function parseWidgetFieldsResult(rawText, expectedKeys) {
   return result;
 }
 
-export async function generateWidgetFields({ widget, idea, personaDescription, apiKey }) {
+export async function generateWidgetFields({ widget, idea, personaDescription, libraryAssets, apiKey }) {
   const key = String(apiKey || process.env.ANTHROPIC_API_KEY || '').trim();
   const trimmedIdea = String(idea || '').trim();
   const variables = inputVariablesOf(widget);
@@ -110,7 +117,7 @@ export async function generateWidgetFields({ widget, idea, personaDescription, a
   const response = await anthropic.messages.create({
     model: getAnthropicModel(),
     max_tokens: MAX_TOKENS,
-    system: buildWidgetFieldsSystemPrompt({ widget, personaDescription }),
+    system: buildWidgetFieldsSystemPrompt({ widget, personaDescription, libraryAssets }),
     messages: [{ role: 'user', content: buildWidgetFieldsUserPrompt(trimmedIdea) }],
   });
 

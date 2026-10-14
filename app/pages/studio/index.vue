@@ -509,6 +509,15 @@
               </div>
             </template>
 
+            <StudioLibraryAssetPicker
+              v-if="widgetHasLibraryAssets"
+              v-model="libraryAssetIds"
+              :max-slots="librarySlots"
+              insertable
+              insert-label="Ajouter à la scène :"
+              @insert-code="appendAssetCodeToWidgetScene"
+            />
+
             <div v-if="widgetInputVariables.length">
               <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">2. Exprime ton besoin</label>
               <textarea
@@ -563,12 +572,6 @@
                 </label>
               </div>
             </div>
-
-            <StudioLibraryAssetPicker
-              v-if="widgetHasLibraryAssets"
-              v-model="libraryAssetIds"
-              :max-slots="librarySlots"
-            />
           </div>
         </template>
 
@@ -908,6 +911,12 @@ const librarySlots = computed(() => {
   return 14 - (hasFaceRef ? 1 : 0) - (hasPackshot ? 1 : 0)
 })
 
+// Widget : le code va dans le champ "scene" (decor), que l assistant et le template utilisent.
+function appendAssetCodeToWidgetScene(code) {
+  const current = String(widgetInputs.value.decor || '').trimEnd()
+  widgetInputs.value = { ...widgetInputs.value, decor: current ? `${current} ${code}` : code }
+}
+
 function appendAssetCodeToPrompt(code) {
   const current = prompt.value.trimEnd()
   prompt.value = current ? `${current} ${code}` : code
@@ -956,6 +965,7 @@ async function generateFreePromptFromIdea() {
       idea: freePromptIdea.value.trim(),
       mediaType: mode.value,
       profileId: wantsAmbassador.value ? resolvedAmbassadorId.value : '',
+      libraryAssetIds: mode.value === 'image' && imageGenerationKind.value === 'single' && !editingContentId.value ? libraryAssetIds.value : undefined,
     })
     prompt.value = assistedPrompt
   } catch (err) {
@@ -996,6 +1006,7 @@ async function generateWidgetFieldsFromIdea() {
       patternId: selectedPatternId.value,
       idea: widgetIdea.value.trim(),
       profileId: widgetProfileId.value,
+      libraryAssetIds: widgetHasLibraryAssets.value ? libraryAssetIds.value : undefined,
     })
     widgetInputs.value = { ...widgetInputs.value, ...fields }
   } catch (err) {
