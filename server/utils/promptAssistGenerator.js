@@ -39,6 +39,7 @@ export function buildPromptAssistSystemPrompt({ mediaType, personaDescription, i
       '- Si l idee est vague (ex: "fille dans un cafe"), invente toi-meme les details manquants de decor, de lumiere et de style pour obtenir une image complete.',
       '- Sauf si l idee demande explicitement un autre style (editorial, studio, cinema), vise une photo de telephone haut de gamme : format vertical 9:16, focale 24 mm (ou 13 mm ultra grand-angle, 77 mm teleobjectif), lumiere naturelle de fenetre, golden hour ou flash direct de nuit, bruit numerique leger, haute lumieres un peu brulees, cadrage de snapshot naturel, texture de peau reelle.',
       '- Dans ce cas, evite les halos anamorphiques, le bokeh de cinema exagere et le grain de pellicule.',
+      '- Ecris toujours une photographie naturelle, jamais une capture d ecran : ajoute "no camera interface, no UI overlay, no on-screen controls, no text" et ne cite pas "phone photo" seul (le modele dessine alors l interface de l appareil photo).',
     );
   }
 

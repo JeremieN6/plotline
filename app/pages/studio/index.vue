@@ -208,6 +208,15 @@
             />
           </template>
 
+          <StudioLibraryAssetPicker
+            v-if="mode === 'image' && imageGenerationKind === 'single' && !editingContentId"
+            v-model="libraryAssetIds"
+            class="mt-4"
+            :max-slots="librarySlots"
+            insertable
+            @insert-code="appendAssetCodeToPrompt"
+          />
+
           <section class="mt-4 overflow-hidden rounded-[14px] border border-[#E5E3DF] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
             <button
               type="button"
@@ -554,6 +563,12 @@
                 </label>
               </div>
             </div>
+
+            <StudioLibraryAssetPicker
+              v-if="widgetHasLibraryAssets"
+              v-model="libraryAssetIds"
+              :max-slots="librarySlots"
+            />
           </div>
         </template>
 
@@ -851,6 +866,10 @@ const widgetInputs = ref({})
 const widgetAssetUrls = ref({})
 const widgetAssetUploading = ref({})
 
+// Assets de la bibliotheque joints a une image (Prompt libre en post unique, ou
+// widget Portrait Studio) : identifiants seulement, le serveur retrouve les fiches.
+const libraryAssetIds = ref([])
+
 // Direction artistique de la scene (Video Scenario) : ajoutee en tete de la
 // scene cote serveur au moment de resoudre le widget.
 const selectedArtDirectionId = ref('')
@@ -877,6 +896,22 @@ loadWidgets()
 const selectedWidget = computed(() => widgetsList.value.find((item) => item.id === selectedWidgetId.value) || null)
 const widgetInputVariables = computed(() => (selectedWidget.value?.variables || []).filter((item) => item.source === 'input'))
 const widgetUploadAssets = computed(() => (selectedWidget.value?.assetsRequis || []).filter((item) => item.source === 'upload'))
+const widgetHasLibraryAssets = computed(() => (
+  widgetGenerationType.value === 'IMAGE'
+  && (selectedWidget.value?.assetsRequis || []).some((item) => item.source === 'library')
+))
+// 14 images de reference au maximum, face ref et packshot compris.
+const librarySlots = computed(() => {
+  const widgetMode = entryMode.value === 'widget' && !isEditingMode.value
+  const hasFaceRef = widgetMode ? Boolean(selectedWidget.value?.requiresPersona) : Boolean(resolvedAmbassadorId.value)
+  const hasPackshot = widgetMode && Boolean(widgetAssetUrls.value.packshot)
+  return 14 - (hasFaceRef ? 1 : 0) - (hasPackshot ? 1 : 0)
+})
+
+function appendAssetCodeToPrompt(code) {
+  const current = prompt.value.trimEnd()
+  prompt.value = current ? `${current} ${code}` : code
+}
 // Patterns cures disponibles pour le widget selectionne (deja filtres par
 // type de compte cote serveur, voir useWidgets.js) -- vide pour la plupart
 // des widgets tant qu aucun pattern n a ete cure pour eux.
@@ -894,6 +929,7 @@ function selectWidget(widgetId) {
   selectedArtDirectionId.value = ''
   widgetInputs.value = {}
   widgetAssetUrls.value = {}
+  libraryAssetIds.value = []
   widgetIdea.value = ''
   widgetFieldsAssistError.value = ''
   scenarioLockIdentity.value = false
@@ -1072,9 +1108,19 @@ watch(generationMode, (value) => {
 })
 
 watch(mode, (value) => {
+  libraryAssetIds.value = []
   if (value !== 'image') {
     imageGenerationKind.value = 'single'
   }
+})
+
+watch([imageGenerationKind, entryMode], () => {
+  libraryAssetIds.value = []
+})
+
+// Les emplacements dependent de la face ref : si la selection ne tient plus, on garde les premiers.
+watch(librarySlots, (slots) => {
+  if (libraryAssetIds.value.length > slots) libraryAssetIds.value = libraryAssetIds.value.slice(0, slots)
 })
 
 function exitEditMode() {
@@ -1176,6 +1222,7 @@ async function submitWidget() {
       prompt: finalPrompt,
       contentType: 'feed',
       extraReferenceImageUrl: packshotUrl || undefined,
+      libraryAssetIds: widgetHasLibraryAssets.value && libraryAssetIds.value.length ? libraryAssetIds.value : undefined,
     },
   })
 
@@ -1264,6 +1311,7 @@ async function submit() {
             workflowType: 'free',
             prompt: prompt.value.trim(),
             contentType: 'feed',
+            libraryAssetIds: libraryAssetIds.value.length ? libraryAssetIds.value : undefined,
           },
         })
       }

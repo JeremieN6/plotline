@@ -12,6 +12,8 @@ import { finalizeContentWithVersion } from './contentVersions.js';
 import { readImageSourceBuffer, resolveFaceRefAbsolutePath } from './faceRefReader.js';
 import { generateImageFromGeminiWithSafetyFallback } from './geminiImageGeneration.js';
 import { imageToJson } from './imageToJson.js';
+import { loadLibraryReferenceParts } from './libraryReferenceLoader.js';
+import { MAX_REFERENCE_IMAGES, buildReferenceLegend, normalizeLibraryAssetIds } from './libraryReferences.js';
 import { describeHairFromImageSource } from './hairReference.js';
 import {
   detectFaceVisible,
@@ -519,6 +521,8 @@ export async function processGenerationJob(jobData, options = {}) {
         prompt: freePrompt,
         withFaceRef,
         extraReferenceImageUrl,
+        libraryAssetIds,
+        ownerUserId,
   } = jobData || {};
   const updateProgress = typeof options.updateProgress === 'function'
     ? options.updateProgress
@@ -717,6 +721,30 @@ export async function processGenerationJob(jobData, options = {}) {
             mimeType: extraAsset.mimeType,
             data: extraAsset.buffer.toString('base64'),
           },
+        });
+      }
+
+      // Assets de la bibliotheque (fiches de reference), apres la face ref et le
+      // packshot. Seul le texte envoye a Gemini change (legende de numerotation):
+      // freePromptText, donc la legende de publication et le prompt enregistre,
+      // restent ceux de l'utilisateur. Sans asset, `prompt` est inchange.
+      const libraryIds = normalizeLibraryAssetIds(libraryAssetIds);
+      if (libraryIds.length) {
+        const hasExtraReference = Boolean(extraReferenceUrl);
+        const used = (useFaceRefForGeneration ? 1 : 0) + (hasExtraReference ? 1 : 0);
+        const loaded = await loadLibraryReferenceParts({
+          prisma,
+          ids: libraryIds,
+          ownerUserId,
+          startIndex: used + 1,
+          maxCount: MAX_REFERENCE_IMAGES - used,
+        });
+        geminiParts.push(...loaded.parts);
+        prompt = buildReferenceLegend({
+          prompt: freePromptText,
+          hasFaceRef: useFaceRefForGeneration,
+          hasExtraReference,
+          libraryAssets: loaded.assets,
         });
       }
 

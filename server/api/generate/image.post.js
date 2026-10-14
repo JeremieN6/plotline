@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { processGenerationJob } from '../../utils/generationWorker.js';
 import { shouldUseQueue } from '../../utils/queueMode.js';
 import { getOrCreateDefaultProfile } from '../../utils/defaultProfile.js';
+import { normalizeLibraryAssetIds, remainingReferenceSlots } from '../../utils/libraryReferences.js';
 
 let prismaClient;
 let variablesCache;
@@ -363,6 +364,35 @@ export default defineEventHandler(async (event) => {
       withFaceRef = true;
     }
 
+    // Assets de la bibliotheque (fiches de reference). Le client n'envoie que des
+    // identifiants : le serveur retrouve les fiches en base, filtrees par compte.
+    const libraryAssetIds = normalizeLibraryAssetIds(body?.libraryAssetIds);
+    if (libraryAssetIds.length) {
+      if (!isFreeWorkflow) {
+        return sendError(event, createError({ statusCode: 400, statusMessage: 'Les assets de la bibliothèque ne sont disponibles que pour un prompt libre' }));
+      }
+
+      const slots = remainingReferenceSlots({
+        hasFaceRef: withFaceRef,
+        hasExtraReference: Boolean(String(extraReferenceImageUrl || '').trim()),
+      });
+      if (libraryAssetIds.length > slots) {
+        return sendError(event, createError({ statusCode: 400, statusMessage: `Trop d'images de référence (14 maximum, ${slots} assets possibles ici)` }));
+      }
+
+      const libraryAssets = await prisma.referenceAsset.findMany({
+        where: { id: { in: libraryAssetIds }, userId: user.id },
+        select: { id: true, code: true, sheetUrl: true },
+      });
+      if (libraryAssets.length !== libraryAssetIds.length) {
+        return sendError(event, createError({ statusCode: 404, statusMessage: 'Asset introuvable' }));
+      }
+      const withoutSheet = libraryAssets.find((asset) => !String(asset.sheetUrl || '').trim());
+      if (withoutSheet) {
+        return sendError(event, createError({ statusCode: 409, statusMessage: `${withoutSheet.code} n'a pas encore de fiche` }));
+      }
+    }
+
     const explicitContentFormat = derivePlatformAndFormatFromContentType(normalizedContentType);
     const { platform, format } = explicitContentFormat || derivePlatformAndFormat(influencer.calendarStep);
 
@@ -382,6 +412,7 @@ export default defineEventHandler(async (event) => {
       carouselPosition: normalizedCarouselId && Number.isFinite(rawCarouselPosition)
         ? rawCarouselPosition
         : null,
+      ...(libraryAssetIds.length ? { referenceAssetIds: libraryAssetIds } : {}),
     });
 
     const jobPayload = {
@@ -401,6 +432,13 @@ export default defineEventHandler(async (event) => {
       withFaceRef,
       extraReferenceImageUrl: String(extraReferenceImageUrl || '').trim() || undefined,
     };
+
+    // Seulement quand il y a des assets : les autres payloads restent identiques.
+    // ownerUserId vient de la session, jamais du corps de la requete.
+    if (libraryAssetIds.length) {
+      jobPayload.libraryAssetIds = libraryAssetIds;
+      jobPayload.ownerUserId = user.id;
+    }
 
     if (!shouldUseQueue()) {
       await processGenerationJob(jobPayload);
@@ -428,6 +466,12 @@ export default defineEventHandler(async (event) => {
       status: 'processing',
     };
   } catch (err) {
+    // Sans session, requireAuthUser leve un 401 : le renvoyer tel quel plutot que
+    // de l'aplatir en 500 "Image generation failed".
+    if (err?.statusCode === 401) {
+      return sendError(event, err);
+    }
+
     logGenerationError(err, errorContext);
 
     const message = err?.message || ''

@@ -39,6 +39,9 @@ export function describeGeminiFailure(error) {
   if (status === 402 || /prepayment credits|credits are depleted/i.test(message)) {
     return { statusCode: 402, statusMessage: 'Le crédit Gemini est épuisé : recharge le solde sur Google AI Studio, puis relance la génération.' };
   }
+  if (/spending cap|spend cap/i.test(message)) {
+    return { statusCode: 429, statusMessage: 'Le plafond de dépense mensuel du projet Gemini est atteint : relève-le dans Google AI Studio (Spend), puis relance la génération.' };
+  }
   if (status === 429 || /RESOURCE_EXHAUSTED|quota/i.test(message)) {
     return { statusCode: 429, statusMessage: 'Limite de requêtes Gemini atteinte : réessaie dans quelques minutes.' };
   }

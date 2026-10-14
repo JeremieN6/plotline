@@ -1,5 +1,6 @@
 import { markGenerationFailure } from '../../../utils/contentVersions.js';
 import { processGenerationJob } from '../../../utils/generationWorker.js';
+import { normalizeLibraryAssetIds } from '../../../utils/libraryReferences.js';
 import { shouldUseQueue } from '../../../utils/queueMode.js';
 import { isSupportedVideoModel, resolveVideoModelOrThrow, runVideoGenerationJob } from '../../../utils/videoGeneration.js';
 
@@ -39,6 +40,7 @@ export default defineEventHandler(async (event) => {
         format: true,
         status: true,
         prompt: true,
+        referenceAssetIds: true,
         influencer: {
           select: {
             id: true,
@@ -132,6 +134,15 @@ export default defineEventHandler(async (event) => {
         contentId: id,
         withFaceRef,
       };
+
+      // Rejoue les assets de la bibliotheque joints a la generation d'origine.
+      // ownerUserId vient de la session (proprietaire deja verifie plus haut),
+      // jamais du corps de la requete. Sans asset, le payload reste identique.
+      const libraryAssetIds = normalizeLibraryAssetIds(content.referenceAssetIds);
+      if (libraryAssetIds.length) {
+        jobPayload.libraryAssetIds = libraryAssetIds;
+        jobPayload.ownerUserId = user.id;
+      }
 
       if (!shouldUseQueue()) {
         await processGenerationJob(jobPayload);
