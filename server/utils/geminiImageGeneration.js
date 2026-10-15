@@ -1,5 +1,8 @@
 import { GoogleGenAI, Modality } from '@google/genai';
 
+// Modele par defaut de toute generation d image du produit ; seul le pack d avatars en choisit un autre (options.model).
+const DEFAULT_IMAGE_MODEL = 'gemini-3-pro-image-preview';
+
 // Ces classes ne sont pas exportees volontairement: Nitro auto-importe tout ce qui est
 // exporte depuis server/utils/, et l'auto-import injecte alors un import en haut de ce
 // fichier meme, qui entre en collision avec la declaration locale ("already declared").
@@ -80,14 +83,14 @@ function isTransientGeminiError(error) {
   );
 }
 
-async function retryWithSanitizedPrompt(prompt, extraParts, error, reasonLabel) {
+async function retryWithSanitizedPrompt(prompt, extraParts, error, reasonLabel, model) {
   const sanitizedPrompt = sanitizePromptForSafety(prompt);
   if (sanitizedPrompt === prompt) {
     throw error;
   }
 
   console.warn(`[gemini-image] ${reasonLabel}, retrying with sanitized prompt.`);
-  return await generateImageFromGemini(sanitizedPrompt, extraParts);
+  return await generateImageFromGemini(sanitizedPrompt, extraParts, model);
 }
 
 function extractInlineDataFromResponse(imageResponse) {
@@ -124,7 +127,7 @@ function extractInlineDataFromResponse(imageResponse) {
   return imagePart.inlineData ?? imagePart.inline_data;
 }
 
-async function generateImageFromGemini(prompt, extraParts = []) {
+async function generateImageFromGemini(prompt, extraParts = [], model = DEFAULT_IMAGE_MODEL) {
   const geminiKey = process.env.GEMINI_API_KEY;
   if (!geminiKey || geminiKey.trim() === '...' || geminiKey.trim() === '') {
     throw new Error('GEMINI_API_KEY non configuree dans .env');
@@ -132,7 +135,7 @@ async function generateImageFromGemini(prompt, extraParts = []) {
 
   const genai = new GoogleGenAI({ apiKey: geminiKey });
   const imageResponse = await genai.models.generateContent({
-    model: 'gemini-3-pro-image-preview',
+    model,
     contents: [
       {
         role: 'user',
@@ -147,17 +150,18 @@ async function generateImageFromGemini(prompt, extraParts = []) {
   return extractInlineDataFromResponse(imageResponse);
 }
 
-export async function generateImageFromGeminiWithSafetyFallback(prompt, extraParts = []) {
+export async function generateImageFromGeminiWithSafetyFallback(prompt, extraParts = [], options = {}) {
+  const model = String(options?.model || '').trim() || DEFAULT_IMAGE_MODEL;
   try {
-    return await generateImageFromGemini(prompt, extraParts);
+    return await generateImageFromGemini(prompt, extraParts, model);
   } catch (error) {
     if (error instanceof ImageSafetyError) {
-      return await retryWithSanitizedPrompt(prompt, extraParts, error, 'IMAGE_SAFETY detected');
+      return await retryWithSanitizedPrompt(prompt, extraParts, error, 'IMAGE_SAFETY detected', model);
     }
 
     if (isTransientGeminiError(error)) {
       console.warn('[gemini-image] transient Gemini error detected, retrying image generation once.');
-      return await generateImageFromGemini(prompt, extraParts);
+      return await generateImageFromGemini(prompt, extraParts, model);
     }
 
     if (!(error instanceof GeminiNoPartsError) || !isRetryableNoPartsFinishReason(error.finishReason)) {
@@ -167,14 +171,14 @@ export async function generateImageFromGeminiWithSafetyFallback(prompt, extraPar
     console.warn(`[gemini-image] ${error.finishReason || 'IMAGE_NO_PARTS'} detected, retrying image generation once.`);
 
     try {
-      return await generateImageFromGemini(prompt, extraParts);
+      return await generateImageFromGemini(prompt, extraParts, model);
     } catch (retryError) {
       if (retryError instanceof ImageSafetyError) {
-        return await retryWithSanitizedPrompt(prompt, extraParts, retryError, 'IMAGE_SAFETY detected after no-parts retry');
+        return await retryWithSanitizedPrompt(prompt, extraParts, retryError, 'IMAGE_SAFETY detected after no-parts retry', model);
       }
 
       if (retryError instanceof GeminiNoPartsError && isRetryableNoPartsFinishReason(retryError.finishReason)) {
-        return await retryWithSanitizedPrompt(prompt, extraParts, retryError, `${retryError.finishReason || 'IMAGE_NO_PARTS'} persisted`);
+        return await retryWithSanitizedPrompt(prompt, extraParts, retryError, `${retryError.finishReason || 'IMAGE_NO_PARTS'} persisted`, model);
       }
 
       throw retryError;

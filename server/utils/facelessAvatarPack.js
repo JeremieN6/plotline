@@ -1,4 +1,4 @@
-import { estimatePackCostUsd, findCatalogEntry } from '../data/facelessAvatarCatalog.js';
+import { estimatePackCostUsd, findCatalogEntry, isEntryAvailable } from '../data/facelessAvatarCatalog.js';
 
 /**
  * Pack d avatars d une persona : image de base, puis une image par entree du
@@ -11,7 +11,7 @@ export const MAX_PACK_ENTRIES = 32;
 export const PACK_STALE_MS = 20 * 60 * 1000;
 const CONCURRENCY = 2;
 
-const GREEN_RULES = 'Flat solid pure green background (#00FF00), no shadow, no floor, no text, no border, no other characters, no green anywhere on the character. Square image.';
+const GREEN_RULES = 'Flat solid pure green background (#00FF00), no shadow, no floor, no text, no border, no other characters, no green anywhere on the character. Square image. Keep a clear margin around the subject: nothing held or used by the character is cropped by the edges.';
 
 /** Pur : consigne de l image de base (a partir de la fiche de reference de la persona). */
 export function buildBaseAvatarPrompt(avatarPrompt) {
@@ -103,17 +103,19 @@ export async function keyAndTrimPng(imageBuffer) {
 }
 
 /** Pur : tarif indicatif pour l interface. */
-export function describePackCost(count) {
-  return { count, usd: estimatePackCostUsd(count) };
+export function describePackCost(count, costPerImageUsd) {
+  return { count, usd: estimatePackCostUsd(count, costPerImageUsd) };
 }
 
 /** Pur : valide la liste d id demandes. */
-export function validatePackIds(ids) {
+export function validatePackIds(ids, gender) {
   const list = [...new Set((Array.isArray(ids) ? ids : []).map((id) => String(id)))];
   if (!list.length) throw new Error('Aucune image demandee');
   if (list.length > MAX_PACK_ENTRIES) throw new Error(`Au plus ${MAX_PACK_ENTRIES} images`);
   const unknown = list.filter((id) => !findCatalogEntry(id));
   if (unknown.length) throw new Error(`Images inconnues : ${unknown.join(', ')}`);
+  const unavailable = list.filter((id) => !isEntryAvailable(findCatalogEntry(id), gender));
+  if (unavailable.length) throw new Error(`Images non proposees pour cette persona : ${unavailable.join(', ')}`);
   return list;
 }
 
@@ -154,8 +156,8 @@ export async function generateBaseAvatar({ referenceBuffer, referenceMime, avata
  * `store.update(mutator)` : modifie la DA stockee de facon sure.
  * Renvoie tout de suite { started, count }.
  */
-export async function startPackJob({ ids, store, baseUrl, avatarPrompt, deps }) {
-  const list = validatePackIds(ids);
+export async function startPackJob({ ids, store, baseUrl, avatarPrompt, deps, gender, costPerImageUsd }) {
+  const list = validatePackIds(ids, gender);
 
   await store.update((style) => {
     const pack = style.avatar.pack || { baseUrl, baseSource: 'generated', entries: {} };
@@ -211,6 +213,6 @@ export async function startPackJob({ ids, store, baseUrl, avatarPrompt, deps }) 
     }
   })();
 
-  return { started: true, count: list.length, ...describePackCost(list.length) };
+  return { started: true, count: list.length, ...describePackCost(list.length, costPerImageUsd) };
 }
 

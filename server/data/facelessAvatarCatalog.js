@@ -27,13 +27,13 @@ export const AVATAR_PACK_CATALOG = [
   { id: 'body-point', mode: 'body', label: 'Montre du doigt', prompt: 'pointing to the side with one arm extended, confident smile, upper body' },
   { id: 'body-thumbs-up', mode: 'body', label: 'Pouce levé', prompt: 'thumbs up with one hand, encouraging wink, upper body' },
   { id: 'body-peace', mode: 'body', label: 'Signe V', prompt: 'making a V peace sign near the face, cheerful, upper body' },
-  { id: 'body-slay', mode: 'body', label: 'Slay', prompt: 'showing the back of the hand with painted nails, sassy "slay" attitude, upper body' },
+  { id: 'body-slay', mode: 'body', label: 'Slay', femaleOnly: true, prompt: 'showing the back of the hand with painted nails, sassy "slay" attitude, upper body' },
   { id: 'body-hands-up', mode: 'body', label: 'Bras en l\'air', prompt: 'both arms up in celebration, huge joyful smile, upper body' },
   { id: 'body-shrug', mode: 'body', label: 'Hausse les épaules', prompt: 'shrugging with both palms open, puzzled look, upper body' },
   { id: 'body-arms-crossed', mode: 'body', label: 'Bras croisés', prompt: 'arms crossed, serious skeptical look, upper body' },
   { id: 'body-chin-hand', mode: 'body', label: 'Main au menton', prompt: 'hand on chin in thought, looking up, upper body' },
-  { id: 'body-phone', mode: 'body', label: 'Sur son téléphone', prompt: 'holding a smartphone in both hands, looking at it, upper body' },
-  { id: 'body-laptop', mode: 'body', label: 'Sur son ordinateur', prompt: 'typing on a laptop in front of the character, focused, upper body' },
+  { id: 'body-phone', mode: 'body', label: 'Sur son téléphone', prompt: 'holding a smartphone in both hands in front of the chest, looking at it; the character faces the camera so only the BACK of the phone is visible (no screen content shown), upper body' },
+  { id: 'body-laptop', mode: 'body', label: 'Sur son ordinateur', prompt: 'typing on a laptop placed in front of the character, focused; the character sits facing the camera BEHIND an open laptop seen from the front: we see only the plain BACK of the lid, which hides the keyboard, the hands and the lower arms (no screen, no keyboard visible); only the head, shoulders and upper arms show, arms close to the body, the whole laptop inside the frame' },
   { id: 'body-money', mode: 'body', label: 'Billets en main', prompt: 'holding a fan of banknotes, delighted expression, upper body' },
   { id: 'body-heart-hands', mode: 'body', label: 'Cœur avec les mains', prompt: 'making a heart shape with both hands, blushing smile, upper body' },
 ];
@@ -44,10 +44,21 @@ export function findCatalogEntry(id) {
   return AVATAR_PACK_CATALOG.find((entry) => entry.id === id) || null;
 }
 
-// Tarif indicatif d une image du modele utilise (a verifier sur la console Google).
+// Tarif indicatif d une image du modele HISTORIQUE (Studio, illustrations) ; a verifier sur la console Google.
+// Le pack d avatars a son propre modele et son propre tarif : voir `data/imageModels.js`.
 export const IMAGE_COST_USD = 0.134;
 
-/** Pur : estimation du cout (en dollars) de n images, arrondie au centime. */
-export function estimatePackCostUsd(count) {
-  return Math.round(Math.max(0, count) * IMAGE_COST_USD * 100) / 100;
+/** Pur : estimation du cout (en dollars) de n images, arrondie au centime. Sans modele : tarif historique. */
+export function estimatePackCostUsd(count, costPerImageUsd = IMAGE_COST_USD) {
+  return Math.round(Math.max(0, count) * costPerImageUsd * 100) / 100;
+}
+
+/** Pur : une entree est-elle proposee a cette persona ? (poses reservees aux personas feminines ecartees pour un homme) */
+export function isEntryAvailable(entry, gender) {
+  return !(entry?.femaleOnly && gender === 'MALE');
+}
+
+/** Pur : catalogue propose a une persona selon son genre. */
+export function catalogForGender(gender) {
+  return AVATAR_PACK_CATALOG.filter((entry) => isEntryAvailable(entry, gender));
 }

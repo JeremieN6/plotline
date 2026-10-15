@@ -5,7 +5,8 @@ import { facelessAssetFolder } from '../../../../utils/facelessIllustration.js';
 import { updateProfileStyle } from '../../../../utils/facelessStyleStore.js';
 import { generateImageFromGeminiWithSafetyFallback } from '../../../../utils/geminiImageGeneration.js';
 import { readImageSourceBuffer } from '../../../../utils/faceRefReader.js';
-import { IMAGE_COST_USD } from '../../../../data/facelessAvatarCatalog.js';
+import { describeAvatarStyle } from '../../../../utils/facelessAvatarStyleDescriber.js';
+import { findImageModel, imageCostUsd, resolvePackModel } from '../../../../data/imageModels.js';
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
@@ -26,8 +27,14 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event);
   const mode = body?.mode === 'upload' ? 'upload' : 'generate';
   const avatarPrompt = String(body?.avatarPrompt || style.avatarPrompt || '').trim().slice(0, 400);
+  if (body?.model && !findImageModel(String(body.model))) {
+    return sendError(event, createError({ statusCode: 400, statusMessage: 'Modele d image inconnu' }));
+  }
+  const model = resolvePackModel(body?.model);
 
   let url;
+  let styleDescribed = '';
+  let styleError = '';
   try {
     if (mode === 'upload') {
       const buffer = Buffer.from(String(body?.imageBase64 || '').replace(/^data:[^,]+,/, ''), 'base64');
@@ -36,9 +43,17 @@ export default defineEventHandler(async (event) => {
       const type = sniffImage(buffer);
       if (!type) return sendError(event, createError({ statusCode: 400, statusMessage: 'Le fichier doit etre un PNG ou un JPG' }));
       url = await saveFacelessMedia(buffer, { folder: facelessAssetFolder(persona.id, 'avatar'), ...type });
+      // Le style demande aux images du pack doit coller a l image importee : Claude la decrit (~1 ct).
+      // Un echec ne bloque pas l import : l ancien style reste en place et l utilisateur peut relancer la description.
+      try {
+        styleDescribed = await describeAvatarStyle({ imageBuffer: buffer });
+      } catch (describeFailure) {
+        styleError = String(describeFailure?.message || describeFailure).slice(0, 120);
+        console.warn('[faceless-avatar] description du style impossible', styleError);
+      }
     } else {
       if (body?.confirmCost !== true) {
-        return sendError(event, createError({ statusCode: 400, statusMessage: `Confirmation requise : 1 image payante (environ ${IMAGE_COST_USD} $)` }));
+        return sendError(event, createError({ statusCode: 400, statusMessage: `Confirmation requise : 1 image payante avec ${findImageModel(model).label} (environ ${imageCostUsd(model)} $)` }));
       }
       if (!persona.faceRefPath) {
         return sendError(event, createError({ statusCode: 400, statusMessage: 'Cette persona n a pas de fiche de reference' }));
@@ -49,7 +64,7 @@ export default defineEventHandler(async (event) => {
         referenceMime: reference.mimeType,
         avatarPrompt,
         deps: {
-          generate: generateImageFromGeminiWithSafetyFallback,
+          generate: (prompt, parts) => generateImageFromGeminiWithSafetyFallback(prompt, parts, { model }),
           save: (buffer, type) => saveFacelessMedia(buffer, { folder: facelessAssetFolder(persona.id, 'avatar'), ...type }),
         },
       });
@@ -65,9 +80,10 @@ export default defineEventHandler(async (event) => {
     pack.baseSource = mode === 'upload' ? 'upload' : 'generated';
     pack.generating = false;
     current.avatar.pack = pack;
-    if (avatarPrompt) current.avatarPrompt = avatarPrompt;
+    if (styleDescribed) current.avatarPrompt = styleDescribed;
+    else if (avatarPrompt) current.avatarPrompt = avatarPrompt;
     return current;
   });
 
-  return { baseUrl: url, source: mode };
+  return { baseUrl: url, source: mode, avatarPrompt: styleDescribed || avatarPrompt, styleDescribed: Boolean(styleDescribed), styleError };
 });
