@@ -14,6 +14,7 @@ import { buildPersonalityBrief } from './personalityBrief.js';
 import { findCatalogEntry } from '../data/facelessAvatarCatalog.js';
 import { ILLUSTRATION_KINDS, MAX_ILLUSTRATION_PROMPT, MAX_NEW_PER_VIDEO } from '../data/facelessIllustrations.js';
 import { countSpokenTokens } from './facelessTimeline.js';
+import { TEXT_STYLE_PROMPT_LINES, stripDashPunctuation } from './textStyleRules.js';
 import { FACELESS_LAYOUTS, FACELESS_POSES, FACELESS_SFX } from '../data/facelessCatalog.js';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
@@ -123,7 +124,8 @@ export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = nu
     `- En francais, environ ${words} mots au total (video d environ ${targetSeconds} s).`,
     '- Ton oral, naturel, comme une vraie personne qui parle a sa communaute : phrases courtes, tutoiement.',
     '- La premiere scene est une ACCROCHE forte (promesse, question, contraste) ; la derniere un appel a l action (s abonner, commenter, suivre la suite).',
-    '- Une scene = une ou deux phrases dites ("say"). Ecris les nombres et sigles comme on les prononce.',
+    '- Une scene = une ou deux phrases dites ("say"). Les sigles s ecrivent normalement (SPF, DKIM).',
+    ...TEXT_STYLE_PROMPT_LINES,
     '- Jamais de chiffres de revenus inventes, de promesse de gain garantie, de fausses statistiques.',
     '- Ne cite aucune marque deposee ni logo.',
     personaText ? `\nPERSONA QUI PARLE (respecte son ton et son public) :\n${personaText}` : '\nPas de persona : narratrice neutre, chaleureuse.',
@@ -225,20 +227,20 @@ function sanitizeAvatar(avatar, layout, packIds = []) {
 
 /** Pur : nettoie une scene ; renvoie null si elle n a rien a dire. */
 export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illustrationIds = [], newBudget = { left: 0 } } = {}) {
-  const say = clip(raw?.say, 320);
+  const say = clip(stripDashPunctuation(raw?.say), 320);
   if (!say) return null;
 
   let layout = FACELESS_LAYOUTS[raw?.layout] ? raw.layout : 'avatar';
   const scene = {
     say,
     layout,
-    text: clipMultiline(withoutEmoji(raw?.text), 110),
-    title: clip(withoutEmoji(raw?.title), 40),
+    text: clipMultiline(withoutEmoji(stripDashPunctuation(raw?.text)), 110),
+    title: clip(withoutEmoji(stripDashPunctuation(raw?.title)), 40),
     number: clip(raw?.number, 3),
-    word: clip(withoutEmoji(raw?.word), 14),
+    word: clip(withoutEmoji(stripDashPunctuation(raw?.word)), 14),
     emoji: clip(raw?.emoji, 8),
     items: (Array.isArray(raw?.items) ? raw.items : []).slice(0, 4)
-      .map((item) => ({ emoji: clip(item?.emoji, 8), text: clip(withoutEmoji(item?.text), 40), at: sanitizeCue(item?.at) }))
+      .map((item) => ({ emoji: clip(item?.emoji, 8), text: clip(withoutEmoji(stripDashPunctuation(item?.text)), 40), at: sanitizeCue(item?.at) }))
       .filter((item) => item.text),
     sfx: (Array.isArray(raw?.sfx) ? raw.sfx : []).slice(0, 2)
       .filter((s) => Object.hasOwn(FACELESS_SFX, s?.name))
@@ -301,8 +303,8 @@ export function sanitizeFacelessPlan(raw, { captions = true, packIds = [], illus
   if (scenes.length < 2) throw new Error('Plan de montage inexploitable (moins de 2 scenes)');
 
   return {
-    title: clip(raw?.title, 80),
-    caption: clipMultiline(raw?.caption, 600),
+    title: clip(stripDashPunctuation(raw?.title), 80),
+    caption: clipMultiline(stripDashPunctuation(raw?.caption), 600),
     hashtags: (Array.isArray(raw?.hashtags) ? raw.hashtags : []).slice(0, 8)
       .map((tag) => clip(tag, 40).replace(/^#?/, '#').replace(/\s+/g, ''))
       .filter((tag) => tag.length > 1),

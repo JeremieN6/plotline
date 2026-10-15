@@ -8,6 +8,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 import { describeFacelessPersona, normalizeFacelessDuration, parseFacelessPlanResponse } from './facelessPlanGenerator.js';
+import { TEXT_STYLE_PROMPT_LINES } from './textStyleRules.js';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
@@ -35,6 +36,7 @@ export function buildOutlineSystemPrompt({ targetSeconds = 30, persona = null } 
     'Le premier temps fort est une ACCROCHE (promesse, question, contraste), le dernier un appel a l action. Tutoiement, francais oral.',
     'Les indications "cue" sont en langage naturel, comme on les dirait a un monteur ("la, fond sombre", "ici, l avatar est surpris", "affiche le chiffre 3") : jamais de terme technique (layout, hook, scene...).',
     '- Jamais de chiffres de revenus inventes, de promesse de gain garantie, de fausses statistiques. Aucune marque deposee.',
+    ...TEXT_STYLE_PROMPT_LINES,
     personaText ? `\nPERSONA QUI PARLE (respecte son ton et son public) :\n${personaText}` : '',
     '',
     'Reponds uniquement avec un objet JSON brut : {"title": string, "beats": [{"label": string, "goal": string, "points": [string], "example": string, "seconds": number, "cue"?: string}]}',
