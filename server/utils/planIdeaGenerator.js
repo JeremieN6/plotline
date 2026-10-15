@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 import { buildFallbackIdea } from './contentPlanner.js';
 import { autoHashtagsEnabled } from './hashtagPolicy.js';
+import { TEXT_STYLE_PROMPT_LINES, stripDashPunctuation } from './textStyleRules.js';
 import { buildPlannerPersonalityBlock, buildVisualUniverse, pillarForSlot } from './personalityPlanning.js';
 
 /**
@@ -60,6 +61,7 @@ export function buildPlanSystemPrompt(profile, { personality, reelEngine = 'lega
       : '- Le champ "prompt" decrit la scene a generer en image ou video. Il doit etre\n  concret et visuel: sujet, cadrage, lumiere, decor. Pas de texte a incruster.',
     '- Pour un creneau STORY, le clip est choisi automatiquement dans une banque de videos (paysage, objets, piece, sans personnage) : laisse "prompt" vide et ecris seulement la legende' + (hashtags ? ' et les hashtags' : '') + ' ; la legende evoque une ambiance, sans parler d un personnage a l ecran.',
     '- Le champ "caption" est la legende publiee, en francais, ton naturel.',
+    ...TEXT_STYLE_PROMPT_LINES,
     hashtags
       ? '- Le champ "hashtags" contient 3 a 6 hashtags separes par des espaces.'
       : '- Le champ "hashtags" reste une chaine vide : aucun hashtag. Place plutot dans la legende, naturellement, les mots que le public cherche (domaine, sujet precis).',
@@ -114,7 +116,7 @@ export function parsePlanIdeas(rawText) {
     .map((item) => ({
       position: Number(item?.position),
       prompt: String(item?.prompt || '').trim(),
-      caption: String(item?.caption || '').trim(),
+      caption: stripDashPunctuation(String(item?.caption || '')).trim(),
       hashtags: String(item?.hashtags || '').trim(),
     }))
     .filter((item) => Number.isFinite(item.position) && (item.prompt || item.caption));

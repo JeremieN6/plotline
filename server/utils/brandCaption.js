@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 import { buildBrandContextBlock } from './brandContext.js';
 import { autoHashtagsEnabled } from './hashtagPolicy.js';
+import { TEXT_STYLE_PROMPT_LINES, stripDashPunctuation } from './textStyleRules.js';
 
 /**
  * Legende d une MARQUE (pur + un appel Claude). Le modele historique des legendes (promptTemplates.js,
@@ -31,6 +32,7 @@ export function buildBrandCaptionSystemPrompt(context, { hashtags = autoHashtags
     '- 2 à 4 lignes : une accroche, une idée utile, puis une invitation claire (découvrir, essayer, répondre en commentaire) cohérente avec ce que propose la marque.',
     '- Appuie-toi UNIQUEMENT sur ce que disent la fiche et le site. N\'invente ni offre, ni prix, ni chiffre, ni résultat, ni promesse de santé ou de guérison.',
     '- Au plus 2 emojis. Pas de hashtags dans le texte de la légende.',
+    ...TEXT_STYLE_PROMPT_LINES,
     ...(hashtags
       ? [`- Hashtags : de ${MIN_HASHTAGS + 2} à ${MAX_HASHTAGS}, pertinents pour CETTE marque et CE visuel (domaine, sujet précis, public, quelques tags plus larges), en minuscules, sans espaces, sans doublon, sans #lifestyle ni #dailyvibes génériques.`]
       : ['- Aucun hashtag. Place plutôt, naturellement dans le texte, les mots que ton public chercherait (domaine, sujet précis, public visé) : c\'est ce qui sert la recherche.']),
@@ -81,7 +83,7 @@ export function parseBrandCaption(rawText) {
     return null;
   }
 
-  const caption = String(parsed?.caption || '').replace(/#[\p{L}\p{N}_]+/gu, '').replace(/[ \t]+\n/g, '\n').trim();
+  const caption = stripDashPunctuation(String(parsed?.caption || '')).replace(/#[\p{L}\p{N}_]+/gu, '').replace(/[ \t]+\n/g, '\n').trim();
   if (!caption) return null;
   return { caption, hashtags: normalizeHashtags(parsed?.hashtags) };
 }
