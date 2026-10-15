@@ -412,3 +412,7 @@ Sur un essai reel (Madison + voiture + maison), le mot "candid phone photo" a fa
 
 ## 2026-10-15 : une limite de longueur qui coupe en silence perd la conclusion
 Le champ "idee" du formulaire faceless etait borne a 2 000 caracteres par `maxlength` (page) ET `slice` (serveur) sans aucun message : un article colle y perdait sa fin, c est-a-dire sa conclusion et son appel a l action, sans que personne le voie. **Regle** : pour un texte que l utilisateur colle (article, notes), afficher un compteur, refuser (400 clair) plutot que couper, et prevoir une limite adaptee a un vrai article ; ne tronquer en silence que ce qu on ne montre jamais (ex. un extrait pour un titre).
+
+## 2026-10-15 : une regex ecrite sans son antislash casse en silence ; ne pas chainer un commit apres un grep de resultat
+(1) `.replace(/s+/g, ' ')` (au lieu de `/\s+/g`) remplacait chaque lettre "s" du style de l avatar par un espace : aucune erreur, seulement un texte abime. **Regle** : apres avoir ecrit une regex via un script ou un heredoc, la tester sur une chaine contenant la lettre litterale ; chercher `/s+/` quand on suspecte un antislash perdu.
+(2) J ai enchaine `npm test | grep ... && git commit` : `grep` reussit meme quand des tests echouent, donc un commit et un merge ont ete faits avec 1 test en echec (corrige avant le push). **Regle** : conditionner le commit a l etat de sortie de la suite (`npm test` seul, ou `set -o pipefail`), jamais a un `grep` du resume.
