@@ -30,17 +30,18 @@
           </UiField>
 
           <UiField
-            v-if="voiceMode === 'synth'"
             label="Texte source (optionnel)"
             for-id="faceless-source"
-            hint="Colle un article ou des notes : Claude en tire UNE idée forte et la met en scène, il ne résume pas. Ton idée ci-dessus devient une simple consigne (angle, ton)."
+            :hint="voiceMode === 'own'
+              ? 'Colle ton article ou tes notes : la trame « Que dire ? » s’appuie dessus et n’invente rien. Ton idée ci-dessus devient une simple consigne (angle, ton).'
+              : 'Colle un article ou des notes : Claude en tire UNE idée forte et la met en scène, il ne résume pas. Ton idée ci-dessus devient une simple consigne (angle, ton).'"
           >
             <UiTextarea
               id="faceless-source"
               v-model="sourceText"
               :rows="6"
               :maxlength="SOURCE_MAX"
-              placeholder="Colle ici le texte de ton article…"
+              placeholder="Colle ici un article, des notes ou un brouillon (facultatif)…"
             />
             <p class="mt-1 text-xs" :class="sourceText.length > SOURCE_MAX * 0.9 ? 'text-ui-danger-ink' : 'text-ui-ink-muted'">
               {{ sourceText.length.toLocaleString('fr-FR') }} / {{ SOURCE_MAX.toLocaleString('fr-FR') }} caractères
@@ -58,10 +59,10 @@
             </p>
 
             <div>
-              <UiButton variant="dark" size="sm" :loading="outlineLoading" :disabled="!idea.trim()" @click="makeOutline">
+              <UiButton variant="dark" size="sm" :loading="outlineLoading" :disabled="!idea.trim() && !sourceText.trim()" @click="makeOutline">
                 {{ outlineLoading ? 'Préparation de la trame…' : (outline ? 'Refaire la trame' : 'Que dire ? Générer la trame') }}
               </UiButton>
-              <p v-if="!idea.trim()" class="mt-1.5 text-xs text-ui-ink-muted">Écris d’abord ton idée ci-dessus.</p>
+              <p v-if="!idea.trim() && !sourceText.trim()" class="mt-1.5 text-xs text-ui-ink-muted">Écris d’abord ton idée, ou colle ton article, ci-dessus.</p>
               <UiAlert v-if="outlineError" class="mt-3" title="La trame n’a pas pu être préparée">
                 {{ outlineError }}
                 <template #action><UiButton variant="secondary" size="sm" @click="makeOutline">Réessayer</UiButton></template>
@@ -428,7 +429,7 @@ async function makeOutline() {
   try {
     outline.value = await $fetch('/api/faceless/outline', {
       method: 'POST',
-      body: { idea: idea.value, profileId: profileId.value || undefined, durationSeconds: durationSeconds.value },
+      body: { idea: idea.value, sourceText: sourceText.value.trim() || undefined, profileId: profileId.value || undefined, durationSeconds: durationSeconds.value },
     })
   } catch (error) {
     outlineError.value = error?.data?.statusMessage || error?.statusMessage || 'Impossible de préparer la trame.'

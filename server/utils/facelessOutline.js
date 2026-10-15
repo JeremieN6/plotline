@@ -7,7 +7,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 
-import { describeFacelessPersona, normalizeFacelessDuration, parseFacelessPlanResponse } from './facelessPlanGenerator.js';
+import { MAX_SOURCE_TEXT, describeFacelessPersona, normalizeFacelessDuration, normalizeSourceText, parseFacelessPlanResponse } from './facelessPlanGenerator.js';
 import { TEXT_STYLE_PROMPT_LINES } from './textStyleRules.js';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
@@ -36,11 +36,35 @@ export function buildOutlineSystemPrompt({ targetSeconds = 30, persona = null } 
     'Le premier temps fort est une ACCROCHE (promesse, question, contraste), le dernier un appel a l action. Tutoiement, francais oral.',
     'Les indications "cue" sont en langage naturel, comme on les dirait a un monteur ("la, fond sombre", "ici, l avatar est surpris", "affiche le chiffre 3") : jamais de terme technique (layout, hook, scene...).',
     '- Jamais de chiffres de revenus inventes, de promesse de gain garantie, de fausses statistiques. Aucune marque deposee.',
+    '- N invente AUCUNE anecdote, experience personnelle, chiffre ou fait que l idee ou le texte source ne donne pas : chaque temps fort s appuie sur ce qui t est fourni.',
     ...TEXT_STYLE_PROMPT_LINES,
     personaText ? `\nPERSONA QUI PARLE (respecte son ton et son public) :\n${personaText}` : '',
     '',
     'Reponds uniquement avec un objet JSON brut : {"title": string, "beats": [{"label": string, "goal": string, "points": [string], "example": string, "seconds": number, "cue"?: string}]}',
   ].filter((line) => line !== '').join('\n');
+}
+
+/** Pur : message utilisateur de la trame. Avec un texte source, c est LUI la matiere (l idee n est qu une consigne). */
+export function buildOutlineUserPrompt(idea, sourceText = '') {
+  const cleanIdea = String(idea || '').trim();
+  const source = normalizeSourceText(sourceText).slice(0, MAX_SOURCE_TEXT);
+  if (!source) return `Idee de la video :\n${cleanIdea}`;
+
+  return [
+    'Consigne :',
+    cleanIdea || '(aucune consigne : choisis toi-meme l angle le plus fort du texte)',
+    '',
+    'TEXTE SOURCE (c est la SEULE matiere de la trame) :',
+    '"""',
+    source,
+    '"""',
+    '',
+    'Comment l utiliser :',
+    '- Chaque temps fort reprend UN fait, UN argument ou UN exemple de ce texte. Aucune anecdote, aucun chiffre, aucune experience que le texte ne contient pas.',
+    '- Choisis UNE idee tranchee du texte et construis la trame autour : pas un resume de tout le texte.',
+    '- "example" : une phrase orale fidele au contenu du texte, que le createur reformulera avec ses mots (jamais un fait nouveau).',
+    '- Le dernier temps fort invite a lire l article ou a reagir.',
+  ].join('\n');
 }
 
 const clip = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
@@ -61,16 +85,16 @@ export function sanitizeOutline(raw) {
 }
 
 /** Appel Claude. `createMessage` est injectable (tests). */
-export async function generateOutline({ idea, persona, targetSeconds, apiKey, createMessage } = {}) {
+export async function generateOutline({ idea, sourceText = '', persona, targetSeconds, apiKey, createMessage } = {}) {
   const key = String(apiKey || process.env.ANTHROPIC_API_KEY || '').trim();
   if (!createMessage && !key) throw new Error('ANTHROPIC_API_KEY non configuree');
-  if (!String(idea || '').trim()) throw new Error('Idee requise');
+  if (!String(idea || '').trim() && !normalizeSourceText(sourceText)) throw new Error('Idee requise');
 
   const request = {
     model: String(process.env.ANTHROPIC_MODEL || DEFAULT_MODEL).trim() || DEFAULT_MODEL,
     max_tokens: 3000,
     system: buildOutlineSystemPrompt({ targetSeconds: normalizeFacelessDuration(targetSeconds), persona }),
-    messages: [{ role: 'user', content: `Idee de la video :\n${String(idea).trim()}` }],
+    messages: [{ role: 'user', content: buildOutlineUserPrompt(idea, sourceText) }],
   };
   const response = await (createMessage ? createMessage(request) : new Anthropic({ apiKey: key }).messages.create(request));
   const text = (response?.content || []).filter((b) => b?.type === 'text').map((b) => b.text).join('\n');
