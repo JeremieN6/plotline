@@ -73,7 +73,7 @@ test('validatePackIds : refuse une pose non proposee au genre de la persona, acc
 
 test('prompts du pack : ordinateur et telephone vus de dos (ecran invisible), marge autour du sujet', () => {
   const laptop = buildEntryPrompt(findCatalogEntry('body-laptop'), 'style');
-  assert.match(laptop, /BACK of the laptop lid/);
+  assert.match(laptop, /plain BACK of the lid/);
   assert.match(laptop, /BEHIND an open laptop/);
   assert.match(laptop, /hides the keyboard, the hands/);
   assert.match(laptop, /clear margin/);
