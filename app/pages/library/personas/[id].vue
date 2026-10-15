@@ -51,20 +51,44 @@
         <h2 class="text-lg font-bold text-[#111111]">Avatar <span class="ml-1 rounded-full bg-[#FFF1E3] px-2 py-0.5 text-[11px] font-semibold text-[#B45F1D]">images payantes</span></h2>
         <p class="mt-1 text-xs text-[#666666]">
           Des images de ton personnage (expressions, gestes, tête seule ou buste), générées une fois à partir d’une image de base,
-          puis réutilisées dans toutes ses vidéos. Environ {{ folder.imageCostUsd }} $ par image (tarif indicatif, à vérifier sur la console du fournisseur).
-          Chaque génération demande ta confirmation. Le choix « avatar dessiné » ou « pack d’images » se fait dans la DA.
+          puis réutilisées dans toutes ses vidéos. Chaque génération demande ta confirmation, avec le coût du modèle choisi.
+          Le choix « avatar dessiné » ou « pack d’images » se fait dans la DA.
         </p>
+
+        <label class="mt-4 block text-xs font-semibold text-[#444]">
+          Modèle d’image
+          <select
+            v-model="imageModel"
+            class="mt-1 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2 text-sm font-normal outline-none focus:border-[#E8873A]"
+          >
+            <option v-for="model in folder.imageModels" :key="model.id" :value="model.id">
+              {{ model.label }} — ≈ {{ model.costUsd }} $ par image
+            </option>
+          </select>
+          <span class="mt-1 block text-[11px] font-normal text-[#888]">{{ currentModel?.note }} · tarifs indicatifs, à vérifier sur la console Google.</span>
+        </label>
 
         <label class="mt-4 block text-xs font-semibold text-[#444]">
           Style graphique de l’avatar
           <textarea
             v-model="avatarPrompt"
-            rows="2"
+            rows="3"
             maxlength="400"
-            placeholder="Ex. : chibi, grosse tête, aplats de couleur, contour fin. Ajoute « avec des lunettes » si tu en veux."
+            placeholder="Ex. : rendu 3D de film d’animation, grands yeux expressifs, peau lisse, éclairage doux, sans contour."
             class="mt-1 w-full rounded-[10px] border border-[#E5E3DF] px-3 py-2 text-sm font-normal outline-none focus:border-[#E8873A]"
           />
+          <span class="mt-1 block text-[11px] font-normal text-[#888]">
+            Seulement la manière dont l’image est dessinée (pas qui est le personnage). Rempli automatiquement quand tu importes une image ; modifiable.
+          </span>
         </label>
+        <button
+          type="button"
+          class="mt-2 rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-1.5 text-xs font-bold text-[#444] transition-colors hover:bg-[#FAFAF8] disabled:cursor-not-allowed disabled:opacity-50"
+          :disabled="!pack.baseUrl || busy"
+          @click="describeStyle"
+        >
+          Décrire le style à partir de l’image de base (≈ 0,01 $)
+        </button>
 
         <div class="mt-4 flex flex-wrap items-start gap-4">
           <div class="h-40 w-40 shrink-0 overflow-hidden rounded-[14px] border border-[#E5E3DF] bg-[#EAFBEA]">
@@ -79,14 +103,14 @@
               :disabled="!folder.profile.hasFaceRef || busy"
               @click="generateBase"
             >
-              Générer depuis la fiche de référence (≈ {{ folder.imageCostUsd }} $)
+              Générer depuis la fiche de référence (≈ {{ currentModel?.costUsd }} $)
             </button>
             <p v-if="!folder.profile.hasFaceRef" class="max-w-xs text-xs text-[#888]">Cette persona n’a pas de fiche de référence : importe ton image à la place.</p>
             <label class="block cursor-pointer rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2 text-xs font-bold text-[#444] transition-colors hover:bg-[#FAFAF8]">
               Importer mon image (gratuit, PNG ou JPG)
               <input type="file" accept="image/png,image/jpeg" class="hidden" @change="importBase">
             </label>
-            <p class="max-w-xs text-xs text-[#888]">Idéal : le personnage sur fond vert uni (#00FF00), pour un détourage propre.</p>
+            <p class="max-w-xs text-xs text-[#888]">Pas besoin de fond vert : les images du pack sont générées sur fond vert puis détourées automatiquement. Le style est décrit tout seul à l’import.</p>
           </div>
         </div>
 
@@ -232,7 +256,9 @@ const selected = ref((folder.value?.pack?.entries || []).filter((entry) => !entr
 const busy = ref(false)
 const packMessage = ref('')
 const packError = ref(false)
-const packCost = computed(() => (Math.round(selected.value.length * (folder.value?.imageCostUsd || 0.134) * 100) / 100).toFixed(2))
+const imageModel = ref(folder.value?.defaultImageModel || '')
+const currentModel = computed(() => (folder.value?.imageModels || []).find((model) => model.id === imageModel.value) || null)
+const packCost = computed(() => (Math.round(selected.value.length * (currentModel.value?.costUsd || folder.value?.imageCostUsd || 0.134) * 100) / 100).toFixed(2))
 
 const illKind = ref('photo')
 const illLabel = ref('')
@@ -283,14 +309,14 @@ function message(error, fallback) {
 async function generateBase() {
   const ok = await requestConfirmation({
     title: 'Générer l’image de base ?',
-    message: `Un appel payant (≈ ${folder.value.imageCostUsd} $).`,
+    message: `Un appel payant avec ${currentModel.value?.label} (≈ ${currentModel.value?.costUsd} $).`,
     confirmLabel: 'Générer',
   })
   if (!ok) return
   busy.value = true
   packMessage.value = ''
   try {
-    await $fetch(`/api/faceless/avatar/${profileId}/base`, { method: 'POST', body: { mode: 'generate', confirmCost: true, avatarPrompt: avatarPrompt.value } })
+    await $fetch(`/api/faceless/avatar/${profileId}/base`, { method: 'POST', body: { mode: 'generate', confirmCost: true, avatarPrompt: avatarPrompt.value, model: imageModel.value } })
     await refresh()
     packMessage.value = 'Image de base créée.'
     packError.value = false
@@ -309,12 +335,32 @@ async function importBase(event) {
   busy.value = true
   packMessage.value = ''
   try {
-    await $fetch(`/api/faceless/avatar/${profileId}/base`, { method: 'POST', body: { mode: 'upload', imageBase64: await readFile(file), avatarPrompt: avatarPrompt.value } })
+    const result = await $fetch(`/api/faceless/avatar/${profileId}/base`, { method: 'POST', body: { mode: 'upload', imageBase64: await readFile(file), avatarPrompt: avatarPrompt.value } })
     await refresh()
-    packMessage.value = 'Image de base importée.'
-    packError.value = false
+    if (result?.styleDescribed) avatarPrompt.value = result.avatarPrompt
+    packMessage.value = result?.styleDescribed
+      ? 'Image de base importée. Style décrit automatiquement : relis-le et corrige-le si besoin.'
+      : `Image de base importée, mais le style n’a pas pu être décrit automatiquement (${result?.styleError || 'erreur'}). Utilise le bouton « Décrire le style ».`
+    packError.value = !result?.styleDescribed
   } catch (error) {
     packMessage.value = message(error, 'Import impossible.')
+    packError.value = true
+  } finally {
+    busy.value = false
+  }
+}
+
+async function describeStyle() {
+  busy.value = true
+  packMessage.value = ''
+  try {
+    const result = await $fetch(`/api/faceless/avatar/${profileId}/describe-style`, { method: 'POST' })
+    avatarPrompt.value = result.avatarPrompt
+    await refresh()
+    packMessage.value = 'Style décrit à partir de l’image de base : relis-le et corrige-le si besoin.'
+    packError.value = false
+  } catch (error) {
+    packMessage.value = message(error, 'Description impossible.')
     packError.value = true
   } finally {
     busy.value = false
@@ -325,7 +371,7 @@ async function generatePack() {
   const count = selected.value.length
   const ok = await requestConfirmation({
     title: `Générer ${count} image(s) ?`,
-    message: `Ce sont ${count} appels payants, environ ${packCost.value} $ au total.`,
+    message: `Ce sont ${count} appels payants avec ${currentModel.value?.label}, environ ${packCost.value} $ au total.`,
     confirmLabel: 'Générer',
   })
   if (!ok) return
@@ -334,7 +380,7 @@ async function generatePack() {
   try {
     await $fetch(`/api/faceless/avatar/${profileId}/pack`, {
       method: 'POST',
-      body: { ids: selected.value, confirmCost: true, expectedCount: count, avatarPrompt: avatarPrompt.value },
+      body: { ids: selected.value, confirmCost: true, expectedCount: count, avatarPrompt: avatarPrompt.value, model: imageModel.value },
     })
     await refresh()
     startPolling()

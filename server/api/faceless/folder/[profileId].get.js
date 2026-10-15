@@ -1,5 +1,6 @@
 import { requireFacelessPersona, summarizePack } from '../../../utils/facelessApi.js';
-import { AVATAR_PACK_CATALOG, IMAGE_COST_USD } from '../../../data/facelessAvatarCatalog.js';
+import { IMAGE_COST_USD, catalogForGender } from '../../../data/facelessAvatarCatalog.js';
+import { describeImageModels, imageCostUsd, resolvePackModel } from '../../../data/imageModels.js';
 import { findFacelessVoice } from '../../../data/facelessCatalog.js';
 import { ILLUSTRATION_KINDS } from '../../../data/facelessIllustrations.js';
 import { PACK_STALE_MS } from '../../../utils/facelessAvatarPack.js';
@@ -11,7 +12,7 @@ const MAX_VIDEOS = 24;
 export default defineEventHandler(async (event) => {
   const { prisma, persona, style, stored } = await requireFacelessPersona(event, event.context?.params?.profileId);
 
-  const pack = summarizePack(style, AVATAR_PACK_CATALOG);
+  const pack = summarizePack(style, catalogForGender(persona.gender));
   // Une generation interrompue (redemarrage du serveur) ne doit pas rester "en cours" a vie.
   if (pack.generating && Date.now() - (style.avatar.pack?.startedAt || 0) >= PACK_STALE_MS) pack.generating = false;
 
@@ -49,6 +50,9 @@ export default defineEventHandler(async (event) => {
     illustrations: (style.illustrations || []).map((item) => ({ ...item, kindLabel: ILLUSTRATION_KINDS[item.kind] })),
     illustrationKinds: Object.entries(ILLUSTRATION_KINDS).map(([value, label]) => ({ value, label })),
     imageCostUsd: IMAGE_COST_USD,
+    packImageCostUsd: imageCostUsd(resolvePackModel()),
+    imageModels: describeImageModels(),
+    defaultImageModel: resolvePackModel(),
     videos: videos.map((video) => ({ ...video, createdAt: video.createdAt?.toISOString?.() || video.createdAt })),
   };
 });

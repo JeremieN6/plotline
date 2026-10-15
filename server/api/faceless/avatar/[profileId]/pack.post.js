@@ -5,6 +5,7 @@ import { facelessAssetFolder } from '../../../../utils/facelessIllustration.js';
 import { updateProfileStyle } from '../../../../utils/facelessStyleStore.js';
 import { generateImageFromGeminiWithSafetyFallback } from '../../../../utils/geminiImageGeneration.js';
 import { estimatePackCostUsd } from '../../../../data/facelessAvatarCatalog.js';
+import { findImageModel, imageCostUsd, resolvePackModel } from '../../../../data/imageModels.js';
 
 // Genere (en tache de fond) les images demandees du pack d avatars. Chaque image est un
 // appel PAYANT du modele d image : `confirmCost: true` est obligatoire, avec le NOMBRE
@@ -16,13 +17,18 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event);
 
   const ids = Array.isArray(body?.ids) ? body.ids.map(String) : [];
+  if (body?.model && !findImageModel(String(body.model))) {
+    return sendError(event, createError({ statusCode: 400, statusMessage: 'Modele d image inconnu' }));
+  }
+  const model = resolvePackModel(body?.model);
+  const costPerImageUsd = imageCostUsd(model);
   if (!ids.length) {
     return sendError(event, createError({ statusCode: 400, statusMessage: 'Aucune image demandee' }));
   }
   if (body?.confirmCost !== true || Number(body?.expectedCount) !== new Set(ids).size) {
     return sendError(event, createError({
       statusCode: 400,
-      statusMessage: `Confirmation requise : ${new Set(ids).size} image(s) payante(s), environ ${estimatePackCostUsd(new Set(ids).size)} $`,
+      statusMessage: `Confirmation requise : ${new Set(ids).size} image(s) payante(s) avec ${findImageModel(model).label}, environ ${estimatePackCostUsd(new Set(ids).size, costPerImageUsd)} $`,
     }));
   }
 
@@ -42,9 +48,11 @@ export default defineEventHandler(async (event) => {
       ids,
       baseUrl,
       avatarPrompt,
+      gender: persona.gender,
+      costPerImageUsd,
       store: { update: (mutator) => updateProfileStyle(prisma, persona.id, user.id, mutator) },
       deps: {
-        generate: generateImageFromGeminiWithSafetyFallback,
+        generate: (prompt, parts) => generateImageFromGeminiWithSafetyFallback(prompt, parts, { model }),
         save: (buffer, type) => saveFacelessMedia(buffer, { folder: facelessAssetFolder(persona.id, 'avatar'), ...type }),
         read: readFacelessMedia,
       },
