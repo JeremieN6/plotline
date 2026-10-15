@@ -46,9 +46,6 @@ function withoutEmoji(value) {
   return String(value ?? '').replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '').replace(/[ \t]{2,}/g, ' ').trim();
 }
 
-// Seules ces mises en page laissent la place aux sous-titres.
-const CAPTION_LAYOUTS = new Set(['avatar', 'word']);
-
 /**
  * Pur : description de la persona injectee dans le prompt (vide si aucune).
  * Si la persona a une personnalite enregistree (`persona.personality`), sa voix et sa
@@ -144,7 +141,7 @@ export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = nu
     `- "sfx" : 0 a 2 bruitages par scene, [{ "name": ..., "at": 0 ou "mot exact" }]. Pas de musique de fond. Noms autorises :`,
     ...Object.entries(FACELESS_SFX).map(([name, desc]) => `  - ${name} : ${desc}`),
     captions
-      ? '- "captions": true seulement sur les scenes "avatar" et "word" (les autres affichent deja du texte), false ailleurs.'
+      ? '- "captions": true sur TOUTES les scenes (les sous-titres couvrent toute la video ; le texte a l ecran est un resume, pas ce que dit la voix).'
       : '- "captions": false partout (pas de sous-titres).',
     ...illustrationPromptLines(illustrations, maxNew),
     '',
@@ -246,7 +243,9 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
     sfx: (Array.isArray(raw?.sfx) ? raw.sfx : []).slice(0, 2)
       .filter((s) => Object.hasOwn(FACELESS_SFX, s?.name))
       .map((s) => ({ name: s.name, at: sanitizeCue(s?.at) })),
-    captions: captions && raw?.captions === true,
+    // Les sous-titres couvrent TOUTE la video (le texte a l ecran est un resume, pas ce que dit la voix) :
+    // ce n est plus un choix de Claude, c est le reglage du formulaire / de la DA.
+    captions: Boolean(captions),
   };
 
   // Mise en page photo : une illustration du dossier, ou (si autorise, dans la limite du budget) une nouvelle image a generer.
@@ -280,7 +279,6 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
 
   scene.avatar = sanitizeAvatar(raw?.avatar, layout, packIds);
   scene.bg = ['main', 'alt', 'dark'].includes(raw?.bg) ? raw.bg : 'main';
-  scene.captions = scene.captions && CAPTION_LAYOUTS.has(layout);
   return scene;
 }
 
@@ -390,7 +388,7 @@ export function planForEditing(plan) {
     caption: plan?.caption || '',
     hashtags: plan?.hashtags || [],
     scenes: (plan?.scenes || []).map((scene) => Object.fromEntries(
-      ['say', 'layout', 'text', 'title', 'number', 'word', 'emoji', 'items', 'image', 'frame', 'bg', 'avatar', 'sfx', 'captions']
+      ['say', 'layout', 'text', 'title', 'number', 'word', 'emoji', 'items', 'image', 'frame', 'bg', 'avatar', 'sfx']
         .filter((key) => key === 'say' || key === 'layout' || key === 'avatar' || compact(scene[key]))
         .map((key) => [key, scene[key]]),
     )),

@@ -86,7 +86,7 @@ function ownVoiceSection(scenes, directives) {
     'VOIX DU CREATEUR : MODE IMPOSE (remplace la partie "SCRIPT" ci-dessus)',
     'Le createur a ENREGISTRE sa propre voix. Tu n ecris donc AUCUN script : les scenes ci-dessous sont figees.',
     `- Renvoie EXACTEMENT ${scenes.length} scenes, dans cet ordre, une par scene ci-dessous. Recopie chaque "say" mot pour mot.`,
-    '- Tu choisis seulement le montage de chaque scene (layout, textes a l ecran, avatar, fond, bruitages, captions), selon ce qui est dit.',
+    '- Tu choisis seulement le montage de chaque scene (layout, textes a l ecran, avatar, fond, bruitages), selon ce qui est dit.',
     '- Les reperes "at" citent des mots EXACTS du "say" de la scene. Le premier repere d une scene est a 0.',
     '- "title", "caption", "hashtags" : a toi de les ecrire d apres le contenu.',
     '',
