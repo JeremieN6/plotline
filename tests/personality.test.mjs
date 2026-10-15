@@ -15,6 +15,7 @@ import {
   normalizePersonality,
   normalizeProvided,
   buildProfileConstraints,
+  summarizeProfileForPersonality,
   stripColumnFields,
   truncateClean,
 } from '../server/utils/personality.js';
@@ -528,4 +529,44 @@ test('parsePersonalityResult : clôtures markdown retirées, réponse trop parti
   assert.equal(parsePersonalityResult('{"voice":{"tone":"x"}}', 'PERSONA', targets), null);
   assert.equal(parsePersonalityResult('', 'PERSONA', targets), null);
   assert.equal(parsePersonalityResult('[1,2]', 'PERSONA', targets), null);
+});
+
+test('buildProfileConstraints : un physique déjà défini est une contrainte de cohérence, pas une source d idées', () => {
+  const withLook = buildProfileConstraints({ gender: 'FEMALE', eyeColor: 'vert' });
+  assert.ok(withLook.some((line) => /contrainte de cohérence, pas une source d idées de personnalité/.test(line)));
+  assert.ok(withLook.some((line) => /clichés associés à une apparence/.test(line)));
+  // Genre seul : pas de physique figé, donc pas de consigne supplémentaire.
+  const genderOnly = buildProfileConstraints({ gender: 'MALE', ethnicity: ' ' });
+  assert.equal(genderOnly.length, 1);
+});
+
+test('summarizeProfileForPersonality : statut de personnalité et plateformes connectées', () => {
+  const none = summarizeProfileForPersonality({ id: 'a', name: 'A', profileType: 'PERSONA', personality: null });
+  assert.deepEqual(none, { id: 'a', name: 'A', profileType: 'PERSONA', hasPersonality: false, platforms: [] });
+
+  const empty = summarizeProfileForPersonality({ id: 'b', personality: { blocks: {} } });
+  assert.equal(empty.hasPersonality, false);
+
+  const stored = summarizeProfileForPersonality({
+    id: 'c',
+    name: 'C',
+    profileType: 'BRAND',
+    instagramAccountId: '123',
+    twitterConnected: true,
+    personality: { blocks: { identity: { pseudo: { value: 'x', origin: 'user' } } } },
+  });
+  assert.equal(stored.hasPersonality, true);
+  assert.equal(stored.profileType, 'BRAND');
+  assert.deepEqual(stored.platforms, ['instagram', 'x']);
+  // Le contenu de la personnalité n est jamais renvoyé.
+  assert.equal(JSON.stringify(stored).includes('"value"'), false);
+});
+
+test('fusion : les champs issus du profil ne sont jamais écrasés, la saisie manuelle de l admin l emporte sur la génération', () => {
+  const fromProfile = buildProvidedFromProfile({ name: 'Maude', niche: 'brocante, soudure', style: 'garage' }, 'PERSONA');
+  const generated = { blocks: { editorial: { mainNiche: { value: 'cuisine', origin: 'generated' } }, identity: { firstName: { value: 'Lou', origin: 'generated' } } } };
+  const merged = mergePersonality(null, generated, { ...fromProfile, identity: { ...(fromProfile.identity || {}), firstName: 'Zoé' } }, 'PERSONA');
+  assert.equal(merged.blocks.editorial.mainNiche.value, 'brocante');
+  assert.equal(merged.blocks.editorial.mainNiche.origin, 'user');
+  assert.equal(merged.blocks.identity.firstName.value, 'Zoé');
 });

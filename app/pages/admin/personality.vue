@@ -370,6 +370,8 @@ const platforms = ref(['instagram', 'tiktok'])
 const freeText = ref('')
 const profileId = ref('')
 const profiles = ref([])
+// id de profil -> { hasPersonality, platforms } (GET /api/admin/personality/profiles)
+const personalityStatus = ref({})
 const schema = ref(null)
 const schemaError = ref(false)
 const personality = ref(null)
@@ -404,7 +406,11 @@ const eccentricityHint = computed(() => eccentricityHints[eccentricity.value] ||
 const platformOptions = computed(() => (schema.value?.platforms || []).map((item) => ({ value: item, label: item.charAt(0).toUpperCase() + item.slice(1) })))
 const profileOptions = computed(() => [
   { value: '', label: 'Aucun (laboratoire libre)' },
-  ...profiles.value.map((item) => ({ value: item.id, label: `${item.name} · ${item.profileType}` })),
+  ...profiles.value.map((item) => {
+    const status = personalityStatus.value[item.id]
+    const suffix = status === undefined ? '' : status.hasPersonality ? ' · personnalité enregistrée' : ' · sans personnalité'
+    return { value: item.id, label: `${item.name} · ${item.profileType}${suffix}` }
+  }),
 ])
 const selectedProfile = computed(() => profiles.value.find((item) => item.id === profileId.value) || null)
 const selectedNiches = computed(() => String(selectedProfile.value?.niche || '').split(',').map((item) => item.trim()).filter(Boolean).slice(0, 5))
@@ -468,6 +474,12 @@ if (isAdmin.value) {
     profiles.value = Array.isArray(list) ? list : []
   } catch {
     profiles.value = []
+  }
+  try {
+    const summary = await requestFetch('/api/admin/personality/profiles')
+    personalityStatus.value = Object.fromEntries((summary?.profiles || []).map((item) => [item.id, item]))
+  } catch {
+    personalityStatus.value = {}
   }
 }
 
@@ -754,6 +766,9 @@ function retryFailed() {
 
 /** Regenere UN bloc, en remplacant ses champs generes non verrouilles. */
 async function regenerateBlock(blockKey) {
+  const overwritten = Object.entries(personality.value?.blocks?.[blockKey] || {})
+    .filter(([fieldKey, entry]) => entry.origin === 'generated' && !entry.locked && !isReadOnly(blockKey, fieldKey)).length
+  if (overwritten && !window.confirm(`Régénérer ce bloc remplacera ${overwritten} champ(s) généré(s) non verrouillé(s). Continuer ?`)) return
   errorMessage.value = ''
   delete blockErrors[blockKey]
   blockState[blockKey] = 'running'
@@ -799,6 +814,10 @@ async function onProfileChange(value) {
   hasStored.value = false
   if (!profileId.value) return
   const profile = profiles.value.find((item) => item.id === profileId.value)
+  // Plateformes deja connectees : elles servent de point de depart pour les bios.
+  const connected = (personalityStatus.value[profileId.value]?.platforms || [])
+    .filter((item) => (schema.value?.platforms || []).includes(item))
+  if (connected.length) platforms.value = connected
   if (profile?.profileType && profile.profileType !== kind.value) {
     kind.value = profile.profileType
     await loadSchema(kind.value)
@@ -833,6 +852,7 @@ async function saveToProfile() {
       body: { personality: personality.value },
     })
     hasStored.value = true
+    if (personalityStatus.value[profileId.value]) personalityStatus.value[profileId.value].hasPersonality = true
     saveMessage.value = `Enregistré à ${new Date(result.updatedAt).toLocaleTimeString('fr-FR')}`
   } catch (error) {
     errorMessage.value = errorText(error, 'Enregistrement impossible.')

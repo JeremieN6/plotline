@@ -268,7 +268,34 @@ export function buildProfileConstraints(profile) {
     lines.push('Une fiche de référence visage existe déjà : l apparence est figée, la section apparence doit rester compatible avec les éléments ci-dessus sans inventer de traits qui les contredisent');
   }
 
+  // Quand un physique est deja fige, il ne sert qu a verifier la coherence.
+  const hasPhysique = lines.length > (gender ? 1 : 0);
+  if (hasPhysique) {
+    lines.push('Ce physique est une contrainte de cohérence, pas une source d idées de personnalité : n en déduis ni métier, ni caractère, ni opinions, et évite les clichés associés à une apparence');
+  }
+
   return lines;
+}
+
+/**
+ * Resume d un profil pour la liste de l ecran admin : a-t-il deja une
+ * personnalite enregistree, et quelles plateformes a-t-il connectees (pour
+ * preremplir les bios). Pur : ne renvoie jamais le contenu de la personnalite.
+ */
+export function summarizeProfileForPersonality(profile) {
+  const platforms = [];
+  if (String(profile?.instagramAccountId || '').trim()) platforms.push('instagram');
+  if (profile?.twitterConnected === true) platforms.push('x');
+  const stored = profile?.personality;
+  const hasPersonality = Boolean(stored) && typeof stored === 'object' && !Array.isArray(stored)
+    && Object.values(stored.blocks || {}).some((fields) => fields && Object.keys(fields).length > 0);
+  return {
+    id: profile?.id,
+    name: profile?.name,
+    profileType: normalizeKind(profile?.profileType) || 'PERSONA',
+    hasPersonality,
+    platforms,
+  };
 }
 
 // --- Fusion -----------------------------------------------------------------
