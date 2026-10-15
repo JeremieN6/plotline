@@ -206,3 +206,30 @@ test('trame : nettoyee, bornee, avec les conseils d enregistrement', async () =>
   assert.throws(() => sanitizeOutline({ beats: [{ label: 'x', example: 'y' }] }), /moins de 2/);
   await assert.rejects(generateOutline({ idea: '  ', createMessage: reply({}) }), /Idee requise/);
 });
+
+test('trame "Que dire ?" : avec un texte source, c est lui la matiere ; sans lui, interdiction d inventer', async () => {
+  const { buildOutlineSystemPrompt, buildOutlineUserPrompt } = await import('../server/utils/facelessOutline.js');
+  assert.match(buildOutlineSystemPrompt({}), /N invente AUCUNE anecdote/);
+
+  const sans = buildOutlineUserPrompt('Mon idee');
+  assert.equal(sans, 'Idee de la video :\nMon idee');
+
+  const avec = buildOutlineUserPrompt('Angle tranche', '---\ntitre: x\n---\nSPF, DKIM et DMARC manquaient. ![img](a.png)');
+  assert.match(avec, /TEXTE SOURCE/);
+  assert.match(avec, /SPF, DKIM et DMARC manquaient/);
+  assert.doesNotMatch(avec, /titre: x/);
+  assert.match(avec, /Angle tranche/);
+  assert.match(avec, /Aucune anecdote/);
+
+  let request;
+  const outline = await generateOutline({
+    idea: '',
+    sourceText: 'Un article sur la delivrabilite.',
+    createMessage: async (params) => {
+      request = params;
+      return { content: [{ type: 'text', text: JSON.stringify({ title: 'T', beats: [{ label: 'Accroche', goal: 'g', points: ['p'], example: 'e', seconds: 5 }, { label: 'Fin', goal: 'g', points: ['p'], example: 'e', seconds: 5 }] }) }] };
+    },
+  });
+  assert.equal(outline.beats.length, 2);
+  assert.match(request.messages[0].content, /Un article sur la delivrabilite/);
+});
