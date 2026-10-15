@@ -53,6 +53,19 @@ test('buildCaptionChunks : 3 mots max, coupure apres ponctuation', () => {
   assert.equal(chunks[2].end, 2);
 });
 
+test('buildCaptionChunks : un sous-titre tient sur une ligne (17 caracteres max), un mot long reste seul', () => {
+  const ended = withWordEnds([
+    { text: 'Avant', start: 0 },
+    { text: "d'optimiser", start: 0.3 },
+    { text: 'quoi', start: 0.6 },
+    { text: 'que', start: 0.9 },
+    { text: 'automatisations', start: 1.2 },
+  ], 1.6);
+  const lines = buildCaptionChunks(ended, { maxWords: 3, end: 2 }).map((c) => c.words.map((w) => w.text).join(' '));
+  assert.deepEqual(lines, ["Avant d'optimiser", 'quoi que', 'automatisations']);
+  assert.equal(lines.every((line) => line.length <= 17), true);
+});
+
 test('layoutFacelessTimeline : scenes calees sur la voix, reperes par mot', () => {
   const spec = {
     scenes: [
@@ -227,11 +240,11 @@ test('buildFacelessCaption : legende + hashtags', () => {
   assert.equal(buildFacelessCaption({}), null);
 });
 
-test('sanitizeFacelessScene : emoji retires des textes, sous-titres seulement sur avatar/word', () => {
+test('sanitizeFacelessScene : emoji retires des textes, sous-titres sur toutes les mises en page', () => {
   const hook = sanitizeFacelessScene({ say: 'Salut.', layout: 'hook', text: "C'est **pas** de la paresse 🚫", captions: true, emoji: '🚫' });
   assert.equal(hook.text, "C'est **pas** de la paresse");
   assert.equal(hook.emoji, '🚫');
-  assert.equal(hook.captions, false);
+  assert.equal(hook.captions, true);
   const word = sanitizeFacelessScene({ say: 'Deux minutes.', layout: 'word', word: '2 min ⏱️', captions: true });
   assert.equal(word.word, '2 min');
   assert.equal(word.captions, true);
@@ -342,4 +355,14 @@ test('facelessAssetPath : sert le dossier du theme, jamais au-dela', () => {
     assert.ok(file === null || file.startsWith(base + pathSep), url);
   }
   assert.equal(facelessAssetPath('pas une url', base), null);
+});
+
+test('sous-titres : actifs sur TOUTES les mises en page quand ils sont autorises, jamais sinon', () => {
+  for (const layout of ['hook', 'title', 'list', 'avatar', 'word', 'logo']) {
+    const scene = sanitizeFacelessScene({
+      say: 'Une phrase.', layout, text: 'T', title: 'T', word: 'mot', items: [{ text: 'a', at: 'phrase.' }, { text: 'b', at: 'Une' }], captions: false,
+    });
+    assert.equal(scene.captions, true, layout);
+    assert.equal(sanitizeFacelessScene({ say: 'Une phrase.', layout, text: 'T', title: 'T', word: 'mot', items: [{ text: 'a', at: 'Une' }, { text: 'b', at: 'phrase.' }] }, { captions: false }).captions, false, layout);
+  }
 });

@@ -115,8 +115,8 @@ function sticker(content, size) {
 const AVATAR_SPOTS = {
   'bottom-left': { x: SAFE.left - 10, y: 1000, size: 520 },
   'bottom-right': { x: 1080 - SAFE.right - 520, y: 1000, size: 520 },
-  'peek-left': { x: SAFE.left - 30, y: 1110, size: 420 },
-  'peek-right': { x: 1080 - SAFE.right - 400, y: 1110, size: 420 },
+  'peek-left': { x: SAFE.left - 30, y: 1150, size: 420 },
+  'peek-right': { x: 1080 - SAFE.right - 400, y: 1150, size: 420 },
   // Sous une photo : plus bas et plus petit, pour ne pas cacher la legende du cadre.
   'photo-low': { x: 1080 - SAFE.right - 400, y: 1215, size: 390 },
   center: { x: 115, y: 640, size: 780 },
@@ -187,30 +187,30 @@ const LAYOUTS = {
   // Grosse accroche sur carte + avatar en bas.
   hook(scene) {
     return fx(card(scene.text, { size: scene.size || 96 }), { x: SAFE.left + 10, y: 420, w: 840, enter: scene.enter || 'drop', rot: -2 })
-      + (scene.emoji ? fx(sticker(scene.emoji, 170), { x: 700, y: 200, w: 200, enter: 'pop', at: 0.25, rot: 12, z: 3 }) : '')
+      + (scene.emoji ? fx(sticker(scene.emoji, 170), { x: 720, y: 1090, w: 200, enter: 'pop', at: 0.25, rot: 12, z: 3 }) : '')
       + avatarBlock(scene, { pos: 'bottom-left', mode: 'head' });
   },
   // Numero + titre + phrase courte.
   title(scene) {
     const headlineId = uid('h');
-    return (scene.number ? fx(`<div class="badge">${richText(scene.number)}</div>`, { x: SAFE.left + 20, y: 330, w: 200, h: 200, enter: 'pop', rot: -8, z: 3 }) : '')
-      + fx(`<div class="headline">${richText(scene.title)}</div>`, { x: SAFE.left + 10, y: 560, w: 860, enter: scene.enter || 'slide-left', rot: -1.5, z: 2, id: headlineId })
+    return (scene.number ? fx(`<div class="badge">${richText(scene.number)}</div>`, { x: SAFE.left + 20, y: 400, w: 200, h: 200, enter: 'pop', rot: -8, z: 3 }) : '')
+      + fx(`<div class="headline">${richText(scene.title)}</div>`, { x: SAFE.left + 10, y: 620, w: 860, enter: scene.enter || 'slide-left', rot: -1.5, z: 2, id: headlineId })
       + (scene.text ? fx(card(scene.text, { size: 62, tone: 'white' }), { x: SAFE.left + 30, y: 790, w: 800, enter: 'rise', at: 0.35, rot: 1.5, follow: headlineId, gap: 50 }) : '')
-      + (scene.emoji ? fx(sticker(scene.emoji, 170), { x: 700, y: 320, w: 200, enter: 'pop', at: 0.2, rot: 10, z: 4 }) : '')
+      + (scene.emoji ? fx(sticker(scene.emoji, 170), { x: 700, y: 410, w: 200, enter: 'pop', at: 0.2, rot: 10, z: 4 }) : '')
       + avatarBlock(scene, { pos: 'peek-right', mode: 'head' });
   },
   // Liste qui se remplit au fil des mots.
   list(scene) {
     const headerId = uid('lh');
     const header = scene.title
-      ? fx(`<div class="headline small">${richText(scene.title)}</div>`, { x: SAFE.left + 10, y: 340, w: 860, enter: 'drop', rot: -1.5, id: headerId })
+      ? fx(`<div class="headline small">${richText(scene.title)}</div>`, { x: SAFE.left + 10, y: 410, w: 860, enter: 'drop', rot: -1.5, id: headerId })
       : '';
     let previous = scene.title ? headerId : '';
     const items = (scene.items || []).map((item, i) => {
       const id = uid('li');
       const html = fx(
         `<div class="list-item">${item.emoji ? `<span class="li-emoji">${item.emoji}</span>` : ''}<span>${richText(item.text)}</span></div>`,
-        { x: SAFE.left + 20 + (i % 2) * 40, y: 530 + i * 200, w: 780, enter: i % 2 ? 'slide-right' : 'slide-left', at: item.at, rot: i % 2 ? 1.5 : -1.5, id, follow: previous, gap: 40 },
+        { x: SAFE.left + 20 + (i % 2) * 40, y: 590 + i * 190, w: 780, enter: i % 2 ? 'slide-right' : 'slide-left', at: item.at, rot: i % 2 ? 1.5 : -1.5, id, follow: previous, gap: 40 },
       );
       previous = id;
       return html;
@@ -219,7 +219,7 @@ const LAYOUTS = {
   },
   // L avatar seul, grand, avec une courte bulle de texte.
   avatar(scene) {
-    return (scene.text ? fx(card(scene.text, { size: 70 }), { x: SAFE.left + 30, y: 260, w: 800, enter: 'drop', rot: -2, z: 6 }) : '')
+    return (scene.text ? fx(card(scene.text, { size: 70 }), { x: SAFE.left + 30, y: 410, w: 800, enter: 'drop', rot: -2, z: 6 }) : '')
       + avatarBlock(scene, { pos: 'from-bottom', mode: 'body' });
   },
   // Un seul mot en tres grand (emphase).
@@ -243,7 +243,7 @@ const LAYOUTS = {
     const caption = scene.text ? `<div class="photo-cap">${richText(scene.text)}</div>` : '';
     const html = `<div class="photo-wrap">${tape}<div class="photo ${polaroid ? 'polaroid' : 'plainframe'}">`
       + `<img class="photo-img" alt="" src="${FACELESS_ASSET_ORIGIN}/illustration/${encodeURIComponent(scene.image)}.jpg">${caption}</div></div>`;
-    return fx(html, { x: SAFE.left + 110, y: 250, w: 640, enter: scene.enter || 'drop', rot: polaroid ? -3 : -1.5, z: 3 })
+    return fx(html, { x: SAFE.left + 150, y: 410, w: 560, enter: scene.enter || 'drop', rot: polaroid ? -3 : -1.5, z: 3 })
       + avatarBlock(scene, { pos: 'photo-low', mode: 'head' });
   },
   // Carte de nom (marque, outil) : un grand emoji et le nom dessous.
@@ -296,7 +296,7 @@ function buildCss(style) {
   const white = '#ffffff';
   const onAccent = readableTextOn(p.accent);
   const caps = style.captions;
-  const capCommon = `#captions span{display:inline-block;margin:0 18px;font-size:${flat ? 88 : 84}px;font-weight:${flat ? 900 : 800};${flat ? 'letter-spacing:-1px;' : ''}`;
+  const capCommon = `#captions span{display:inline-block;flex:0 0 auto;margin:0 18px;font-size:${flat ? 88 : 84}px;font-weight:${flat ? 900 : 800};${flat ? 'letter-spacing:-1px;' : ''}`;
   let capStyle;
   if (caps.style === 'box') {
     capStyle = `${capCommon}color:var(--cardText);background:var(--card);border:5px solid ${ink};border-radius:${flat ? 0 : 18}px;padding:2px 22px;margin:6px 10px}`;
@@ -351,7 +351,7 @@ mark{${flat ? `background:var(--accent);color:${onAccent};padding:0 12px` : 'bac
 .avatar-img{width:100%;height:100%;object-fit:contain;object-position:center bottom;display:block;
   filter:drop-shadow(0 0 0 #fff) drop-shadow(6px 0 0 #fff) drop-shadow(-6px 0 0 #fff) drop-shadow(0 6px 0 #fff) drop-shadow(0 -6px 0 #fff)${flat ? '' : ' drop-shadow(6px 10px 0 rgba(0,0,0,.16))'}}
 .paper-shape{filter:drop-shadow(4px 6px 0 rgba(0,0,0,.14))}
-#captions{position:absolute;left:${SAFE.left}px;width:${1080 - SAFE.left - SAFE.right}px;top:1400px;text-align:center;z-index:20;display:none}
+#captions{position:absolute;left:${SAFE.left}px;width:${1080 - SAFE.left - SAFE.right}px;top:1400px;text-align:center;z-index:20;display:none;justify-content:center;white-space:nowrap}
 ${capStyle}
 #captions span.on{color:var(--accent);transform:scale(1.12) rotate(${flat ? 0 : -3}deg)}
 `;
@@ -415,7 +415,19 @@ function buildRuntime(fontFamily) {
     });
     if (caption !== lastCaption) { caps.innerHTML = caption; lastCaption = caption; }
     if (tone !== lastTone) { caps.className = tone; lastTone = tone; }
-    caps.style.display = caption ? 'block' : 'none';
+    caps.style.display = caption ? 'flex' : 'none';
+    // Un sous-titre tient TOUJOURS sur une ligne (jamais sur le contenu de la scene) : s il est trop large, on le reduit.
+    caps.style.transform = '';
+    if (caption) {
+      let used = 0;
+      caps.querySelectorAll('span').forEach((s) => {
+        const cs = getComputedStyle(s);
+        used += s.offsetWidth + parseFloat(cs.marginLeft) + parseFloat(cs.marginRight);
+      });
+      const avail = caps.clientWidth * 0.96;
+      caps.style.transformOrigin = '50% 0';
+      if (used > avail) caps.style.transform = 'scale(' + (avail / used).toFixed(3) + ')';
+    }
   };
   // La police de la DA est chargee explicitement : les scenes sont masquees au
   // demarrage, le navigateur ne la demanderait qu au premier texte affiche. Mise

@@ -19,6 +19,7 @@ export const FACELESS_DEFAULTS = {
   // Le visuel arrive un poil avant la voix.
   visualLead: 0.06,
   maxCaptionWords: 3,
+  maxCaptionChars: 17,
 };
 
 /** Pur : mot normalise pour la comparaison (minuscules, sans accents ni ponctuation). */
@@ -58,10 +59,11 @@ export function withWordEnds(words = [], clipDuration) {
 }
 
 /**
- * Pur : decoupe les mots en sous-titres courts (au plus `maxWords`), avec une
+ * Pur : decoupe les mots en sous-titres courts (au plus `maxWords` ET `maxChars` caracteres : un
+ * sous-titre tient sur UNE ligne, il ne descend jamais sur le contenu de la scene), avec une
  * coupure forcee apres une ponctuation forte du texte d origine.
  */
-export function buildCaptionChunks(words, { maxWords = FACELESS_DEFAULTS.maxCaptionWords, end } = {}) {
+export function buildCaptionChunks(words, { maxWords = FACELESS_DEFAULTS.maxCaptionWords, maxChars = FACELESS_DEFAULTS.maxCaptionChars, end } = {}) {
   const chunks = [];
   let current = [];
 
@@ -71,7 +73,10 @@ export function buildCaptionChunks(words, { maxWords = FACELESS_DEFAULTS.maxCapt
     current = [];
   };
 
+  const length = (list) => list.reduce((sum, w) => sum + String(w.text).length, 0) + Math.max(0, list.length - 1);
   for (const word of words) {
+    // Ajouter ce mot ferait deborder la ligne : on ferme le sous-titre en cours avant.
+    if (current.length && length([...current, word]) > maxChars) flush();
     current.push(word);
     if (current.length >= maxWords || /[.!?,:;…]$/.test(word.text)) flush();
   }
