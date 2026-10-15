@@ -45,6 +45,21 @@
             </div>
           </div>
 
+          <StudioEditSlideStrip
+            :slides="carousel.slides.value"
+            :current-id="editingContentId"
+            :disabled="loading"
+            :adding="carousel.addingSlide.value"
+            :can-add="carousel.canAdd.value"
+            :can-remove="carousel.canRemove.value"
+            :regenerable-count="carousel.regenerableCount.value"
+            @select="carousel.switchTo"
+            @add="carousel.startAdd"
+            @cancel-add="carousel.cancelAdd"
+            @remove="carousel.removeCurrent"
+            @regenerate-all="carousel.regenerateAll"
+          />
+
           <div v-if="mode === 'video'" class="mt-3 border-t border-[#F0D9C4] pt-3">
             <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#B45F1D]">
               Modèle vidéo
@@ -583,7 +598,7 @@
           :disabled="loading || !canGenerate"
           @click="requestSubmit"
         >
-          {{ loading ? 'Génération en cours...' : (editingContentId ? 'Régénérer' : 'Générer') }}
+          {{ loading ? 'Génération en cours...' : (carousel.addingSlide.value ? 'Ajouter la slide' : (editingContentId ? 'Régénérer' : 'Générer')) }}
         </button>
       </section>
 
@@ -1269,30 +1284,47 @@ watch(librarySlots, (slots) => {
 })
 
 function exitEditMode() {
+  carousel.reset()
   editingContentId.value = ''
   editContentPreviewUrl.value = ''
   selectedVideoModel.value = 'auto'
   navigateTo(route.path || '/studio')
 }
 
+// Modification d un carrousel : changer de slide, en ajouter, en retirer, tout regenerer.
+function applyEditContent(editContent, contentId) {
+  editingContentId.value = contentId
+  prompt.value = String(carousel.draftFor(contentId) ?? editContent?.prompt ?? '')
+  editContentPreviewUrl.value = String(editContent?.imageUrl || '').trim()
+  mode.value = String(editContent?.format || '').trim().toUpperCase() === 'REEL' ? 'video' : 'image'
+
+  if (editContent?.ambassadorId) {
+    generationMode.value = 'with-ambassador'
+    selectedAmbassadorId.value = editContent.ambassadorId
+  } else {
+    generationMode.value = 'without-ambassador'
+    selectedAmbassadorId.value = ''
+  }
+}
+
+const carousel = useCarouselEdit({
+  editingContentId,
+  prompt,
+  errorMessage,
+  loading,
+  previewUrl: editContentPreviewUrl,
+  applyContent: applyEditContent,
+  notify: (toast) => pushToast(toast),
+})
+
 const editContentIdParam = String(route.query.edit || '').trim()
 if (editContentIdParam) {
   try {
     const editContent = await $fetch(`/api/content/${editContentIdParam}`)
-    editingContentId.value = editContentIdParam
-    prompt.value = String(editContent?.prompt || '')
-    editContentPreviewUrl.value = String(editContent?.imageUrl || '').trim()
-    mode.value = String(editContent?.format || '').trim().toUpperCase() === 'REEL' ? 'video' : 'image'
-
-    if (editContent?.ambassadorId) {
-      generationMode.value = 'with-ambassador'
-      selectedAmbassadorId.value = editContent.ambassadorId
-    } else {
-      generationMode.value = 'without-ambassador'
-      selectedAmbassadorId.value = ''
-    }
+    carousel.init(editContent)
+    applyEditContent(editContent, editContentIdParam)
   } catch (err) {
-    errorMessage.value = err?.data?.statusMessage || err?.message || 'Impossible de charger ce contenu à modifier.'
+    errorMessage.value = err?.data?.statusMessage || err?.message || 'Impossible de charger le contenu à modifier.'
   }
 }
 
@@ -1391,6 +1423,11 @@ async function submit() {
     }
 
     const isEditing = Boolean(editingContentId.value)
+
+    if (isEditing && carousel.addingSlide.value) {
+      await carousel.submitAdd()
+      return
+    }
 
     if (mode.value === 'image') {
       if (isEditing) {
@@ -1500,8 +1537,13 @@ async function submit() {
       })
     }
 
-    editingContentId.value = ''
-    editContentPreviewUrl.value = ''
+    if (isEditing && carousel.isCarousel.value) {
+      // Carrousel : on reste en modification pour passer a une autre slide.
+      carousel.afterRegenerate(prompt.value.trim())
+    } else {
+      editingContentId.value = ''
+      editContentPreviewUrl.value = ''
+    }
   } catch (err) {
     errorMessage.value = err?.data?.statusMessage || err?.message || 'Generation impossible.'
   } finally {

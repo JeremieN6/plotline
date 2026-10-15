@@ -47,6 +47,8 @@ export default defineEventHandler(async (event) => {
           twitterPublishedAt: true,
           createdAt: true,
           campaignId: true,
+          carouselId: true,
+          carouselPosition: true,
           campaign: {
             select: {
               id: true,
@@ -87,6 +89,8 @@ export default defineEventHandler(async (event) => {
           publishedAt: true,
           createdAt: true,
           campaignId: true,
+          carouselId: true,
+          carouselPosition: true,
           campaign: {
             select: {
               id: true,
@@ -122,8 +126,28 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 403, statusMessage: 'Accès refusé' }));
     }
 
+    // Slides du meme carrousel (meme profil), dans l ordre : le Studio s en sert
+    // pour passer d une slide a l autre en mode modification.
+    let slides = [];
+    const carouselId = String(content.carouselId || '').trim();
+    if (carouselId) {
+      const rows = await prisma.generatedContent.findMany({
+        where: { carouselId, influencerId: content.influencerId },
+        select: { id: true, imageUrl: true, prompt: true, status: true, carouselPosition: true },
+        orderBy: { carouselPosition: 'asc' },
+      });
+      slides = rows.map((row) => ({
+        id: row.id,
+        imageUrl: row.imageUrl || '',
+        prompt: row.prompt || '',
+        status: row.status,
+        position: Number(row.carouselPosition || 0),
+      }));
+    }
+
     return {
       ...content,
+      slides: slides.length > 1 ? slides : [],
       influencer: content.influencer
         ? {
             id: content.influencer.id,

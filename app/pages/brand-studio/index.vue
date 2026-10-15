@@ -19,6 +19,23 @@
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.9fr)]">
       <section class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+        <div v-if="carousel.isCarousel.value" class="mb-4 rounded-[14px] border border-[#F2CCAA] bg-[#FFF5EC] p-3">
+          <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#B45F1D]">Mode modification</p>
+          <StudioEditSlideStrip
+            :slides="carousel.slides.value"
+            :current-id="editingContentId"
+            :disabled="loading"
+            :adding="carousel.addingSlide.value"
+            :can-add="carousel.canAdd.value"
+            :can-remove="carousel.canRemove.value"
+            :regenerable-count="carousel.regenerableCount.value"
+            @select="carousel.switchTo"
+            @add="carousel.startAdd"
+            @cancel-add="carousel.cancelAdd"
+            @remove="carousel.removeCurrent"
+            @regenerate-all="carousel.regenerateAll"
+          />
+        </div>
         <div class="mb-4">
           <label class="text-xs font-semibold uppercase tracking-[0.08em] text-[#666666]">Campagne active</label>
           <div class="mt-1.5 flex flex-wrap items-center gap-2">
@@ -109,7 +126,7 @@
           :disabled="loading || !canGenerate"
           @click="submit"
         >
-          {{ loading ? 'Génération en cours...' : (editingContentId ? 'Régénérer' : 'Générer') }}
+          {{ loading ? 'Génération en cours...' : (carousel.addingSlide.value ? 'Ajouter la slide' : (editingContentId ? 'Régénérer' : 'Générer')) }}
         </button>
       </section>
 
@@ -287,22 +304,37 @@ watch(generationMode, (value) => {
   }
 })
 
+// Modification d un carrousel : changer de slide, en ajouter, en retirer, tout regenerer.
+function applyEditContent(editContent, contentId) {
+  editingContentId.value = contentId
+  prompt.value = String(carousel.draftFor(contentId) ?? editContent?.prompt ?? '')
+
+  if (editContent?.ambassadorId) {
+    generationMode.value = 'with-ambassador'
+    selectedAmbassadorId.value = editContent.ambassadorId
+  } else {
+    generationMode.value = 'without-ambassador'
+    selectedAmbassadorId.value = ''
+  }
+}
+
+const carousel = useCarouselEdit({
+  editingContentId,
+  prompt,
+  errorMessage,
+  loading,
+  applyContent: applyEditContent,
+  notify: (toast) => pushToast(toast),
+})
+
 const editContentIdParam = String(route.query.edit || '').trim()
 if (editContentIdParam) {
   try {
     const editContent = await $fetch(`/api/content/${editContentIdParam}`)
-    editingContentId.value = editContentIdParam
-    prompt.value = String(editContent?.prompt || '')
-
-    if (editContent?.ambassadorId) {
-      generationMode.value = 'with-ambassador'
-      selectedAmbassadorId.value = editContent.ambassadorId
-    } else {
-      generationMode.value = 'without-ambassador'
-      selectedAmbassadorId.value = ''
-    }
+    carousel.init(editContent)
+    applyEditContent(editContent, editContentIdParam)
   } catch (err) {
-    errorMessage.value = err?.data?.statusMessage || err?.message || 'Impossible de charger ce contenu à modifier.'
+    errorMessage.value = err?.data?.statusMessage || err?.message || 'Impossible de charger le contenu à modifier.'
   }
 }
 
@@ -378,6 +410,11 @@ async function submit() {
   try {
     const isEditing = Boolean(editingContentId.value)
 
+    if (isEditing && carousel.addingSlide.value) {
+      await carousel.submitAdd()
+      return
+    }
+
     lastResult.value = isEditing
       ? await $fetch(`/api/content/${editingContentId.value}/regenerate`, {
           method: 'POST',
@@ -401,7 +438,12 @@ async function submit() {
       tone: 'success',
     })
 
-    editingContentId.value = ''
+    if (isEditing && carousel.isCarousel.value) {
+      // Carrousel : on reste en modification pour passer a une autre slide.
+      carousel.afterRegenerate(prompt.value.trim())
+    } else {
+      editingContentId.value = ''
+    }
   } catch (err) {
     errorMessage.value = err?.data?.statusMessage || err?.message || 'Generation impossible.'
   } finally {
