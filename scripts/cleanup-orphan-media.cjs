@@ -157,6 +157,8 @@ async function scanBlobFiles(referencedUrls, referencedFilenames) {
       if (blob.pathname.startsWith('face-ref-gallery/')) continue;
       // Dossiers faceless (pack d avatars, illustrations) : aussi gardes par les retouches de videos deja faites.
       if (blob.pathname.startsWith('faceless-assets/') || blob.pathname.startsWith('faceless-avatars/')) continue;
+      // Transcriptions en cache du mode "ma voix" (reimporter le meme fichier ne coute plus de credit) : jamais referencees par un contenu.
+      if (blob.pathname.startsWith('faceless-transcripts/')) continue;
       if (referencedUrls.has(blob.url) || (name && referencedFilenames.has(name))) continue;
 
       orphans.push({ name: blob.pathname, url: blob.url, size: blob.size || 0 });

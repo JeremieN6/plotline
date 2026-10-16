@@ -76,6 +76,41 @@ export function normalizeCleaning(raw, wordCount) {
   return { cuts: merged, directives };
 }
 
+const normalizeWord = (text) => String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\p{L}\p{N}]/gu, '');
+
+/**
+ * Pur : reprises IMMEDIATES que Claude n a pas coupees : la meme suite d au moins `minLen` mots dite deux
+ * fois de suite (a moins de `maxGapSeconds` d ecart). On coupe la PREMIERE occurrence et on garde la
+ * derniere prise ("tout ca n etait pas configure au lancement, tout ca n etait pas configure au lancement").
+ * `words` : mots CONSERVES apres le nettoyage de Claude (chaque mot garde son `i` d origine), pour ne
+ * jamais retirer a la fois la premiere et la derniere prise. Les repetitions courtes (< `minLen` mots,
+ * "tres tres bete") sont des emphases : elles restent.
+ * @returns {Array<{from:number,to:number,reason:string}>} plages d indices ORIGINAUX
+ */
+export function findImmediateRepeats(words, { minLen = 3, maxLen = 14, maxGapSeconds = 1.2 } = {}) {
+  const list = Array.isArray(words) ? words : [];
+  const tokens = list.map((w) => normalizeWord(w.text));
+  const cuts = [];
+  let i = 0;
+  while (i < list.length) {
+    let found = 0;
+    for (let len = Math.min(maxLen, Math.floor((list.length - i) / 2)); len >= minLen; len -= 1) {
+      let same = true;
+      for (let k = 0; k < len; k += 1) {
+        if (!tokens[i + k] || tokens[i + k] !== tokens[i + len + k]) { same = false; break; }
+      }
+      if (same && list[i + len].start - list[i + len - 1].end <= maxGapSeconds) { found = len; break; }
+    }
+    if (found) {
+      cuts.push({ from: list[i].i, to: list[i + found - 1].i, reason: 'Reprise immédiate de la même phrase' });
+      i += found;
+    } else {
+      i += 1;
+    }
+  }
+  return cuts;
+}
+
 /** Pur : indices des mots conserves. */
 export function keptIndices(wordCount, cuts) {
   const removed = new Set();

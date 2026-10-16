@@ -51,6 +51,13 @@ export function isFacelessRenderSpec(spec) {
     && Boolean(spec?.voiceUrl) && Array.isArray(spec?.words) && spec.words.length > 0;
 }
 
+/** Pur : poses de la video (prioritaires : leur image ne change pas) + poses ajoutees au pack depuis. */
+export function mergePackEntries(videoEntries, folderEntries) {
+  const folder = folderEntries && typeof folderEntries === 'object' ? folderEntries : {};
+  const video = videoEntries && typeof videoEntries === 'object' ? videoEntries : {};
+  return { ...folder, ...video };
+}
+
 /** Pur : DA et images d avatar d un renderSpec (anciennes versions : DA par defaut). */
 export function styleFromSpec(spec) {
   const style = normalizeFacelessStyle(spec?.style || {});
@@ -209,8 +216,10 @@ export async function produceFacelessVideo({ idea, sourceText = '', plan: givenP
  * la voix est reutilisee si le texte dit n a pas bouge, sinon regeneree.
  * `rememberRule` : la consigne est aussi ajoutee aux regles de la DA.
  */
-export async function retouchFacelessVideo({ spec, instruction, persona, rememberRule = false, folderIllustrations = {}, onStep = () => {} } = {}) {
+export async function retouchFacelessVideo({ spec, instruction, persona, rememberRule = false, folderIllustrations = {}, folderPackEntries = {}, onStep = () => {} } = {}) {
   let { style, packEntries } = styleFromSpec(spec);
+  // Poses du pack generees APRES la video : elles deviennent utilisables. Celles deja dans la video gardent leur image (rien ne change d un cadre a l autre).
+  packEntries = mergePackEntries(packEntries, folderPackEntries);
   // Images connues : celles du dossier aujourd hui + celles de la version retouchee (meme supprimees du dossier).
   const known = { ...folderIllustrations, ...(spec?.illustrationEntries && typeof spec.illustrationEntries === 'object' ? spec.illustrationEntries : {}) };
   if (rememberRule) style = appendStyleRule(style, instruction);
@@ -316,9 +325,9 @@ export async function runFacelessVideoJobAndWait(args) {
 }
 
 /** Lance une retouche en tache de fond a partir du renderSpec de la version active. */
-export function runFacelessRetouchJob({ prisma, contentId, spec, instruction, persona, rememberRule = false, folderIllustrations = {}, previousStatus }) {
+export function runFacelessRetouchJob({ prisma, contentId, spec, instruction, persona, rememberRule = false, folderIllustrations = {}, folderPackEntries = {}, previousStatus }) {
   return inBackground(prisma, contentId, previousStatus, async () => {
-    const result = await retouchFacelessVideo({ spec, instruction, persona, rememberRule, folderIllustrations, onStep: logStep(contentId) });
+    const result = await retouchFacelessVideo({ spec, instruction, persona, rememberRule, folderIllustrations, folderPackEntries, onStep: logStep(contentId) });
     const voiceUrl = result.newVoice
       ? await saveFacelessMedia(result.voice.audio, { folder: 'generated', extension: 'mp3', contentType: 'audio/mpeg' })
       : spec.voiceUrl;
