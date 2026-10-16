@@ -221,7 +221,11 @@
               <input v-model="rememberRule" type="checkbox" class="mt-0.5 h-4 w-4 accent-ui-accent">
               <span>Retenir pour les prochaines vidéos de cette persona (ajoute la consigne aux règles de sa DA)</span>
             </label>
-            <UiButton variant="dark" :disabled="!instruction.trim() || !info.canRetouchNow" @click="retouch">Créer la version retouchée</UiButton>
+            <p v-if="info.personaId && rememberRule" class="text-xs" :class="instruction.length > REMEMBER_MAX ? 'text-ui-danger-ink' : 'text-ui-ink-muted'">
+              À cocher seulement pour une règle générale et courte ({{ REMEMBER_MAX }} caractères max, ex. « Mets toujours… »), pas pour des corrections propres à cette vidéo : la consigne est copiée telle quelle dans la DA et appliquée à TOUTES les prochaines vidéos.
+              <template v-if="instruction.length > REMEMBER_MAX"> Ta consigne fait {{ instruction.length }} caractères : décoche la case.</template>
+            </p>
+            <UiButton variant="dark" :disabled="!instruction.trim() || !info.canRetouchNow || (rememberRule && instruction.length > REMEMBER_MAX)" @click="retouch">Créer la version retouchée</UiButton>
             <p v-if="!info.canRetouchNow" class="text-xs text-ui-ink-muted">Seule une vidéo « en attente » peut être retouchée.</p>
             <div v-if="info.retouches?.length" class="text-xs text-ui-ink-muted">
               <p class="font-semibold text-ui-ink-2">Retouches déjà appliquées</p>
@@ -284,6 +288,7 @@ const durationSeconds = ref(30)
 const captions = ref(true)
 const styleInfo = ref(null)
 const rememberRule = ref(false)
+const REMEMBER_MAX = 160
 const errorMessage = ref('')
 const instruction = ref('')
 const contentId = ref(String(route.query.content || ''))

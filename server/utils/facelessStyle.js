@@ -225,6 +225,9 @@ export function removeIllustration(style, id) {
 }
 
 /** Pur : ajoute une regle de montage retenue (consigne de style) a la DA, sans doublon ni depassement. */
+/** Une regle retenue pour les prochaines videos est GENERALE et courte ; une retouche propre a une video ne l est jamais. */
+export const MAX_REMEMBERED_RULE = 160;
+
 export function appendStyleRule(style, rule) {
   const line = text(rule, 300);
   if (!line) return style;

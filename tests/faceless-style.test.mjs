@@ -499,3 +499,11 @@ test('prompt de base : ne rien ajouter qui ne soit pas sur la reference', () => 
   assert.ok(!prompt.includes('skin tone, glasses'));
   assert.ok(!findCatalogEntry('happy').prompt.includes('sparkles'));
 });
+
+test('regle retenue : plafond de 160 caracteres, une regle generale courte passe', async () => {
+  const { MAX_REMEMBERED_RULE } = await import('../server/utils/facelessStyle.js');
+  assert.equal(MAX_REMEMBERED_RULE, 160);
+  const general = 'Mets toujours le titre numéroté sur la phrase qui énonce la leçon.';
+  assert.ok(general.length <= MAX_REMEMBERED_RULE);
+  assert.match(appendStyleRule({ rules: '' }, general).rules, /^- Mets toujours/);
+});
