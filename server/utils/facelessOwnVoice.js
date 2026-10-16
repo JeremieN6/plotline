@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 
 import { transcribeWithScribe } from './elevenLabsStt.js';
+import { transcribeWithCache } from './transcriptCache.js';
 import { resolveFfmpegPaths } from './ffmpegBinaries.js';
 import {
   buildFacelessPlanSystemPrompt, parseFacelessPlanResponse, sanitizeFacelessPlan,
@@ -15,7 +16,7 @@ import { saveFacelessMedia } from './facelessMedia.js';
 import { normalizeFacelessStyle, readyPackEntries } from './facelessStyle.js';
 import {
   OWN_VOICE_MAX_WORDS, buildCleaningSystemPrompt, buildCleaningUserPrompt, buildCutFilter, buildKeepSegments,
-  keptIndices, normalizeCleaning, numberedTranscript, remapDirectives, splitIntoScenes, tokenizeTranscript,
+  findImmediateRepeats, keptIndices, normalizeCleaning, numberedTranscript, remapDirectives, splitIntoScenes, tokenizeTranscript,
 } from './ownVoice.js';
 
 const execFileAsync = promisify(execFile);
@@ -128,7 +129,7 @@ export async function generateOwnVoicePlan({ scenes, directives = [], idea = '',
  * transcription -> coupes (Claude) -> audio nettoye -> plan -> montage.
  * `deps` rend chaque etape reseau injectable (tests).
  */
-export async function produceOwnVoiceVideo({ audio, idea = '', persona, captions = true, style = null, illustrations = {}, maxNew = 0, generateNewIllustrations = null, onStep = () => {}, deps = {} } = {}) {
+export async function produceOwnVoiceVideo({ audio, idea = '', persona, captions = true, style = null, illustrations = {}, maxNew = 0, generateNewIllustrations = null, userId = null, onStep = () => {}, deps = {} } = {}) {
   const type = detectAudioType(audio);
   if (!type) throw new Error('Format audio non reconnu (mp3, wav, m4a, ogg, flac ou webm)');
   const da = style || normalizeFacelessStyle({});
@@ -140,13 +141,25 @@ export async function produceOwnVoiceVideo({ audio, idea = '', persona, captions
   const render = deps.render || renderFacelessFromPlan;
 
   onStep('transcription');
-  const transcript = await transcribe({ audio, filename: `voix.${type.extension}`, contentType: type.mime });
+  // Un enregistrement deja transcrit pour ce compte n est PAS retranscrit (la transcription consomme le quota ElevenLabs).
+  const { transcript, cached: transcriptCached } = await transcribeWithCache({
+    userId,
+    audio,
+    cache: deps.transcriptCache,
+    transcribe: () => transcribe({ audio, filename: `voix.${type.extension}`, contentType: type.mime }),
+  });
+  if (transcriptCached) console.log('[faceless-voice] transcription deja faite pour ce fichier : reutilisee (aucun credit ElevenLabs)');
   const words = tokenizeTranscript(transcript.words);
   if (words.length < 5) throw new Error('Presque rien n a ete reconnu dans l enregistrement (parle plus fort, ou verifie la langue)');
   if (words.length > OWN_VOICE_MAX_WORDS) throw new Error(`Enregistrement trop long (${words.length} mots, maximum ${OWN_VOICE_MAX_WORDS} : environ 4 minutes)`);
 
   onStep('nettoyage');
-  const cleaning = await clean({ words, context: idea });
+  const claudeCleaning = await clean({ words, context: idea });
+  // Filet de securite en code : une phrase dite deux fois de suite et gardee par Claude est coupee (on garde la derniere prise).
+  const repeats = findImmediateRepeats(keptIndices(words.length, claudeCleaning.cuts).map((i) => words[i]));
+  const cleaning = repeats.length
+    ? { ...claudeCleaning, cuts: normalizeCleaning({ cuts: [...claudeCleaning.cuts, ...repeats] }, words.length).cuts }
+    : claudeCleaning;
   const kept = keptIndices(words.length, cleaning.cuts);
   if (kept.length < 5) throw new Error('Il ne reste presque rien apres la suppression des ratés : enregistre une prise plus propre');
 
@@ -167,7 +180,7 @@ export async function produceOwnVoiceVideo({ audio, idea = '', persona, captions
 
   return {
     video, plan: montage, voice, duration, style: da, packEntries, illustrationEntries: pickIllustrations(montage, available),
-    report: { wordsHeard: words.length, wordsKept: kept.length, cuts: cleaning.cuts, directives: cleaning.directives, transcript: numberedTranscript(words).slice(0, 4000) },
+    report: { transcriptCached, wordsHeard: words.length, wordsKept: kept.length, cuts: cleaning.cuts, directives: cleaning.directives, transcript: numberedTranscript(words).slice(0, 4000) },
   };
 }
 
@@ -175,7 +188,7 @@ export async function produceOwnVoiceVideo({ audio, idea = '', persona, captions
 export function runOwnVoiceJob({ prisma, contentId, audio, idea, persona, captions, style, illustrations = {}, maxNew = 0, userId, previousStatus }) {
   return inBackground(prisma, contentId, previousStatus, async () => {
     const generateNewIllustrations = maxNew > 0 && persona && userId ? makeIllustrationGenerator({ prisma, userId, persona, style }) : null;
-    const result = await produceOwnVoiceVideo({ audio, idea, persona, captions, style, illustrations, maxNew, generateNewIllustrations, onStep: logStep(contentId) });
+    const result = await produceOwnVoiceVideo({ audio, idea, persona, captions, style, illustrations, maxNew, generateNewIllustrations, userId, onStep: logStep(contentId) });
     console.log(`[faceless-voice] contentId=${contentId} ${result.report.wordsHeard} mots entendus, ${result.report.wordsKept} gardes, ${result.report.cuts.length} coupe(s)`);
     const voiceUrl = await saveFacelessMedia(result.voice.audio, { folder: 'generated', extension: 'mp3', contentType: 'audio/mpeg' });
     await finalizeFaceless(prisma, contentId, {
@@ -183,7 +196,7 @@ export function runOwnVoiceJob({ prisma, contentId, audio, idea, persona, captio
       voiceUrl,
       base: {
         idea, voiceId: 'own', voiceSource: 'own', targetSeconds: Math.round(result.duration), captions, personaId: persona?.id || null,
-        voiceReport: { wordsHeard: result.report.wordsHeard, wordsKept: result.report.wordsKept, cuts: result.report.cuts, directives: result.report.directives },
+        voiceReport: { transcriptCached: result.report.transcriptCached, wordsHeard: result.report.wordsHeard, wordsKept: result.report.wordsKept, cuts: result.report.cuts, directives: result.report.directives },
       },
     });
   });
