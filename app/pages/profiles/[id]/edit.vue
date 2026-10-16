@@ -177,6 +177,51 @@
               </button>
               <p v-if="adminSheetError" class="mt-2 text-sm text-red-600">{{ adminSheetError }}</p>
             </div>
+
+            <div class="mt-4 rounded-ui-card border border-dashed border-ui-line-input bg-ui-surface p-4 font-ui">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="text-[15px] font-semibold text-ui-ink">Reprendre une fiche déjà générée</p>
+                  <p class="mt-0.5 text-xs text-ui-ink-muted">Gratuit : choisis parmi les fiches conservées dans ta bibliothèque, sans relancer de génération.</p>
+                </div>
+                <UiButton variant="secondary" size="sm" :loading="galleryLoading" @click="toggleGallery">
+                  {{ galleryOpen ? 'Masquer' : 'Choisir une fiche' }}
+                </UiButton>
+              </div>
+
+              <UiAlert v-if="galleryError" class="mt-3" title="Les fiches n’ont pas pu être chargées">
+                {{ galleryError }}
+                <template #action><UiButton variant="secondary" size="sm" @click="loadGallery">Réessayer</UiButton></template>
+              </UiAlert>
+
+              <template v-else-if="galleryOpen && !galleryLoading">
+                <p v-if="!gallerySheets.length" class="mt-3 text-sm text-ui-ink-muted">
+                  Aucune fiche conservée pour l’instant. Celles que tu génères sont ajoutées automatiquement dans
+                  <NuxtLink to="/library/fiches" class="font-semibold text-ui-accent hover:underline">Bibliothèque › Fiches générées</NuxtLink>.
+                </p>
+                <ul v-else class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  <li v-for="sheet in gallerySheets" :key="sheet.id" class="overflow-hidden rounded-ui-card border border-ui-line bg-ui-surface">
+                    <img :src="sheet.imageUrl" :alt="`Fiche du ${formatSheetDate(sheet.createdAt)}`" class="aspect-[3/4] w-full bg-ui-subtle object-cover" loading="lazy" />
+                    <div class="space-y-2 p-3">
+                      <p class="text-xs text-ui-ink-muted">
+                        <span class="font-semibold text-ui-ink">{{ sheet.profileId === id ? 'Cette persona' : (sheet.profileName || 'Sans persona') }}</span>
+                        · {{ formatSheetDate(sheet.createdAt) }}
+                      </p>
+                      <UiButton
+                        variant="secondary"
+                        size="sm"
+                        class="w-full"
+                        :loading="applyingGalleryId === sheet.id"
+                        :disabled="Boolean(applyingGalleryId)"
+                        @click="applyGallerySheet(sheet)"
+                      >
+                        Utiliser
+                      </UiButton>
+                    </div>
+                  </li>
+                </ul>
+              </template>
+            </div>
           </template>
 
           <template v-else>
@@ -508,6 +553,13 @@ const isAdmin = computed(() => Boolean(authUser.value?.isAdmin))
 const adminSheetInputRef = ref(null)
 const uploadingAdminSheet = ref(false)
 const adminSheetError = ref('')
+
+// Fiches deja generees (galerie du compte) : choisir au lieu de regenerer.
+const galleryOpen = ref(false)
+const galleryLoading = ref(false)
+const galleryError = ref('')
+const gallerySheets = ref([])
+const applyingGalleryId = ref('')
 const { ambassadorFor } = useWording()
 
 watch(
@@ -912,6 +964,8 @@ async function generateFaceReference(method = 'default') {
       body: {
         sourceImageBase64: sourceImageBase64.value,
         customPrompt,
+        method,
+        profileId: id.value,
       },
     })
 
@@ -961,6 +1015,67 @@ async function onAdminSheetSelect(event) {
     adminSheetError.value = err?.data?.statusMessage || err?.message || 'Import impossible'
   } finally {
     uploadingAdminSheet.value = false
+  }
+}
+
+function formatSheetDate(value) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+async function loadGallery() {
+  galleryLoading.value = true
+  galleryError.value = ''
+  try {
+    const result = await $fetch('/api/face-ref-sheets')
+    const sheets = Array.isArray(result?.sheets) ? result.sheets : []
+    // Les fiches generees pour cette persona d abord.
+    gallerySheets.value = [...sheets].sort((a, b) => Number(b.profileId === id.value) - Number(a.profileId === id.value))
+  } catch (err) {
+    galleryError.value = err?.statusCode === 503 || err?.data?.statusCode === 503
+      ? 'La galerie n’est pas encore activée sur ce serveur.'
+      : (err?.data?.statusMessage || err?.message || 'Erreur inconnue')
+  } finally {
+    galleryLoading.value = false
+  }
+}
+
+async function toggleGallery() {
+  galleryOpen.value = !galleryOpen.value
+  if (galleryOpen.value && !gallerySheets.value.length) await loadGallery()
+}
+
+// La fiche choisie est recopiee puis appliquee par la route d application existante.
+async function applyGallerySheet(sheet) {
+  if (applyingGalleryId.value) return
+
+  const confirmed = await requestConfirmation({
+    title: 'Utiliser cette fiche ?',
+    message: `Elle remplacera la fiche de référence actuelle de ce ${profileTypeLabel.value}. Les prochains contenus s’appuieront sur elle.`,
+    confirmLabel: 'Remplacer la fiche',
+    cancelLabel: 'Annuler',
+  })
+  if (!confirmed) return
+
+  applyingGalleryId.value = sheet.id
+  try {
+    const prepared = await $fetch(`/api/face-ref-sheets/${sheet.id}/prepare`, { method: 'POST' })
+    await $fetch('/api/upload/face-ref', {
+      method: 'POST',
+      body: { influencerId: id.value, tempImagePath: prepared.tempImagePath },
+    })
+    galleryOpen.value = false
+    await refresh()
+    pushToast({ title: 'Face ref mise à jour', message: 'La fiche choisie a été appliquée.', tone: 'success' })
+  } catch (err) {
+    pushToast({
+      title: 'Application impossible',
+      message: err?.data?.statusMessage || err?.message || 'Erreur inconnue',
+      tone: 'error',
+      duration: 6000,
+    })
+  } finally {
+    applyingGalleryId.value = ''
   }
 }
 

@@ -82,6 +82,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   emailChangeTokens   EmailChangeToken[]
   referenceAssets     ReferenceAsset[]
+  faceRefSheets       FaceRefSheet[]
 }
 
 /// Bibliotheque d assets de reference au niveau du compte (voiture, lieu, bijou...).
@@ -214,6 +215,7 @@ model Profile {
   ambassadorLinks      BrandAmbassador[]  @relation("BrandLinkBrand")
   brandLinks           BrandAmbassador[]  @relation("BrandLinkAmbassador")
   contentPlans         ContentPlan[]
+  faceRefSheets        FaceRefSheet[]
 
   @@map("Influencer")
 }
@@ -326,4 +328,22 @@ model ContentVersion {
   content         GeneratedContent @relation(fields: [contentId], references: [id], onDelete: Cascade)
 
   @@index([contentId, createdAt])
+}
+
+/// Fiches de reference visage generees, conservees pour etre retrouvees,
+/// telechargees ou appliquees plus tard a une persona.
+model FaceRefSheet {
+  id        String   @id @default(cuid())
+  userId    String
+  /// Persona pour laquelle la fiche a ete generee (NULL si avant sa creation).
+  profileId String?
+  imageUrl  String
+  /// 'default' | 'contact_sheet_9' | 'close_up_4' : valide cote code.
+  method    String   @default("default")
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  profile   Profile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
 }

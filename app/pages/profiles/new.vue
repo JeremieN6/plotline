@@ -786,6 +786,7 @@ async function generateFaceReference(method = 'default') {
       body: {
         sourceImageBase64: sourceImageBase64.value,
         customPrompt: promptToUse,
+        method,
       },
     })
 

@@ -148,9 +148,33 @@ module.exports = defineEventHandler(async (event) => {
 
     const tempImagePath = path.relative(process.cwd(), absolutePath).replace(/\\/g, '/');
 
+    // Chaque fiche payee est conservee dans la galerie (Bibliotheque > Fiches
+    // generees) : sans cela elle ne vivait que dans l onglet du navigateur.
+    // N echoue jamais : la fiche reste utilisable comme avant.
+    let galleryId = null;
+    try {
+      const galleryModule = await import('../../utils/faceRefGallery.js');
+      const prismaModule = await import('../../utils/prisma.js');
+      const prisma = prismaModule?.prisma || prismaModule?.default?.prisma;
+      let profileId = String(body?.profileId || '').trim();
+      if (profileId) {
+        const owned = await prisma.profile.findFirst({ where: { id: profileId, userId: user.id }, select: { id: true } });
+        profileId = owned ? owned.id : '';
+      }
+      galleryId = await galleryModule.saveGallerySheet(prisma, {
+        userId: user.id,
+        profileId: profileId || null,
+        buffer,
+        method: body?.method,
+      });
+    } catch (galleryError) {
+      console.warn('[generate:face-ref] galerie indisponible', { message: galleryError?.message });
+    }
+
     return {
       tempImagePath,
       imageBase64,
+      galleryId,
     };
   } catch (err) {
     // Un refus volontaire (401...) garde son code au lieu d etre aplati en 500.

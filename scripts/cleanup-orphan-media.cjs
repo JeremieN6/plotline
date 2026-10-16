@@ -153,6 +153,8 @@ async function scanBlobFiles(referencedUrls, referencedFilenames) {
       if (blob.pathname.startsWith('face-refs/')) continue;
       // Meme regle pour la bibliotheque d assets (photos sources et fiches).
       if (blob.pathname.startsWith('reference-assets/')) continue;
+      // Galerie des fiches de reference visage generees (referencees par la table FaceRefSheet).
+      if (blob.pathname.startsWith('face-ref-gallery/')) continue;
       // Dossiers faceless (pack d avatars, illustrations) : aussi gardes par les retouches de videos deja faites.
       if (blob.pathname.startsWith('faceless-assets/') || blob.pathname.startsWith('faceless-avatars/')) continue;
       if (referencedUrls.has(blob.url) || (name && referencedFilenames.has(name))) continue;
