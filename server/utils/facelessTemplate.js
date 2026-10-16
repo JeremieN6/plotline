@@ -384,7 +384,8 @@ function buildRuntime(fontFamily) {
       case 'hop': s = p < 1 ? 0.9 + 0.1 * e : 1; y = p < 1 ? -24 * Math.sin(p * Math.PI) : 0; break;
       case 'slide-left': x = -1150 * (1 - e); break;
       case 'slide-right': x = 1150 * (1 - e); break;
-      case 'drop': y = -1300 * (1 - e); r = (1 - p) * 8; break;
+      // La chute reste sous la bande des sous-titres (y < 400) : elle part 130 px plus haut, jamais du haut de l ecran.
+      case 'drop': y = -130 * (1 - e); s = 1 + 0.12 * (1 - e); r = (1 - p) * 8; break;
       case 'rise': y = 1300 * (1 - e); break;
       default: break;
     }

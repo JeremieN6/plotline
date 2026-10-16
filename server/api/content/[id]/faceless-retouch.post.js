@@ -1,6 +1,6 @@
 import { isFacelessRenderSpec, runFacelessRetouchJob } from '../../../utils/facelessVideoJob.js';
 import { findActiveFacelessSpec } from '../../../utils/facelessContent.js';
-import { appendStyleRule, readyIllustrations, readyPackEntries } from '../../../utils/facelessStyle.js';
+import { MAX_REMEMBERED_RULE, appendStyleRule, readyIllustrations, readyPackEntries } from '../../../utils/facelessStyle.js';
 import { loadPersonaStyle, updateProfileStyle } from '../../../utils/facelessStyleStore.js';
 
 const MAX_INSTRUCTION_LENGTH = 1000;
@@ -34,6 +34,15 @@ export default defineEventHandler(async (event) => {
   const instruction = String(body?.instruction || '').trim().slice(0, MAX_INSTRUCTION_LENGTH);
   if (!instruction) {
     return sendError(event, createError({ statusCode: 400, statusMessage: 'consigne requise' }));
+  }
+
+  // "Retenir pour les prochaines videos" copie la consigne TELLE QUELLE dans les regles de la DA, injectees dans CHAQUE
+  // prochain plan : une consigne longue ou propre a cette video (positions, phrases citees) y ferait du mal.
+  if (body?.rememberRule === true && instruction.length > MAX_REMEMBERED_RULE) {
+    return sendError(event, createError({
+      statusCode: 400,
+      statusMessage: `Pour retenir une règle, écris-la en une phrase générale de ${MAX_REMEMBERED_RULE} caractères maximum (ex. « Mets toujours le titre numéroté sur la phrase qui énonce la leçon »). Décoche la case pour une retouche propre à cette vidéo.`,
+    }));
   }
 
   const content = await prisma.generatedContent.findFirst({
