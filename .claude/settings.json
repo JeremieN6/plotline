@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node scripts/check-ui-kit.mjs",
+            "timeout": 30,
+            "statusMessage": "Contrôle du kit UI…"
+          }
+        ]
+      }
+    ]
+  }
+}
