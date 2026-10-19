@@ -403,6 +403,29 @@ export function planForEditing(plan) {
  * en deux sans changer un mot garde la meme voix (les mots se repartissent
  * entre scenes par leur nombre).
  */
+/**
+ * Pur : "ma voix" : le texte dit est FIGE (c est l enregistrement). Si Claude ou un nettoyage a retouche la
+ * forme des mots (un chiffre a la place d un nombre ecrit en lettres, une virgule...) sans en changer le NOMBRE,
+ * on remet les mots d origine dans les scenes du nouveau plan (ses coupes entre scenes sont gardees).
+ * Si le nombre de mots differe, le plan est rendu tel quel (changement de texte reel : refuse en aval).
+ */
+export function restoreSpokenText(nextPlan, originalPlan) {
+  const tokensOf = (say) => String(say || '').split(/\s+/).filter(Boolean);
+  const original = (originalPlan?.scenes || []).flatMap((scene) => tokensOf(scene.say));
+  const counts = (nextPlan?.scenes || []).map((scene) => tokensOf(scene.say).length);
+  if (!original.length || counts.reduce((sum, n) => sum + n, 0) !== original.length) return nextPlan;
+
+  let cursor = 0;
+  return {
+    ...nextPlan,
+    scenes: nextPlan.scenes.map((scene, i) => {
+      const say = original.slice(cursor, cursor + counts[i]).join(' ');
+      cursor += counts[i];
+      return { ...scene, say };
+    }),
+  };
+}
+
 export function spokenTextChanged(previousPlan, nextPlan) {
   const spoken = (plan) => (plan?.scenes || []).map((scene) => String(scene.say || '')).join(' ').replace(/\s+/g, ' ').trim();
   return spoken(previousPlan) !== spoken(nextPlan);
