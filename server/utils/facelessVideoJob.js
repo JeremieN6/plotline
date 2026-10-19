@@ -5,7 +5,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 
 import { finalizeContentWithVersion, markGenerationFailure } from './contentVersions.js';
 import { synthesizeWithTimestamps } from './elevenLabsTts.js';
-import { applyNewImages, collectNewImageRequests, generateFacelessPlan, retouchFacelessPlan, sanitizeFacelessPlan, spokenTextChanged } from './facelessPlanGenerator.js';
+import { applyNewImages, collectNewImageRequests, generateFacelessPlan, restoreSpokenText, retouchFacelessPlan, sanitizeFacelessPlan, spokenTextChanged } from './facelessPlanGenerator.js';
 import { facelessAssetFolder, generateIllustration } from './facelessIllustration.js';
 import { loadPackAssets, readFacelessMedia, saveFacelessMedia } from './facelessMedia.js';
 import { enqueueRender, mixFacelessAudio, renderFacelessVideo } from './facelessRenderer.js';
@@ -227,15 +227,17 @@ export async function retouchFacelessVideo({ spec, instruction, persona, remembe
 
   onStep('plan');
   const ownVoiceRefusal = 'Avec ta propre voix, une retouche ne peut pas changer ce qui est dit : seule la mise en scène change. Re-enregistre ta voix pour modifier le texte.';
-  const plan = await retouchFacelessPlan({
+  const retouched = await retouchFacelessPlan({
     plan: spec.plan,
-    instruction: ownVoice ? `${instruction}\n(Contrainte : la voix est celle enregistree par le createur. Ne modifie, ne deplace et ne supprime aucun mot de aucun "say" ; tu peux seulement les repartir entre scenes.)` : instruction,
+    instruction: ownVoice ? `${instruction}\n(Contrainte : la voix est celle enregistree par le createur. Ne modifie, ne deplace et ne supprime aucun mot de aucun "say" ; tu peux seulement les repartir entre scenes. Les nombres restent ecrits comme ils sont dits dans les "say" (ex. "Vingt-deux") ; les chiffres (22, 11 %) ne s affichent que dans les textes a l ecran. Les reperes "at" citent un mot EXACT du "say".)` : instruction,
     persona, targetSeconds: spec.targetSeconds, captions: spec.captions !== false, style, packEntries, illustrations: known,
   }).catch((error) => {
     // Devant une consigne qui exige de changer le texte, Claude repond parfois en prose au lieu d un plan.
     throw ownVoice && /sans JSON/.test(String(error?.message)) ? new Error(ownVoiceRefusal) : error;
   });
 
+  // Ma voix : le texte dit est fige, on remet la forme exacte des mots d origine (meme nombre de mots seulement).
+  const plan = ownVoice ? restoreSpokenText(retouched, spec.plan) : retouched;
   const newVoice = spokenTextChanged(spec.plan, plan);
   if (newVoice && ownVoice) throw new Error(ownVoiceRefusal);
   onStep(newVoice ? 'voice' : 'voice-reused');

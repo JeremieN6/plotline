@@ -57,3 +57,12 @@ test('legende de marque : tiret de ponctuation retire', () => {
   const parsed = parseBrandCaption('{"caption": "Analysez la peau — en 2 minutes."}');
   assert.equal(parsed.caption, 'Analysez la peau, en 2 minutes.');
 });
+
+test('stripDashPunctuation : un texte sans tiret n est JAMAIS modifie (virgule finale ou initiale comprises)', () => {
+  for (const text of ['Vingt-deux leads,', ', et voilà', 'Bonjour, tout le monde ,', 'SPF, DKIM, DMARC,', 'a  b', '  ']) {
+    assert.equal(stripDashPunctuation(text), text);
+  }
+  // Avec un tiret a remplacer, le menage s applique comme avant.
+  assert.equal(stripDashPunctuation('SPF — DKIM,'), 'SPF, DKIM');
+  assert.equal(sanitizeFacelessScene({ say: 'Vingt-deux leads,', layout: 'avatar', text: 'x' }).say, 'Vingt-deux leads,');
+});

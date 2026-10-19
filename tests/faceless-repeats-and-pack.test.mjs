@@ -130,3 +130,19 @@ test('produceOwnVoiceVideo : reutilise la transcription en cache et coupe une re
   assert.equal(second.report.transcriptCached, true);
   assert.equal(transcriptions, 1);
 });
+
+import { restoreSpokenText, spokenTextChanged } from '../server/utils/facelessPlanGenerator.js';
+
+test('restoreSpokenText : la forme d origine des mots revient, les coupes entre scenes du nouveau plan restent', () => {
+  const original = { scenes: [{ say: 'Vingt-deux leads, 11 % d\'ouverture.' }, { say: 'C\'était pas le message.' }] };
+  // Claude a ecrit 22 a la place de Vingt-deux, retire une virgule et coupe autrement.
+  const retouched = { scenes: [{ say: '22 leads 11 %' }, { say: 'd\'ouverture. C\'était pas' }, { say: 'le message.' }], title: 'T' };
+  const restored = restoreSpokenText(retouched, original);
+  assert.equal(spokenTextChanged(original, restored), false);
+  assert.deepEqual(restored.scenes.map((s) => s.say), ['Vingt-deux leads, 11 %', 'd\'ouverture. C\'était pas', 'le message.']);
+  assert.equal(restored.title, 'T');
+
+  // Un vrai changement de texte (nombre de mots different) n est PAS masque.
+  const different = { scenes: [{ say: 'Vingt-deux leads, 11 % d\'ouverture.' }, { say: 'C\'était pas le message du tout.' }] };
+  assert.equal(spokenTextChanged(original, restoreSpokenText(different, original)), true);
+});

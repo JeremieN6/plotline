@@ -7,14 +7,22 @@
  * Les mots composes avec trait d union (vingt-deux, c est-a-dire, abonne-toi) ne sont pas touches.
  */
 
-/** Pur : texte sans tiret de ponctuation ; les sauts de ligne sont conserves. */
+/**
+ * Pur : texte sans tiret de ponctuation ; les sauts de ligne sont conserves.
+ * Un texte SANS tiret est rendu STRICTEMENT identique : le menage de virgules ne se fait que s il y a eu
+ * un tiret a remplacer (sinon "Vingt-deux leads," perdrait sa virgule finale, et le texte dit d une video
+ * en "ma voix" serait considere comme modifie).
+ */
 export function stripDashPunctuation(value) {
-  return String(value ?? '')
+  const original = String(value ?? '');
+  const replaced = original
     // Puces "- " en debut de ligne : retirees.
     .replace(/^[ \t]*[-–—]\s+/gm, '')
     // Cadratin / demi-cadratin (avec ou sans espaces) et tiret isole entre espaces : virgule.
     .replace(/[ \t]*[—–―‒][ \t]*/g, ', ')
-    .replace(/[ \t]+-[ \t]+/g, ', ')
+    .replace(/[ \t]+-[ \t]+/g, ', ');
+  if (replaced === original) return original;
+  return replaced
     // Menage : virgules doublees, virgule apres une ponctuation forte ou avant une ponctuation, virgule finale.
     .replace(/,(?:[ \t]*,)+/g, ',')
     .replace(/([.!?…:;])[ \t]*,[ \t]*/g, '$1 ')
