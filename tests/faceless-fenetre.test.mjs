@@ -87,12 +87,12 @@ test('plan : "stat", "tab" et "compare" nettoyes ; un "stat" sans chiffre retomb
   ] });
   assert.equal(plan.scenes[0].layout, 'stat');
   assert.equal(plan.scenes[0].tab, 'resultat.livescript');
-  assert.equal(plan.scenes[0].compare.length, 2);
+  assert.equal(plan.scenes[0].compare.length, 3);
   assert.equal(plan.scenes[1].layout, 'avatar');
   assert.equal(plan.scenes[1].compare, undefined);
   const edited = planForEditing(plan);
   assert.equal(edited.scenes[0].tab, 'resultat.livescript');
-  assert.equal(edited.scenes[0].compare.length, 2);
+  assert.equal(edited.scenes[0].compare.length, 3);
 });
 
 test('buildFacelessHtml fenetre : fenetres, deux polices, etiquette des sous-titres, aucun element du modele classique', () => {

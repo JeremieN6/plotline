@@ -11,6 +11,8 @@ export const FACELESS_FONTS = {
   caveat: { label: 'Caveat — écriture à la main', family: 'Caveat', file: 'fonts/Caveat.ttf', weights: '400 700', stretch: '100%' },
   bricolage: { label: 'Bricolage Grotesque — grotesque expressive', family: 'Bricolage Grotesque', file: 'fonts/BricolageGrotesque.ttf', weights: '200 800', stretch: '75% 100%' },
   jetbrainsmono: { label: 'JetBrains Mono — code, chiffres', family: 'JetBrains Mono', file: 'fonts/JetBrainsMono.ttf', weights: '100 800', stretch: '100%' },
+  intertight: { label: 'Inter Tight — éditoriale, serrée', family: 'Inter Tight', file: 'fonts/InterTight.ttf', weights: '100 900', stretch: '100%' },
+  ibmplexmono: { label: 'IBM Plex Mono — libellés, chiffres', family: 'IBM Plex Mono', file: 'fonts/IBMPlexMono.ttf', weights: '500', stretch: '100%' },
 };
 
 /**
@@ -21,10 +23,11 @@ export const FACELESS_FONTS = {
 export const FACELESS_TEMPLATES = {
   classic: 'Classique (cartes et autocollants)',
   fenetre: 'Fenêtre d’ordinateur',
+  cahier: 'Cahier éditorial',
 };
 
 // Police "code" des modeles qui en affichent (libelles, chiffres, onglets).
-export const FACELESS_TEMPLATE_MONO = { fenetre: 'jetbrainsmono' };
+export const FACELESS_TEMPLATE_MONO = { fenetre: 'jetbrainsmono', cahier: 'ibmplexmono' };
 
 export const FACELESS_CARD_STYLES = {
   torn: 'Papier déchiré avec scotch',
@@ -343,6 +346,37 @@ Object.assign(FACELESS_PRESETS, {
   'fenetre-cobalt': fenetre('fenetre-cobalt', 'Fenêtre cobalt', 'La fenêtre d’ordinateur sur un aplat bleu cobalt : plus froid, plus « produit ».', '#2b50ff', '#2242d6'),
   'fenetre-olive': fenetre('fenetre-olive', 'Fenêtre olive', 'La fenêtre d’ordinateur sur un aplat vert olive : plus calme, plus organique.', '#6b8e00', '#5a7800'),
   'fenetre-baie': fenetre('fenetre-baie', 'Fenêtre baie', 'La fenêtre d’ordinateur sur un aplat rose baie : plus chaleureux, plus créatif.', '#c2185b', '#a5134d'),
+});
+
+// Modele "Cahier" : editorial et sobre. Papier quadrille, une phrase a deux niveaux (gris, puis le mot
+// important en tres grand et en noir), un seul visuel central. accent2 = le gris du premier niveau.
+const CAHIER_RULES = 'Une idée par écran. Le texte à l’écran est une phrase courte (4 à 9 mots) dont le mot ou les 2 mots importants sont entre ** : ils s’affichent en très grand, le reste en gris. Aucun emoji. Fond "main" partout, "dark" seulement pour l’appel à l’action. Texte en haut, animation au milieu : utilise "list" pour 2 à 4 étapes, "stat" (avec "compare", 2 ou 3 valeurs) pour une progression chiffrée réellement dite, "word" pour un mot à retenir. L’avatar ne se montre qu’à la fin.';
+const cahier = (key, label, description, accent) => ({
+  label,
+  description,
+  style: {
+    name: label,
+    preset: key,
+    template: 'cahier',
+    palette: {
+      background: '#f4f5f1', backgroundAlt: '#ffffff', dark: '#111111', text: '#111111', accent, accent2: '#8b8d86', card: '#ffffff', cardText: '#111111',
+    },
+    font: 'intertight',
+    card: 'sticker',
+    background: 'grid',
+    decor: 'none',
+    motion: 'smooth',
+    enters: ['cut'],
+    captions: { enabled: true, position: 'top', style: 'plain' },
+    density: 'sobre',
+    rules: CAHIER_RULES,
+    avatarPrompt: 'fidèle à l’image de base du personnage, expressions marquées, rendu net et propre',
+  },
+});
+Object.assign(FACELESS_PRESETS, {
+  'cahier-vert': cahier('cahier-vert', 'Cahier vert', 'Papier quadrillé, phrase en gris puis le mot important en très grand, un seul visuel : éditorial et soigné.', '#1f7a5c'),
+  'cahier-bleu': cahier('cahier-bleu', 'Cahier bleu', 'Le cahier éditorial avec un accent bleu : plus « produit », plus tech.', '#2447c8'),
+  'cahier-brique': cahier('cahier-brique', 'Cahier brique', 'Le cahier éditorial avec un accent rouge brique : plus chaleureux.', '#b3361f'),
 });
 
 export const DEFAULT_PRESET = 'papercraft-pastel';

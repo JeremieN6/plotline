@@ -2,6 +2,13 @@ import { buildChibiSvg } from './facelessAvatar.js';
 import { FACELESS_FONTS, FACELESS_TEMPLATE_MONO } from '../data/facelessThemes.js';
 import { normalizeFacelessStyle } from './facelessStyle.js';
 import { FENETRE_CAPTION_TOP, fenetreCss, fenetreScene } from './facelessTemplateFenetre.js';
+import { CAHIER_CAPTION_TOP, cahierCss, cahierScene } from './facelessTemplateCahier.js';
+
+// Modeles visuels autres que "classic" : dessin des scenes, feuille de style, place des sous-titres.
+const ENGINES = {
+  fenetre: { scene: fenetreScene, css: fenetreCss, captionTop: FENETRE_CAPTION_TOP, capWrap: true },
+  cahier: { scene: cahierScene, css: cahierCss, captionTop: CAHIER_CAPTION_TOP, capWrap: false },
+};
 
 /**
  * Video faceless : timeline + direction artistique -> une page HTML autonome.
@@ -397,6 +404,12 @@ function buildRuntime(fontFamilies) {
   const EXTRA = {
     window: { dur: 0.45, f: (p) => { const e = backC(p, 1.2); return { y: 120 * (1 - e), s: 0.94 + 0.06 * e, o: clamp(p * 2.2) }; } },
     'blur-up': { dur: 0.28, f: (p) => { const e = cubic(p); return { y: 24 * (1 - e), o: clamp(p / 0.9), b: 14 * (1 - e) }; } },
+    'blur-soft': { dur: 0.45, f: (p, since) => { const e = cubic(p); return { y: 14 * (1 - e), o: clamp(since / 0.25), b: 18 * (1 - e) }; } },
+    'blur-big': { dur: 0.6, f: (p, since) => { const e = cubic(p); return { s: 1.04 - 0.04 * e, o: clamp(since / 0.3), b: 24 * (1 - e) }; } },
+    'giant-soft': { dur: 0.55, f: (p) => { const e = expo(p); return { s: 1.12 - 0.12 * e, b: 30 * (1 - e), o: clamp(p * 2) }; } },
+    'rise-soft': { dur: 0.4, f: (p) => { const e = cubic(p); return { y: 80 * (1 - e), o: e }; } },
+    'fade-in': { dur: 0.3, f: (p) => ({ o: p }) },
+    flag: { dur: 0.3, f: (p) => ({ sy: backC(p, 1.6) }) },
     label: { dur: 0.35, f: (p) => { const e = backC(p, 1.8); return { s: 0.6 + 0.4 * e, r: -4 * (1 - p), o: clamp(p * 3) }; } },
     'row-in': { dur: 0.3, f: (p) => { const e = cubic(p); return { x: 60 * (1 - e), o: e }; } },
     giant: { dur: 0.4, zoom: 0.04, f: (p) => { const e = expo(p); return { s: 1.35 - 0.35 * e, b: 20 * (1 - e), o: clamp(p * 2) }; } },
@@ -413,6 +426,8 @@ function buildRuntime(fontFamilies) {
     const since = local - at;
     const v = def.f(clamp(since / def.dur), since);
     let x = v.x || 0, y = v.y || 0, s = v.s == null ? 1 : v.s, r = v.r || 0, o = v.o == null ? 1 : v.o, b = v.b || 0;
+    // Etirement vertical seul (drapeau qui se deplie depuis le bas).
+    const sy = v.sy == null ? '' : ' scale(1,' + Math.max(0, v.sy).toFixed(4) + ')';
     // Zoom lent apres l entree, jusqu a la fin de la scene.
     if (def.zoom && since > def.dur) s *= 1 + def.zoom * clamp((since - def.dur) / Math.max(0.5, dur - at - def.dur));
     // Respiration : leger mouvement vertical continu.
@@ -420,7 +435,7 @@ function buildRuntime(fontFamilies) {
     if (br) y += br * Math.sin(2 * Math.PI * t / 2.4);
     // Sortie : la fenetre retrecit et s efface dans les 0,2 dernieres secondes de la scene.
     if (el.dataset.exit && dur - local < 0.2) { const q = clamp(1 - (dur - local) / 0.2); s *= 1 - 0.04 * q; o *= 1 - q; }
-    el.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px) rotate(' + (r + (+el.dataset.rot || 0)).toFixed(2) + 'deg) scale(' + s.toFixed(4) + ')';
+    el.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px) rotate(' + (r + (+el.dataset.rot || 0)).toFixed(2) + 'deg) scale(' + s.toFixed(4) + ')' + sy;
     el.style.opacity = o < 0.999 ? o.toFixed(3) : '';
     el.style.filter = b > 0.05 ? 'blur(' + b.toFixed(1) + 'px)' : '';
   }
@@ -453,6 +468,8 @@ function buildRuntime(fontFamilies) {
   }
 
   window.__seek = (t) => {
+    // Temps global, pour les fonds qui derivent lentement (quadrillage).
+    document.body.style.setProperty('--t', t.toFixed(3));
     let caption = '';
     let tone = '';
     data.scenes.forEach((sc, i) => {
@@ -468,12 +485,24 @@ function buildRuntime(fontFamilies) {
       // Ligne active (liste) : sa couleur passe a la dominante en 0,2 s, jusqu a la ligne suivante.
       el.querySelectorAll('[data-hl-from]').forEach((r) => {
         const from = +r.dataset.hlFrom, until = r.dataset.hlUntil != null ? +r.dataset.hlUntil : Infinity;
-        r.style.backgroundColor = hexMix(r.dataset.hlA, r.dataset.hlB, local >= from && local < until ? clamp((local - from) / 0.2) : 0);
+        r.style[r.dataset.hlProp || 'backgroundColor'] = hexMix(r.dataset.hlA, r.dataset.hlB, local >= from && local < until ? clamp((local - from) / 0.2) : 0);
       });
       // Compteur d un chiffre cle (0,8 s).
       el.querySelectorAll('[data-count-to]').forEach((c) => {
         const q = cubic(clamp((local - +c.dataset.countAt) / 0.8)), dec = +c.dataset.countDec;
         c.textContent = c.dataset.countPre + (+c.dataset.countTo * q).toFixed(dec).replace('.', ',') + c.dataset.countSuf;
+      });
+      // Encre : un mot passe du gris au noir (0,3 s) au moment ou il est dit.
+      el.querySelectorAll('[data-ink-at]').forEach((w) => {
+        w.style.color = hexMix(w.dataset.inkA, w.dataset.inkB, clamp((local - +w.dataset.inkAt) / 0.3));
+      });
+      // Volumes qui montent (marches) : hauteur 0 -> H en 0,6 s.
+      el.querySelectorAll('[data-grow-h]').forEach((g) => {
+        g.style.height = (+g.dataset.growH * cubic(clamp((local - +g.dataset.growAt) / 0.6))).toFixed(1) + 'px';
+      });
+      // Soulignement qui se trace de gauche a droite (0,5 s).
+      el.querySelectorAll('[data-line-at]').forEach((u) => {
+        u.style.transform = 'scaleX(' + cubic(clamp((local - +u.dataset.lineAt) / 0.5)).toFixed(3) + ')';
       });
       // Barres de comparaison (0,6 s).
       el.querySelectorAll('[data-bar-w]').forEach((bar) => {
@@ -483,7 +512,7 @@ function buildRuntime(fontFamilies) {
       if (chunk) {
         caps.style.top = sc.captionTop + 'px';
         tone = sc.bg === 'dark' ? 'tone-dark' : '';
-        caption = chunk.words.map((w) => '<span' + (t >= w.start && t < w.end ? ' class="on"' : '') + '>' + w.text.replace(/[<&]/g, '') + '</span>').join('');
+        caption = chunk.words.map((w) => '<span' + (t >= w.start && t < w.end ? ' class="on"' : (t >= w.end ? ' class="past"' : '')) + '>' + w.text.replace(/[<&]/g, '') + '</span>').join('');
         if (data.capWrap) caption = '<div class="cap-in">' + caption + '</div>';
       }
     });
@@ -524,7 +553,8 @@ function buildRuntime(fontFamilies) {
     document.querySelectorAll('[data-fit-w], [data-fit-h]').forEach((el) => {
       const maxW = +el.dataset.fitW || Infinity, maxH = +el.dataset.fitH || Infinity;
       let size = parseFloat(getComputedStyle(el).fontSize);
-      for (let i = 0; i < 60 && (el.offsetWidth > maxW || el.offsetHeight > maxH) && size > 20; i += 1) {
+      // scrollWidth : un mot trop long deborde d un bloc de largeur fixe sans en changer offsetWidth.
+      for (let i = 0; i < 60 && (Math.max(el.offsetWidth, el.scrollWidth) > maxW || el.offsetHeight > maxH) && size > 20; i += 1) {
         size *= 0.95;
         el.style.fontSize = size.toFixed(1) + 'px';
       }
@@ -550,16 +580,17 @@ export function buildFacelessHtml(timeline, options = {}) {
   T = { style, packEntries: options.packEntries || {}, illustrations: options.illustrations || {} };
 
   const bgOf = (scene) => (['alt', 'dark'].includes(scene.bg) ? scene.bg : 'main');
-  const fenetre = style.template === 'fenetre';
+  const engine = ENGINES[style.template] || null;
   const ctx = {
     fx,
     avatarVisual,
     style,
     illustrations: T.illustrations,
     illustrationUrl: (id) => `${FACELESS_ASSET_ORIGIN}/illustration/${encodeURIComponent(id)}.jpg`,
+    isLast: (scene) => scene === timeline.scenes[timeline.scenes.length - 1],
   };
   const scenesHtml = timeline.scenes.map((scene) => {
-    if (fenetre) return `<section class="scene bg-${bgOf(scene)}"><div class="bg"></div>${fenetreScene(scene, ctx)}</section>`;
+    if (engine) return `<section class="scene bg-${bgOf(scene)}"><div class="bg"></div>${engine.scene(scene, ctx)}</section>`;
     const layout = LAYOUTS[scene.layout] || LAYOUTS.avatar;
     return `<section class="scene bg-${bgOf(scene)}"><div class="bg"></div>${decorLayer()}${layout(scene)}</section>`;
   }).join('\n');
@@ -567,21 +598,21 @@ export function buildFacelessHtml(timeline, options = {}) {
   const top = style.captions.position === 'top';
   const runtimeData = {
     motion: style.motion,
-    capWrap: fenetre,
+    capWrap: Boolean(engine?.capWrap),
     scenes: timeline.scenes.map((s) => ({
       start: s.start,
       end: s.end,
       bg: bgOf(s),
       captionChunks: s.captionChunks || [],
       // Haut : sous la zone de l interface TikTok ; bas : sous le mot geant ou sur le buste.
-      captionTop: fenetre ? FENETRE_CAPTION_TOP : (top ? 150 : (s.layout === 'word' ? 840 : 1400)),
+      captionTop: engine ? engine.captionTop : (top ? 150 : (s.layout === 'word' ? 840 : 1400)),
     })),
   };
 
   const font = FACELESS_FONTS[style.font];
-  const mono = fenetre ? FACELESS_FONTS[FACELESS_TEMPLATE_MONO.fenetre] : null;
-  const css = fenetre
-    ? fontFace(font) + fontFace(mono) + fenetreCss(style, { fontFamily: font.family, monoFamily: mono.family, emojiFonts: EMOJI_FONTS })
+  const mono = engine ? FACELESS_FONTS[FACELESS_TEMPLATE_MONO[style.template]] : null;
+  const css = engine
+    ? fontFace(font) + fontFace(mono) + engine.css(style, { fontFamily: font.family, monoFamily: mono.family, emojiFonts: EMOJI_FONTS })
     : buildCss(style);
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>${css}</style></head><body>`
     + `${scenesHtml}<div id="captions"></div>`

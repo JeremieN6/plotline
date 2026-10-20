@@ -37,7 +37,7 @@ const ROW = '#1a1a1e';
 const MUTED = '#8a8a92';
 
 /** Pur : echappe un texte pour du HTML. */
-function esc(value) {
+export function esc(value) {
   return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
@@ -74,7 +74,15 @@ export function revealUnits(text) {
  * (la moitie de la duree de voix de la scene, borne) ; un mot cle apparait au plus tot quand la voix
  * le dit (-0,05 s), s il est dit dans la scene.
  */
-export function revealTimes(units, scene, { start = 0.2 } = {}) {
+/** Pur : instant (local a la scene) ou la voix dit le premier mot d un texte, ou null. */
+export function spokenAt(text, scene) {
+  const first = norm(String(text || '').split(/\s+/)[0]);
+  if (!first) return null;
+  const hit = (scene?.words || []).find((w) => norm(w.text) === first);
+  return hit ? Number(hit.start) - Number(scene.start || 0) : null;
+}
+
+export function revealTimes(units, scene, { start = 0.2, waitKeyword = true } = {}) {
   const words = units.filter((u) => !u.br);
   const voice = Math.max(0.6, Number(scene?.voiceEnd ?? 0) - Number(scene?.voiceStart ?? 0));
   const step = Math.min(0.18, Math.max(0.07, (voice * 0.5) / Math.max(1, words.length)));
@@ -85,7 +93,7 @@ export function revealTimes(units, scene, { start = 0.2 } = {}) {
     if (unit.br) return null;
     let at = start + k * step;
     k += 1;
-    if (unit.kw) {
+    if (unit.kw && waitKeyword) {
       const first = norm(unit.text.split(/\s+/)[0]);
       const hit = first ? spoken.find((w) => w.key === first) : null;
       if (hit) at = Math.max(at, hit.at - 0.05);
@@ -216,8 +224,9 @@ const LAYOUTS = {
   stat(scene, ctx) {
     const h = 1100;
     const count = countAttrs(scene.word, 0.3);
-    const widths = compareWidths(scene.compare);
-    const rows = (scene.compare || []).map((row, i) => {
+    const widths = compareWidths((scene.compare || []).slice(0, 2));
+    // Deux comparaisons au plus dans la fenetre (la place manque pour une troisieme).
+    const rows = (scene.compare || []).slice(0, 2).map((row, i) => {
       const bar = widths
         ? `<div class="bar-track"><div class="bar ${i === 0 ? 'b1' : 'b2'}" data-bar-w="${widths[i]}" data-bar-at="${(0.7 + i * 0.3).toFixed(2)}"></div></div>`
         : '';

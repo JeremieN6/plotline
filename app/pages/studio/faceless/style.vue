@@ -74,6 +74,9 @@
         <UiAlert v-if="da.template === 'fenetre'" tone="info" title="Modèle Fenêtre d’ordinateur" class="mt-3">
           Chaque scène s’affiche dans une fenêtre posée sur l’aplat de couleur. Ici comptent la palette (fond = couleur dominante, accent secondaire = mots en jaune), la police, le mouvement et les sous-titres. Le style des cartes, le fond, le décor et les transitions sont ceux du modèle.
         </UiAlert>
+        <UiAlert v-if="da.template === 'cahier'" tone="info" title="Modèle Cahier éditorial" class="mt-3">
+          Papier quadrillé, une phrase en gris dont le mot important s’affiche en très grand et en noir. Ici comptent la palette (texte, accent = soulignement et carte active, accent secondaire = le gris), la police, le mouvement et les sous-titres. Le style des cartes, le fond, le décor et les transitions sont ceux du modèle.
+        </UiAlert>
         <div class="mt-4 grid gap-4 sm:grid-cols-2">
           <label class="block text-xs font-semibold text-[#444]">
             Nom de la DA

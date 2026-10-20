@@ -244,6 +244,15 @@ export function appendStyleRule(style, rule) {
 
 /** Pur : description textuelle de la DA donnee a Claude. */
 export function describeStyleForPrompt(style) {
+  if (style.template === 'cahier') {
+    const lines = [
+      `Direction artistique "${style.name}" : modèle CAHIER, éditorial et sobre. Fond de papier quadrillé, beaucoup d'air. Le texte à l'écran ("text", ou "title" pour une liste ou un chiffre) est une phrase à deux niveaux : les mots ordinaires en gris, le ou les mots entre ** en très grand et en noir. Ne mets donc qu'UN groupe entre ** par phrase, de 1 ou 2 mots courts.`,
+      'Le centre de l\'écran est toujours une animation : privilégie "list" (phrase + 2 à 4 cartes), "stat" (phrase + marches en volume : "compare" avec 2 ou 3 valeurs chiffrées, de la plus grande à la plus petite), "word" (un mot en très grand, souligné ; "text" facultatif au-dessus) et "photo". "hook" et "title" montrent seulement la phrase, en grand au centre : pas plus d\'une scène sur trois. L\'avatar n\'apparaît QUE sur la dernière scène (mise en page "avatar", appel à l\'action), petit, en bas. Le champ "tab" ne sert pas.',
+      style.captions.enabled ? 'Sous-titres : en haut, sans boîte, mots déjà dits en gris.' : 'Sous-titres : aucun.',
+    ];
+    if (style.rules) lines.push(`Règles de montage de cette DA :\n${style.rules}`);
+    return lines.join('\n');
+  }
   if (style.template === 'fenetre') {
     const lines = [
       `Direction artistique "${style.name}" : modèle FENÊTRE. Chaque scène s'affiche dans une fenêtre d'ordinateur posée sur un aplat de couleur, l'avatar passe devant la fenêtre. Les textes apparaissent mot par mot ; le mot clé entre ** devient une étiquette de couleur (accroche, appel à l'action) ou passe en jaune (chapitre).`,
