@@ -1,5 +1,6 @@
 # CLAUDE.md -- Memoire Projet
 
+- 2026-10-19: ajout de la telemetrie de couts LLM vers le dashboard Sassify Ops (projet `ops`) sans toucher aux fichiers d'appel : `server/utils/opsCost.js` (copie du client canonique `ops/clients/ops-cost.plotline.js`) branche une fois, via le plugin Nitro `server/plugins/ops-cost.js`, `Anthropic.Messages.prototype.create` et `Models.prototype.generateContentInternal` du SDK Gemini (`generateContent` est une propriete d'instance, donc le prototype ne marche pas dessus). Envoie les tokens, ops calcule le cout. Sans effet tant que `OPS_URL` et `OPS_INGEST_KEY` ne sont pas definis. Verifie avec les vrais SDK et de fausses reponses (aucun appel reseau reel) : montants conformes, reponse intacte pour l'appelant, erreurs propagees, installation idempotente. Non couvert : streaming, API Interactions (video Omni Flash), Veo, Kling, ElevenLabs, `client.beta.messages`. Si `@anthropic-ai/sdk` ou `@google/genai` change de version majeure, revalider ces deux points d'accroche.
 > Ce fichier est lu automatiquement par l'IA au debut de chaque conversation.
 > Mets-le a jour a la fin de chaque session de travail.
 
