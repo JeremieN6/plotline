@@ -1,6 +1,7 @@
 import { buildChibiSvg } from './facelessAvatar.js';
-import { FACELESS_FONTS } from '../data/facelessThemes.js';
+import { FACELESS_FONTS, FACELESS_TEMPLATE_MONO } from '../data/facelessThemes.js';
 import { normalizeFacelessStyle } from './facelessStyle.js';
+import { FENETRE_CAPTION_TOP, fenetreCss, fenetreScene } from './facelessTemplateFenetre.js';
 
 /**
  * Video faceless : timeline + direction artistique -> une page HTML autonome.
@@ -87,13 +88,15 @@ function ent(name) {
  * (id d un autre element) : l element est pose SOUS celui-ci une fois la page
  * mise en page, pour qu un titre sur deux lignes ne chevauche pas la carte.
  */
-function fx(html, { x, y, w, h, enter = 'pop', at = 0, until, rot = 0, boil = 1, z = 1, cls = '', id, follow, gap = 36 } = {}) {
+function fx(html, { x, y, w, h, enter = 'pop', at = 0, until, rot = 0, boil = 1, z = 1, cls = '', id, follow, gap = 36, fixedEnter = false, data = null } = {}) {
   const style = [
     `left:${x}px`, `top:${y}px`,
     w != null ? `width:${w}px` : '', h != null ? `height:${h}px` : '',
     `z-index:${z}`,
   ].filter(Boolean).join(';');
-  return `<div class="fx ${cls}"${id ? ` id="${id}"` : ''} style="${style}" data-enter="${ent(enter)}" data-at="${at}"`
+  // Entrees propres a un modele (fenetre, peek...) : hors liste de la DA, donnees telles quelles.
+  const extra = data ? Object.entries(data).map(([k, v]) => ` data-${k}="${v}"`).join('') : '';
+  return `<div class="fx ${cls}"${id ? ` id="${id}"` : ''} style="${style}" data-enter="${fixedEnter ? enter : ent(enter)}" data-at="${at}"${extra}`
     + `${follow ? ` data-follow="${follow}" data-gap="${gap}"` : ''}`
     + `${until != null ? ` data-until="${until}"` : ''} data-rot="${rot}" data-boil="${boil}" data-seed="${nextSeed()}">${html}</div>`;
 }
@@ -246,6 +249,15 @@ const LAYOUTS = {
     return fx(html, { x: SAFE.left + 150, y: 410, w: 560, enter: scene.enter || 'drop', rot: polaroid ? -3 : -1.5, z: 3 })
       + avatarBlock(scene, { pos: 'photo-low', mode: 'head' });
   },
+  // Chiffre cle : le chiffre en tres grand, la phrase et la comparaison sur une carte.
+  stat(scene) {
+    const size = Math.min(200, Math.floor(1500 / Math.max(4, String(scene.word || '').length)));
+    const lines = (scene.compare || []).map((row) => `${row.label} : **${row.value}**`).join('\n');
+    const text = [scene.text, lines].filter(Boolean).join('\n');
+    return fx(`<div class="big-word" style="font-size:${size}px">${richText(scene.word)}</div>`, { x: SAFE.left, y: 480, w: 860, enter: 'pop', rot: -3 })
+      + (text ? fx(card(text, { size: 58, tone: 'white' }), { x: SAFE.left + 30, y: 860, w: 800, enter: 'rise', at: 0.3, rot: 1.5 }) : '')
+      + avatarBlock(scene, { pos: 'peek-left', mode: 'head' });
+  },
   // Carte de nom (marque, outil) : un grand emoji et le nom dessous.
   logo(scene) {
     const size = Math.min(110, Math.floor(980 / Math.max(5, String(scene.word || '').length)));
@@ -285,6 +297,10 @@ function backgroundCss(style) {
     default:
       return `.bg::before{background-image:radial-gradient(circle at 20% 15%,rgba(255,255,255,.5),transparent 45%),radial-gradient(circle at 85% 80%,rgba(255,255,255,.25),transparent 50%),${NOISE}}`;
   }
+}
+
+function fontFace(font) {
+  return `@font-face{font-family:"${font.family}";src:url("${FACELESS_ASSET_ORIGIN}/${font.file}") format("truetype");font-weight:${font.weights};font-stretch:${font.stretch}}\n`;
 }
 
 function buildCss(style) {
@@ -358,7 +374,7 @@ ${capStyle}
 }
 
 // Execute dans la page. Aucune animation CSS : tout depend de t.
-function buildRuntime(fontFamily) {
+function buildRuntime(fontFamilies) {
   return `
 (() => {
   const data = JSON.parse(document.getElementById('timeline').textContent);
@@ -371,11 +387,52 @@ function buildRuntime(fontFamily) {
   const ease = (p) => (smooth ? 1 - Math.pow(1 - p, 3) : back(p));
   let lastCaption = '';
   let lastTone = '';
+  const clamp = (v) => Math.max(0, Math.min(1, v));
+  const cubic = (p) => 1 - Math.pow(1 - p, 3);
+  const backC = (p, c) => 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2);
+  const expo = (p) => (p >= 1 ? 1 : 1 - Math.pow(2, -10 * p));
+  // Ressort amorti (zeta 0,55, omega 14 rad/s) : 1 au repos.
+  const spring = (s) => { const z = 0.55, w = 14, wd = w * Math.sqrt(1 - z * z); return 1 - Math.exp(-z * w * s) * (Math.cos(wd * s) + (z / Math.sqrt(1 - z * z)) * Math.sin(wd * s)); };
+  // Entrees des modeles autres que "classic" : duree propre, opacite et flou possibles.
+  const EXTRA = {
+    window: { dur: 0.45, f: (p) => { const e = backC(p, 1.2); return { y: 120 * (1 - e), s: 0.94 + 0.06 * e, o: clamp(p * 2.2) }; } },
+    'blur-up': { dur: 0.28, f: (p) => { const e = cubic(p); return { y: 24 * (1 - e), o: clamp(p / 0.9), b: 14 * (1 - e) }; } },
+    label: { dur: 0.35, f: (p) => { const e = backC(p, 1.8); return { s: 0.6 + 0.4 * e, r: -4 * (1 - p), o: clamp(p * 3) }; } },
+    'row-in': { dur: 0.3, f: (p) => { const e = cubic(p); return { x: 60 * (1 - e), o: e }; } },
+    giant: { dur: 0.4, zoom: 0.04, f: (p) => { const e = expo(p); return { s: 1.35 - 0.35 * e, b: 20 * (1 - e), o: clamp(p * 2) }; } },
+    peek: { dur: 0.5, f: (p, since) => ({ y: 260 * (1 - spring(since)) }) },
+    instant: { dur: 0.001, f: () => ({}) },
+  };
+  const hexMix = (a, b, q) => {
+    const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+    const ch = (sh) => Math.round(((pa >> sh) & 255) * (1 - q) + ((pb >> sh) & 255) * q);
+    return 'rgb(' + ch(16) + ',' + ch(8) + ',' + ch(0) + ')';
+  };
 
-  function place(el, local, t) {
+  function placeExtra(el, def, at, local, t, dur) {
+    const since = local - at;
+    const v = def.f(clamp(since / def.dur), since);
+    let x = v.x || 0, y = v.y || 0, s = v.s == null ? 1 : v.s, r = v.r || 0, o = v.o == null ? 1 : v.o, b = v.b || 0;
+    // Zoom lent apres l entree, jusqu a la fin de la scene.
+    if (def.zoom && since > def.dur) s *= 1 + def.zoom * clamp((since - def.dur) / Math.max(0.5, dur - at - def.dur));
+    // Respiration : leger mouvement vertical continu.
+    const br = +el.dataset.breathe || 0;
+    if (br) y += br * Math.sin(2 * Math.PI * t / 2.4);
+    // Sortie : la fenetre retrecit et s efface dans les 0,2 dernieres secondes de la scene.
+    if (el.dataset.exit && dur - local < 0.2) { const q = clamp(1 - (dur - local) / 0.2); s *= 1 - 0.04 * q; o *= 1 - q; }
+    el.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px) rotate(' + (r + (+el.dataset.rot || 0)).toFixed(2) + 'deg) scale(' + s.toFixed(4) + ')';
+    el.style.opacity = o < 0.999 ? o.toFixed(3) : '';
+    el.style.filter = b > 0.05 ? 'blur(' + b.toFixed(1) + 'px)' : '';
+  }
+
+  function place(el, local, t, dur) {
     const at = +el.dataset.at, until = el.dataset.until != null ? +el.dataset.until : Infinity;
-    if (local < at || local >= until) { el.style.visibility = 'hidden'; return; }
+    // Un mot dans une fenetre encore cachee reste cache.
+    const host = el.classList.contains('wd') ? el.parentElement.closest('.fx') : null;
+    if (local < at || local >= until || (host && host.style.visibility === 'hidden')) { el.style.visibility = 'hidden'; return; }
     el.style.visibility = 'visible';
+    const def = EXTRA[el.dataset.enter];
+    if (def) { placeExtra(el, def, at, local, t, dur); return; }
     // Stop motion : une image d avance, la premiere image d une entree n est jamais vide.
     const p = Math.min(1, (local - at + (smooth ? 0 : 1 / 12)) / ENTER), e = ease(p);
     let x = 0, y = 0, s = 1, r = 0;
@@ -406,12 +463,28 @@ function buildRuntime(fontFamily) {
       // Stop motion : entrees a 12 images/s, comptees depuis le debut de la scene
       // (arrondir t lui-meme laissait une image vide a chaque changement).
       const local = smooth ? (t - sc.start) : Math.floor((t - sc.start) * 12 + 1e-6) / 12;
-      el.querySelectorAll('.fx').forEach((f) => place(f, local, t));
+      const dur = sc.end - sc.start;
+      el.querySelectorAll('.fx, .wd').forEach((f) => place(f, local, t, dur));
+      // Ligne active (liste) : sa couleur passe a la dominante en 0,2 s, jusqu a la ligne suivante.
+      el.querySelectorAll('[data-hl-from]').forEach((r) => {
+        const from = +r.dataset.hlFrom, until = r.dataset.hlUntil != null ? +r.dataset.hlUntil : Infinity;
+        r.style.backgroundColor = hexMix(r.dataset.hlA, r.dataset.hlB, local >= from && local < until ? clamp((local - from) / 0.2) : 0);
+      });
+      // Compteur d un chiffre cle (0,8 s).
+      el.querySelectorAll('[data-count-to]').forEach((c) => {
+        const q = cubic(clamp((local - +c.dataset.countAt) / 0.8)), dec = +c.dataset.countDec;
+        c.textContent = c.dataset.countPre + (+c.dataset.countTo * q).toFixed(dec).replace('.', ',') + c.dataset.countSuf;
+      });
+      // Barres de comparaison (0,6 s).
+      el.querySelectorAll('[data-bar-w]').forEach((bar) => {
+        bar.style.width = (+bar.dataset.barW * cubic(clamp((local - +bar.dataset.barAt) / 0.6))).toFixed(2) + '%';
+      });
       const chunk = sc.captionChunks.find((c) => t >= c.start && t < c.end);
       if (chunk) {
         caps.style.top = sc.captionTop + 'px';
         tone = sc.bg === 'dark' ? 'tone-dark' : '';
         caption = chunk.words.map((w) => '<span' + (t >= w.start && t < w.end ? ' class="on"' : '') + '>' + w.text.replace(/[<&]/g, '') + '</span>').join('');
+        if (data.capWrap) caption = '<div class="cap-in">' + caption + '</div>';
       }
     });
     if (caption !== lastCaption) { caps.innerHTML = caption; lastCaption = caption; }
@@ -425,6 +498,7 @@ function buildRuntime(fontFamily) {
         const cs = getComputedStyle(s);
         used += s.offsetWidth + parseFloat(cs.marginLeft) + parseFloat(cs.marginRight);
       });
+      if (data.capWrap) used = caps.firstElementChild.offsetWidth;
       const avail = caps.clientWidth * 0.96;
       caps.style.transformOrigin = '50% 0';
       if (used > avail) caps.style.transform = 'scale(' + (avail / used).toFixed(3) + ')';
@@ -435,16 +509,25 @@ function buildRuntime(fontFamily) {
   // en page ensuite : les elements "follow" se posent sous leur reference (les
   // scenes sont rendues visibles le temps de mesurer) ; les images d avatar
   // sont attendues pour ne jamais capturer une image manquante.
-  window.__ready = Promise.all([
-    document.fonts.load('700 100px "${fontFamily}"', 'Aa€…'),
-    document.fonts.load('400 100px "${fontFamily}"', 'Aa'),
-  ]).catch(() => null).then(() => document.fonts.ready).then(() => Promise.all(
+  window.__ready = Promise.all(${JSON.stringify(fontFamilies)}.flatMap((family) => [
+    document.fonts.load('700 100px "' + family + '"', 'Aa€…'),
+    document.fonts.load('400 100px "' + family + '"', 'Aa'),
+  ])).catch(() => null).then(() => document.fonts.ready).then(() => Promise.all(
     [...document.images].map((img) => (img.complete ? null : new Promise((resolve) => { img.onload = resolve; img.onerror = resolve; }))),
   )).then(() => {
     scenes.forEach((s) => { s.style.display = 'block'; });
     document.querySelectorAll('[data-follow]').forEach((el) => {
       const ref = document.getElementById(el.dataset.follow);
       if (ref) el.style.top = (ref.offsetTop + ref.offsetHeight + Number(el.dataset.gap || 0)) + 'px';
+    });
+    // Un texte ne deborde jamais : on reduit sa taille jusqu a ce qu il tienne (largeur ou hauteur maximale).
+    document.querySelectorAll('[data-fit-w], [data-fit-h]').forEach((el) => {
+      const maxW = +el.dataset.fitW || Infinity, maxH = +el.dataset.fitH || Infinity;
+      let size = parseFloat(getComputedStyle(el).fontSize);
+      for (let i = 0; i < 60 && (el.offsetWidth > maxW || el.offsetHeight > maxH) && size > 20; i += 1) {
+        size *= 0.95;
+        el.style.fontSize = size.toFixed(1) + 'px';
+      }
     });
     scenes.forEach((s) => { s.style.display = 'none'; });
     return true;
@@ -467,7 +550,16 @@ export function buildFacelessHtml(timeline, options = {}) {
   T = { style, packEntries: options.packEntries || {}, illustrations: options.illustrations || {} };
 
   const bgOf = (scene) => (['alt', 'dark'].includes(scene.bg) ? scene.bg : 'main');
+  const fenetre = style.template === 'fenetre';
+  const ctx = {
+    fx,
+    avatarVisual,
+    style,
+    illustrations: T.illustrations,
+    illustrationUrl: (id) => `${FACELESS_ASSET_ORIGIN}/illustration/${encodeURIComponent(id)}.jpg`,
+  };
   const scenesHtml = timeline.scenes.map((scene) => {
+    if (fenetre) return `<section class="scene bg-${bgOf(scene)}"><div class="bg"></div>${fenetreScene(scene, ctx)}</section>`;
     const layout = LAYOUTS[scene.layout] || LAYOUTS.avatar;
     return `<section class="scene bg-${bgOf(scene)}"><div class="bg"></div>${decorLayer()}${layout(scene)}</section>`;
   }).join('\n');
@@ -475,19 +567,24 @@ export function buildFacelessHtml(timeline, options = {}) {
   const top = style.captions.position === 'top';
   const runtimeData = {
     motion: style.motion,
+    capWrap: fenetre,
     scenes: timeline.scenes.map((s) => ({
       start: s.start,
       end: s.end,
       bg: bgOf(s),
       captionChunks: s.captionChunks || [],
       // Haut : sous la zone de l interface TikTok ; bas : sous le mot geant ou sur le buste.
-      captionTop: top ? 150 : (s.layout === 'word' ? 840 : 1400),
+      captionTop: fenetre ? FENETRE_CAPTION_TOP : (top ? 150 : (s.layout === 'word' ? 840 : 1400)),
     })),
   };
 
   const font = FACELESS_FONTS[style.font];
-  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>${buildCss(style)}</style></head><body>`
+  const mono = fenetre ? FACELESS_FONTS[FACELESS_TEMPLATE_MONO.fenetre] : null;
+  const css = fenetre
+    ? fontFace(font) + fontFace(mono) + fenetreCss(style, { fontFamily: font.family, monoFamily: mono.family, emojiFonts: EMOJI_FONTS })
+    : buildCss(style);
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>${css}</style></head><body>`
     + `${scenesHtml}<div id="captions"></div>`
     + `<script type="application/json" id="timeline">${JSON.stringify(runtimeData).replace(/</g, '\\u003c')}</script>`
-    + `<script>${buildRuntime(font.family)}</script></body></html>`;
+    + `<script>${buildRuntime(mono ? [font.family, mono.family] : [font.family])}</script></body></html>`;
 }

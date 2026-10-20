@@ -11,6 +11,7 @@ import {
   FACELESS_HAIR_STYLES,
   FACELESS_MOTIONS,
   FACELESS_PRESETS,
+  FACELESS_TEMPLATES,
 } from '../data/facelessThemes.js';
 import { describeFacelessPersona } from './facelessPlanGenerator.js';
 import { defaultVoiceFor, normalizeFacelessStyle } from './facelessStyle.js';
@@ -39,6 +40,7 @@ export function buildFacelessStyleSystemPrompt({ persona = null } = {}) {
     '- "name" : nom court de la DA (3 mots max).',
     `- "preset" : base de depart, ${list(FACELESS_PRESETS)}.`,
     '- "palette" : couleurs HEXADECIMALES #rrggbb : background (fond principal), backgroundAlt (fond secondaire), dark (fond sombre), text, accent (mots cles, doit contraster avec les fonds), accent2, card (cartes), cardText (texte des cartes, lisible sur card). Verifie la lisibilite : texte sombre sur fonds clairs.',
+    `- "template" : modele visuel, ${list(FACELESS_TEMPLATES)} (celui du preset choisi ; "fenetre" = chaque scene dans une fenetre d ordinateur sur un aplat de couleur : background = la couleur dominante, accent = la meme dominante, accent2 = mots en couleur, card = cadre clair de la fenetre).`,
     `- "font" : ${list(FACELESS_FONTS)}.`,
     `- "card" : ${list(FACELESS_CARD_STYLES)}.`,
     `- "background" : ${list(FACELESS_BACKGROUNDS)}.`,
@@ -96,6 +98,8 @@ export async function generateFacelessStyle({ description, current = null, perso
   const raw = parseFacelessStyleResponse(text);
   // Ce que Claude ne remplit pas reste tel que la DA actuelle (ou le preset choisi).
   const merged = current ? { ...current, ...raw, palette: { ...current.palette, ...(raw.palette || {}) } } : raw;
+  // Un autre preset sans modele precise : on prend le modele de ce preset (sinon celui de la DA actuelle resterait).
+  if (raw.preset && !raw.template && FACELESS_PRESETS[raw.preset]) merged.template = FACELESS_PRESETS[raw.preset].style.template || 'classic';
   const style = normalizeFacelessStyle(merged);
   // La voix n est pas decidee par Claude : celle de la DA actuelle, sinon celle qui va au genre de la persona.
   style.voiceId = current?.voiceId || defaultVoiceFor(persona?.gender === 'MALE' ? 'MALE' : 'FEMALE');

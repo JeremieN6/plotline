@@ -59,6 +59,7 @@ export const FACELESS_LAYOUTS = {
   word: 'un seul mot (champ word, 12 caracteres max) en tres grand + emoji optionnel',
   photo: 'image dans un cadre (polaroid) pour illustrer concretement ce qui est dit : champ image (id d une illustration disponible) + champ text (legende de 1 a 5 mots)',
   logo: 'carte de nom pour une marque, un outil ou un service cite (champ word = le nom, emoji = son icone, tres courts)',
+  stat: 'chiffre cle : word = le chiffre (8 caracteres max, ex "×15", "4 s", "-30 %"), text court facultatif, compare facultatif [{label, value}] (2 au plus, ex "sans cache" / "27,9 ms") ; UNIQUEMENT des chiffres presents dans le script ou le texte source, jamais inventes',
 };
 
 export const FACELESS_POSES = ['idle', 'wave', 'point'];

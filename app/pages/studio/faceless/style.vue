@@ -71,6 +71,9 @@
       <!-- 2. Champs -->
       <section class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
         <h2 class="text-lg font-bold text-[#111111]">2. Les réglages</h2>
+        <UiAlert v-if="da.template === 'fenetre'" tone="info" title="Modèle Fenêtre d’ordinateur" class="mt-3">
+          Chaque scène s’affiche dans une fenêtre posée sur l’aplat de couleur. Ici comptent la palette (fond = couleur dominante, accent secondaire = mots en jaune), la police, le mouvement et les sous-titres. Le style des cartes, le fond, le décor et les transitions sont ceux du modèle.
+        </UiAlert>
         <div class="mt-4 grid gap-4 sm:grid-cols-2">
           <label class="block text-xs font-semibold text-[#444]">
             Nom de la DA

@@ -11,6 +11,7 @@ import {
   FACELESS_MOTIONS,
   FACELESS_PALETTE_KEYS,
   FACELESS_PRESETS,
+  FACELESS_TEMPLATES,
 } from '../data/facelessThemes.js';
 import { DEFAULT_FACELESS_VOICE_ID, findFacelessVoice } from '../data/facelessCatalog.js';
 import { ILLUSTRATION_KINDS, ILLUSTRATION_SOURCES, MAX_ILLUSTRATIONS, MAX_ILLUSTRATION_PROMPT } from '../data/facelessIllustrations.js';
@@ -146,6 +147,8 @@ export function normalizeFacelessStyle(raw, { keepPack = false } = {}) {
     version: STYLE_VERSION,
     name: text(input.name, 60) || base.name,
     preset,
+    // Modele visuel : celui demande, sinon celui du preset (les DA enregistrees avant les modeles sont "classic").
+    template: pick(input.template, FACELESS_TEMPLATES, base.template || 'classic'),
     palette,
     font: pick(input.font, FACELESS_FONTS, base.font),
     card: pick(input.card, FACELESS_CARD_STYLES, base.card),
@@ -241,6 +244,16 @@ export function appendStyleRule(style, rule) {
 
 /** Pur : description textuelle de la DA donnee a Claude. */
 export function describeStyleForPrompt(style) {
+  if (style.template === 'fenetre') {
+    const lines = [
+      `Direction artistique "${style.name}" : modèle FENÊTRE. Chaque scène s'affiche dans une fenêtre d'ordinateur posée sur un aplat de couleur, l'avatar passe devant la fenêtre. Les textes apparaissent mot par mot ; le mot clé entre ** devient une étiquette de couleur (accroche, appel à l'action) ou passe en jaune (chapitre).`,
+      'Champ "tab" (toutes les scènes) : le nom affiché dans la barre de la fenêtre, comme un fichier ou une adresse (ex. "monsite.fr", "couches.md", "resultat.live"), 24 caractères max, cohérent avec ce qui est dit.',
+      'Mise en page "stat" bienvenue pour un chiffre clé dit dans le script ; "list" : 2 à 4 lignes de 1 à 4 mots.',
+      style.captions.enabled ? 'Sous-titres : dans une étiquette noire au-dessus de la fenêtre.' : 'Sous-titres : aucun.',
+    ];
+    if (style.rules) lines.push(`Règles de montage de cette DA :\n${style.rules}`);
+    return lines.join('\n');
+  }
   const lines = [
     `Direction artistique "${style.name}" : cartes ${FACELESS_CARD_STYLES[style.card]}, fond ${FACELESS_BACKGROUNDS[style.background]}, mouvement ${style.motion === 'stopmotion' ? 'stop motion' : 'fluide'}.`,
     `Densité : ${FACELESS_DENSITIES[style.density]}.`,

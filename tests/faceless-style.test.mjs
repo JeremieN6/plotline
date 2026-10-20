@@ -473,10 +473,10 @@ test('generateFacelessStyle : voix par defaut selon le genre de la persona', asy
   assert.equal(female.voiceId, 'cgSgspJ2msm6clMCkdW9');
 });
 
-test('modeles de DA : 11 au total, chacun complet et normalisable sans perte', async () => {
+test('modeles de DA : 15 au total, chacun complet et normalisable sans perte', async () => {
   const { FACELESS_PRESETS } = await import('../server/data/facelessThemes.js');
   const keys = Object.keys(FACELESS_PRESETS);
-  assert.deepEqual(keys, ['papercraft-pastel', 'brutalisme', 'cahier-ecolier', 'neon-nuit', 'kraft-carnet', 'luxe-minimal', 'pop-jaune', 'atelier-vert', 'atelier-bleu', 'atelier-bordeaux', 'terminal']);
+  assert.deepEqual(keys, ['papercraft-pastel', 'brutalisme', 'cahier-ecolier', 'neon-nuit', 'kraft-carnet', 'luxe-minimal', 'pop-jaune', 'atelier-vert', 'atelier-bleu', 'atelier-bordeaux', 'terminal', 'fenetre-orange', 'fenetre-cobalt', 'fenetre-olive', 'fenetre-baie']);
   for (const key of keys) {
     const base = FACELESS_PRESETS[key].style;
     assert.equal(base.preset, key);
@@ -487,6 +487,7 @@ test('modeles de DA : 11 au total, chacun complet et normalisable sans perte', a
     assert.equal(style.background, base.background);
     assert.deepEqual(style.palette, base.palette);
     assert.deepEqual(style.enters, base.enters);
+    assert.equal(style.template, base.template || 'classic');
     assert.equal(defaultFacelessStyle(key, 'MALE').preset, key);
   }
 });
