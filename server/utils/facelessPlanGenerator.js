@@ -252,9 +252,9 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
     captions: Boolean(captions),
   };
 
-  // Chiffre cle : jusqu a deux comparaisons { label, value }.
+  // Chiffre cle : jusqu a trois comparaisons { label, value } (le modele Fenetre n en montre que deux).
   if (layout === 'stat') {
-    scene.compare = (Array.isArray(raw?.compare) ? raw.compare : []).slice(0, 2)
+    scene.compare = (Array.isArray(raw?.compare) ? raw.compare : []).slice(0, 3)
       .map((row) => ({ label: clip(withoutEmoji(stripDashPunctuation(row?.label)), 24), value: clip(withoutEmoji(row?.value), 16) }))
       .filter((row) => row.label && row.value);
   }
