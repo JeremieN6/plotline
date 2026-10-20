@@ -9,7 +9,22 @@ export const FACELESS_FONTS = {
   archivo: { label: 'Archivo — grotesque, brutaliste', family: 'Archivo', file: 'fonts/Archivo.ttf', weights: '100 900', stretch: '62% 125%' },
   spacegrotesk: { label: 'Space Grotesk — moderne, tech', family: 'Space Grotesk', file: 'fonts/SpaceGrotesk.ttf', weights: '300 700', stretch: '100%' },
   caveat: { label: 'Caveat — écriture à la main', family: 'Caveat', file: 'fonts/Caveat.ttf', weights: '400 700', stretch: '100%' },
+  bricolage: { label: 'Bricolage Grotesque — grotesque expressive', family: 'Bricolage Grotesque', file: 'fonts/BricolageGrotesque.ttf', weights: '200 800', stretch: '75% 100%' },
+  jetbrainsmono: { label: 'JetBrains Mono — code, chiffres', family: 'JetBrains Mono', file: 'fonts/JetBrainsMono.ttf', weights: '100 800', stretch: '100%' },
 };
+
+/**
+ * Modele visuel (moteur de mise en page). "classic" = cartes, fonds et decors reglables ;
+ * les autres modeles ont leur propre structure (cadre, animations) et n utilisent de la DA
+ * que la palette, la police, le mouvement et les sous-titres.
+ */
+export const FACELESS_TEMPLATES = {
+  classic: 'Classique (cartes et autocollants)',
+  fenetre: 'Fenêtre d’ordinateur',
+};
+
+// Police "code" des modeles qui en affichent (libelles, chiffres, onglets).
+export const FACELESS_TEMPLATE_MONO = { fenetre: 'jetbrainsmono' };
 
 export const FACELESS_CARD_STYLES = {
   torn: 'Papier déchiré avec scotch',
@@ -296,6 +311,39 @@ export const FACELESS_PRESETS = {
     },
   },
 };
+
+// Modele "Fenetre" : le contenu s affiche dans une fenetre d ordinateur posee sur un aplat de
+// couleur saturee, l avatar passe devant. Une seule dominante par video (background = accent).
+// Le fond secondaire est la meme dominante un peu plus sombre ; le fond sombre est reserve a l appel a l action.
+const FENETRE_RULES = 'Chaque scène tient dans la fenêtre : textes très courts (2 à 6 mots), un seul mot clé entre ** par écran. Fond "main" presque partout, "dark" seulement pour l’appel à l’action. Aucun emoji (sauf mise en page logo). Donne à chaque scène un "tab" court façon nom de fichier ou d’adresse (ex. "monsite.fr", "couches.md", "resultat.live"). Utilise "stat" pour un chiffre clé réellement présent dans le script.';
+const fenetre = (key, label, description, dominant, alt) => ({
+  label,
+  description,
+  style: {
+    name: label,
+    preset: key,
+    template: 'fenetre',
+    palette: {
+      background: dominant, backgroundAlt: alt, dark: '#111111', text: '#f5f2eb', accent: dominant, accent2: '#ffc531', card: '#f5f2eb', cardText: '#111111',
+    },
+    font: 'bricolage',
+    card: 'flat',
+    background: 'solid',
+    decor: 'none',
+    motion: 'smooth',
+    enters: ['cut'],
+    captions: { enabled: true, position: 'top', style: 'box' },
+    density: 'sobre',
+    rules: FENETRE_RULES,
+    avatarPrompt: 'fidèle à l’image de base du personnage, expressions marquées, rendu net, sans contour blanc',
+  },
+});
+Object.assign(FACELESS_PRESETS, {
+  'fenetre-orange': fenetre('fenetre-orange', 'Fenêtre orange', 'Une fenêtre d’ordinateur sur un aplat orange saturé, l’avatar passe devant : tech, SaaS, chiffres.', '#e8420c', '#c93a0b'),
+  'fenetre-cobalt': fenetre('fenetre-cobalt', 'Fenêtre cobalt', 'La fenêtre d’ordinateur sur un aplat bleu cobalt : plus froid, plus « produit ».', '#2b50ff', '#2242d6'),
+  'fenetre-olive': fenetre('fenetre-olive', 'Fenêtre olive', 'La fenêtre d’ordinateur sur un aplat vert olive : plus calme, plus organique.', '#6b8e00', '#5a7800'),
+  'fenetre-baie': fenetre('fenetre-baie', 'Fenêtre baie', 'La fenêtre d’ordinateur sur un aplat rose baie : plus chaleureux, plus créatif.', '#c2185b', '#a5134d'),
+});
 
 export const DEFAULT_PRESET = 'papercraft-pastel';
 

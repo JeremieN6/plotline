@@ -148,7 +148,7 @@ export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = nu
     ...illustrationPromptLines(illustrations, maxNew),
     '',
     'Reponds uniquement avec un objet JSON brut, sans markdown ni commentaire. Forme exacte :',
-    '{"title": string, "caption": string (legende du post, 1 a 3 phrases), "hashtags": [string], "scenes": [{"say": string, "layout": string, "text"?: string, "title"?: string, "number"?: string, "word"?: string, "image"?: string, "newImage"?: {"kind": string, "prompt": string}, "frame"?: string, "emoji"?: string, "items"?: [{"emoji": string, "text": string, "at": string}], "bg": string, "avatar": {...}, "sfx": [...], "captions": boolean}]}',
+    '{"title": string, "caption": string (legende du post, 1 a 3 phrases), "hashtags": [string], "scenes": [{"say": string, "layout": string, "text"?: string, "title"?: string, "number"?: string, "word"?: string, "tab"?: string, "compare"?: [{"label": string, "value": string}], "image"?: string, "newImage"?: {"kind": string, "prompt": string}, "frame"?: string, "emoji"?: string, "items"?: [{"emoji": string, "text": string, "at": string}], "bg": string, "avatar": {...}, "sfx": [...], "captions": boolean}]}',
   ].join('\n');
 }
 
@@ -238,6 +238,8 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
     title: clip(withoutEmoji(stripDashPunctuation(raw?.title)), 40),
     number: clip(raw?.number, 3),
     word: clip(withoutEmoji(stripDashPunctuation(raw?.word)), 14),
+    // Onglet de la fenetre (modele Fenetre) : un nom de fichier ou d adresse, ignore ailleurs.
+    tab: clip(String(raw?.tab ?? '').replace(/[^\p{L}\p{N}._\-/ ]/gu, ''), 24),
     emoji: clip(raw?.emoji, 8),
     items: (Array.isArray(raw?.items) ? raw.items : []).slice(0, 4)
       .map((item) => ({ emoji: clip(item?.emoji, 8), text: clip(withoutEmoji(stripDashPunctuation(item?.text)), 40), at: sanitizeCue(item?.at) }))
@@ -249,6 +251,13 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
     // ce n est plus un choix de Claude, c est le reglage du formulaire / de la DA.
     captions: Boolean(captions),
   };
+
+  // Chiffre cle : jusqu a deux comparaisons { label, value }.
+  if (layout === 'stat') {
+    scene.compare = (Array.isArray(raw?.compare) ? raw.compare : []).slice(0, 2)
+      .map((row) => ({ label: clip(withoutEmoji(stripDashPunctuation(row?.label)), 24), value: clip(withoutEmoji(row?.value), 16) }))
+      .filter((row) => row.label && row.value);
+  }
 
   // Mise en page photo : une illustration du dossier, ou (si autorise, dans la limite du budget) une nouvelle image a generer.
   if (layout === 'photo') {
@@ -269,7 +278,7 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
     || (layout === 'photo' && !scene.image && !scene.newImage)
     || (layout === 'title' && !scene.title)
     || (layout === 'list' && scene.items.length < 2)
-    || ((layout === 'word' || layout === 'logo') && !scene.word);
+    || ((layout === 'word' || layout === 'logo' || layout === 'stat') && !scene.word);
   if (incomplete) {
     layout = 'avatar';
     scene.layout = layout;
@@ -277,6 +286,7 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
     delete scene.image;
     delete scene.newImage;
     delete scene.frame;
+    delete scene.compare;
   }
 
   scene.avatar = sanitizeAvatar(raw?.avatar, layout, packIds);
@@ -390,7 +400,7 @@ export function planForEditing(plan) {
     caption: plan?.caption || '',
     hashtags: plan?.hashtags || [],
     scenes: (plan?.scenes || []).map((scene) => Object.fromEntries(
-      ['say', 'layout', 'text', 'title', 'number', 'word', 'emoji', 'items', 'image', 'frame', 'bg', 'avatar', 'sfx']
+      ['say', 'layout', 'text', 'title', 'number', 'word', 'tab', 'emoji', 'items', 'compare', 'image', 'frame', 'bg', 'avatar', 'sfx']
         .filter((key) => key === 'say' || key === 'layout' || key === 'avatar' || compact(scene[key]))
         .map((key) => [key, scene[key]]),
     )),
