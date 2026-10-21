@@ -74,6 +74,9 @@
         <UiAlert v-if="da.template === 'fenetre'" tone="info" title="Modèle Fenêtre d’ordinateur" class="mt-3">
           Chaque scène s’affiche dans une fenêtre posée sur l’aplat de couleur. Ici comptent la palette (fond = couleur dominante, accent secondaire = mots en jaune), la police, le mouvement et les sous-titres. Le style des cartes, le fond, le décor et les transitions sont ceux du modèle.
         </UiAlert>
+        <UiAlert v-if="da.template === 'brutal'" tone="info" title="Modèle Affiche brutale" class="mt-3">
+          Capitales condensées énormes, noir et blanc cassé, un seul fluo sur le mot qui compte, cadre épais, coupes franches. Ici comptent la palette (accent = le fluo) et les sous-titres. La police, le style des cartes, le fond, le décor et les transitions sont ceux du modèle.
+        </UiAlert>
         <UiAlert v-if="da.template === 'editeur'" tone="info" title="Modèle Éditeur de code" class="mt-3">
           Chaque scène s’affiche comme du code dans un éditeur sombre, avec une phrase dessous et l’avatar dans une bulle ronde. Ici comptent la palette (accent = couleur de surbrillance, accent secondaire = mot clé de l’accroche), la police, le mouvement et les sous-titres. Le style des cartes, le fond, le décor et les transitions sont ceux du modèle.
         </UiAlert>
