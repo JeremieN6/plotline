@@ -148,7 +148,7 @@ export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = nu
     ...illustrationPromptLines(illustrations, maxNew),
     '',
     'Reponds uniquement avec un objet JSON brut, sans markdown ni commentaire. Forme exacte :',
-    '{"title": string, "caption": string (legende du post, 1 a 3 phrases), "hashtags": [string], "scenes": [{"say": string, "layout": string, "text"?: string, "title"?: string, "number"?: string, "word"?: string, "tab"?: string, "code"?: [string], "compare"?: [{"label": string, "value": string}], "image"?: string, "newImage"?: {"kind": string, "prompt": string}, "frame"?: string, "emoji"?: string, "items"?: [{"emoji": string, "text": string, "at": string}], "bg": string, "avatar": {...}, "sfx": [...], "captions": boolean}]}',
+    '{"title": string, "caption": string (legende du post, 1 a 3 phrases), "hashtags": [string], "scenes": [{"say": string, "layout": string, "text"?: string, "title"?: string, "number"?: string, "word"?: string, "tab"?: string, "code"?: [string], "compare"?: [{"label": string, "value": string}], "series"?: [{"label": string, "value": string}], "image"?: string, "newImage"?: {"kind": string, "prompt": string}, "frame"?: string, "emoji"?: string, "items"?: [{"emoji": string, "text": string, "sub"?: string, "at": string}], "bg": string, "avatar": {...}, "sfx": [...], "captions": boolean}]}',
   ].join('\n');
 }
 
@@ -247,7 +247,7 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
       .slice(0, 6),
     emoji: clip(raw?.emoji, 8),
     items: (Array.isArray(raw?.items) ? raw.items : []).slice(0, 4)
-      .map((item) => ({ emoji: clip(item?.emoji, 8), text: clip(withoutEmoji(stripDashPunctuation(item?.text)), 40), at: sanitizeCue(item?.at) }))
+      .map((item) => ({ emoji: clip(item?.emoji, 8), text: clip(withoutEmoji(stripDashPunctuation(item?.text)), 40), sub: clip(withoutEmoji(stripDashPunctuation(item?.sub)), 40), at: sanitizeCue(item?.at) }))
       .filter((item) => item.text),
     sfx: (Array.isArray(raw?.sfx) ? raw.sfx : []).slice(0, 2)
       .filter((s) => Object.hasOwn(FACELESS_SFX, s?.name))
@@ -257,8 +257,16 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
     captions: Boolean(captions),
   };
 
-  // Chiffre cle : jusqu a trois comparaisons { label, value } (le modele Fenetre n en montre que deux).
+  // Courbe du modele Dashboard : jusqu a 8 points { label, value } (valeurs du script seulement).
   if (layout === 'stat') {
+    scene.series = (Array.isArray(raw?.series) ? raw.series : []).slice(0, 8)
+      .map((row) => ({ label: clip(withoutEmoji(stripDashPunctuation(row?.label)), 10), value: clip(withoutEmoji(row?.value), 16) }))
+      .filter((row) => row.label && row.value);
+  }
+
+  // Comparaisons { label, value } (stat : avant / apres, jusqu a 3, le modele Fenetre n en montre que deux ;
+  // hook : deux petites cartes de metriques du modele Dashboard).
+  if (layout === 'stat' || layout === 'hook') {
     scene.compare = (Array.isArray(raw?.compare) ? raw.compare : []).slice(0, 3)
       .map((row) => ({ label: clip(withoutEmoji(stripDashPunctuation(row?.label)), 24), value: clip(withoutEmoji(row?.value), 16) }))
       .filter((row) => row.label && row.value);
@@ -292,6 +300,7 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
     delete scene.newImage;
     delete scene.frame;
     delete scene.compare;
+    delete scene.series;
   }
 
   scene.avatar = sanitizeAvatar(raw?.avatar, layout, packIds);
@@ -405,7 +414,7 @@ export function planForEditing(plan) {
     caption: plan?.caption || '',
     hashtags: plan?.hashtags || [],
     scenes: (plan?.scenes || []).map((scene) => Object.fromEntries(
-      ['say', 'layout', 'text', 'title', 'number', 'word', 'tab', 'code', 'emoji', 'items', 'compare', 'image', 'frame', 'bg', 'avatar', 'sfx']
+      ['say', 'layout', 'text', 'title', 'number', 'word', 'tab', 'code', 'emoji', 'items', 'compare', 'series', 'image', 'frame', 'bg', 'avatar', 'sfx']
         .filter((key) => key === 'say' || key === 'layout' || key === 'avatar' || compact(scene[key]))
         .map((key) => [key, scene[key]]),
     )),

@@ -244,6 +244,16 @@ export function appendStyleRule(style, rule) {
 
 /** Pur : description textuelle de la DA donnee a Claude. */
 export function describeStyleForPrompt(style) {
+  if (style.template === 'dashboard') {
+    const lines = [
+      `Direction artistique "${style.name}" : modèle DASHBOARD, une interface produit claire. Fond gris froid, cartes blanches, pastilles de statut, un graphique qui se construit sous les yeux. Rouge et vert uniquement pour une baisse ou une hausse, toujours avec un mot.`,
+      'Le texte à l\'écran ("text") est le titre d\'une carte : une phrase courte avec UN mot clé entre ** (il passe en couleur d\'accent). Chiffres UNIQUEMENT ceux du script.',
+      'Mises en page : "hook" (carte-titre ; "tab" = texte de la pastille, ex. "Alerte" ; "compare" de 2 éléments = deux petites cartes de métriques, avec un mot de sens comme "stables" ou "en baisse"), "title" ("title" = libellé de la carte ; "tab" = texte d\'une notification, facultatif ; l\'avatar apparaît ici), "list" ("title" = libellé ; 2 à 4 éléments avec "text" et une sous-ligne "sub"), "word" (un mot en très grand, "title" = libellé), "stat" ("title" = libellé, "word" = le chiffre final, "text" = pastille de variation ex. "↓ 3,1 pts", "compare" avant puis après, et "series" = les points de la courbe s\'il y en a au moins deux dans le script), "avatar" (appel à l\'action, avatar devant la carte), "photo", "logo".',
+      style.captions.enabled ? 'Sous-titres : en haut, dans une pastille blanche à point de couleur.' : 'Sous-titres : aucun.',
+    ];
+    if (style.rules) lines.push(`Règles de montage de cette DA :\n${style.rules}`);
+    return lines.join('\n');
+  }
   if (style.template === 'brutal') {
     const lines = [
       `Direction artistique "${style.name}" : modèle BRUTAL, affiche de stade. Capitales condensées énormes, noir et blanc cassé, UN seul fluo par écran sur le mot qui compte, cadre épais, coupes franches.`,
