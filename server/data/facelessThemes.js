@@ -20,6 +20,8 @@ export const FACELESS_FONTS = {
   anton: { label: 'Anton — condensée, affiche', family: 'Anton', file: 'fonts/Anton.ttf', weights: '400', stretch: '100%' },
   geist: { label: 'Geist — interface produit', family: 'Geist', file: 'fonts/Geist.ttf', weights: '100 900', stretch: '100%' },
   geistmono: { label: 'Geist Mono — libellés', family: 'Geist Mono', file: 'fonts/GeistMono.ttf', weights: '100 900', stretch: '100%' },
+  shipporimincho: { label: 'Shippori Mincho B1 — mincho japonais', family: 'Shippori Mincho B1', file: 'fonts/ShipporiMinchoB1-Bold.ttf', weights: '700', stretch: '100%' },
+  zenkaku: { label: 'Zen Kaku Gothic New — sans japonaise', family: 'Zen Kaku Gothic New', file: 'fonts/ZenKakuGothicNew-Bold.ttf', weights: '700', stretch: '100%' },
   spacemono: { label: 'Space Mono — légendes', family: 'Space Mono', file: 'fonts/SpaceMono.ttf', weights: '700', stretch: '100%' },
 };
 
@@ -36,13 +38,17 @@ export const FACELESS_TEMPLATES = {
   brutal: 'Affiche brutale',
   dashboard: 'Interface produit',
   herbier: 'Herbier (étiquette de produit)',
+  hanko: 'Hanko (affiche japonaise)',
 };
 
 // Police "code" des modeles qui en affichent (libelles, chiffres, onglets).
-export const FACELESS_TEMPLATE_MONO = { fenetre: 'jetbrainsmono', cahier: 'ibmplexmono', editeur: 'jetbrainsmono', brutal: 'spacemono', dashboard: 'geistmono', herbier: 'dmmono' };
+export const FACELESS_TEMPLATE_MONO = { fenetre: 'jetbrainsmono', cahier: 'ibmplexmono', editeur: 'jetbrainsmono', brutal: 'spacemono', dashboard: 'geistmono', herbier: 'dmmono', hanko: 'zenkaku' };
 
 // Polices en plus de la principale et de la mono d un modele (italiques, sans-serif) : chargees avec la page.
 export const FACELESS_TEMPLATE_EXTRA_FONTS = {
+  hanko: [
+    { family: 'Zen Kaku Gothic New', file: 'fonts/ZenKakuGothicNew-Black.ttf', weights: '900', style: 'normal' },
+  ],
   herbier: [
     { family: 'DM Serif Display', file: 'fonts/DMSerifDisplay-Italic.ttf', weights: '400', style: 'italic' },
     { family: 'DM Sans', file: 'fonts/DMSans.ttf', weights: '100 1000', style: 'normal' },
@@ -523,6 +529,37 @@ Object.assign(FACELESS_PRESETS, {
   'herbier-terracotta': herbier('herbier-terracotta', 'Herbier terracotta', 'Page d’herbier : papier crème, serif doux, rameau au trait, étiquette de produit décryptée ligne par ligne. Produits bio, hair care.', '#c4623a'),
   'herbier-lavande': herbier('herbier-lavande', 'Herbier lavande', 'L’herbier avec un accent lavande : soins apaisants.', '#7a68ad'),
   'herbier-argile': herbier('herbier-argile', 'Herbier rose argile', 'L’herbier avec un accent rose argile : beauté douce.', '#b8705f'),
+});
+
+// Modele "Hanko" : affiche de cinema japonais (papier creme, mincho, disque rouge, tampon, tier list).
+// accent = le disque, le tampon et le mot important (rouge par defaut) ; indigo et vert pin pour un ton plus calme.
+const HANKO_RULES = 'Affiche de cinéma japonais : papier crème, grand serif mincho, un disque rouge, un tampon (hanko) pour faire claquer un avis, une tier list pour classer. Phrases courtes, UN mot ou groupe de mots entre ** par phrase (il devient rouge et se souligne). Un seul clin d’œil au Japon par écran : le champ "jp" (1 à 4 caractères japonais, katakana ou kanji, ex. "アニメ", "傑作") sert de katakana vertical sur une accroche et de tampon sur un mot clé ; laisse-le vide quand il ne colle pas, et n’en mets jamais deux par écran. Classe avec "list" : chaque élément est une rangée de tier list, S puis A puis B dans l’ordre (ou la lettre voulue dans "sub"). "word" pour le verdict en un mot, "photo" pour une affiche avec une note dans "tab" (ex. "9/10") et des genres dans "items". Aucun emoji.';
+const hanko = (key, label, description, accent) => ({
+  label,
+  description,
+  style: {
+    name: label,
+    preset: key,
+    template: 'hanko',
+    palette: {
+      background: '#f3efe6', backgroundAlt: '#e4ded0', dark: '#141414', text: '#141414', accent, accent2: '#6b665b', card: '#fffdf7', cardText: '#141414',
+    },
+    font: 'shipporimincho',
+    card: 'flat',
+    background: 'solid',
+    decor: 'none',
+    motion: 'smooth',
+    enters: ['cut'],
+    captions: { enabled: true, position: 'top', style: 'plain' },
+    density: 'sobre',
+    rules: HANKO_RULES,
+    avatarPrompt: 'fidèle à l’image de base du personnage, expressions très marquées, rendu net',
+  },
+});
+Object.assign(FACELESS_PRESETS, {
+  'hanko-rouge': hanko('hanko-rouge', 'Hanko rouge', 'Affiche de cinéma japonais : papier crème, mincho, disque rouge, tampon, tier list. Anime, cinéma, avis de fan.', '#e5322d'),
+  'hanko-indigo': hanko('hanko-indigo', 'Hanko indigo', 'L’affiche japonaise avec un accent indigo : plus calme, pour le drame.', '#2b3a67'),
+  'hanko-pin': hanko('hanko-pin', 'Hanko vert pin', 'L’affiche japonaise avec un accent vert pin : nature, contemplatif.', '#2f5d50'),
 });
 
 export const DEFAULT_PRESET = 'papercraft-pastel';
