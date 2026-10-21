@@ -1,11 +1,12 @@
 import { buildChibiSvg } from './facelessAvatar.js';
-import { FACELESS_FONTS, FACELESS_TEMPLATE_MONO } from '../data/facelessThemes.js';
+import { FACELESS_FONTS, FACELESS_TEMPLATE_EXTRA_FONTS, FACELESS_TEMPLATE_MONO } from '../data/facelessThemes.js';
 import { normalizeFacelessStyle } from './facelessStyle.js';
 import { FENETRE_CAPTION_TOP, fenetreCss, fenetreScene } from './facelessTemplateFenetre.js';
 import { CAHIER_CAPTION_TOP, cahierCss, cahierScene } from './facelessTemplateCahier.js';
 import { EDITEUR_CAPTION_TOP, editeurCss, editeurScene } from './facelessTemplateEditeur.js';
 import { BRUTAL_CAPTION_TOP, brutalBg, brutalCss, brutalScene } from './facelessTemplateBrutal.js';
 import { DASHBOARD_CAPTION_TOP, dashboardBg, dashboardCss, dashboardScene } from './facelessTemplateDashboard.js';
+import { HERBIER_CAPTION_TOP, herbierCss, herbierScene } from './facelessTemplateHerbier.js';
 
 // Modeles visuels autres que "classic" : dessin des scenes, feuille de style, place des sous-titres.
 const ENGINES = {
@@ -13,6 +14,7 @@ const ENGINES = {
   cahier: { scene: cahierScene, css: cahierCss, captionTop: CAHIER_CAPTION_TOP, capWrap: false },
   editeur: { scene: editeurScene, css: editeurCss, captionTop: EDITEUR_CAPTION_TOP, capWrap: true },
   // "bg" : le modele choisit lui-meme le fond de chaque scene (le mot geant est inverse).
+  herbier: { scene: herbierScene, css: herbierCss, captionTop: HERBIER_CAPTION_TOP, capWrap: true },
   dashboard: { scene: dashboardScene, css: dashboardCss, captionTop: DASHBOARD_CAPTION_TOP, capWrap: true, bg: dashboardBg },
   brutal: { scene: brutalScene, css: brutalCss, captionTop: BRUTAL_CAPTION_TOP, capWrap: true, bg: brutalBg },
 };
@@ -317,6 +319,16 @@ function fontFace(font) {
   return `@font-face{font-family:"${font.family}";src:url("${FACELESS_ASSET_ORIGIN}/${font.file}") format("truetype");font-weight:${font.weights};font-stretch:${font.stretch}}\n`;
 }
 
+/** Specification de chargement (document.fonts.load) d une police supplementaire. */
+function fontLoadSpec(f) {
+  return (f.style === 'italic' ? 'italic ' : '') + f.weights.split(' ')[0] + ' 100px "' + f.family + '"';
+}
+
+/** Police supplementaire d un modele (graisses ou italique en plus de la police principale). */
+function extraFontFace(f) {
+  return `@font-face{font-family:"${f.family}";src:url("${FACELESS_ASSET_ORIGIN}/${f.file}") format("truetype");font-weight:${f.weights};font-style:${f.style || 'normal'}}\n`;
+}
+
 function buildCss(style) {
   const p = style.palette;
   const font = FACELESS_FONTS[style.font];
@@ -388,7 +400,7 @@ ${capStyle}
 }
 
 // Execute dans la page. Aucune animation CSS : tout depend de t.
-function buildRuntime(fontFamilies) {
+function buildRuntime(fontFamilies, extraLoads = []) {
   return `
 (() => {
   const data = JSON.parse(document.getElementById('timeline').textContent);
@@ -424,6 +436,12 @@ function buildRuntime(fontFamilies) {
     'alert-in': { dur: 0.35, f: (p) => { const e = cubic(p); return { x: 80 * (1 - e), o: e }; } },
     pill: { dur: 0.25, f: (p) => ({ s: Math.max(0, 0.7 + 0.3 * backC(p, 2)), o: clamp(p * 4) }) },
     'word-rise': { dur: 0.25, f: (p) => { const e = cubic(p); return { y: 12 * (1 - e), o: e }; } },
+    // Herbier : doux et naturel. Les mots arrivent en 0,5 s (flou 6 -> 0), l etiquette monte, le mot geant se pose.
+    'serif-in': { dur: 0.5, f: (p) => { const e = 1 - Math.pow(1 - p, 2); return { y: 14 * (1 - e), b: 6 * (1 - e), o: p }; } },
+    'rise-card': { dur: 0.35, f: (p) => { const e = cubic(p); return { y: 24 * (1 - e), o: e }; } },
+    'rise-label': { dur: 0.4, f: (p) => { const e = cubic(p); return { y: 60 * (1 - e), o: e }; } },
+    'herb-giant': { dur: 0.8, f: (p) => { const e = cubic(p); return { s: 0.95 + 0.05 * e, b: 16 * (1 - e), o: p }; } },
+    disc: { dur: 0.5, f: (p) => { const e = cubic(p); return { s: 0.85 + 0.15 * e, o: e }; } },
     wipe: { dur: 0.22, f: (p) => { const e = expo(p); return { x: -120 * (1 - e), c: 1 - e }; } },
     stamp: { dur: 0.15, f: (p) => { const e = expo(p); return { s: 1.5 - 0.5 * e, o: clamp(p * 4) }; } },
     fall: { dur: 0.15, f: (p) => { const e = cubic(p); return { y: -60 * (1 - e), o: clamp(p * 4) }; } },
@@ -543,7 +561,20 @@ function buildRuntime(fontFamilies) {
       });
       // Points du graphique : ils apparaissent quand la courbe les atteint.
       el.querySelectorAll('[data-pop-at]').forEach((pt) => {
-        pt.style.transform = 'scale(' + Math.max(0, backC(clamp((local - +pt.dataset.popAt) / 0.2), 2)).toFixed(3) + ')';
+        pt.style.transform = 'scale(' + Math.max(0, backC(clamp((local - +pt.dataset.popAt) / (+pt.dataset.popDur || 0.2)), +pt.dataset.popC || 2)).toFixed(3) + ')';
+      });
+      // Balancement leger d un rameau (rotation = deg * sin(2 pi t / 4)).
+      el.querySelectorAll('[data-sway]').forEach((sw) => {
+        sw.style.transform = 'rotate(' + (+sw.dataset.sway * Math.sin(2 * Math.PI * t / 4)).toFixed(3) + 'deg)';
+      });
+      // Fondu d un fond (ingredient juge bon) et trait qui balaie une etiquette de haut en bas (lineaire).
+      el.querySelectorAll('[data-fade-at]').forEach((fd) => {
+        fd.style.opacity = clamp((local - +fd.dataset.fadeAt) / (+fd.dataset.fadeDur || 0.2)).toFixed(3);
+      });
+      el.querySelectorAll('[data-scan-at]').forEach((sc2) => {
+        const p = (local - +sc2.dataset.scanAt) / (+sc2.dataset.scanDur || 1);
+        sc2.style.opacity = p >= 0 && p <= 1 ? '1' : '0';
+        sc2.style.transform = 'translateY(' + (clamp(p) * +sc2.dataset.scanH).toFixed(1) + 'px)';
       });
       // Halo du dernier point : il pulse (rayon 28 + 6 sin(2 pi t / 1,4)).
       el.querySelectorAll('[data-halo-at]').forEach((hl) => {
@@ -594,7 +625,7 @@ function buildRuntime(fontFamilies) {
   window.__ready = Promise.all(${JSON.stringify(fontFamilies)}.flatMap((family) => [
     document.fonts.load('700 100px "' + family + '"', 'Aa€…'),
     document.fonts.load('400 100px "' + family + '"', 'Aa'),
-  ])).catch(() => null).then(() => document.fonts.ready).then(() => Promise.all(
+  ]).concat(${JSON.stringify(extraLoads)}.map((spec) => document.fonts.load(spec, 'Aa€…')))).catch(() => null).then(() => document.fonts.ready).then(() => Promise.all(
     [...document.images].map((img) => (img.complete ? null : new Promise((resolve) => { img.onload = resolve; img.onerror = resolve; }))),
   )).then(() => {
     scenes.forEach((s) => { s.style.display = 'block'; });
@@ -667,11 +698,12 @@ export function buildFacelessHtml(timeline, options = {}) {
 
   const font = FACELESS_FONTS[style.font];
   const mono = engine ? FACELESS_FONTS[FACELESS_TEMPLATE_MONO[style.template]] : null;
+  const extraFaces = engine ? (FACELESS_TEMPLATE_EXTRA_FONTS[style.template] || []) : [];
   const css = engine
-    ? fontFace(font) + fontFace(mono) + engine.css(style, { fontFamily: font.family, monoFamily: mono.family, emojiFonts: EMOJI_FONTS })
+    ? fontFace(font) + fontFace(mono) + extraFaces.map(extraFontFace).join('') + engine.css(style, { fontFamily: font.family, monoFamily: mono.family, emojiFonts: EMOJI_FONTS })
     : buildCss(style);
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>${css}</style></head><body>`
     + `${scenesHtml}<div id="captions"></div>`
     + `<script type="application/json" id="timeline">${JSON.stringify(runtimeData).replace(/</g, '\\u003c')}</script>`
-    + `<script>${buildRuntime(mono ? [font.family, mono.family] : [font.family])}</script></body></html>`;
+    + `<script>${buildRuntime(mono ? [font.family, mono.family] : [font.family], extraFaces.map(fontLoadSpec))}</script></body></html>`;
 }

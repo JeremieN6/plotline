@@ -473,10 +473,10 @@ test('generateFacelessStyle : voix par defaut selon le genre de la persona', asy
   assert.equal(female.voiceId, 'cgSgspJ2msm6clMCkdW9');
 });
 
-test('modeles de DA : 28 au total, chacun complet et normalisable sans perte', async () => {
+test('modeles de DA : 31 au total, chacun complet et normalisable sans perte', async () => {
   const { FACELESS_PRESETS } = await import('../server/data/facelessThemes.js');
   const keys = Object.keys(FACELESS_PRESETS);
-  assert.deepEqual(keys, ['papercraft-pastel', 'brutalisme', 'cahier-ecolier', 'neon-nuit', 'kraft-carnet', 'luxe-minimal', 'pop-jaune', 'atelier-vert', 'atelier-bleu', 'atelier-bordeaux', 'terminal', 'fenetre-orange', 'fenetre-cobalt', 'fenetre-olive', 'fenetre-baie', 'cahier-vert', 'cahier-bleu', 'cahier-brique', 'editeur-cyan', 'editeur-corail', 'editeur-jaune', 'brutal-fluo', 'brutal-rose', 'brutal-orange', 'brutal-cyan', 'dashboard-indigo', 'dashboard-vert', 'dashboard-bleu']);
+  assert.deepEqual(keys, ['papercraft-pastel', 'brutalisme', 'cahier-ecolier', 'neon-nuit', 'kraft-carnet', 'luxe-minimal', 'pop-jaune', 'atelier-vert', 'atelier-bleu', 'atelier-bordeaux', 'terminal', 'fenetre-orange', 'fenetre-cobalt', 'fenetre-olive', 'fenetre-baie', 'cahier-vert', 'cahier-bleu', 'cahier-brique', 'editeur-cyan', 'editeur-corail', 'editeur-jaune', 'brutal-fluo', 'brutal-rose', 'brutal-orange', 'brutal-cyan', 'dashboard-indigo', 'dashboard-vert', 'dashboard-bleu', 'herbier-terracotta', 'herbier-lavande', 'herbier-argile']);
   for (const key of keys) {
     const base = FACELESS_PRESETS[key].style;
     assert.equal(base.preset, key);

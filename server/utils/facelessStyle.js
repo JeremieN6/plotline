@@ -244,6 +244,16 @@ export function appendStyleRule(style, rule) {
 
 /** Pur : description textuelle de la DA donnee a Claude. */
 export function describeStyleForPrompt(style) {
+  if (style.template === 'herbier') {
+    const lines = [
+      `Direction artistique "${style.name}" : modèle HERBIER, pour un persona produits bio et hair care. Papier crème, serif doux, un rameau de feuilles au trait, et une ÉTIQUETTE DE PRODUIT décryptée ligne par ligne. Naturel, rassurant, mais précis : le persona lit les ingrédients pour la personne.`,
+      'Le texte à l\'écran ("text", ou "title" pour une liste) est un titre en serif avec UN mot ou groupe de mots entre ** (il passe en italique de couleur). Rouge et vert uniquement pour JUGER un ingrédient, avec un mot et un signe.',
+      'Mises en page : "hook" (titre + rameau qui pousse ; "title" = petit libellé en capitales, ex. "Décryptage"), "title" ("title" = libellé ; l\'avatar apparaît dans un disque de sauge), "list" ("tab" = libellé, "title" = titre, éléments avec "tone" : good par défaut, avoid pour ce qu\'on évite), "word" (un ingrédient en très grand ; "text" = son nom latin), "label" (l\'étiquette : "title" = libellé, "tab" = contenance, 4 à 8 "items" avec "tone" avoid / good / watch et "sub" = mot court de la pastille, "text" = le verdict), "stat", "avatar" (appel à l\'action), "photo", "logo". Ne juge que ce que le script dit.',
+      style.captions.enabled ? 'Sous-titres : en haut, dans une pastille beige.' : 'Sous-titres : aucun.',
+    ];
+    if (style.rules) lines.push(`Règles de montage de cette DA :\n${style.rules}`);
+    return lines.join('\n');
+  }
   if (style.template === 'dashboard') {
     const lines = [
       `Direction artistique "${style.name}" : modèle DASHBOARD, une interface produit claire. Fond gris froid, cartes blanches, pastilles de statut, un graphique qui se construit sous les yeux. Rouge et vert uniquement pour une baisse ou une hausse, toujours avec un mot.`,

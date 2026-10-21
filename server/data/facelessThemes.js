@@ -14,6 +14,9 @@ export const FACELESS_FONTS = {
   intertight: { label: 'Inter Tight — éditoriale, serrée', family: 'Inter Tight', file: 'fonts/InterTight.ttf', weights: '100 900', stretch: '100%' },
   ibmplexmono: { label: 'IBM Plex Mono — libellés, chiffres', family: 'IBM Plex Mono', file: 'fonts/IBMPlexMono.ttf', weights: '500', stretch: '100%' },
   sora: { label: 'Sora — géométrique, tech', family: 'Sora', file: 'fonts/Sora.ttf', weights: '100 800', stretch: '100%' },
+  dmserif: { label: 'DM Serif Display — serif doux', family: 'DM Serif Display', file: 'fonts/DMSerifDisplay.ttf', weights: '400', stretch: '100%' },
+  dmsans: { label: 'DM Sans — sans-serif douce', family: 'DM Sans', file: 'fonts/DMSans.ttf', weights: '100 1000', stretch: '100%' },
+  dmmono: { label: 'DM Mono — libellés', family: 'DM Mono', file: 'fonts/DMMono.ttf', weights: '500', stretch: '100%' },
   anton: { label: 'Anton — condensée, affiche', family: 'Anton', file: 'fonts/Anton.ttf', weights: '400', stretch: '100%' },
   geist: { label: 'Geist — interface produit', family: 'Geist', file: 'fonts/Geist.ttf', weights: '100 900', stretch: '100%' },
   geistmono: { label: 'Geist Mono — libellés', family: 'Geist Mono', file: 'fonts/GeistMono.ttf', weights: '100 900', stretch: '100%' },
@@ -32,10 +35,20 @@ export const FACELESS_TEMPLATES = {
   editeur: 'Éditeur de code',
   brutal: 'Affiche brutale',
   dashboard: 'Interface produit',
+  herbier: 'Herbier (étiquette de produit)',
 };
 
 // Police "code" des modeles qui en affichent (libelles, chiffres, onglets).
-export const FACELESS_TEMPLATE_MONO = { fenetre: 'jetbrainsmono', cahier: 'ibmplexmono', editeur: 'jetbrainsmono', brutal: 'spacemono', dashboard: 'geistmono' };
+export const FACELESS_TEMPLATE_MONO = { fenetre: 'jetbrainsmono', cahier: 'ibmplexmono', editeur: 'jetbrainsmono', brutal: 'spacemono', dashboard: 'geistmono', herbier: 'dmmono' };
+
+// Polices en plus de la principale et de la mono d un modele (italiques, sans-serif) : chargees avec la page.
+export const FACELESS_TEMPLATE_EXTRA_FONTS = {
+  herbier: [
+    { family: 'DM Serif Display', file: 'fonts/DMSerifDisplay-Italic.ttf', weights: '400', style: 'italic' },
+    { family: 'DM Sans', file: 'fonts/DMSans.ttf', weights: '100 1000', style: 'normal' },
+    { family: 'DM Mono', file: 'fonts/DMMono-Italic.ttf', weights: '500', style: 'italic' },
+  ],
+};
 
 export const FACELESS_CARD_STYLES = {
   torn: 'Papier déchiré avec scotch',
@@ -479,6 +492,37 @@ Object.assign(FACELESS_PRESETS, {
   'dashboard-indigo': dashboard('dashboard-indigo', 'Dashboard indigo', 'Interface produit claire : cartes blanches, pastilles, un graphique qui se construit. SaaS, business, chiffres.', '#4f46e5'),
   'dashboard-vert': dashboard('dashboard-vert', 'Dashboard vert', 'L’interface produit avec un accent vert profond : finance, croissance.', '#0b7a5a'),
   'dashboard-bleu': dashboard('dashboard-bleu', 'Dashboard bleu', 'L’interface produit avec un accent bleu : plus corporate.', '#1d4ed8'),
+});
+
+// Modele "Herbier" : page d herbier (papier creme, serif doux, rameau au trait) et etiquette de produit decryptee ligne par ligne.
+// accent = le mot en italique et le trait actif (terracotta par defaut) ; le rouge et le vert ne servent qu a juger un ingredient.
+const HERBIER_RULES = 'Naturel, rassurant, précis : le persona lit les ingrédients pour la personne. Phrases courtes en deux niveaux, UN mot ou groupe de mots entre ** par phrase (il passe en italique de couleur). Pour décrypter une étiquette de produit, utilise "label" : "items" = 4 à 8 ingrédients dans l’ordre de l’étiquette, chacun avec "tone" : "avoid" (à éviter, barré en rouge), "good" (à rechercher, surligné en vert) ou "watch" (à surveiller) ; ajoute "sub" (un mot court : sulfate, aloe vera) aux ingrédients jugés, "text" = le verdict ("Verdict : **à reposer.**"). Ne juge QUE ce que le script dit. Pour une liste de repères, "list" avec "tone" par élément (good par défaut). "word" pour un ingrédient (le mot) avec son nom latin dans "text". Aucun emoji.';
+const herbier = (key, label, description, accent) => ({
+  label,
+  description,
+  style: {
+    name: label,
+    preset: key,
+    template: 'herbier',
+    palette: {
+      background: '#f6f2e8', backgroundAlt: '#dce5d0', dark: '#1f3a2b', text: '#1f3a2b', accent, accent2: '#9db08c', card: '#fffdf8', cardText: '#1f3a2b',
+    },
+    font: 'dmserif',
+    card: 'flat',
+    background: 'solid',
+    decor: 'none',
+    motion: 'smooth',
+    enters: ['cut'],
+    captions: { enabled: true, position: 'top', style: 'box' },
+    density: 'sobre',
+    rules: HERBIER_RULES,
+    avatarPrompt: 'fidèle à l’image de base du personnage, expressions marquées, rendu net et doux',
+  },
+});
+Object.assign(FACELESS_PRESETS, {
+  'herbier-terracotta': herbier('herbier-terracotta', 'Herbier terracotta', 'Page d’herbier : papier crème, serif doux, rameau au trait, étiquette de produit décryptée ligne par ligne. Produits bio, hair care.', '#c4623a'),
+  'herbier-lavande': herbier('herbier-lavande', 'Herbier lavande', 'L’herbier avec un accent lavande : soins apaisants.', '#7a68ad'),
+  'herbier-argile': herbier('herbier-argile', 'Herbier rose argile', 'L’herbier avec un accent rose argile : beauté douce.', '#b8705f'),
 });
 
 export const DEFAULT_PRESET = 'papercraft-pastel';
