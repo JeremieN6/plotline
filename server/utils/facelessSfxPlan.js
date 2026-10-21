@@ -32,37 +32,43 @@ export function adaptSfxName(name, key) {
 
 /**
  * Pur : applique les regles d espacement aux bruitages d une timeline.
- * `sfx` : [{ name, start, gain, scene, cued }] ; `scenes` : scenes placees (start, end, voiceStart, words).
+ * `sfx` : [{ name, start, gain, scene, cued, engine?, role?, weight? }] : les sons proposes par Claude (cales sur
+ * un mot) ET ceux du moteur (`engine: true`, voir facelessSfxEvents.js : poses sur une animation de l ecran) ;
+ * `scenes` : scenes placees (start, end, voiceStart, words).
  *  - le son est remplace par celui de la palette de la DA (ou supprime) ;
- *  - aucun son dans une scene de moins de `minScene` secondes ;
- *  - aucun son avant la fin du premier mot de la scene (le son ne demarre jamais en meme temps que la voix) ;
- *  - au moins `minGap` secondes entre deux sons (un son cale sur un mot passe avant un son de debut de scene) ;
- *  - jamais deux fois le meme son de suite ;
+ *  - aucun son dans une scene de moins de `minScene` secondes (1,5 s pour un son du moteur) ;
+ *  - un son de Claude ne demarre jamais avant la fin du premier mot de la scene (un son du moteur est cale sur
+ *    l animation, la voix baisse dessous) ;
+ *  - au moins `minGap` secondes entre deux sons ; le plus important (poids) reste : un son de sens cale sur un mot
+ *    (1,3) passe avant un tampon (1,5 : le plus fort) ou une rangee de liste (1), puis le plus tot ;
+ *  - jamais deux fois le meme son de suite (sauf les rangees d une meme liste) ;
  *  - chaque son est coupe (`maxDur`) avant le son suivant et avant la scene suivante.
  */
-export function finalizeSfx(sfx, scenes, { paletteKey = 'full', minGap = 2.5, minScene = 2 } = {}) {
+export function finalizeSfx(sfx, scenes, { paletteKey = 'full', minGap = 1.8, minScene = 2, minSceneEngine = 1.5 } = {}) {
   const sceneAt = (entry) => scenes[entry.scene] || scenes.find((s) => entry.start >= s.start && entry.start < s.end);
   const candidates = [];
   for (const entry of sfx || []) {
     const name = adaptSfxName(entry.name, paletteKey);
     const scene = sceneAt(entry);
     if (!name || !scene) continue;
-    if (scene.end - scene.start < minScene) continue;
+    if (scene.end - scene.start < (entry.engine ? minSceneEngine : minScene)) continue;
     const firstWord = scene.words?.[0];
-    if (firstWord && entry.start < firstWord.end) continue;
-    candidates.push({ ...entry, name, sceneEnd: scene.end });
+    if (!entry.engine && firstWord && entry.start < firstWord.end) continue;
+    candidates.push({ ...entry, name, sceneEnd: scene.end, weight: entry.weight ?? (entry.cued ? 1.3 : 1) });
   }
 
-  // Priorite aux sons cales sur un mot, puis au plus tot ; on garde ceux qui respectent l ecart.
+  // Priorite au poids, puis au plus tot ; on garde ceux qui respectent l ecart.
   const kept = [];
-  for (const entry of [...candidates].sort((a, b) => (Number(Boolean(b.cued)) - Number(Boolean(a.cued))) || a.start - b.start)) {
+  for (const entry of [...candidates].sort((a, b) => (b.weight - a.weight) || a.start - b.start)) {
     if (kept.every((other) => Math.abs(other.start - entry.start) >= minGap)) kept.push(entry);
   }
   kept.sort((a, b) => a.start - b.start);
 
   const out = [];
   for (const entry of kept) {
-    if (out.length && out[out.length - 1].name === entry.name) continue;
+    const previous = out[out.length - 1];
+    const sameList = previous && previous.role === 'item' && entry.role === 'item' && previous.scene === entry.scene;
+    if (previous && previous.name === entry.name && !sameList) continue;
     out.push(entry);
   }
   return out.map((entry, i) => {

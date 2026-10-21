@@ -11,6 +11,7 @@ import { FACELESS_SFX_PALETTES, FACELESS_SFX_ROLES } from '../server/data/facele
 import { adaptSfxName, buildDuckEnvelope, finalizeSfx, sfxPaletteKey, sfxPaletteNames } from '../server/utils/facelessSfxPlan.js';
 import { buildFacelessPlanSystemPrompt } from '../server/utils/facelessPlanGenerator.js';
 import { defaultFacelessStyle } from '../server/utils/facelessStyle.js';
+import { engineSfx, sceneSoundEvents } from '../server/utils/facelessSfxEvents.js';
 import { encodeWav } from '../server/utils/facelessSfxSynth.js';
 import { MIX_SAMPLE_RATE, mixFacelessAudio } from '../server/utils/facelessRenderer.js';
 
@@ -92,7 +93,8 @@ test('prompt : seuls les sons de la palette sont proposes, avec les regles d esp
   assert.match(tech, /tech\/key-tap/);
   assert.doesNotMatch(tech, /girly\/heart-boop/);
   assert.match(tech, /AUCUN bruitage dans une scene de moins de 2 secondes/);
-  assert.match(tech, /au moins 2,5 secondes entre deux bruitages/);
+  assert.match(tech, /AUTOMATIQUEMENT les sons d.interface/);
+  assert.match(tech, /SENS d.un mot/);
   const playful = buildFacelessPlanSystemPrompt({ style: defaultFacelessStyle('pop-jaune', 'MALE') });
   assert.match(playful, /girly\/heart-boop/);
   assert.doesNotMatch(playful, /tech\/key-tap/);
@@ -123,4 +125,46 @@ test('mixage : la voix baisse sous un son, un son est coupe a maxDur, et la voix
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+const placed = (layout, extra = {}, start = 0, end = 6) => ({ layout, start, end, voiceStart: start, words: [{ text: 'mot', start, end: start + 0.4 }], items: [], ...extra });
+
+test('evenements du moteur : une rangee de liste = un son a son instant, un tampon Hanko = un son fort', () => {
+  const list = sceneSoundEvents(placed('list', { items: [{ at: 1, tone: '' }, { at: 2.5, tone: 'avoid' }, { at: 9, tone: '' }] }), { template: 'classic' });
+  assert.deepEqual(list.map((e) => [e.role, e.at]), [['item', 1], ['error', 2.5], ['item', 5.5]], 'le dernier est ramene dans la scene');
+  const word = sceneSoundEvents(placed('word', { jp: '傑作' }), { template: 'hanko' });
+  assert.equal(word[0].role, 'strong');
+  assert.ok(word[0].weight >= 1.5);
+  assert.equal(sceneSoundEvents(placed('word'), { template: 'hanko' })[0].at, 0.25, 'sans tampon, le mot se pose');
+  assert.deepEqual(sceneSoundEvents(placed('hook'), { template: 'classic' }), [], 'pas de son sur l accroche');
+  const journal = sceneSoundEvents(placed('list', { items: [{ at: 1, tone: '' }, { at: 2, tone: 'watch' }] }), { template: 'journal' });
+  assert.equal(journal.length, 1, 'une ligne a venir ne sonne pas');
+  assert.ok(sceneSoundEvents(placed('photo'), { template: 'journal' }).some((e) => e.role === 'click'));
+  const label = sceneSoundEvents(placed('label', { items: [{ tone: 'avoid' }, { tone: '' }, { tone: 'good' }] }), { template: 'herbier' });
+  assert.deepEqual(label.map((e) => e.role), ['error', 'good'], 'seuls les ingredients juges sonnent');
+});
+
+test('engineSfx : le son vient de la palette de la DA et se pose a l instant de l animation', () => {
+  const scenes = [placed('title', {}, 0, 5), placed('list', { items: [{ at: 1 }] }, 5, 12)];
+  const tech = engineSfx(scenes, { template: 'editeur' }, 'tech');
+  assert.ok(tech.every((s) => s.engine && s.cued));
+  assert.ok(tech.some((s) => s.name === 'tech/terminal-blip' && Math.abs(s.start - 6) < 1e-6), 'rangee a 5 + 1 s');
+  const full = engineSfx(scenes, { template: 'classic' }, 'full');
+  assert.ok(full.some((s) => s.name === 'paper/sticker-peel'));
+});
+
+test('finalizeSfx avec le moteur : un son de sens de Claude et un son du moteur trop proches, le plus important reste', () => {
+  const scenes = [placed('list', { items: [{ at: 2 }] }, 0, 10)];
+  const engine = engineSfx(scenes, { template: 'classic' }, 'full');
+  const out = finalizeSfx([...engine, { name: 'fail-error/nope', start: 2.6, scene: 0, cued: true }], scenes, { paletteKey: 'full' });
+  assert.deepEqual(out.map((s) => s.name), ['fail-error/nope'], 'le son de sens (1,3) passe avant la rangee (1)');
+  const rows = placed('list', { items: [{ at: 1 }, { at: 3.2 }, { at: 5.4 }] }, 0, 10);
+  const three = finalizeSfx(engineSfx([rows], { template: 'classic' }, 'full'), [rows], { paletteKey: 'full' });
+  assert.equal(three.length, 3, 'les rangees d une liste gardent le meme son');
+});
+
+test('finalizeSfx : un son du moteur reste dans une scene de 1,6 s, pas un son de Claude', () => {
+  const scenes = [placed('word', {}, 0, 1.6)];
+  const out = finalizeSfx([...engineSfx(scenes, { template: 'classic' }, 'full'), { name: 'ui/pop', start: 1, scene: 0, cued: true }], scenes, { paletteKey: 'full' });
+  assert.deepEqual(out.map((s) => s.name), ['paper/stamp-thump']);
 });
