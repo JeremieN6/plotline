@@ -244,6 +244,16 @@ export function appendStyleRule(style, rule) {
 
 /** Pur : description textuelle de la DA donnee a Claude. */
 export function describeStyleForPrompt(style) {
+  if (style.template === 'brutal') {
+    const lines = [
+      `Direction artistique "${style.name}" : modèle BRUTAL, affiche de stade. Capitales condensées énormes, noir et blanc cassé, UN seul fluo par écran sur le mot qui compte, cadre épais, coupes franches.`,
+      'Le texte à l\'écran ("text", ou "title" pour une liste) est découpé en lignes d\'affiche : 3 à 7 mots, avec UN seul mot ou groupe de mots entre ** (il devient le bloc fluo). Pas de phrase longue.',
+      'Mises en page : "hook" (4 lignes énormes), "title" et "avatar" (phrase + petit avatar posé sur l’affiche : le seul endroit où il apparaît), "list" (2 à 4 rangées numérotées de 1 à 3 mots), "word" (le mot s\'affiche 5 fois en cascade, 12 caractères max), "stat" (chiffre clé + "compare" de 2 ou 3 valeurs, uniquement des chiffres dits), "photo", "logo". Le champ "tab" est une petite légende en bas de l\'accroche (facultatif).',
+      style.captions.enabled ? 'Sous-titres : en haut, dans une étiquette noire à ombre fluo.' : 'Sous-titres : aucun.',
+    ];
+    if (style.rules) lines.push(`Règles de montage de cette DA :\n${style.rules}`);
+    return lines.join('\n');
+  }
   if (style.template === 'editeur') {
     const lines = [
       `Direction artistique "${style.name}" : modèle ÉDITEUR. Chaque scène s'affiche dans un éditeur de code sombre (lignes numérotées, coloration syntaxique, frappe au fil de la voix), avec une phrase de conclusion en dessous ; l'avatar apparaît dans une bulle ronde (chapitre, appel à l'action).`,

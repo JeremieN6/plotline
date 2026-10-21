@@ -4,12 +4,15 @@ import { normalizeFacelessStyle } from './facelessStyle.js';
 import { FENETRE_CAPTION_TOP, fenetreCss, fenetreScene } from './facelessTemplateFenetre.js';
 import { CAHIER_CAPTION_TOP, cahierCss, cahierScene } from './facelessTemplateCahier.js';
 import { EDITEUR_CAPTION_TOP, editeurCss, editeurScene } from './facelessTemplateEditeur.js';
+import { BRUTAL_CAPTION_TOP, brutalBg, brutalCss, brutalScene } from './facelessTemplateBrutal.js';
 
 // Modeles visuels autres que "classic" : dessin des scenes, feuille de style, place des sous-titres.
 const ENGINES = {
   fenetre: { scene: fenetreScene, css: fenetreCss, captionTop: FENETRE_CAPTION_TOP, capWrap: true },
   cahier: { scene: cahierScene, css: cahierCss, captionTop: CAHIER_CAPTION_TOP, capWrap: false },
   editeur: { scene: editeurScene, css: editeurCss, captionTop: EDITEUR_CAPTION_TOP, capWrap: true },
+  // "bg" : le modele choisit lui-meme le fond de chaque scene (le mot geant est inverse).
+  brutal: { scene: brutalScene, css: brutalCss, captionTop: BRUTAL_CAPTION_TOP, capWrap: true, bg: brutalBg },
 };
 
 /**
@@ -412,6 +415,11 @@ function buildRuntime(fontFamilies) {
     'rise-soft': { dur: 0.4, f: (p) => { const e = cubic(p); return { y: 80 * (1 - e), o: e }; } },
     'fade-in': { dur: 0.3, f: (p) => ({ o: p }) },
     flag: { dur: 0.3, f: (p) => ({ sy: backC(p, 1.6) }) },
+    // Brutal : coupes franches. Les lignes s ouvrent de gauche a droite (masque), le numero tombe en frappe.
+    wipe: { dur: 0.22, f: (p) => { const e = expo(p); return { x: -120 * (1 - e), c: 1 - e }; } },
+    stamp: { dur: 0.15, f: (p) => { const e = expo(p); return { s: 1.5 - 0.5 * e, o: clamp(p * 4) }; } },
+    fall: { dur: 0.15, f: (p) => { const e = cubic(p); return { y: -60 * (1 - e), o: clamp(p * 4) }; } },
+    shock: { dur: 0.27, f: (p, since) => (since < 0.15 ? { y: -60 * (1 - cubic(since / 0.15)), o: clamp(since * 30) } : { s: 1 + 0.06 * (1 - clamp((since - 0.15) / 0.12)) }) },
     'rise-panel': { dur: 0.35, f: (p) => { const e = cubic(p); return { y: 60 * (1 - e), o: e }; } },
     bubble: { dur: 0.4, f: (p) => ({ s: Math.max(0, backC(p, 1.6)), o: clamp(p * 4) }) },
     label: { dur: 0.35, f: (p) => { const e = backC(p, 1.8); return { s: 0.6 + 0.4 * e, r: -4 * (1 - p), o: clamp(p * 3) }; } },
@@ -431,6 +439,7 @@ function buildRuntime(fontFamilies) {
     const v = def.f(clamp(since / def.dur), since);
     let x = v.x || 0, y = v.y || 0, s = v.s == null ? 1 : v.s, r = v.r || 0, o = v.o == null ? 1 : v.o, b = v.b || 0;
     // Etirement vertical seul (drapeau qui se deplie depuis le bas).
+    const clip = v.c ? 'inset(0 ' + (v.c * 100).toFixed(1) + '% 0 0)' : '';
     const sy = v.sy == null ? '' : ' scale(1,' + Math.max(0, v.sy).toFixed(4) + ')';
     // Zoom lent apres l entree, jusqu a la fin de la scene.
     if (def.zoom && since > def.dur) s *= 1 + def.zoom * clamp((since - def.dur) / Math.max(0.5, dur - at - def.dur));
@@ -442,6 +451,7 @@ function buildRuntime(fontFamilies) {
     el.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px) rotate(' + (r + (+el.dataset.rot || 0)).toFixed(2) + 'deg) scale(' + s.toFixed(4) + ')' + sy;
     el.style.opacity = o < 0.999 ? o.toFixed(3) : '';
     el.style.filter = b > 0.05 ? 'blur(' + b.toFixed(1) + 'px)' : '';
+    el.style.clipPath = clip;
   }
 
   function place(el, local, t, dur) {
@@ -509,6 +519,13 @@ function buildRuntime(fontFamilies) {
       el.querySelectorAll('[data-cur-from]').forEach((cu) => {
         const until = cu.dataset.curUntil != null ? +cu.dataset.curUntil : Infinity;
         cu.style.visibility = local >= +cu.dataset.curFrom && local < until && Math.floor(t * 2) % 2 === 0 ? 'visible' : 'hidden';
+      });
+      // Bloc qui se deplie de gauche a droite (lineaire), et trait qui se dessine (cadre).
+      el.querySelectorAll('[data-sx-at]').forEach((b) => {
+        b.style.transform = 'scaleX(' + clamp((local - +b.dataset.sxAt) / (+b.dataset.sxDur || 0.18)).toFixed(3) + ')';
+      });
+      el.querySelectorAll('[data-dash-at]').forEach((d) => {
+        d.style.strokeDashoffset = (1 - clamp((local - +d.dataset.dashAt) / (+d.dataset.dashDur || 0.3))).toFixed(3);
       });
       // Volumes qui montent (marches) : hauteur 0 -> H en 0,6 s.
       el.querySelectorAll('[data-grow-h]').forEach((g) => {
@@ -605,8 +622,9 @@ export function buildFacelessHtml(timeline, options = {}) {
     isLast: (scene) => scene === timeline.scenes[timeline.scenes.length - 1],
     seed: nextSeed,
   };
+  const bgFor = (scene) => (engine?.bg ? engine.bg(scene) : bgOf(scene));
   const scenesHtml = timeline.scenes.map((scene) => {
-    if (engine) return `<section class="scene bg-${bgOf(scene)}"><div class="bg"></div>${engine.scene(scene, ctx)}</section>`;
+    if (engine) return `<section class="scene bg-${bgFor(scene)}"><div class="bg"></div>${engine.scene(scene, ctx)}</section>`;
     const layout = LAYOUTS[scene.layout] || LAYOUTS.avatar;
     return `<section class="scene bg-${bgOf(scene)}"><div class="bg"></div>${decorLayer()}${layout(scene)}</section>`;
   }).join('\n');
@@ -618,7 +636,7 @@ export function buildFacelessHtml(timeline, options = {}) {
     scenes: timeline.scenes.map((s) => ({
       start: s.start,
       end: s.end,
-      bg: bgOf(s),
+      bg: bgFor(s),
       captionChunks: s.captionChunks || [],
       // Haut : sous la zone de l interface TikTok ; bas : sous le mot geant ou sur le buste.
       captionTop: engine ? engine.captionTop : (top ? 150 : (s.layout === 'word' ? 840 : 1400)),

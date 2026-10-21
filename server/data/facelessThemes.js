@@ -14,6 +14,8 @@ export const FACELESS_FONTS = {
   intertight: { label: 'Inter Tight — éditoriale, serrée', family: 'Inter Tight', file: 'fonts/InterTight.ttf', weights: '100 900', stretch: '100%' },
   ibmplexmono: { label: 'IBM Plex Mono — libellés, chiffres', family: 'IBM Plex Mono', file: 'fonts/IBMPlexMono.ttf', weights: '500', stretch: '100%' },
   sora: { label: 'Sora — géométrique, tech', family: 'Sora', file: 'fonts/Sora.ttf', weights: '100 800', stretch: '100%' },
+  anton: { label: 'Anton — condensée, affiche', family: 'Anton', file: 'fonts/Anton.ttf', weights: '400', stretch: '100%' },
+  spacemono: { label: 'Space Mono — légendes', family: 'Space Mono', file: 'fonts/SpaceMono.ttf', weights: '700', stretch: '100%' },
 };
 
 /**
@@ -26,10 +28,11 @@ export const FACELESS_TEMPLATES = {
   fenetre: 'Fenêtre d’ordinateur',
   cahier: 'Cahier éditorial',
   editeur: 'Éditeur de code',
+  brutal: 'Affiche brutale',
 };
 
 // Police "code" des modeles qui en affichent (libelles, chiffres, onglets).
-export const FACELESS_TEMPLATE_MONO = { fenetre: 'jetbrainsmono', cahier: 'ibmplexmono', editeur: 'jetbrainsmono' };
+export const FACELESS_TEMPLATE_MONO = { fenetre: 'jetbrainsmono', cahier: 'ibmplexmono', editeur: 'jetbrainsmono', brutal: 'spacemono' };
 
 export const FACELESS_CARD_STYLES = {
   torn: 'Papier déchiré avec scotch',
@@ -410,6 +413,38 @@ Object.assign(FACELESS_PRESETS, {
   'editeur-cyan': editeur('editeur-cyan', 'Éditeur cyan', 'Le propos s’affiche comme du code dans un éditeur sombre, l’avatar dans une bulle ronde : tech, dev, IA.', '#5be3ff', '#ff7a6e'),
   'editeur-corail': editeur('editeur-corail', 'Éditeur corail', 'L’éditeur de code avec une surbrillance corail : plus chaud.', '#ff7a6e', '#5be3ff'),
   'editeur-jaune': editeur('editeur-jaune', 'Éditeur jaune', 'L’éditeur de code avec une surbrillance jaune : plus énergique.', '#ffd166', '#ff7a6e'),
+});
+
+// Modele "Brutal" : affiche de stade. Noir, blanc casse, UN fluo (accent) sur le mot qui compte, capitales
+// condensees enormes, cadre epais, coupes franches (stop motion). Texte toujours noir sur le fluo.
+const BRUTAL_RULES = 'Style affiche : phrases très courtes en capitales (3 à 7 mots), une seule idée par scène. Entoure UN seul mot clé par scène de ** : il passe en bloc fluo, jamais plus d\'un accent par écran. Pour un mot à retenir, utilise "word" (il s\'affiche 5 fois en cascade sur fond noir). "list" : 2 à 4 éléments de 1 à 3 mots, numérotés. "stat" pour un chiffre clé réellement dit. L\'avatar n\'apparaît que sur "title" et "avatar". Aucun emoji. Coupes franches.';
+const brutal = (key, label, description, fluo) => ({
+  label,
+  description,
+  style: {
+    name: label,
+    preset: key,
+    template: 'brutal',
+    palette: {
+      background: '#f2f2ee', backgroundAlt: '#ffffff', dark: '#0a0a0a', text: '#0a0a0a', accent: fluo, accent2: '#ffffff', card: '#ffffff', cardText: '#0a0a0a',
+    },
+    font: 'anton',
+    card: 'flat',
+    background: 'solid',
+    decor: 'none',
+    motion: 'stopmotion',
+    enters: ['cut'],
+    captions: { enabled: true, position: 'top', style: 'box' },
+    density: 'sobre',
+    rules: BRUTAL_RULES,
+    avatarPrompt: 'fidèle à l’image de base du personnage, expressions marquées, rendu net et contrasté',
+  },
+});
+Object.assign(FACELESS_PRESETS, {
+  'brutal-fluo': brutal('brutal-fluo', 'Brutal fluo', 'Affiche de stade : noir, blanc cassé, un seul fluo jaune-vert, capitales énormes, cadre épais.', '#c6ff00'),
+  'brutal-rose': brutal('brutal-rose', 'Brutal rose', 'L’affiche brutale avec un fluo rose : plus pop, plus mode.', '#ff2e93'),
+  'brutal-orange': brutal('brutal-orange', 'Brutal orange', 'L’affiche brutale avec un fluo orange : plus chaud, plus énergique.', '#ff5a1f'),
+  'brutal-cyan': brutal('brutal-cyan', 'Brutal cyan', 'L’affiche brutale avec un fluo cyan : plus froid, plus tech.', '#00e5ff'),
 });
 
 export const DEFAULT_PRESET = 'papercraft-pastel';
