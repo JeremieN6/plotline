@@ -244,6 +244,16 @@ export function appendStyleRule(style, rule) {
 
 /** Pur : description textuelle de la DA donnee a Claude. */
 export function describeStyleForPrompt(style) {
+  if (style.template === 'journal') {
+    const lines = [
+      `Direction artistique "${style.name}" : modèle JOURNAL, le journal de bord d’un créateur qui construit en public. Papier clair, serif italique pour la voix, une couleur d’accent, cartes de produit et liste de ce qui est livré. Ton humain, direct, sans effet.`,
+      'Le texte à l’écran ("text", ou "title" pour une liste) est une phrase courte avec UN mot ou groupe de mots entre ** (il passe en italique de couleur). Chiffres UNIQUEMENT ceux du script.',
+      'Mises en page : "hook" (grand titre ; "title" = petit libellé en capitales, ex. "Journal de bord" ; trois disques de personas décoratifs), "title" (une phrase ; "title" = libellé ; "tab" = notification facultative, ex. "Persona créé" ; l’avatar apparaît en bas à droite), "list" (SHIP LOG : "tab" = libellé, "title" = titre, 2 à 4 éléments ; "tone": "watch" = pas encore livré, ligne en tirets grisée, sinon livré avec une coche), "word" (le mot du problème en très grand ; "title" = libellé ; "text" = phrase de soutien), "stat" ("word" = le chiffre, "compare" de 2 ou 3 valeurs dites dans le script), "photo" (capture du produit dans une fenêtre : "tab" = adresse, "text" = légende), "avatar" (appel à l’action), "logo".',
+      style.captions.enabled ? 'Sous-titres : en haut, en karaoké : les mots à venir en gris, le mot dit en couleur d’accent.' : 'Sous-titres : aucun.',
+    ];
+    if (style.rules) lines.push(`Règles de montage de cette DA :\n${style.rules}`);
+    return lines.join('\n');
+  }
   if (style.template === 'hanko') {
     const lines = [
       `Direction artistique "${style.name}" : modèle HANKO, une affiche de cinéma japonais. Papier crème, grand serif mincho, un disque rouge, un tampon (hanko) pour faire claquer un avis, une tier list pour classer. Un seul clin d’œil au Japon par écran, pas de décor : l’énergie vient du rythme et des tampons.`,

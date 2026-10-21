@@ -80,6 +80,9 @@
         <UiAlert v-if="da.template === 'hanko'" tone="info" title="Modèle Hanko" class="mt-3">
           Une affiche de cinéma japonais : papier crème, mincho, disque rouge, tampon et tier list. Ici comptent la palette (accent = le disque, le tampon et le mot important) et les sous-titres. La police, le style des cartes, le fond, le décor et les transitions sont ceux du modèle.
         </UiAlert>
+        <UiAlert v-if="da.template === 'journal'" tone="info" title="Modèle Journal" class="mt-3">
+          Un journal de bord de créateur : papier clair, serif italique, cartes de produit et liste de ce qui est livré. Ici comptent la palette (accent = le mot en italique, les coches et le curseur ; fond secondaire = sa teinte douce) et les sous-titres. La police, le style des cartes, le fond, le décor et les transitions sont ceux du modèle.
+        </UiAlert>
         <UiAlert v-if="da.template === 'dashboard'" tone="info" title="Modèle Dashboard" class="mt-3">
           Une interface produit claire : cartes blanches, pastilles de statut, graphique qui se construit. Ici comptent la palette (accent = la couleur d’interface) et les sous-titres. La police, le style des cartes, le fond, le décor et les transitions sont ceux du modèle.
         </UiAlert>
