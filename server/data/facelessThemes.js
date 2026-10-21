@@ -13,6 +13,7 @@ export const FACELESS_FONTS = {
   jetbrainsmono: { label: 'JetBrains Mono — code, chiffres', family: 'JetBrains Mono', file: 'fonts/JetBrainsMono.ttf', weights: '100 800', stretch: '100%' },
   intertight: { label: 'Inter Tight — éditoriale, serrée', family: 'Inter Tight', file: 'fonts/InterTight.ttf', weights: '100 900', stretch: '100%' },
   ibmplexmono: { label: 'IBM Plex Mono — libellés, chiffres', family: 'IBM Plex Mono', file: 'fonts/IBMPlexMono.ttf', weights: '500', stretch: '100%' },
+  sora: { label: 'Sora — géométrique, tech', family: 'Sora', file: 'fonts/Sora.ttf', weights: '100 800', stretch: '100%' },
 };
 
 /**
@@ -24,10 +25,11 @@ export const FACELESS_TEMPLATES = {
   classic: 'Classique (cartes et autocollants)',
   fenetre: 'Fenêtre d’ordinateur',
   cahier: 'Cahier éditorial',
+  editeur: 'Éditeur de code',
 };
 
 // Police "code" des modeles qui en affichent (libelles, chiffres, onglets).
-export const FACELESS_TEMPLATE_MONO = { fenetre: 'jetbrainsmono', cahier: 'ibmplexmono' };
+export const FACELESS_TEMPLATE_MONO = { fenetre: 'jetbrainsmono', cahier: 'ibmplexmono', editeur: 'jetbrainsmono' };
 
 export const FACELESS_CARD_STYLES = {
   torn: 'Papier déchiré avec scotch',
@@ -377,6 +379,37 @@ Object.assign(FACELESS_PRESETS, {
   'cahier-vert': cahier('cahier-vert', 'Cahier vert', 'Papier quadrillé, phrase en gris puis le mot important en très grand, un seul visuel : éditorial et soigné.', '#1f7a5c'),
   'cahier-bleu': cahier('cahier-bleu', 'Cahier bleu', 'Le cahier éditorial avec un accent bleu : plus « produit », plus tech.', '#2447c8'),
   'cahier-brique': cahier('cahier-brique', 'Cahier brique', 'Le cahier éditorial avec un accent rouge brique : plus chaleureux.', '#b3361f'),
+});
+
+// Modele "Editeur" : le propos affiche comme du code (lignes numerotees, coloration, frappe), sombre et
+// technique. accent = la couleur de surbrillance (fonctions, mot actif), accent2 = le mot cle de l accroche.
+const EDITEUR_RULES = 'Esthétique éditeur de code, sombre. Pour chaque scène "hook" ou "title", écris "code" : 2 à 5 lignes de pseudo-code JavaScript très court (32 caractères max par ligne) qui illustre ce qui est dit, lisible par un non-développeur (ex. const site = {, temps: "4 secondes",, };, // trop lent.). Jamais de vraie API, de marque ou de code exécutable. La phrase à l’écran ("text") a UN mot clé entre **. Utilise "word" pour un mot à retenir (terminal), "stat" avec "compare" (avant / après) pour une comparaison chiffrée réellement dite. Aucun emoji.';
+const editeur = (key, label, description, accent, accent2) => ({
+  label,
+  description,
+  style: {
+    name: label,
+    preset: key,
+    template: 'editeur',
+    palette: {
+      background: '#0f111a', backgroundAlt: '#121522', dark: '#0b0c12', text: '#e6e8f2', accent, accent2, card: '#171a26', cardText: '#e6e8f2',
+    },
+    font: 'sora',
+    card: 'flat',
+    background: 'solid',
+    decor: 'none',
+    motion: 'smooth',
+    enters: ['cut'],
+    captions: { enabled: true, position: 'top', style: 'box' },
+    density: 'normal',
+    rules: EDITEUR_RULES,
+    avatarPrompt: 'fidèle à l’image de base du personnage, expressions marquées, rendu net, légère lumière de contour',
+  },
+});
+Object.assign(FACELESS_PRESETS, {
+  'editeur-cyan': editeur('editeur-cyan', 'Éditeur cyan', 'Le propos s’affiche comme du code dans un éditeur sombre, l’avatar dans une bulle ronde : tech, dev, IA.', '#5be3ff', '#ff7a6e'),
+  'editeur-corail': editeur('editeur-corail', 'Éditeur corail', 'L’éditeur de code avec une surbrillance corail : plus chaud.', '#ff7a6e', '#5be3ff'),
+  'editeur-jaune': editeur('editeur-jaune', 'Éditeur jaune', 'L’éditeur de code avec une surbrillance jaune : plus énergique.', '#ffd166', '#ff7a6e'),
 });
 
 export const DEFAULT_PRESET = 'papercraft-pastel';

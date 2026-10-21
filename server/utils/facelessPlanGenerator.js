@@ -148,7 +148,7 @@ export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = nu
     ...illustrationPromptLines(illustrations, maxNew),
     '',
     'Reponds uniquement avec un objet JSON brut, sans markdown ni commentaire. Forme exacte :',
-    '{"title": string, "caption": string (legende du post, 1 a 3 phrases), "hashtags": [string], "scenes": [{"say": string, "layout": string, "text"?: string, "title"?: string, "number"?: string, "word"?: string, "tab"?: string, "compare"?: [{"label": string, "value": string}], "image"?: string, "newImage"?: {"kind": string, "prompt": string}, "frame"?: string, "emoji"?: string, "items"?: [{"emoji": string, "text": string, "at": string}], "bg": string, "avatar": {...}, "sfx": [...], "captions": boolean}]}',
+    '{"title": string, "caption": string (legende du post, 1 a 3 phrases), "hashtags": [string], "scenes": [{"say": string, "layout": string, "text"?: string, "title"?: string, "number"?: string, "word"?: string, "tab"?: string, "code"?: [string], "compare"?: [{"label": string, "value": string}], "image"?: string, "newImage"?: {"kind": string, "prompt": string}, "frame"?: string, "emoji"?: string, "items"?: [{"emoji": string, "text": string, "at": string}], "bg": string, "avatar": {...}, "sfx": [...], "captions": boolean}]}',
   ].join('\n');
 }
 
@@ -240,6 +240,11 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
     word: clip(withoutEmoji(stripDashPunctuation(raw?.word)), 14),
     // Onglet de la fenetre (modele Fenetre) : un nom de fichier ou d adresse, ignore ailleurs.
     tab: clip(String(raw?.tab ?? '').replace(/[^\p{L}\p{N}._\-/ ]/gu, ''), 24),
+    // Pseudo-code affiche par le modele Editeur (6 lignes courtes), ignore ailleurs.
+    code: (Array.isArray(raw?.code) ? raw.code : []).slice(0, 12)
+      .map((line) => String(line ?? '').replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+$/, '').slice(0, 32))
+      .filter((line) => line.trim())
+      .slice(0, 6),
     emoji: clip(raw?.emoji, 8),
     items: (Array.isArray(raw?.items) ? raw.items : []).slice(0, 4)
       .map((item) => ({ emoji: clip(item?.emoji, 8), text: clip(withoutEmoji(stripDashPunctuation(item?.text)), 40), at: sanitizeCue(item?.at) }))
@@ -400,7 +405,7 @@ export function planForEditing(plan) {
     caption: plan?.caption || '',
     hashtags: plan?.hashtags || [],
     scenes: (plan?.scenes || []).map((scene) => Object.fromEntries(
-      ['say', 'layout', 'text', 'title', 'number', 'word', 'tab', 'emoji', 'items', 'compare', 'image', 'frame', 'bg', 'avatar', 'sfx']
+      ['say', 'layout', 'text', 'title', 'number', 'word', 'tab', 'code', 'emoji', 'items', 'compare', 'image', 'frame', 'bg', 'avatar', 'sfx']
         .filter((key) => key === 'say' || key === 'layout' || key === 'avatar' || compact(scene[key]))
         .map((key) => [key, scene[key]]),
     )),
