@@ -5,6 +5,7 @@ import { FENETRE_CAPTION_TOP, fenetreCss, fenetreScene } from './facelessTemplat
 import { CAHIER_CAPTION_TOP, cahierCss, cahierScene } from './facelessTemplateCahier.js';
 import { EDITEUR_CAPTION_TOP, editeurCss, editeurScene } from './facelessTemplateEditeur.js';
 import { BRUTAL_CAPTION_TOP, brutalBg, brutalCss, brutalScene } from './facelessTemplateBrutal.js';
+import { DASHBOARD_CAPTION_TOP, dashboardBg, dashboardCss, dashboardScene } from './facelessTemplateDashboard.js';
 
 // Modeles visuels autres que "classic" : dessin des scenes, feuille de style, place des sous-titres.
 const ENGINES = {
@@ -12,6 +13,7 @@ const ENGINES = {
   cahier: { scene: cahierScene, css: cahierCss, captionTop: CAHIER_CAPTION_TOP, capWrap: false },
   editeur: { scene: editeurScene, css: editeurCss, captionTop: EDITEUR_CAPTION_TOP, capWrap: true },
   // "bg" : le modele choisit lui-meme le fond de chaque scene (le mot geant est inverse).
+  dashboard: { scene: dashboardScene, css: dashboardCss, captionTop: DASHBOARD_CAPTION_TOP, capWrap: true, bg: dashboardBg },
   brutal: { scene: brutalScene, css: brutalCss, captionTop: BRUTAL_CAPTION_TOP, capWrap: true, bg: brutalBg },
 };
 
@@ -402,6 +404,7 @@ function buildRuntime(fontFamilies) {
   const clamp = (v) => Math.max(0, Math.min(1, v));
   const cubic = (p) => 1 - Math.pow(1 - p, 3);
   const backC = (p, c) => 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2);
+  const inout = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
   const expo = (p) => (p >= 1 ? 1 : 1 - Math.pow(2, -10 * p));
   // Ressort amorti (zeta 0,55, omega 14 rad/s) : 1 au repos.
   const spring = (s) => { const z = 0.55, w = 14, wd = w * Math.sqrt(1 - z * z); return 1 - Math.exp(-z * w * s) * (Math.cos(wd * s) + (z / Math.sqrt(1 - z * z)) * Math.sin(wd * s)); };
@@ -416,6 +419,11 @@ function buildRuntime(fontFamilies) {
     'fade-in': { dur: 0.3, f: (p) => ({ o: p }) },
     flag: { dur: 0.3, f: (p) => ({ sy: backC(p, 1.6) }) },
     // Brutal : coupes franches. Les lignes s ouvrent de gauche a droite (masque), le numero tombe en frappe.
+    // Dashboard : cartes douces. Une carte monte (0,4 s), une notification glisse (0,35 s), une pastille rebondit.
+    card: { dur: 0.4, f: (p) => { const e = cubic(p); return { y: 50 * (1 - e), s: 0.98 + 0.02 * e, o: e }; } },
+    'alert-in': { dur: 0.35, f: (p) => { const e = cubic(p); return { x: 80 * (1 - e), o: e }; } },
+    pill: { dur: 0.25, f: (p) => ({ s: Math.max(0, 0.7 + 0.3 * backC(p, 2)), o: clamp(p * 4) }) },
+    'word-rise': { dur: 0.25, f: (p) => { const e = cubic(p); return { y: 12 * (1 - e), o: e }; } },
     wipe: { dur: 0.22, f: (p) => { const e = expo(p); return { x: -120 * (1 - e), c: 1 - e }; } },
     stamp: { dur: 0.15, f: (p) => { const e = expo(p); return { s: 1.5 - 0.5 * e, o: clamp(p * 4) }; } },
     fall: { dur: 0.15, f: (p) => { const e = cubic(p); return { y: -60 * (1 - e), o: clamp(p * 4) }; } },
@@ -503,8 +511,8 @@ function buildRuntime(fontFamilies) {
       });
       // Compteur d un chiffre cle (0,8 s).
       el.querySelectorAll('[data-count-to]').forEach((c) => {
-        const q = cubic(clamp((local - +c.dataset.countAt) / 0.8)), dec = +c.dataset.countDec;
-        c.textContent = c.dataset.countPre + (+c.dataset.countTo * q).toFixed(dec).replace('.', ',') + c.dataset.countSuf;
+        const q = cubic(clamp((local - +c.dataset.countAt) / (+c.dataset.countDur || 0.8))), dec = +c.dataset.countDec, from = +c.dataset.countFrom || 0;
+        c.textContent = c.dataset.countPre + (from + (+c.dataset.countTo - from) * q).toFixed(dec).replace('.', ',') + c.dataset.countSuf;
       });
       // Encre : un mot passe du gris au noir (0,3 s) au moment ou il est dit.
       el.querySelectorAll('[data-ink-at]').forEach((w) => {
@@ -525,7 +533,21 @@ function buildRuntime(fontFamilies) {
         b.style.transform = 'scaleX(' + clamp((local - +b.dataset.sxAt) / (+b.dataset.sxDur || 0.18)).toFixed(3) + ')';
       });
       el.querySelectorAll('[data-dash-at]').forEach((d) => {
-        d.style.strokeDashoffset = (1 - clamp((local - +d.dataset.dashAt) / (+d.dataset.dashDur || 0.3))).toFixed(3);
+        const p = clamp((local - +d.dataset.dashAt) / (+d.dataset.dashDur || 0.3));
+        d.style.strokeDashoffset = (1 - (d.dataset.dashEase === 'inout' ? inout(p) : p)).toFixed(3);
+      });
+      // Aire d un graphique : se decouvre de gauche a droite, au rythme de la courbe.
+      el.querySelectorAll('[data-clip-at]').forEach((a) => {
+        const q = inout(clamp((local - +a.dataset.clipAt) / (+a.dataset.clipDur || 1)));
+        a.style.clipPath = 'inset(0 ' + ((1 - q) * 100).toFixed(2) + '% 0 0)';
+      });
+      // Points du graphique : ils apparaissent quand la courbe les atteint.
+      el.querySelectorAll('[data-pop-at]').forEach((pt) => {
+        pt.style.transform = 'scale(' + Math.max(0, backC(clamp((local - +pt.dataset.popAt) / 0.2), 2)).toFixed(3) + ')';
+      });
+      // Halo du dernier point : il pulse (rayon 28 + 6 sin(2 pi t / 1,4)).
+      el.querySelectorAll('[data-halo-at]').forEach((hl) => {
+        hl.setAttribute('r', local >= +hl.dataset.haloAt ? (28 + 6 * Math.sin(2 * Math.PI * t / 1.4)).toFixed(1) : '0');
       });
       // Volumes qui montent (marches) : hauteur 0 -> H en 0,6 s.
       el.querySelectorAll('[data-grow-h]').forEach((g) => {

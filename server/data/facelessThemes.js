@@ -15,6 +15,8 @@ export const FACELESS_FONTS = {
   ibmplexmono: { label: 'IBM Plex Mono — libellés, chiffres', family: 'IBM Plex Mono', file: 'fonts/IBMPlexMono.ttf', weights: '500', stretch: '100%' },
   sora: { label: 'Sora — géométrique, tech', family: 'Sora', file: 'fonts/Sora.ttf', weights: '100 800', stretch: '100%' },
   anton: { label: 'Anton — condensée, affiche', family: 'Anton', file: 'fonts/Anton.ttf', weights: '400', stretch: '100%' },
+  geist: { label: 'Geist — interface produit', family: 'Geist', file: 'fonts/Geist.ttf', weights: '100 900', stretch: '100%' },
+  geistmono: { label: 'Geist Mono — libellés', family: 'Geist Mono', file: 'fonts/GeistMono.ttf', weights: '100 900', stretch: '100%' },
   spacemono: { label: 'Space Mono — légendes', family: 'Space Mono', file: 'fonts/SpaceMono.ttf', weights: '700', stretch: '100%' },
 };
 
@@ -29,10 +31,11 @@ export const FACELESS_TEMPLATES = {
   cahier: 'Cahier éditorial',
   editeur: 'Éditeur de code',
   brutal: 'Affiche brutale',
+  dashboard: 'Interface produit',
 };
 
 // Police "code" des modeles qui en affichent (libelles, chiffres, onglets).
-export const FACELESS_TEMPLATE_MONO = { fenetre: 'jetbrainsmono', cahier: 'ibmplexmono', editeur: 'jetbrainsmono', brutal: 'spacemono' };
+export const FACELESS_TEMPLATE_MONO = { fenetre: 'jetbrainsmono', cahier: 'ibmplexmono', editeur: 'jetbrainsmono', brutal: 'spacemono', dashboard: 'geistmono' };
 
 export const FACELESS_CARD_STYLES = {
   torn: 'Papier déchiré avec scotch',
@@ -445,6 +448,37 @@ Object.assign(FACELESS_PRESETS, {
   'brutal-rose': brutal('brutal-rose', 'Brutal rose', 'L’affiche brutale avec un fluo rose : plus pop, plus mode.', '#ff2e93'),
   'brutal-orange': brutal('brutal-orange', 'Brutal orange', 'L’affiche brutale avec un fluo orange : plus chaud, plus énergique.', '#ff5a1f'),
   'brutal-cyan': brutal('brutal-cyan', 'Brutal cyan', 'L’affiche brutale avec un fluo cyan : plus froid, plus tech.', '#00e5ff'),
+});
+
+// Modele "Dashboard" : une interface produit claire. Fond gris froid, cartes blanches, pastilles de statut, un graphique
+// qui se construit. accent = la couleur d interface (mot cle, courbe, carte active). Rouge et vert sont fixes, reserves au sens.
+const DASHBOARD_RULES = 'Une interface produit : chaque scène est une ou deux cartes. Entoure UN mot clé par phrase de **. Chiffres UNIQUEMENT ceux du script, jamais inventés : "stat" avec "word" (le chiffre final), "compare" (avant puis après, 2 ou 3 valeurs) et, seulement si le script donne plusieurs points, "series" (jusqu\'à 8 valeurs avec leur libellé). "list" : 2 à 4 éléments avec "text" (titre court) et "sub" (une sous-ligne de 2 à 5 mots). Rouge et vert seulement pour une baisse ou une hausse, avec un mot. Aucun emoji.';
+const dashboard = (key, label, description, accent) => ({
+  label,
+  description,
+  style: {
+    name: label,
+    preset: key,
+    template: 'dashboard',
+    palette: {
+      background: '#eef0f4', backgroundAlt: '#ffffff', dark: '#0f172a', text: '#0f172a', accent, accent2: '#64748b', card: '#ffffff', cardText: '#0f172a',
+    },
+    font: 'geist',
+    card: 'flat',
+    background: 'solid',
+    decor: 'none',
+    motion: 'smooth',
+    enters: ['cut'],
+    captions: { enabled: true, position: 'top', style: 'box' },
+    density: 'normal',
+    rules: DASHBOARD_RULES,
+    avatarPrompt: 'fidèle à l’image de base du personnage, expressions marquées, rendu net et propre',
+  },
+});
+Object.assign(FACELESS_PRESETS, {
+  'dashboard-indigo': dashboard('dashboard-indigo', 'Dashboard indigo', 'Interface produit claire : cartes blanches, pastilles, un graphique qui se construit. SaaS, business, chiffres.', '#4f46e5'),
+  'dashboard-vert': dashboard('dashboard-vert', 'Dashboard vert', 'L’interface produit avec un accent vert profond : finance, croissance.', '#0b7a5a'),
+  'dashboard-bleu': dashboard('dashboard-bleu', 'Dashboard bleu', 'L’interface produit avec un accent bleu : plus corporate.', '#1d4ed8'),
 });
 
 export const DEFAULT_PRESET = 'papercraft-pastel';
