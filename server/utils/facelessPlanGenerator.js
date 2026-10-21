@@ -132,7 +132,8 @@ export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = nu
     '',
     'MONTAGE (par scene)',
     '- "layout" parmi :',
-    ...Object.entries(FACELESS_LAYOUTS).map(([key, desc]) => `  - ${key} : ${desc}`),
+    // "label" (etiquette de produit) n est propose que par le modele Herbier.
+    ...Object.entries(FACELESS_LAYOUTS).filter(([key]) => key !== 'label' || da.template === 'herbier').map(([key, desc]) => `  - ${key} : ${desc}`),
     '- Varie les mises en page, jamais deux fois la meme d affilee sauf "title" pour des chapitres numerotes.',
     '- Le texte a l ecran RESUME, il ne recopie pas la phrase : 2 a 8 mots par carte. Entoure 1 mot cle de **double asterisques** pour le surligner.',
     '- "emoji" : UN seul emoji pertinent, ou rien. Jamais d emoji dans text, title, word ou items.text (il a deja sa place).',
@@ -148,7 +149,7 @@ export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = nu
     ...illustrationPromptLines(illustrations, maxNew),
     '',
     'Reponds uniquement avec un objet JSON brut, sans markdown ni commentaire. Forme exacte :',
-    '{"title": string, "caption": string (legende du post, 1 a 3 phrases), "hashtags": [string], "scenes": [{"say": string, "layout": string, "text"?: string, "title"?: string, "number"?: string, "word"?: string, "tab"?: string, "code"?: [string], "compare"?: [{"label": string, "value": string}], "series"?: [{"label": string, "value": string}], "image"?: string, "newImage"?: {"kind": string, "prompt": string}, "frame"?: string, "emoji"?: string, "items"?: [{"emoji": string, "text": string, "sub"?: string, "at": string}], "bg": string, "avatar": {...}, "sfx": [...], "captions": boolean}]}',
+    '{"title": string, "caption": string (legende du post, 1 a 3 phrases), "hashtags": [string], "scenes": [{"say": string, "layout": string, "text"?: string, "title"?: string, "number"?: string, "word"?: string, "tab"?: string, "code"?: [string], "compare"?: [{"label": string, "value": string}], "series"?: [{"label": string, "value": string}], "image"?: string, "newImage"?: {"kind": string, "prompt": string}, "frame"?: string, "emoji"?: string, "items"?: [{"emoji": string, "text": string, "sub"?: string, "tone"?: string, "at": string}], "bg": string, "avatar": {...}, "sfx": [...], "captions": boolean}]}',
   ].join('\n');
 }
 
@@ -246,8 +247,8 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
       .filter((line) => line.trim())
       .slice(0, 6),
     emoji: clip(raw?.emoji, 8),
-    items: (Array.isArray(raw?.items) ? raw.items : []).slice(0, 4)
-      .map((item) => ({ emoji: clip(item?.emoji, 8), text: clip(withoutEmoji(stripDashPunctuation(item?.text)), 40), sub: clip(withoutEmoji(stripDashPunctuation(item?.sub)), 40), at: sanitizeCue(item?.at) }))
+    items: (Array.isArray(raw?.items) ? raw.items : []).slice(0, layout === 'label' ? 8 : 4)
+      .map((item) => ({ emoji: clip(item?.emoji, 8), text: clip(withoutEmoji(stripDashPunctuation(item?.text)), 40), sub: clip(withoutEmoji(stripDashPunctuation(item?.sub)), 40), tone: ['avoid', 'good', 'watch'].includes(item?.tone) ? item.tone : '', at: sanitizeCue(item?.at) }))
       .filter((item) => item.text),
     sfx: (Array.isArray(raw?.sfx) ? raw.sfx : []).slice(0, 2)
       .filter((s) => Object.hasOwn(FACELESS_SFX, s?.name))
@@ -290,7 +291,7 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
   const incomplete = (layout === 'hook' && !scene.text)
     || (layout === 'photo' && !scene.image && !scene.newImage)
     || (layout === 'title' && !scene.title)
-    || (layout === 'list' && scene.items.length < 2)
+    || ((layout === 'list' || layout === 'label') && scene.items.length < 2)
     || ((layout === 'word' || layout === 'logo' || layout === 'stat') && !scene.word);
   if (incomplete) {
     layout = 'avatar';

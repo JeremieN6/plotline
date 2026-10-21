@@ -59,6 +59,7 @@ export const FACELESS_LAYOUTS = {
   word: 'un seul mot (champ word, 12 caracteres max) en tres grand + emoji optionnel',
   photo: 'image dans un cadre (polaroid) pour illustrer concretement ce qui est dit : champ image (id d une illustration disponible) + champ text (legende de 1 a 5 mots)',
   logo: 'carte de nom pour une marque, un outil ou un service cite (champ word = le nom, emoji = son icone, tres courts)',
+  label: 'etiquette de produit decryptee ligne par ligne (modele Herbier seulement) : title = libelle, tab = contenance ("Shampoing · 250 ml"), items [{text: ingredient dans l ordre de l etiquette, tone: avoid|good|watch, sub: mot court de la pastille, at}] (4 a 8), text = verdict',
   stat: 'chiffre cle : word = le chiffre (8 caracteres max, ex "×15", "4 s", "-30 %"), text court facultatif, compare facultatif [{label, value}] (2 ou 3, ex "sans cache" / "27,9 ms") ; UNIQUEMENT des chiffres presents dans le script ou le texte source, jamais inventes',
 };
 

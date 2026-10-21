@@ -74,6 +74,9 @@
         <UiAlert v-if="da.template === 'fenetre'" tone="info" title="Modèle Fenêtre d’ordinateur" class="mt-3">
           Chaque scène s’affiche dans une fenêtre posée sur l’aplat de couleur. Ici comptent la palette (fond = couleur dominante, accent secondaire = mots en jaune), la police, le mouvement et les sous-titres. Le style des cartes, le fond, le décor et les transitions sont ceux du modèle.
         </UiAlert>
+        <UiAlert v-if="da.template === 'herbier'" tone="info" title="Modèle Herbier" class="mt-3">
+          Une page d’herbier : papier crème, serif doux, rameau de feuilles au trait, et une étiquette de produit décryptée ligne par ligne. Ici comptent la palette (accent = le mot en italique et le trait actif) et les sous-titres. La police, le style des cartes, le fond, le décor et les transitions sont ceux du modèle.
+        </UiAlert>
         <UiAlert v-if="da.template === 'dashboard'" tone="info" title="Modèle Dashboard" class="mt-3">
           Une interface produit claire : cartes blanches, pastilles de statut, graphique qui se construit. Ici comptent la palette (accent = la couleur d’interface) et les sous-titres. La police, le style des cartes, le fond, le décor et les transitions sont ceux du modèle.
         </UiAlert>
