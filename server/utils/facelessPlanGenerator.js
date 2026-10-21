@@ -16,6 +16,8 @@ import { ILLUSTRATION_KINDS, MAX_ILLUSTRATION_PROMPT, MAX_NEW_PER_VIDEO } from '
 import { countSpokenTokens } from './facelessTimeline.js';
 import { TEXT_STYLE_PROMPT_LINES, stripDashPunctuation } from './textStyleRules.js';
 import { FACELESS_LAYOUTS, FACELESS_POSES, FACELESS_SFX } from '../data/facelessCatalog.js';
+import { FACELESS_SFX_PALETTES } from '../data/facelessSfxPalettes.js';
+import { sfxPaletteKey, sfxPaletteNames } from './facelessSfxPlan.js';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 const MAX_TOKENS = 4096;
@@ -111,6 +113,8 @@ export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = nu
   const words = Math.round(targetSeconds * WORDS_PER_SECOND);
   const personaText = describeFacelessPersona(persona);
   const da = style || normalizeFacelessStyle({});
+  const sfxKey = sfxPaletteKey(da);
+  const sfxPaletteLabel = (key) => FACELESS_SFX_PALETTES[key]?.label || 'générale';
 
   return [
     'Tu es scenariste et monteur de videos verticales "faceless" (TikTok, Reels) pour Plotline.',
@@ -141,8 +145,9 @@ export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = nu
     '- "image" (layout photo) : l id EXACT d une illustration disponible ; "frame" facultatif : "polaroid" ou "plain".',
     '- "bg" : le fond de la scene, "main" (fond principal), "alt" (fond secondaire) ou "dark" (fond sombre). Varie les fonds toutes les 2 ou 3 scenes (jamais plus de 2 scenes "dark" d affilee).',
     '- "items" (layout list) : "at" = un mot EXACT du "say" de la scene, dans l ordre ou il est dit.',
-    `- "sfx" : 0 a 2 bruitages par scene, [{ "name": ..., "at": 0 ou "mot exact" }]. Pas de musique de fond. Noms autorises :`,
-    ...Object.entries(FACELESS_SFX).map(([name, desc]) => `  - ${name} : ${desc}`),
+    '- "sfx" : bruitages RARES, [{ "name": ..., "at": "mot exact" }]. Pas de musique de fond. Regles (le montage applique ces regles et retire ce qui les enfreint) : au plus 1 bruitage par scene ET pas dans chaque scene (environ 1 scene sur 2 ou 3) ; AUCUN bruitage dans une scene de moins de 2 secondes ; jamais sur le premier mot de la scene (donc "at" = un mot EXACT du "say" qui n\'est pas le premier, jamais 0) ; au moins 2,5 secondes entre deux bruitages ; jamais deux fois le meme bruitage de suite ; le bruitage souligne ce qui est DIT a ce mot (un tampon sur une affirmation, une erreur sur un echec), sinon aucun.',
+    `Bruitages disponibles pour cette direction artistique (${sfxPaletteLabel(sfxKey)}) :`,
+    ...sfxPaletteNames(sfxKey).map((name) => `  - ${name} : ${FACELESS_SFX[name]}`),
     captions
       ? '- "captions": true sur TOUTES les scenes (les sous-titres couvrent toute la video ; le texte a l ecran est un resume, pas ce que dit la voix).'
       : '- "captions": false partout (pas de sous-titres).',

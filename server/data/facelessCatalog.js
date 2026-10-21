@@ -49,6 +49,13 @@ export const FACELESS_SFX = {
   'transitions/whoosh-short': 'whoosh court (changement de sujet)',
   'fail-error/nope': 'nope (erreur a eviter)',
   'tension/clock-ticking-a': 'horloge (urgence)',
+  'tech/key-tap': 'frappe de touche (on tape, on ecrit)',
+  'tech/terminal-blip': 'bip de terminal (une ligne s affiche)',
+  'tech/confirm': 'confirmation, deux notes montantes (c est valide)',
+  'tech/error-buzz': 'buzz grave (ca echoue)',
+  'tech/boot-sweep': 'balayage montant (demarrage, revelation)',
+  'tech/data-tick': 'tic sec (une donnee, un chiffre)',
+  'impact/hit': 'impact sourd (affirmation tranchante)',
 };
 
 export const FACELESS_LAYOUTS = {

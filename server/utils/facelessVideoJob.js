@@ -9,6 +9,7 @@ import { applyNewImages, collectNewImageRequests, generateFacelessPlan, restoreS
 import { facelessAssetFolder, generateIllustration } from './facelessIllustration.js';
 import { loadPackAssets, readFacelessMedia, saveFacelessMedia } from './facelessMedia.js';
 import { enqueueRender, mixFacelessAudio, renderFacelessVideo } from './facelessRenderer.js';
+import { finalizeSfx, sfxPaletteKey } from './facelessSfxPlan.js';
 import { addIllustration, appendStyleRule, normalizeFacelessStyle, readyPackEntries } from './facelessStyle.js';
 import { updateProfileStyle } from './facelessStyleStore.js';
 import { generateImageFromGeminiWithSafetyFallback } from './geminiImageGeneration.js';
@@ -137,8 +138,9 @@ export async function renderFacelessFromPlan(plan, voice, { style = null, packEn
     });
 
     const sfxDir = resolveFacelessSfxDir();
-    const sfxTracks = timeline.sfx
-      .map((s) => ({ path: join(sfxDir, `${s.name}.wav`), start: s.start, gain: s.gain }))
+    // Palette de la DA, espacement et coupe des sons : voir facelessSfxPlan.js.
+    const sfxTracks = finalizeSfx(timeline.sfx, timeline.scenes, { paletteKey: sfxPaletteKey(da) })
+      .map((s) => ({ path: join(sfxDir, `${s.name}.wav`), start: s.start, gain: s.gain, kind: 'sfx', maxDur: s.maxDur }))
       .filter((track) => existsSync(track.path));
 
     const audioRaw = join(dir, 'mix.f32');
