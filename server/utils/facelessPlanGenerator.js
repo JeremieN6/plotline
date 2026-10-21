@@ -149,7 +149,7 @@ export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = nu
     ...illustrationPromptLines(illustrations, maxNew),
     '',
     'Reponds uniquement avec un objet JSON brut, sans markdown ni commentaire. Forme exacte :',
-    '{"title": string, "caption": string (legende du post, 1 a 3 phrases), "hashtags": [string], "scenes": [{"say": string, "layout": string, "text"?: string, "title"?: string, "number"?: string, "word"?: string, "tab"?: string, "code"?: [string], "compare"?: [{"label": string, "value": string}], "series"?: [{"label": string, "value": string}], "image"?: string, "newImage"?: {"kind": string, "prompt": string}, "frame"?: string, "emoji"?: string, "items"?: [{"emoji": string, "text": string, "sub"?: string, "tone"?: string, "at": string}], "bg": string, "avatar": {...}, "sfx": [...], "captions": boolean}]}',
+    '{"title": string, "caption": string (legende du post, 1 a 3 phrases), "hashtags": [string], "scenes": [{"say": string, "layout": string, "text"?: string, "title"?: string, "number"?: string, "word"?: string, "tab"?: string, "jp"?: string, "code"?: [string], "compare"?: [{"label": string, "value": string}], "series"?: [{"label": string, "value": string}], "image"?: string, "newImage"?: {"kind": string, "prompt": string}, "frame"?: string, "emoji"?: string, "items"?: [{"emoji": string, "text": string, "sub"?: string, "tone"?: string, "at": string}], "bg": string, "avatar": {...}, "sfx": [...], "captions": boolean}]}',
   ].join('\n');
 }
 
@@ -241,6 +241,8 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
     word: clip(withoutEmoji(stripDashPunctuation(raw?.word)), 14),
     // Onglet de la fenetre (modele Fenetre) : un nom de fichier ou d adresse, ignore ailleurs.
     tab: clip(String(raw?.tab ?? '').replace(/[^\p{L}\p{N}._\-/ ]/gu, ''), 24),
+    // Caractere(s) japonais du modele Hanko (katakana de l accroche, tampon du mot cle) : 4 au plus, jamais d autre alphabet.
+    jp: String(raw?.jp ?? '').replace(/[^぀-ヿ㐀-䶿一-鿿]/g, '').slice(0, 4),
     // Pseudo-code affiche par le modele Editeur (6 lignes courtes), ignore ailleurs.
     code: (Array.isArray(raw?.code) ? raw.code : []).slice(0, 12)
       .map((line) => String(line ?? '').replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+$/, '').slice(0, 32))
@@ -415,7 +417,7 @@ export function planForEditing(plan) {
     caption: plan?.caption || '',
     hashtags: plan?.hashtags || [],
     scenes: (plan?.scenes || []).map((scene) => Object.fromEntries(
-      ['say', 'layout', 'text', 'title', 'number', 'word', 'tab', 'code', 'emoji', 'items', 'compare', 'series', 'image', 'frame', 'bg', 'avatar', 'sfx']
+      ['say', 'layout', 'text', 'title', 'number', 'word', 'tab', 'jp', 'code', 'emoji', 'items', 'compare', 'series', 'image', 'frame', 'bg', 'avatar', 'sfx']
         .filter((key) => key === 'say' || key === 'layout' || key === 'avatar' || compact(scene[key]))
         .map((key) => [key, scene[key]]),
     )),

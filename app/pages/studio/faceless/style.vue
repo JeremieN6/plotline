@@ -77,6 +77,9 @@
         <UiAlert v-if="da.template === 'herbier'" tone="info" title="Modèle Herbier" class="mt-3">
           Une page d’herbier : papier crème, serif doux, rameau de feuilles au trait, et une étiquette de produit décryptée ligne par ligne. Ici comptent la palette (accent = le mot en italique et le trait actif) et les sous-titres. La police, le style des cartes, le fond, le décor et les transitions sont ceux du modèle.
         </UiAlert>
+        <UiAlert v-if="da.template === 'hanko'" tone="info" title="Modèle Hanko" class="mt-3">
+          Une affiche de cinéma japonais : papier crème, mincho, disque rouge, tampon et tier list. Ici comptent la palette (accent = le disque, le tampon et le mot important) et les sous-titres. La police, le style des cartes, le fond, le décor et les transitions sont ceux du modèle.
+        </UiAlert>
         <UiAlert v-if="da.template === 'dashboard'" tone="info" title="Modèle Dashboard" class="mt-3">
           Une interface produit claire : cartes blanches, pastilles de statut, graphique qui se construit. Ici comptent la palette (accent = la couleur d’interface) et les sous-titres. La police, le style des cartes, le fond, le décor et les transitions sont ceux du modèle.
         </UiAlert>

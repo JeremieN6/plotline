@@ -7,6 +7,7 @@ import { EDITEUR_CAPTION_TOP, editeurCss, editeurScene } from './facelessTemplat
 import { BRUTAL_CAPTION_TOP, brutalBg, brutalCss, brutalScene } from './facelessTemplateBrutal.js';
 import { DASHBOARD_CAPTION_TOP, dashboardBg, dashboardCss, dashboardScene } from './facelessTemplateDashboard.js';
 import { HERBIER_CAPTION_TOP, herbierCss, herbierScene } from './facelessTemplateHerbier.js';
+import { HANKO_CAPTION_TOP, hankoCss, hankoScene } from './facelessTemplateHanko.js';
 
 // Modeles visuels autres que "classic" : dessin des scenes, feuille de style, place des sous-titres.
 const ENGINES = {
@@ -15,6 +16,7 @@ const ENGINES = {
   editeur: { scene: editeurScene, css: editeurCss, captionTop: EDITEUR_CAPTION_TOP, capWrap: true },
   // "bg" : le modele choisit lui-meme le fond de chaque scene (le mot geant est inverse).
   herbier: { scene: herbierScene, css: herbierCss, captionTop: HERBIER_CAPTION_TOP, capWrap: true },
+  hanko: { scene: hankoScene, css: hankoCss, captionTop: HANKO_CAPTION_TOP, capWrap: true },
   dashboard: { scene: dashboardScene, css: dashboardCss, captionTop: DASHBOARD_CAPTION_TOP, capWrap: true, bg: dashboardBg },
   brutal: { scene: brutalScene, css: brutalCss, captionTop: BRUTAL_CAPTION_TOP, capWrap: true, bg: brutalBg },
 };
@@ -442,6 +444,15 @@ function buildRuntime(fontFamilies, extraLoads = []) {
     'rise-label': { dur: 0.4, f: (p) => { const e = cubic(p); return { y: 60 * (1 - e), o: e }; } },
     'herb-giant': { dur: 0.8, f: (p) => { const e = cubic(p); return { s: 0.95 + 0.05 * e, b: 16 * (1 - e), o: p }; } },
     disc: { dur: 0.5, f: (p) => { const e = cubic(p); return { s: 0.85 + 0.15 * e, o: e }; } },
+    // Hanko : le tampon frappe (echelle 2,2 -> 1 et rotation +12 deg en 0,14 s, petit rebond), le disque grandit du centre.
+    hanko: { dur: 0.24, f: (p, since) => { if (since < 0.14) { const e = expo(since / 0.14); return { s: 2.2 - 1.2 * e, r: 12 * (1 - e), o: clamp(since * 20) }; } return { s: 1 - 0.04 * Math.sin(Math.PI * clamp((since - 0.14) / 0.1)) }; } },
+    'hk-disc': { dur: 0.5, f: (p) => ({ s: expo(p) }) },
+    'jp-line': { dur: 0.3, f: (p) => { const e = cubic(p); return { y: 40 * (1 - e), o: e }; } },
+    'hk-giant': { dur: 0.35, f: (p) => { const e = expo(p); return { s: 1.25 - 0.25 * e, b: 20 * (1 - e), o: clamp(p * 2) }; } },
+    'hk-bubble': { dur: 0.25, f: (p) => ({ s: Math.max(0, 0.7 + 0.3 * backC(p, 1.7)), o: clamp(p * 4) }) },
+    'hk-card': { dur: 0.4, f: (p) => { const e = backC(p, 1.3); return { y: 120 * (1 - e), r: -6 * (1 - e), o: clamp(p * 3) }; } },
+    'clip-row': { dur: 0.3, f: (p) => ({ c: 1 - cubic(p) }) },
+    'tier-fall': { dur: 0.25, f: (p) => ({ y: -300 * (1 - backC(p, 1.2)), o: clamp(p * 4) }) },
     wipe: { dur: 0.22, f: (p) => { const e = expo(p); return { x: -120 * (1 - e), c: 1 - e }; } },
     stamp: { dur: 0.15, f: (p) => { const e = expo(p); return { s: 1.5 - 0.5 * e, o: clamp(p * 4) }; } },
     fall: { dur: 0.15, f: (p) => { const e = cubic(p); return { y: -60 * (1 - e), o: clamp(p * 4) }; } },
@@ -471,6 +482,8 @@ function buildRuntime(fontFamilies, extraLoads = []) {
     if (def.zoom && since > def.dur) s *= 1 + def.zoom * clamp((since - def.dur) / Math.max(0.5, dur - at - def.dur));
     // Respiration : leger mouvement vertical continu.
     const br = +el.dataset.breathe || 0;
+    // Pulsation lente (disque rouge) : echelle 1 + amplitude * sin(2 pi t / 3).
+    if (+el.dataset.pulse) s *= 1 + (+el.dataset.pulse) * Math.sin(2 * Math.PI * t / 3);
     if (br) y += br * Math.sin(2 * Math.PI * t / 2.4);
     // Sortie : la fenetre retrecit et s efface dans les 0,2 dernieres secondes de la scene.
     if (el.dataset.exit && dur - local < 0.2) { const q = clamp(1 - (dur - local) / 0.2); s *= 1 - 0.04 * q; o *= 1 - q; }
@@ -569,7 +582,13 @@ function buildRuntime(fontFamilies, extraLoads = []) {
       });
       // Fondu d un fond (ingredient juge bon) et trait qui balaie une etiquette de haut en bas (lineaire).
       el.querySelectorAll('[data-fade-at]').forEach((fd) => {
-        fd.style.opacity = clamp((local - +fd.dataset.fadeAt) / (+fd.dataset.fadeDur || 0.2)).toFixed(3);
+        const from = +fd.dataset.fadeFrom || 0;
+        fd.style.opacity = (from + (1 - from) * clamp((local - +fd.dataset.fadeAt) / (+fd.dataset.fadeDur || 0.2))).toFixed(3);
+      });
+      // Flash du papier quand un tampon frappe (opacite 0 -> 0,25 -> 0 en 0,12 s).
+      el.querySelectorAll('[data-flash-at]').forEach((fl) => {
+        const q = (local - +fl.dataset.flashAt) / 0.12;
+        fl.style.opacity = q >= 0 && q <= 1 ? (0.25 * (1 - Math.abs(2 * q - 1))).toFixed(3) : '0';
       });
       el.querySelectorAll('[data-scan-at]').forEach((sc2) => {
         const p = (local - +sc2.dataset.scanAt) / (+sc2.dataset.scanDur || 1);

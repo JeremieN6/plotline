@@ -244,6 +244,17 @@ export function appendStyleRule(style, rule) {
 
 /** Pur : description textuelle de la DA donnee a Claude. */
 export function describeStyleForPrompt(style) {
+  if (style.template === 'hanko') {
+    const lines = [
+      `Direction artistique "${style.name}" : modèle HANKO, une affiche de cinéma japonais. Papier crème, grand serif mincho, un disque rouge, un tampon (hanko) pour faire claquer un avis, une tier list pour classer. Un seul clin d’œil au Japon par écran, pas de décor : l’énergie vient du rythme et des tampons.`,
+      'Le texte à l’écran ("text", ou "title" pour une liste) est court (3 à 7 mots) avec UN mot ou groupe de mots entre ** (il devient rouge et se souligne). Le champ "jp" (1 à 4 caractères japonais, katakana ou kanji) donne le katakana vertical d’une accroche ou le tampon d’un mot clé : vide si rien ne colle, jamais deux éléments japonais par écran.',
+      'Mises en page : "hook" (titre énorme devant le disque rouge ; "jp" = katakana vertical ; "tab" = petite légende en bas), "title" et "avatar" (une bulle de dialogue, puis l’avatar dans le disque rouge avec un tampon "!"), "list" (TIER LIST : "title" = titre, 2 à 4 éléments classés dans l’ordre S, A, B, C, la lettre voulue peut aller dans "sub"), "word" (le verdict en un mot géant ; "title" = petite légende ; "jp" = tampon vertical), "stat" ("word" = le chiffre, "compare" de 2 ou 3 valeurs dites dans le script), "photo" (une affiche : "tab" = note en tampon, ex. "9/10" ; "items" = genres en pastilles), "logo". Ne cite que des faits du script.',
+      style.captions.enabled ? 'Sous-titres : en haut, en mincho noir, le mot dit est souligné de rouge.' : 'Sous-titres : aucun.',
+    ];
+    if (style.rules) lines.push(`Règles de montage de cette DA :
+${style.rules}`);
+    return lines.join('\n');
+  }
   if (style.template === 'herbier') {
     const lines = [
       `Direction artistique "${style.name}" : modèle HERBIER, pour un persona produits bio et hair care. Papier crème, serif doux, un rameau de feuilles au trait, et une ÉTIQUETTE DE PRODUIT décryptée ligne par ligne. Naturel, rassurant, mais précis : le persona lit les ingrédients pour la personne.`,
