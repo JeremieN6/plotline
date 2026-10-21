@@ -244,6 +244,16 @@ export function appendStyleRule(style, rule) {
 
 /** Pur : description textuelle de la DA donnee a Claude. */
 export function describeStyleForPrompt(style) {
+  if (style.template === 'editeur') {
+    const lines = [
+      `Direction artistique "${style.name}" : modèle ÉDITEUR. Chaque scène s'affiche dans un éditeur de code sombre (lignes numérotées, coloration syntaxique, frappe au fil de la voix), avec une phrase de conclusion en dessous ; l'avatar apparaît dans une bulle ronde (chapitre, appel à l'action).`,
+      'Champ "code" (scènes "hook" et "title") : 2 à 5 lignes de pseudo-code JavaScript très court qui illustre la phrase (32 caractères max par ligne). Sans "code", le moteur affiche le mot clé dans une ligne simple.',
+      'Champ "tab" : le nom de fichier de l\'onglet (ex. "site.js", "solution.js", "perf.diff"). "list" : 2 à 4 éléments de 1 à 3 mots (ils deviennent un tableau). "word" : le mot apparaît dans un terminal. "stat" avec "compare" (2 valeurs, avant puis après) devient un diff avec des barres et le chiffre de "word".',
+      style.captions.enabled ? 'Sous-titres : en haut, dans une étiquette sombre, tapés au fil de la voix.' : 'Sous-titres : aucun.',
+    ];
+    if (style.rules) lines.push(`Règles de montage de cette DA :\n${style.rules}`);
+    return lines.join('\n');
+  }
   if (style.template === 'cahier') {
     const lines = [
       `Direction artistique "${style.name}" : modèle CAHIER, éditorial et sobre. Fond de papier quadrillé, beaucoup d'air. Le texte à l'écran ("text", ou "title" pour une liste ou un chiffre) est une phrase à deux niveaux : les mots ordinaires en gris, le ou les mots entre ** en très grand et en noir. Ne mets donc qu'UN groupe entre ** par phrase, de 1 ou 2 mots courts.`,

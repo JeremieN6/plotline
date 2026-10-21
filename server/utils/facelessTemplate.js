@@ -3,11 +3,13 @@ import { FACELESS_FONTS, FACELESS_TEMPLATE_MONO } from '../data/facelessThemes.j
 import { normalizeFacelessStyle } from './facelessStyle.js';
 import { FENETRE_CAPTION_TOP, fenetreCss, fenetreScene } from './facelessTemplateFenetre.js';
 import { CAHIER_CAPTION_TOP, cahierCss, cahierScene } from './facelessTemplateCahier.js';
+import { EDITEUR_CAPTION_TOP, editeurCss, editeurScene } from './facelessTemplateEditeur.js';
 
 // Modeles visuels autres que "classic" : dessin des scenes, feuille de style, place des sous-titres.
 const ENGINES = {
   fenetre: { scene: fenetreScene, css: fenetreCss, captionTop: FENETRE_CAPTION_TOP, capWrap: true },
   cahier: { scene: cahierScene, css: cahierCss, captionTop: CAHIER_CAPTION_TOP, capWrap: false },
+  editeur: { scene: editeurScene, css: editeurCss, captionTop: EDITEUR_CAPTION_TOP, capWrap: true },
 };
 
 /**
@@ -410,6 +412,8 @@ function buildRuntime(fontFamilies) {
     'rise-soft': { dur: 0.4, f: (p) => { const e = cubic(p); return { y: 80 * (1 - e), o: e }; } },
     'fade-in': { dur: 0.3, f: (p) => ({ o: p }) },
     flag: { dur: 0.3, f: (p) => ({ sy: backC(p, 1.6) }) },
+    'rise-panel': { dur: 0.35, f: (p) => { const e = cubic(p); return { y: 60 * (1 - e), o: e }; } },
+    bubble: { dur: 0.4, f: (p) => ({ s: Math.max(0, backC(p, 1.6)), o: clamp(p * 4) }) },
     label: { dur: 0.35, f: (p) => { const e = backC(p, 1.8); return { s: 0.6 + 0.4 * e, r: -4 * (1 - p), o: clamp(p * 3) }; } },
     'row-in': { dur: 0.3, f: (p) => { const e = cubic(p); return { x: 60 * (1 - e), o: e }; } },
     giant: { dur: 0.4, zoom: 0.04, f: (p) => { const e = expo(p); return { s: 1.35 - 0.35 * e, b: 20 * (1 - e), o: clamp(p * 2) }; } },
@@ -496,6 +500,16 @@ function buildRuntime(fontFamilies) {
       el.querySelectorAll('[data-ink-at]').forEach((w) => {
         w.style.color = hexMix(w.dataset.inkA, w.dataset.inkB, clamp((local - +w.dataset.inkAt) / 0.3));
       });
+      // Frappe : une ligne de code s affiche caractere par caractere (police a chasse fixe : 1 ch = 1 caractere).
+      el.querySelectorAll('[data-type-at]').forEach((ty) => {
+        const n = Math.max(0, Math.min(+ty.dataset.typeLen, Math.floor((local - +ty.dataset.typeAt) * +ty.dataset.typeCps)));
+        ty.style.width = n + 'ch';
+      });
+      // Curseur : visible de son repere au suivant, clignote a 1 Hz.
+      el.querySelectorAll('[data-cur-from]').forEach((cu) => {
+        const until = cu.dataset.curUntil != null ? +cu.dataset.curUntil : Infinity;
+        cu.style.visibility = local >= +cu.dataset.curFrom && local < until && Math.floor(t * 2) % 2 === 0 ? 'visible' : 'hidden';
+      });
       // Volumes qui montent (marches) : hauteur 0 -> H en 0,6 s.
       el.querySelectorAll('[data-grow-h]').forEach((g) => {
         g.style.height = (+g.dataset.growH * cubic(clamp((local - +g.dataset.growAt) / 0.6))).toFixed(1) + 'px';
@@ -545,10 +559,6 @@ function buildRuntime(fontFamilies) {
     [...document.images].map((img) => (img.complete ? null : new Promise((resolve) => { img.onload = resolve; img.onerror = resolve; }))),
   )).then(() => {
     scenes.forEach((s) => { s.style.display = 'block'; });
-    document.querySelectorAll('[data-follow]').forEach((el) => {
-      const ref = document.getElementById(el.dataset.follow);
-      if (ref) el.style.top = (ref.offsetTop + ref.offsetHeight + Number(el.dataset.gap || 0)) + 'px';
-    });
     // Un texte ne deborde jamais : on reduit sa taille jusqu a ce qu il tienne (largeur ou hauteur maximale).
     document.querySelectorAll('[data-fit-w], [data-fit-h]').forEach((el) => {
       const maxW = +el.dataset.fitW || Infinity, maxH = +el.dataset.fitH || Infinity;
@@ -558,6 +568,11 @@ function buildRuntime(fontFamilies) {
         size *= 0.95;
         el.style.fontSize = size.toFixed(1) + 'px';
       }
+    });
+    // Puis les elements "follow" se posent sous leur reference, une fois les tailles ajustees.
+    document.querySelectorAll('[data-follow]').forEach((el) => {
+      const ref = document.getElementById(el.dataset.follow);
+      if (ref) el.style.top = (ref.offsetTop + ref.offsetHeight + Number(el.dataset.gap || 0)) + 'px';
     });
     scenes.forEach((s) => { s.style.display = 'none'; });
     return true;
@@ -588,6 +603,7 @@ export function buildFacelessHtml(timeline, options = {}) {
     illustrations: T.illustrations,
     illustrationUrl: (id) => `${FACELESS_ASSET_ORIGIN}/illustration/${encodeURIComponent(id)}.jpg`,
     isLast: (scene) => scene === timeline.scenes[timeline.scenes.length - 1],
+    seed: nextSeed,
   };
   const scenesHtml = timeline.scenes.map((scene) => {
     if (engine) return `<section class="scene bg-${bgOf(scene)}"><div class="bg"></div>${engine.scene(scene, ctx)}</section>`;
