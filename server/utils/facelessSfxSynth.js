@@ -224,6 +224,37 @@ const RECIPES = {
     mixInto(out, biquad(tone({ seconds: 0.18, from: 420, decay: 0.5, harmonics: buzz }), 'lowpass', 2500), 0);
     return mixInto(out, biquad(tone({ seconds: 0.26, from: 300, decay: 0.5, harmonics: buzz }), 'lowpass', 2500), 0.2);
   },
+  'tech/key-tap': () => {
+    const out = buffer(0.16);
+    const tap = (seed, at, f) => mixInto(out, mixInto(biquad(noise(0.02, seed, decayEnv(0.0003, 0.003)), 'bandpass', f, 2), tone({ seconds: 0.03, from: 190, to: 140, decay: 0.01 }), 0, 0.5), at);
+    tap(101, 0, 4400);
+    tap(102, 0.075, 3900);
+    return out;
+  },
+  'tech/terminal-blip': () => tone({ seconds: 0.1, from: 1180, decay: 0.03, harmonics: [[1, 1], [3, 0.3], [5, 0.12]] }),
+  'tech/confirm': () => {
+    const out = buffer(0.4);
+    mixInto(out, tone({ seconds: 0.12, from: 880, decay: 0.05, harmonics: [[1, 1], [2, 0.15]] }), 0);
+    return mixInto(out, tone({ seconds: 0.28, from: 1318.51, decay: 0.09, harmonics: [[1, 1], [2, 0.15]] }), 0.1);
+  },
+  'tech/error-buzz': () => {
+    const out = buffer(0.45);
+    const buzz = [[1, 1], [2, 0.6], [3, 0.5], [4, 0.3]];
+    mixInto(out, biquad(tone({ seconds: 0.2, from: 150, decay: 0.5, harmonics: buzz }), 'lowpass', 1800), 0);
+    return mixInto(out, biquad(tone({ seconds: 0.22, from: 130, decay: 0.5, harmonics: buzz }), 'lowpass', 1800), 0.2);
+  },
+  'tech/boot-sweep': () => {
+    const out = tone({ seconds: 0.55, from: 220, to: 1700, decay: 0.45, attack: 0.03, harmonics: [[1, 1], [2, 0.2]] });
+    return mixInto(out, biquad(noise(0.4, 111, (t, d) => bumpEnv(t, d) * 0.2), 'highpass', 5000), 0.1);
+  },
+  'tech/data-tick': () => {
+    const out = tone({ seconds: 0.06, from: 2400, decay: 0.008, harmonics: [[1, 1], [2, 0.3]] });
+    return mixInto(out, biquad(noise(0.01, 121, decayEnv(0.0003, 0.002)), 'highpass', 4000), 0, 0.5);
+  },
+  'impact/hit': () => {
+    const out = tone({ seconds: 0.42, from: 80, to: 38, decay: 0.12, harmonics: [[1, 1], [2, 0.4]] });
+    return mixInto(out, biquad(noise(0.06, 131, decayEnv(0.001, 0.014)), 'lowpass', 1100), 0, 0.9);
+  },
   'tension/clock-ticking-a': () => {
     const out = buffer(2.1);
     for (let i = 0; i < 4; i += 1) {

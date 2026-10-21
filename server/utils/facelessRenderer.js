@@ -5,6 +5,7 @@ import { extname, resolve, sep } from 'node:path';
 
 import { resolveFfmpegPaths } from './ffmpegBinaries.js';
 import { FACELESS_ASSET_ORIGIN } from './facelessTemplate.js';
+import { buildDuckEnvelope } from './facelessSfxPlan.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -92,22 +93,39 @@ export async function measureTrimmedDuration(path) {
  * Mixe voix et bruitages a l echantillon pres, en Node (adelay/amix decalait
  * les voix de plusieurs centaines de ms lors du trailer). Ecrit du PCM brut
  * f32le 48 kHz stereo dans `outputPath`.
- * `tracks` : [{ path, start, gain, trimTail }].
+ * `tracks` : [{ path, start, gain, trimTail, kind, maxDur }]. Un son (`kind: 'sfx'`) est coupe a `maxDur`
+ * secondes (fondu de 30 ms) et la voix descend d environ 5 dB tant qu il joue.
  */
 export async function mixFacelessAudio(tracks, duration, outputPath) {
   const total = Math.ceil(duration * MIX_SAMPLE_RATE) * CHANNELS;
-  const mix = new Float32Array(total);
+  const voice = new Float32Array(total);
+  const effects = new Float32Array(total);
+  const ranges = [];
 
   for (const track of tracks) {
-    const samples = await decodeToFloat32(track.path, { trimTail: track.trimTail });
+    const sfx = track.kind === 'sfx';
+    let samples = await decodeToFloat32(track.path, { trimTail: track.trimTail });
+    if (sfx && track.maxDur > 0) {
+      samples = samples.slice(0, Math.min(samples.length, Math.round(track.maxDur * MIX_SAMPLE_RATE) * CHANNELS));
+      const fade = Math.min(samples.length, Math.round(0.03 * MIX_SAMPLE_RATE) * CHANNELS);
+      for (let i = 0; i < fade; i += 1) samples[samples.length - 1 - i] *= i / fade;
+    }
     const offset = Math.round(track.start * MIX_SAMPLE_RATE) * CHANNELS;
     const gain = track.gain ?? 1;
+    const target = sfx ? effects : voice;
     for (let i = 0; i < samples.length && offset + i < total; i += 1) {
-      if (offset + i >= 0) mix[offset + i] += samples[i] * gain;
+      if (offset + i >= 0) target[offset + i] += samples[i] * gain;
     }
+    if (sfx) ranges.push({ from: Math.round(offset / CHANNELS), to: Math.round((offset + samples.length) / CHANNELS) });
   }
 
-  for (let i = 0; i < total; i += 1) mix[i] = Math.max(-1, Math.min(1, mix[i]));
+  // La voix baisse sous chaque son (meme courbe sur les deux canaux).
+  const mix = voice;
+  if (ranges.length) {
+    const env = buildDuckEnvelope(total / CHANNELS, ranges, { rate: MIX_SAMPLE_RATE });
+    for (let i = 0; i < total; i += 1) mix[i] *= env[Math.floor(i / CHANNELS)];
+  }
+  for (let i = 0; i < total; i += 1) mix[i] = Math.max(-1, Math.min(1, mix[i] + effects[i]));
   await writeFile(outputPath, Buffer.from(mix.buffer));
   return outputPath;
 }

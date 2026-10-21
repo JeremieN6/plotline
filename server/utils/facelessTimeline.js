@@ -200,10 +200,13 @@ function finishTimeline(spec, placed, voice, opts) {
       : [];
   });
 
-  const sfx = placed.flatMap((scene) => scene.sfx.map((s) => ({
+  // `scene` et `cued` servent aux regles d espacement (facelessSfxPlan.js) : cued = cale sur un mot, sinon debut de scene.
+  const sfx = placed.flatMap((scene, i) => scene.sfx.map((s) => ({
     name: s.name,
     start: Number((scene.start + s.at).toFixed(3)),
     gain: s.gain ?? 0.5,
+    scene: i,
+    cued: s.at > 0,
   })));
 
   return {

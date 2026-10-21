@@ -89,7 +89,7 @@ test('layoutFacelessTimeline : scenes calees sur la voix, reperes par mot', () =
   assert.equal(tl.scenes[1].words[0].start, 2.5);
   assert.ok(tl.scenes[1].captionChunks.length > 0);
   assert.equal(tl.scenes[0].captionChunks.length, 0);
-  assert.deepEqual(tl.sfx, [{ name: 'pop', start: 0, gain: 0.5 }]);
+  assert.deepEqual(tl.sfx, [{ name: 'pop', start: 0, gain: 0.5, scene: 0, cued: false }]);
 });
 
 test('layoutFacelessTimeline : refuse un nombre de clips incoherent', () => {
