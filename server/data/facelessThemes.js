@@ -22,6 +22,7 @@ export const FACELESS_FONTS = {
   geistmono: { label: 'Geist Mono — libellés', family: 'Geist Mono', file: 'fonts/GeistMono.ttf', weights: '100 900', stretch: '100%' },
   shipporimincho: { label: 'Shippori Mincho B1 — mincho japonais', family: 'Shippori Mincho B1', file: 'fonts/ShipporiMinchoB1-Bold.ttf', weights: '700', stretch: '100%' },
   zenkaku: { label: 'Zen Kaku Gothic New — sans japonaise', family: 'Zen Kaku Gothic New', file: 'fonts/ZenKakuGothicNew-Bold.ttf', weights: '700', stretch: '100%' },
+  instrumentserif: { label: 'Instrument Serif — serif éditoriale', family: 'Instrument Serif', file: 'fonts/InstrumentSerif.ttf', weights: '400', stretch: '100%' },
   spacemono: { label: 'Space Mono — légendes', family: 'Space Mono', file: 'fonts/SpaceMono.ttf', weights: '700', stretch: '100%' },
 };
 
@@ -39,13 +40,18 @@ export const FACELESS_TEMPLATES = {
   dashboard: 'Interface produit',
   herbier: 'Herbier (étiquette de produit)',
   hanko: 'Hanko (affiche japonaise)',
+  journal: 'Journal de bord',
 };
 
 // Police "code" des modeles qui en affichent (libelles, chiffres, onglets).
-export const FACELESS_TEMPLATE_MONO = { fenetre: 'jetbrainsmono', cahier: 'ibmplexmono', editeur: 'jetbrainsmono', brutal: 'spacemono', dashboard: 'geistmono', herbier: 'dmmono', hanko: 'zenkaku' };
+export const FACELESS_TEMPLATE_MONO = { fenetre: 'jetbrainsmono', cahier: 'ibmplexmono', editeur: 'jetbrainsmono', brutal: 'spacemono', dashboard: 'geistmono', herbier: 'dmmono', hanko: 'zenkaku', journal: 'ibmplexmono' };
 
 // Polices en plus de la principale et de la mono d un modele (italiques, sans-serif) : chargees avec la page.
 export const FACELESS_TEMPLATE_EXTRA_FONTS = {
+  journal: [
+    { family: 'Instrument Serif', file: 'fonts/InstrumentSerif-Italic.ttf', weights: '400', style: 'italic' },
+    { family: 'Instrument Sans', file: 'fonts/InstrumentSans.ttf', weights: '400 700', style: 'normal' },
+  ],
   hanko: [
     { family: 'Zen Kaku Gothic New', file: 'fonts/ZenKakuGothicNew-Black.ttf', weights: '900', style: 'normal' },
   ],
@@ -560,6 +566,38 @@ Object.assign(FACELESS_PRESETS, {
   'hanko-rouge': hanko('hanko-rouge', 'Hanko rouge', 'Affiche de cinéma japonais : papier crème, mincho, disque rouge, tampon, tier list. Anime, cinéma, avis de fan.', '#e5322d'),
   'hanko-indigo': hanko('hanko-indigo', 'Hanko indigo', 'L’affiche japonaise avec un accent indigo : plus calme, pour le drame.', '#2b3a67'),
   'hanko-pin': hanko('hanko-pin', 'Hanko vert pin', 'L’affiche japonaise avec un accent vert pin : nature, contemplatif.', '#2f5d50'),
+});
+
+// Modele "Journal" : journal de bord d un createur (papier clair, serif italique, accent, cartes de produit, ship log).
+// accent = le mot en italique, les coches, le curseur ; backgroundAlt = sa teinte douce (disques, fond secondaire).
+const JOURNAL_RULES = 'Journal de bord personnel et honnête (build in public) : ton humain, direct, sans effet, à la première personne. Phrases courtes en deux niveaux, UN mot ou groupe de mots entre ** par phrase (il passe en italique de couleur). Pour dire ce qui est livré, utilise "list" (ship log) : "tab" = libellé ("Ship log"), "title" = titre, éléments dans l’ordre ; un élément pas encore livré a "tone": "watch" (ligne en tirets, grisée), les autres sont livrés (coche). "word" pour LE mot du problème ou du principe, avec une phrase de soutien dans "text". "photo" pour une capture du produit (une illustration du dossier) : "tab" = adresse affichée dans la fenêtre, "text" = la légende. Une notification "tab" sur un chapitre ("Persona créé"). Chiffres UNIQUEMENT ceux du script. Aucun emoji.';
+const journal = (key, label, description, accent, soft) => ({
+  label,
+  description,
+  style: {
+    name: label,
+    preset: key,
+    template: 'journal',
+    palette: {
+      background: '#f7f6f3', backgroundAlt: soft, dark: '#1b1a24', text: '#141414', accent, accent2: '#6b6880', card: '#ffffff', cardText: '#141414',
+    },
+    font: 'instrumentserif',
+    card: 'flat',
+    background: 'solid',
+    decor: 'none',
+    motion: 'smooth',
+    enters: ['cut'],
+    captions: { enabled: true, position: 'top', style: 'plain' },
+    density: 'sobre',
+    rules: JOURNAL_RULES,
+    avatarPrompt: 'fidèle à l’image de base du personnage, expressions naturelles, rendu net',
+  },
+});
+Object.assign(FACELESS_PRESETS, {
+  'journal-violet': journal('journal-violet', 'Journal violet', 'Journal de bord d’un créateur : papier clair, serif italique, accent violet, cartes de produit et ship log. Build in public, SaaS.', '#6c4cff', '#e9e4ff'),
+  'journal-vert': journal('journal-vert', 'Journal vert', 'Le journal de bord avec un accent vert : plus calme, croissance.', '#0f8a5f', '#dff3ea'),
+  'journal-orange': journal('journal-orange', 'Journal orange', 'Le journal de bord avec un accent orange brûlé : plus chaleureux.', '#d4540f', '#ffe6d8'),
+  'journal-bleu': journal('journal-bleu', 'Journal bleu', 'Le journal de bord avec un accent bleu : plus corporate.', '#2447c8', '#e0e7fb'),
 });
 
 export const DEFAULT_PRESET = 'papercraft-pastel';

@@ -8,6 +8,7 @@ import { BRUTAL_CAPTION_TOP, brutalBg, brutalCss, brutalScene } from './faceless
 import { DASHBOARD_CAPTION_TOP, dashboardBg, dashboardCss, dashboardScene } from './facelessTemplateDashboard.js';
 import { HERBIER_CAPTION_TOP, herbierCss, herbierScene } from './facelessTemplateHerbier.js';
 import { HANKO_CAPTION_TOP, hankoCss, hankoScene } from './facelessTemplateHanko.js';
+import { JOURNAL_CAPTION_TOP, journalCss, journalScene } from './facelessTemplateJournal.js';
 
 // Modeles visuels autres que "classic" : dessin des scenes, feuille de style, place des sous-titres.
 const ENGINES = {
@@ -17,6 +18,7 @@ const ENGINES = {
   // "bg" : le modele choisit lui-meme le fond de chaque scene (le mot geant est inverse).
   herbier: { scene: herbierScene, css: herbierCss, captionTop: HERBIER_CAPTION_TOP, capWrap: true },
   hanko: { scene: hankoScene, css: hankoCss, captionTop: HANKO_CAPTION_TOP, capWrap: true },
+  journal: { scene: journalScene, css: journalCss, captionTop: JOURNAL_CAPTION_TOP, capWrap: false },
   dashboard: { scene: dashboardScene, css: dashboardCss, captionTop: DASHBOARD_CAPTION_TOP, capWrap: true, bg: dashboardBg },
   brutal: { scene: brutalScene, css: brutalCss, captionTop: BRUTAL_CAPTION_TOP, capWrap: true, bg: brutalBg },
 };
@@ -446,6 +448,13 @@ function buildRuntime(fontFamilies, extraLoads = []) {
     disc: { dur: 0.5, f: (p) => { const e = cubic(p); return { s: 0.85 + 0.15 * e, o: e }; } },
     // Hanko : le tampon frappe (echelle 2,2 -> 1 et rotation +12 deg en 0,14 s, petit rebond), le disque grandit du centre.
     hanko: { dur: 0.24, f: (p, since) => { if (since < 0.14) { const e = expo(since / 0.14); return { s: 2.2 - 1.2 * e, r: 12 * (1 - e), o: clamp(since * 20) }; } return { s: 1 - 0.04 * Math.sin(Math.PI * clamp((since - 0.14) / 0.1)) }; } },
+    // Journal : sobre et humain. Les mots montent de 18 px (0,3 s), les disques de personas arrivent de la gauche, une notification monte.
+    'jr-word': { dur: 0.3, f: (p) => { const e = cubic(p); return { y: 18 * (1 - e), o: e }; } },
+    'jr-log': { dur: 0.3, f: (p) => { const e = cubic(p); return { y: 24 * (1 - e), o: e }; } },
+    'jr-toast': { dur: 0.3, f: (p) => { const e = cubic(p); return { y: 40 * (1 - e), o: e }; } },
+    'jr-giant': { dur: 0.6, f: (p) => { const e = cubic(p); return { y: 20 * (1 - e), b: 18 * (1 - e), o: p }; } },
+    'jr-card': { dur: 0.4, f: (p) => { const e = cubic(p); return { s: 0.96 + 0.04 * e, o: e }; } },
+    'persona-in': { dur: 0.35, f: (p) => { const e = backC(p, 1.4); return { x: -80 * (1 - e), s: 0.8 + 0.2 * e, o: clamp(p * 3) }; } },
     'hk-disc': { dur: 0.5, f: (p) => ({ s: expo(p) }) },
     'jp-line': { dur: 0.3, f: (p) => { const e = cubic(p); return { y: 40 * (1 - e), o: e }; } },
     'hk-giant': { dur: 0.35, f: (p) => { const e = expo(p); return { s: 1.25 - 0.25 * e, b: 20 * (1 - e), o: clamp(p * 2) }; } },
@@ -584,6 +593,16 @@ function buildRuntime(fontFamilies, extraLoads = []) {
       el.querySelectorAll('[data-fade-at]').forEach((fd) => {
         const from = +fd.dataset.fadeFrom || 0;
         fd.style.opacity = (from + (1 - from) * clamp((local - +fd.dataset.fadeAt) / (+fd.dataset.fadeDur || 0.2))).toFixed(3);
+      });
+      // Tirets qui defilent (cercle d une ligne a venir) : decalage -vitesse * temps.
+      el.querySelectorAll('[data-dashrun]').forEach((d) => { d.style.strokeDashoffset = (-(+d.dataset.dashrun) * local).toFixed(2); });
+      // Curseur qui glisse sur une courbe (inout) jusqu a son point, puis clique (echelle 1 -> 0,97 -> 1 en 0,12 s).
+      el.querySelectorAll('[data-glide-at]').forEach((g) => {
+        const D = g.dataset, q = inout(clamp((local - +D.glideAt) / (+D.glideDur || 0.6)));
+        const x0 = +D.glideX0, y0 = +D.glideY0, x1 = +D.glideX1, y1 = +D.glideY1, bend = +D.glideBend || 0;
+        const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy) || 1, cx = (x0 + x1) / 2 - (dy / len) * bend, cy = (y0 + y1) / 2 + (dx / len) * bend, u = 1 - q;
+        const click = clamp((local - +D.glideAt - (+D.glideDur || 0.6)) / 0.12);
+        g.style.transform = 'translate(' + (u * u * x0 + 2 * u * q * cx + q * q * x1).toFixed(1) + 'px,' + (u * u * y0 + 2 * u * q * cy + q * q * y1).toFixed(1) + 'px) scale(' + (1 - 0.03 * Math.sin(Math.PI * click)).toFixed(3) + ')';
       });
       // Flash du papier quand un tampon frappe (opacite 0 -> 0,25 -> 0 en 0,12 s).
       el.querySelectorAll('[data-flash-at]').forEach((fl) => {
