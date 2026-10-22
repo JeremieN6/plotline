@@ -23,6 +23,17 @@ const C = {
   redSoft: '#fee4e2', redInk: '#b42318', greenSoft: '#d1fadf',
 };
 
+/** Teinte douce de l accent (mele a du blanc) : pastilles et fonds d icone suivent la couleur de la DA. */
+const softTint = (hex, ratio = 0.9) => {
+  const n = Number.parseInt(String(hex).replace('#', ''), 16);
+  const mix = (c) => Math.round(c + (255 - c) * ratio);
+  return `#${[(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => mix(c).toString(16).padStart(2, '0')).join('')}`;
+};
+const accentRgba = (hex, alpha) => {
+  const n = Number.parseInt(String(hex).replace('#', ''), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+};
+
 const noMarks = (text) => String(text ?? '').replace(/\*\*/g, '');
 
 const ICONS = {
@@ -200,7 +211,7 @@ const LAYOUTS = {
       const from = at.toFixed(2);
       const until = next ? ` data-hl-until="${Math.min(next.at, at + 4).toFixed(2)}"` : '';
       const hl = (prop, a, b) => ` data-hl-prop="${prop}" data-hl-a="${a}" data-hl-b="${b}" data-hl-from="${from}"${until}`;
-      const inner = `<span class="ic" ${hl('backgroundColor', '#eef2ff', accent)}><span class="ico" ${hl('color', accent, '#ffffff')}>${icon(ICON_CYCLE[i % ICON_CYCLE.length])}</span></span>`
+      const inner = `<span class="ic" ${hl('backgroundColor', softTint(accent), accent)}><span class="ico" ${hl('color', accent, '#ffffff')}>${icon(ICON_CYCLE[i % ICON_CYCLE.length])}</span></span>`
         + `<span class="itxt"><span class="it">${esc(noMarks(item.text))}</span>${item.sub ? `<span class="is">${esc(noMarks(item.sub))}</span>` : ''}</span>`;
       const html = cardFx(ctx, { inner, at, id, follow: previous, gap: i === 0 ? 30 : 24, cls: 'row', enter: 'alert-in', attrs: hl('borderColor', C.line, accent) });
       previous = id;
@@ -211,7 +222,7 @@ const LAYOUTS = {
   // Mot cle : une carte avec son libelle, le mot en tres grand et une courbe decorative.
   word(scene, ctx) {
     const k = pace(scene);
-    const line = '<svg class="deco" viewBox="0 0 792 60" width="100%" height="60"><path d="M4,18 C120,18 200,40 330,36 C460,32 560,46 788,42" fill="none" stroke="#4f46e5" stroke-width="6" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1" data-dash-at="'
+    const line = '<svg class="deco" viewBox="0 0 792 60" width="100%" height="60"><path d="M4,18 C120,18 200,40 330,36 C460,32 560,46 788,42" fill="none" stroke="' + ctx.style.palette.accent + '" stroke-width="6" stroke-linecap="round" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1" data-dash-at="'
       + `${(0.5 * k).toFixed(2)}" data-dash-dur="0.9" data-dash-ease="inout"/></svg>`;
     const inner = `${label(scene.title || 'À retenir')}<div class="giant wd" data-enter="giant-soft" data-at="${(0.15 * k).toFixed(2)}" data-rot="0" data-boil="0" data-fit-w="${INNER_W}">${esc(scene.word)}</div>${line}`;
     return cardFx(ctx, { inner, y: 600 });
@@ -302,11 +313,11 @@ body{background:${p.background};font-family:"${fontFamily}",${emojiFonts},sans-s
 .pill::before{content:"";width:12px;height:12px;border-radius:50%;background:currentColor}
 .pill.alert{background:${C.redSoft};color:${C.redInk}}
 .pill.good{background:${C.greenSoft};color:${C.green}}
-.pill.neutral{background:${C.indigoSoft};color:var(--accent)}
+.pill.neutral{background:${softTint(a)};color:var(--accent)}
 .mval{font-size:52px;font-weight:700;letter-spacing:-.03em;line-height:1.05;margin-bottom:14px}
 .mval.down{color:${C.red}}.mval.up{color:${C.green}}
 .spark{display:block}
-.ic{display:inline-flex;align-items:center;justify-content:center;width:104px;height:104px;border-radius:26px;background:${C.indigoSoft};flex:0 0 auto}
+.ic{display:inline-flex;align-items:center;justify-content:center;width:104px;height:104px;border-radius:26px;background:${softTint(a)};flex:0 0 auto}
 .ico{display:inline-flex;color:var(--accent)}
 .ic.danger{width:76px;height:76px;border-radius:20px;background:${C.redSoft};color:${C.red}}
 .toast{display:flex;align-items:center;gap:26px}
@@ -324,7 +335,7 @@ body{background:${p.background};font-family:"${fontFamily}",${emojiFonts},sans-s
 .gcard.ba .lab{margin-bottom:12px}
 .bval{display:inline-block;white-space:nowrap;font-size:92px;font-weight:700;letter-spacing:-.04em;line-height:1;color:var(--gray)}
 .bval.now{color:var(--accent)}
-.gcard.ba.now{border-color:var(--accent);box-shadow:0 24px 60px rgba(79,70,229,.25)}
+.gcard.ba.now{border-color:var(--accent);box-shadow:0 24px 60px ${accentRgba(a, 0.25)}}
 .pimg{display:block;width:100%;height:760px;object-fit:cover;border-radius:22px;background:#ddd}
 .pcap{font-size:44px;font-weight:600;letter-spacing:-.02em;margin-top:22px}
 .logo-row{display:flex;align-items:center;gap:36px}

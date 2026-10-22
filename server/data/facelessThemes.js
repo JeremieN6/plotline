@@ -503,7 +503,7 @@ const dashboard = (key, label, description, accent) => ({
 Object.assign(FACELESS_PRESETS, {
   'dashboard-indigo': dashboard('dashboard-indigo', 'Dashboard indigo', 'Interface produit claire : cartes blanches, pastilles, un graphique qui se construit. SaaS, business, chiffres.', '#4f46e5'),
   'dashboard-vert': dashboard('dashboard-vert', 'Dashboard vert', 'L’interface produit avec un accent vert profond : finance, croissance.', '#0b7a5a'),
-  'dashboard-bleu': dashboard('dashboard-bleu', 'Dashboard bleu', 'L’interface produit avec un accent bleu : plus corporate.', '#1d4ed8'),
+  'dashboard-bleu': dashboard('dashboard-bleu', 'Dashboard bleu', 'L’interface produit avec un accent bleu ciel : plus corporate, plus froid.', '#0369a1'),
 });
 
 // Modele "Herbier" : page d herbier (papier creme, serif doux, rameau au trait) et etiquette de produit decryptee ligne par ligne.
