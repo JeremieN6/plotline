@@ -8,17 +8,37 @@
  * renvoye a Claude, qui doit corriger.
  *
  * Perimetre (le kit s applique "au fil de l eau", on ne migre pas ce qu on ne touche pas) :
- *  - fichier NOUVEAU : toutes ses lignes ;
- *  - fichier MODIFIE : seulement les lignes ajoutees ou modifiees (git diff HEAD) ;
- *  - `UI_KIT_STRICT=1` : toutes les lignes de tous les fichiers touches (migration complete d une page).
+ *  - PAR DEFAUT (decision de l utilisateur du 2026-10-22) : un .vue touche doit etre
+ *    ENTIEREMENT conforme, toutes ses lignes, pas seulement celles qu on a ajoutees ;
+ *  - `UI_KIT_STRICT=0` : seulement les lignes ajoutees ou modifiees (git diff HEAD) ;
+ *    un fichier NOUVEAU est toujours controle en entier.
  * Echappatoire explicite et visible : le mot `ui-kit-ignore` sur la ligne (a reserver
  * aux cas ou le kit n a pas d equivalent, par exemple un champ fichier natif).
  */
 
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import path from 'node:path';
 
-const STRICT = process.env.UI_KIT_STRICT === '1';
+// Toujours travailler depuis la racine du depot : le dossier courant d une session
+// peut etre un sous-dossier (ou un autre dossier), et depuis la les chemins renvoyes
+// par git ne correspondent plus a rien (le controle repondait « tout va bien » a tort).
+function findRoot() {
+  const candidates = [process.env.CLAUDE_PROJECT_DIR, process.cwd(), path.resolve(import.meta.dirname || '.', '..')];
+  for (const dir of candidates.filter(Boolean)) {
+    try {
+      const top = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: dir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+      if (top) return top;
+    } catch {
+      // pas un depot git : on essaie le candidat suivant
+    }
+  }
+  return process.cwd();
+}
+const ROOT = findRoot();
+process.chdir(ROOT);
+
+const STRICT = process.env.UI_KIT_STRICT !== '0';
 const IGNORE_MARK = 'ui-kit-ignore';
 const KIT_DIR = 'app/components/ui/';
 
@@ -52,19 +72,29 @@ function readStdin() {
   }
 }
 
-// Evite toute boucle : si le hook a deja bloque ce tour, on laisse finir.
+// Deux declencheurs : Stop (fin de tour : tous les .vue touches) et PostToolUse
+// (juste apres un Write/Edit : seulement le fichier ecrit, retour immediat).
+let payload = {};
 try {
-  const input = JSON.parse(readStdin() || '{}');
-  if (input?.stop_hook_active) process.exit(0);
+  payload = JSON.parse(readStdin() || '{}') || {};
 } catch {
-  // pas de JSON sur stdin (lancement a la main) : on continue
+  // pas de JSON sur stdin (lancement a la main) : on controle tous les fichiers touches
 }
+// Evite toute boucle : si le hook a deja bloque ce tour, on laisse finir.
+if (payload.stop_hook_active) process.exit(0);
 
 const isVue = (file) => file.startsWith('app/') && file.endsWith('.vue') && !file.startsWith(KIT_DIR);
 const tracked = git(['diff', '--name-only', 'HEAD']).split('\n').map((s) => s.trim()).filter(Boolean);
 const untracked = git(['ls-files', '--others', '--exclude-standard']).split('\n').map((s) => s.trim()).filter(Boolean);
-const files = [...new Set([...tracked, ...untracked])].filter(isVue).filter((file) => fs.existsSync(file));
 const untrackedSet = new Set(untracked);
+
+const editedPath = payload?.tool_input?.file_path;
+let candidates = [...new Set([...tracked, ...untracked])];
+if (typeof editedPath === 'string' && editedPath) {
+  const relative = path.relative(ROOT, path.resolve(editedPath)).split(path.sep).join('/');
+  candidates = relative.startsWith('..') ? [] : [relative];
+}
+const files = candidates.filter(isVue).filter((file) => fs.existsSync(file));
 
 /** Numeros des lignes ajoutees ou modifiees d un fichier suivi (git diff -U0). */
 function addedLines(file) {

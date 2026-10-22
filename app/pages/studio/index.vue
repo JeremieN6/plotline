@@ -1,30 +1,26 @@
 <template>
-  <div class="space-y-6">
-    <header class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-      <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#E8873A]">Studio</p>
-      <h1 class="mt-2 text-3xl font-bold tracking-tight text-[#111111]">Studio</h1>
-      <p class="mt-2 text-sm text-[#666666]">Crée rapidement des visuels et vidéos pour ton activité.</p>
+  <div class="space-y-6 font-ui">
+    <header class="rounded-ui-card border border-ui-line bg-ui-surface p-5">
+      <p class="text-xs font-semibold uppercase tracking-[0.08em] text-ui-accent">Studio</p>
+      <h1 class="mt-1 text-2xl font-bold tracking-[-0.01em] text-ui-ink">Studio</h1>
+      <p class="mt-2 text-sm text-ui-ink-2">Crée rapidement des visuels et vidéos pour ton activité.</p>
     </header>
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.9fr)]">
-      <section class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
+      <section class="rounded-ui-card border border-ui-line bg-ui-surface p-5">
         <div
           v-if="isEditingMode"
-          class="rounded-[14px] border border-[#F2CCAA] bg-[#FFF5EC] p-3"
+          class="rounded-ui-card border border-ui-line-input bg-ui-accent-soft p-3"
         >
           <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#B45F1D]">Mode modification</p>
-              <p class="mt-1 text-sm font-semibold text-[#111111]">Tu modifies une génération existante.</p>
-              <button
-                type="button"
-                class="mt-2 rounded-[10px] border border-[#E6B78E] bg-white px-3 py-1.5 text-xs font-bold text-[#B45F1D] transition-colors hover:bg-[#FFF2E6]"
-                @click="exitEditMode"
-              >
+              <p class="text-[13px] font-semibold text-ui-accent-ink">Mode modification</p>
+              <p class="mt-1 text-sm font-semibold text-ui-ink">Tu modifies une génération existante.</p>
+              <UiButton variant="secondary" size="sm" class="mt-2" @click="exitEditMode">
                 Quitter la modification
-              </button>
+              </UiButton>
             </div>
-            <div class="h-16 w-16 overflow-hidden rounded-[10px] border border-[#E6D7C8] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+            <div class="h-16 w-16 overflow-hidden rounded-ui-ctl border border-ui-line-input bg-ui-surface">
               <video
                 v-if="editContentPreviewUrl && mode === 'video'"
                 :src="editContentPreviewUrl"
@@ -39,7 +35,7 @@
                 alt="Miniature du contenu en modification"
                 class="h-full w-full object-cover"
               />
-              <div v-else class="flex h-full w-full items-center justify-center text-[10px] font-semibold text-[#B49A85]">
+              <div v-else class="flex h-full w-full items-center justify-center text-[10px] font-semibold text-ui-ink-muted">
                 Aperçu
               </div>
             </div>
@@ -60,165 +56,130 @@
             @regenerate-all="carousel.regenerateAll"
           />
 
-          <div v-if="mode === 'video'" class="mt-3 border-t border-[#F0D9C4] pt-3">
-            <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#B45F1D]">
+          <div v-if="mode === 'video'" class="mt-3 border-t border-ui-line-soft pt-3">
+            <label class="text-[13px] font-semibold text-ui-accent-ink">
               Modèle vidéo
             </label>
             <select
               v-model="selectedVideoModel"
-              class="mt-1.5 w-full rounded-[10px] border border-[#E6B78E] bg-white px-3 py-2 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+              class="mt-1.5 w-full rounded-ui-ctl border border-ui-line-input bg-ui-surface px-3 py-2 text-sm text-ui-ink outline-none focus-visible:border-ui-accent focus-visible:ring-[3px] focus-visible:ring-ui-accent/20"
             >
               <option value="auto">Automatique (selon le prompt)</option>
               <option v-if="veoEnabled" value="veo">Veo</option>
               <option value="kling">Kling</option>
               <option v-if="seedanceEnabled" value="seedance">Seedance</option>
             </select>
-            <p class="mt-1.5 text-xs text-[#8A6647]">
+            <p class="mt-1.5 text-xs text-ui-ink-2">
               Chaque régénération est conservée : compare les modèles en ouvrant le contenu dans Mes créations.
             </p>
           </div>
         </div>
 
-        <div v-if="!isEditingMode" class="mt-4 flex flex-wrap items-center gap-4">
-          <label class="inline-flex items-center gap-2 text-sm font-semibold text-[#111111]">
-            <input v-model="entryMode" type="radio" value="free" class="accent-[#E8873A]" />
-            ✍️ Prompt libre
-          </label>
-          <label class="inline-flex items-center gap-2 text-sm font-semibold text-[#111111]">
-            <input v-model="entryMode" type="radio" value="widget" class="accent-[#E8873A]" />
-            🧩 Widgets
-          </label>
-        </div>
+        <UiSegmented v-if="!isEditingMode" v-model="entryMode" class="mt-4" label="Mode de création" :options="ENTRY_MODE_OPTIONS" />
 
         <template v-if="entryMode === 'free' || isEditingMode">
-          <div class="mt-4 flex flex-wrap items-center gap-4">
-            <label class="inline-flex items-center gap-2 text-sm font-semibold text-[#111111]">
-              <input v-model="mode" type="radio" value="image" class="accent-[#E8873A]" />
-              🖼️ Image
-            </label>
-            <label class="inline-flex items-center gap-2 text-sm font-semibold text-[#111111]">
-              <input v-model="mode" type="radio" value="video" class="accent-[#E8873A]" />
-              🎬 Vidéo
-            </label>
-          </div>
+          <UiSegmented v-model="mode" class="mt-4" label="Type de contenu" :options="MEDIA_MODE_OPTIONS" />
 
           <section
             v-if="mode === 'image' && !editingContentId"
-            class="mt-4 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-3"
+            class="mt-4 rounded-ui-card border border-ui-line bg-ui-subtle p-3"
           >
-            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-[#A37A58]">Type de génération</p>
-            <div class="mt-2 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                class="rounded-[10px] border px-3 py-2 text-sm font-semibold transition-colors"
-                :class="imageGenerationKind === 'single'
-                  ? 'border-[#E8873A] bg-[#FDF3EA] text-[#111111]'
-                  : 'border-[#E5E3DF] bg-white text-[#666666] hover:border-[#E8873A]/40'"
-                @click="imageGenerationKind = 'single'"
-              >
-                Post unique
-              </button>
-              <button
-                type="button"
-                class="rounded-[10px] border px-3 py-2 text-sm font-semibold transition-colors"
-                :class="imageGenerationKind === 'carousel'
-                  ? 'border-[#E8873A] bg-[#FDF3EA] text-[#111111]'
-                  : 'border-[#E5E3DF] bg-white text-[#666666] hover:border-[#E8873A]/40'"
-                @click="imageGenerationKind = 'carousel'"
-              >
-                Carrousel
-              </button>
-            </div>
-            <p class="mt-2 text-xs text-[#7B5A3F]">Le mode carrousel crée plusieurs images d'un coup (2 à 10 slides).</p>
+            <p class="text-[13px] font-semibold text-ui-ink">Type de génération</p>
+            <UiSegmented v-model="imageGenerationKind" class="mt-2" label="Type de génération" :options="IMAGE_KIND_OPTIONS" />
+            <p class="mt-2 text-xs text-ui-ink-2">Le mode carrousel crée plusieurs images d'un coup (2 à 10 slides).</p>
           </section>
 
           <template v-if="mode === 'image' && imageGenerationKind === 'carousel' && !editingContentId">
-            <div class="mt-4 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-3">
-              <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Exprime ton besoin (optionnel)</label>
-              <textarea
+            <div class="mt-4 rounded-ui-card border border-ui-line bg-ui-subtle p-3">
+              <label class="text-[13px] font-semibold text-ui-ink">Exprime ton besoin (optionnel)</label>
+              <UiTextarea
                 v-model="carouselIdea"
-                rows="2"
+                :rows="2"
                 placeholder="Ex : les étapes de ma routine du matin, ambiance cosy"
-                class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#E8873A]"
+                class="mt-1.5"
               />
-              <button
-                type="button"
-                class="mt-2 rounded-[10px] bg-[#FDE7D6] px-4 py-2 text-sm font-bold text-[#B45F1D] transition-colors hover:bg-[#FAD9BE] disabled:cursor-not-allowed disabled:opacity-60"
-                :disabled="!carouselIdea.trim() || carouselAssistLoading"
+              <UiButton
+                variant="secondary"
+                size="sm"
+                class="mt-2"
+                :loading="carouselAssistLoading"
+                :disabled="!carouselIdea.trim()"
                 @click="openIdeaReview('carousel')"
               >
                 {{ carouselAssistLoading ? 'Génération des slides...' : 'Générer les slides avec Claude' }}
-              </button>
-              <p v-if="carouselAssistError" class="mt-1.5 text-xs text-red-600">{{ carouselAssistError }}</p>
+              </UiButton>
+              <p v-if="carouselAssistError" class="mt-1.5 text-xs text-ui-danger">{{ carouselAssistError }}</p>
             </div>
 
             <div class="mt-4 space-y-3">
               <div class="flex items-center justify-between gap-3">
-                <label class="text-sm font-bold text-[#111111]">Prompts du carrousel</label>
-                <span class="text-xs font-semibold text-[#8A8A8A]">{{ carouselPrompts.length }}/{{ CAROUSEL_MAX_PROMPTS }} slides</span>
+                <label class="text-sm font-bold text-ui-ink">Prompts du carrousel</label>
+                <span class="text-xs font-semibold text-ui-ink-muted">{{ carouselPrompts.length }}/{{ CAROUSEL_MAX_PROMPTS }} slides</span>
               </div>
 
               <div
                 v-for="(item, index) in carouselPrompts"
                 :key="item.id"
-                class="rounded-[12px] border border-[#E5E3DF] bg-[#FAFAF8] p-3"
+                class="rounded-ui-card border border-ui-line bg-ui-subtle p-3"
               >
                 <div class="mb-2 flex items-center justify-between gap-2">
-                  <p class="text-xs font-bold uppercase tracking-[0.12em] text-[#9A9A9A]">Slide {{ index + 1 }}</p>
-                  <button
+                  <p class="text-xs font-semibold text-ui-ink-muted">Slide {{ index + 1 }}</p>
+                  <UiButton
                     v-if="carouselPrompts.length > CAROUSEL_MIN_PROMPTS"
-                    type="button"
-                    class="text-xs font-semibold text-[#B45F1D] transition-colors hover:text-[#8E4B16]"
+                    variant="ghost"
+                    size="sm"
                     @click="removeCarouselPrompt(item.id)"
                   >
                     Supprimer
-                  </button>
+                  </UiButton>
                 </div>
-                <textarea
+                <UiTextarea
                   v-model="item.prompt"
-                  class="w-full rounded-[10px] border border-[#E5E3DF] bg-white p-3 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
-                  style="min-height: 120px;"
+                  :rows="5"
                   placeholder="Décris cette slide..."
                 />
               </div>
 
-              <button
-                type="button"
-                class="rounded-[10px] border border-dashed border-[#D9C6B4] bg-white px-3 py-2 text-sm font-semibold text-[#B45F1D] transition-colors hover:bg-[#FFF6EE] disabled:cursor-not-allowed disabled:opacity-60"
+              <UiButton
+                variant="secondary"
+                size="sm"
                 :disabled="carouselPrompts.length >= CAROUSEL_MAX_PROMPTS"
                 @click="addCarouselPrompt"
               >
                 + Ajouter un prompt
-              </button>
+              </UiButton>
             </div>
           </template>
 
           <template v-else>
-            <div v-if="!editingContentId" class="mt-4 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-3">
-              <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Exprime ton besoin (optionnel)</label>
-              <textarea
+            <div v-if="!editingContentId" class="mt-4 rounded-ui-card border border-ui-line bg-ui-subtle p-3">
+              <label class="text-[13px] font-semibold text-ui-ink">Exprime ton besoin (optionnel)</label>
+              <UiTextarea
                 v-model="freePromptIdea"
-                rows="2"
+                :rows="2"
                 placeholder="Ex : une photo de moi en train de savourer un café le matin, ambiance cosy"
-                class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#E8873A]"
+                class="mt-1.5"
               />
-              <button
-                type="button"
-                class="mt-2 rounded-[10px] bg-[#FDE7D6] px-4 py-2 text-sm font-bold text-[#B45F1D] transition-colors hover:bg-[#FAD9BE] disabled:cursor-not-allowed disabled:opacity-60"
-                :disabled="!freePromptIdea.trim() || freePromptAssistLoading"
+              <StudioAttachmentField v-model="freePromptAttachments" class="mt-3" :disabled="freePromptAssistLoading" />
+              <UiButton
+                variant="secondary"
+                size="sm"
+                class="mt-2"
+                :loading="freePromptAssistLoading"
+                :disabled="!freePromptIdea.trim()"
                 @click="openIdeaReview('free')"
               >
                 {{ freePromptAssistLoading ? 'Écriture du prompt...' : 'Écrire le prompt avec Claude' }}
-              </button>
-              <p v-if="freePromptAssistError" class="mt-1.5 text-xs text-red-600">{{ freePromptAssistError }}</p>
+              </UiButton>
+              <p v-if="freePromptAssistError" class="mt-1.5 text-xs text-ui-danger">{{ freePromptAssistError }}</p>
             </div>
 
-            <label for="studio-prompt" class="mt-4 block text-sm font-bold text-[#111111]">Décris ce que tu veux créer</label>
-            <textarea
+            <label for="studio-prompt" class="mt-4 block text-sm font-bold text-ui-ink">Décris ce que tu veux créer</label>
+            <UiTextarea
               id="studio-prompt"
               v-model="prompt"
-              class="mt-3 w-full rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-4 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
-              style="min-height: 220px;"
+              :rows="10"
+              class="mt-3"
               placeholder="Colle ton prompt ici ou décris ta scène..."
             />
           </template>
@@ -232,20 +193,20 @@
             @insert-code="appendAssetCodeToPrompt"
           />
 
-          <section class="mt-4 overflow-hidden rounded-[14px] border border-[#E5E3DF] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+          <section class="mt-4 overflow-hidden rounded-ui-card border border-ui-line bg-ui-surface">
             <button
               type="button"
-              class="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors duration-150 hover:bg-[#FAFAF8]"
+              class="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors duration-150 hover:bg-ui-subtle"
               @click="ambassadorPanelOpen = !ambassadorPanelOpen"
             >
-              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[#F2EEE8] text-base">👤</span>
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-ui-ctl bg-ui-subtle text-base">👤</span>
               <div class="min-w-0 flex-1">
-                <p class="text-sm font-bold text-[#111111]">Ambassadrice</p>
-                <p class="truncate text-xs text-[#999999]">{{ ambassadorSummary }}</p>
+                <p class="text-sm font-bold text-ui-ink">Ambassadrice</p>
+                <p class="truncate text-xs text-ui-ink-muted">{{ ambassadorSummary }}</p>
               </div>
               <Icon
                 name="lucide:chevron-down"
-                class="h-4 w-4 shrink-0 text-[#BBBBBB] transition-transform duration-200"
+                class="h-4 w-4 shrink-0 text-ui-ink-muted transition-transform duration-200"
                 :class="ambassadorPanelOpen ? 'rotate-180' : ''"
               />
             </button>
@@ -258,59 +219,59 @@
               leave-from-class="opacity-100 translate-y-0"
               leave-to-class="opacity-0 -translate-y-1"
             >
-              <div v-if="ambassadorPanelOpen" class="border-t border-[#F0EDE8] px-4 pb-4 pt-3.5">
+              <div v-if="ambassadorPanelOpen" class="border-t border-ui-line-soft px-4 pb-4 pt-3.5">
                 <div
                   v-if="isContentCreator && showStudioHint"
-                  class="mb-4 flex items-start gap-2.5 rounded-[10px] border border-[#EBDCCF] bg-[#FFF7F0] px-3 py-2.5"
+                  class="mb-4 flex items-start gap-2.5 rounded-ui-ctl border border-ui-line-input bg-ui-accent-soft px-3 py-2.5"
                 >
                   <span class="mt-px shrink-0 text-[13px]">💡</span>
-                  <p class="flex-1 text-xs leading-relaxed text-[#7B5A3F]">L'ambassadrice est facultative — génère sans elle pour un visuel sans visage.</p>
+                  <p class="flex-1 text-xs leading-relaxed text-ui-ink-2">L'ambassadrice est facultative — génère sans elle pour un visuel sans visage.</p>
                   <button
                     type="button"
                     class="mt-px shrink-0 opacity-50 transition-opacity hover:opacity-100"
                     @click.stop="dismissStudioHint"
                   >
-                    <Icon name="lucide:x" class="h-3.5 w-3.5 text-[#946944]" />
+                    <Icon name="lucide:x" class="h-3.5 w-3.5 text-ui-ink-2" />
                   </button>
                 </div>
 
                 <div class="grid grid-cols-2 gap-2">
                   <label
-                    class="flex cursor-pointer items-center gap-2.5 rounded-[10px] border p-3 text-sm font-medium transition-all duration-150"
+                    class="flex cursor-pointer items-center gap-2.5 rounded-ui-ctl border p-3 text-sm font-medium transition-all duration-150"
                     :class="generationMode === 'with-ambassador'
-                      ? 'border-[#E8873A] bg-[#FDF3EA] text-[#111111]'
-                      : 'border-[#E5E3DF] bg-[#FAFAF8] text-[#888888] hover:border-[#E8873A]/40 hover:bg-white'"
+                      ? 'border-ui-accent bg-ui-accent-soft text-ui-ink'
+                      : 'border-ui-line bg-ui-subtle text-ui-ink-muted hover:border-ui-accent/40 hover:bg-ui-surface'"
                   >
                     <input
                       v-model="generationMode"
                       type="radio"
                       value="with-ambassador"
-                      class="accent-[#E8873A]"
+                      class="accent-ui-accent"
                       :disabled="!hasAmbassadorProfiles"
                     />
                     Avec ambassadrice
                   </label>
                   <label
-                    class="flex cursor-pointer items-center gap-2.5 rounded-[10px] border p-3 text-sm font-medium transition-all duration-150"
+                    class="flex cursor-pointer items-center gap-2.5 rounded-ui-ctl border p-3 text-sm font-medium transition-all duration-150"
                     :class="generationMode === 'without-ambassador'
-                      ? 'border-[#E8873A] bg-[#FDF3EA] text-[#111111]'
-                      : 'border-[#E5E3DF] bg-[#FAFAF8] text-[#888888] hover:border-[#E8873A]/40 hover:bg-white'"
+                      ? 'border-ui-accent bg-ui-accent-soft text-ui-ink'
+                      : 'border-ui-line bg-ui-subtle text-ui-ink-muted hover:border-ui-accent/40 hover:bg-ui-surface'"
                   >
                     <input
                       v-model="generationMode"
                       type="radio"
                       value="without-ambassador"
-                      class="accent-[#E8873A]"
+                      class="accent-ui-accent"
                     />
                     Sans ambassadrice
                   </label>
                 </div>
 
                 <div v-if="generationMode === 'with-ambassador' && hasAmbassadorProfiles" class="mt-3">
-                  <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Ambassadrice sélectionnée</label>
+                  <label class="text-[13px] font-semibold text-ui-ink">Ambassadrice sélectionnée</label>
                   <select
                     v-model="selectedAmbassadorId"
-                    class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] shadow-[0_1px_2px_rgba(0,0,0,0.04)] outline-none focus:border-[#E8873A] focus:shadow-[0_0_0_3px_rgba(232,135,58,0.10)]"
+                    class="mt-1.5 w-full rounded-ui-ctl border border-ui-line bg-ui-surface px-3 py-2.5 text-sm text-ui-ink outline-none focus-visible:border-ui-accent focus-visible:ring-[3px] focus-visible:ring-ui-accent/20"
                   >
                     <option value="">Choisir une ambassadrice...</option>
                     <template v-for="group in ambassadorGroups" :key="group.key">
@@ -328,11 +289,11 @@
                   </select>
                 </div>
 
-                <div v-if="!hasAmbassadorProfiles" class="mt-3 flex items-center justify-between gap-3 rounded-[10px] border border-dashed border-[#E5D8C9] bg-[#FAFAF8] px-3 py-2.5">
-                  <p class="text-xs text-[#7B5A3F]">Aucune ambassadrice configurée.</p>
+                <div v-if="!hasAmbassadorProfiles" class="mt-3 flex items-center justify-between gap-3 rounded-ui-ctl border border-dashed border-ui-line-input bg-ui-subtle px-3 py-2.5">
+                  <p class="text-xs text-ui-ink-2">Aucune ambassadrice configurée.</p>
                   <NuxtLink
                     to="/profiles/new"
-                    class="inline-flex items-center gap-1.5 rounded-[8px] bg-[#FDE7D6] px-2.5 py-1.5 text-xs font-bold text-[#B45F1D] transition-colors hover:bg-[#FAD9BE]"
+                    class="inline-flex items-center gap-1.5 rounded-ui-tag bg-ui-accent-soft px-2.5 py-1.5 text-xs font-bold text-ui-accent-ink transition-colors hover:bg-ui-subtle"
                   >
                     <Icon name="lucide:plus" class="h-3 w-3" />
                     Créer
@@ -349,33 +310,33 @@
               v-for="widget in widgetsList"
               :key="widget.id"
               type="button"
-              class="rounded-[14px] border p-3 text-left transition-colors"
+              class="rounded-ui-card border p-3 text-left transition-colors"
               :class="selectedWidgetId === widget.id
-                ? 'border-[#E8873A] bg-[#FDF3EA]'
-                : 'border-[#E5E3DF] bg-white hover:border-[#E8873A]/40'"
+                ? 'border-ui-accent bg-ui-accent-soft'
+                : 'border-ui-line bg-ui-surface hover:border-ui-accent/40'"
               @click="selectWidget(widget.id)"
             >
               <span class="text-xl">🧩</span>
-              <p class="mt-2 text-sm font-bold text-[#111111]">{{ widget.nom }}</p>
-              <p class="mt-1 text-xs text-[#888888]">{{ widget.typeGeneration.join(' / ') }}</p>
+              <p class="mt-2 text-sm font-bold text-ui-ink">{{ widget.nom }}</p>
+              <p class="mt-1 text-xs text-ui-ink-muted">{{ widget.typeGeneration.join(' / ') }}</p>
             </button>
             <!-- Format a part : pas un widget de prompt, mais meme emplacement que les autres. -->
             <NuxtLink
               to="/studio/faceless"
-              class="rounded-[14px] border border-[#E5E3DF] bg-white p-3 text-left transition-colors hover:border-[#E8873A]/40"
+              class="rounded-ui-card border border-ui-line bg-ui-surface p-3 text-left transition-colors hover:border-ui-accent/40"
             >
               <span class="text-xl">🎞️</span>
-              <p class="mt-2 text-sm font-bold text-[#111111]">Vidéo faceless</p>
-              <p class="mt-1 text-xs text-[#888888]">VIDEO · voix off + avatar, sans modèle vidéo</p>
+              <p class="mt-2 text-sm font-bold text-ui-ink">Vidéo faceless</p>
+              <p class="mt-1 text-xs text-ui-ink-muted">VIDEO · voix off + avatar, sans modèle vidéo</p>
             </NuxtLink>
           </div>
-          <p v-if="widgetsLoadError" class="mt-3 text-xs text-red-600">{{ widgetsLoadError }}</p>
+          <p v-if="widgetsLoadError" class="mt-3 text-xs text-ui-danger">{{ widgetsLoadError }}</p>
 
           <div v-if="selectedWidget && patternsForSelectedWidget.length" class="mt-4">
-            <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Recette (optionnel)</label>
+            <label class="text-[13px] font-semibold text-ui-ink">Recette (optionnel)</label>
             <select
               :value="selectedPatternId"
-              class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+              class="mt-1.5 w-full rounded-ui-ctl border border-ui-line bg-ui-surface px-3 py-2.5 text-sm text-ui-ink outline-none focus-visible:border-ui-accent focus-visible:ring-[3px] focus-visible:ring-ui-accent/20"
               @change="selectPattern($event.target.value)"
             >
               <option value="">Template par défaut</option>
@@ -385,23 +346,14 @@
             </select>
           </div>
 
-          <div v-if="selectedWidget" class="mt-5 space-y-4 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-4">
-            <div v-if="selectedWidget.typeGeneration.length > 1" class="flex flex-wrap items-center gap-4">
-              <label class="inline-flex items-center gap-2 text-sm font-semibold text-[#111111]">
-                <input v-model="widgetGenerationType" type="radio" value="IMAGE" class="accent-[#E8873A]" />
-                🖼️ Image
-              </label>
-              <label class="inline-flex items-center gap-2 text-sm font-semibold text-[#111111]">
-                <input v-model="widgetGenerationType" type="radio" value="VIDEO" class="accent-[#E8873A]" />
-                🎬 Vidéo
-              </label>
-            </div>
+          <div v-if="selectedWidget" class="mt-5 space-y-4 rounded-ui-card border border-ui-line bg-ui-subtle p-4">
+            <UiSegmented v-if="selectedWidget.typeGeneration.length > 1" v-model="widgetGenerationType" label="Type de contenu" :options="WIDGET_TYPE_OPTIONS" />
 
             <div v-if="widgetGenerationType === 'VIDEO'">
-              <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Modèle vidéo</label>
+              <label class="text-[13px] font-semibold text-ui-ink">Modèle vidéo</label>
               <select
                 v-model="widgetVideoModel"
-                class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+                class="mt-1.5 w-full rounded-ui-ctl border border-ui-line bg-ui-surface px-3 py-2.5 text-sm text-ui-ink outline-none focus-visible:border-ui-accent focus-visible:ring-[3px] focus-visible:ring-ui-accent/20"
               >
                 <option value="auto">Automatique (selon le prompt)</option>
                 <option v-if="veoEnabled" value="veo">Veo</option>
@@ -416,10 +368,10 @@
 
             <template v-if="selectedWidget.id === 'SCENARIO_BLOG'">
               <div>
-                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">1. Profil (pour le classement du contenu)</label>
+                <label class="text-[13px] font-semibold text-ui-ink">1. Profil (pour le classement du contenu)</label>
                 <select
                   v-model="widgetProfileId"
-                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+                  class="mt-1.5 w-full rounded-ui-ctl border border-ui-line bg-ui-surface px-3 py-2.5 text-sm text-ui-ink outline-none focus-visible:border-ui-accent focus-visible:ring-[3px] focus-visible:ring-ui-accent/20"
                 >
                   <option value="">Aucun profil particulier (personnage fictif, contenu générique)</option>
                   <optgroup v-if="groupedProfiles.PERSONA.length" label="Personas / Ambassadrices">
@@ -432,37 +384,37 @@
                     <option v-for="item in groupedProfiles.ACTIVITY" :key="item.id" :value="item.id">{{ item.name }}</option>
                   </optgroup>
                 </select>
-                <p class="mt-1.5 text-xs text-[#7B5A3F]">Optionnel : sert seulement à retrouver le contenu dans Mes créations. Sans choix, il sera classé sous un profil générique "Contenus sans persona".</p>
+                <p class="mt-1.5 text-xs text-ui-ink-2">Optionnel : sert seulement à retrouver le contenu dans Mes créations. Sans choix, il sera classé sous un profil générique "Contenus sans persona".</p>
               </div>
 
               <div v-if="artDirectionsList.length">
-                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Direction artistique (optionnel)</label>
+                <label class="text-[13px] font-semibold text-ui-ink">Direction artistique (optionnel)</label>
                 <select
                   v-model="selectedArtDirectionId"
-                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+                  class="mt-1.5 w-full rounded-ui-ctl border border-ui-line bg-ui-surface px-3 py-2.5 text-sm text-ui-ink outline-none focus-visible:border-ui-accent focus-visible:ring-[3px] focus-visible:ring-ui-accent/20"
                 >
                   <option value="">Aucune : je décris tout dans la scène</option>
                   <option v-for="item in artDirectionsList" :key="item.id" :value="item.id">{{ item.label }}</option>
                 </select>
-                <p v-if="selectedArtDirection" class="mt-1.5 text-xs text-[#7B5A3F]">{{ selectedArtDirection.description }} Ajoutée en tête de la scène au moment de générer.</p>
+                <p v-if="selectedArtDirection" class="mt-1.5 text-xs text-ui-ink-2">{{ selectedArtDirection.description }} Ajoutée en tête de la scène au moment de générer.</p>
               </div>
 
               <div>
-                <label class="inline-flex items-center gap-2 text-sm font-semibold text-[#111111]">
-                  <input v-model="scenarioLockIdentity" type="checkbox" class="accent-[#E8873A]" />
+                <label class="inline-flex items-center gap-2 text-sm font-semibold text-ui-ink">
+                  <input v-model="scenarioLockIdentity" type="checkbox" class="accent-ui-accent" />
                   Verrouiller l'identité de ce persona
                 </label>
                 <div
-                  class="mt-2 rounded-[10px] border p-3 text-xs"
-                  :class="scenarioLockIdentity ? 'border-[#E8873A]/50 bg-[#FDF3EA] text-[#7B5A3F]' : 'border-[#E5E3DF] bg-[#FAFAF8] text-[#666666]'"
+                  class="mt-2 rounded-ui-ctl border p-3 text-xs"
+                  :class="scenarioLockIdentity ? 'border-ui-accent/50 bg-ui-accent-soft text-ui-ink-2' : 'border-ui-line bg-ui-subtle text-ui-ink-2'"
                 >
                   <p v-if="scenarioLockIdentity && widgetVideoModel === 'omniflash'">
                     🔒 Le visage de <strong>{{ selectedProfileName || 'ce profil' }}</strong> sera utilisé : génération en 2 étapes (~2$ au lieu de ~1$), avec un risque connu de dérive d'identité et de désynchronisation labiale en début/fin de vidéo.
-                    <span v-if="widgetProfileId && !selectedProfileHasFaceRef" class="mt-1.5 block font-bold text-red-600">⚠️ Ce profil n'a pas de fiche de référence : le verrouillage échouera à la génération.</span>
+                    <span v-if="widgetProfileId && !selectedProfileHasFaceRef" class="mt-1.5 block font-bold text-ui-danger">⚠️ Ce profil n'a pas de fiche de référence : le verrouillage échouera à la génération.</span>
                   </p>
                   <p v-else-if="scenarioLockIdentity">
                     🔒 Le visage de <strong>{{ selectedProfileName || 'ce profil' }}</strong> sera utilisé, via {{ widgetVideoModelLabel }}.
-                    <span v-if="widgetProfileId && !selectedProfileHasFaceRef" class="mt-1.5 block font-bold text-red-600">⚠️ Ce profil n'a pas de fiche de référence : le verrouillage échouera à la génération.</span>
+                    <span v-if="widgetProfileId && !selectedProfileHasFaceRef" class="mt-1.5 block font-bold text-ui-danger">⚠️ Ce profil n'a pas de fiche de référence : le verrouillage échouera à la génération.</span>
                   </p>
                   <p v-else-if="widgetVideoModel === 'omniflash'">
                     🎲 Le modèle invente librement qui apparaît à l'écran — rendu plus fiable, une seule génération (~1$).
@@ -474,17 +426,17 @@
               </div>
 
               <div v-if="widgetVideoModel === 'omniflash'">
-                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Plans de coupe (B-roll)</label>
+                <label class="text-[13px] font-semibold text-ui-ink">Plans de coupe (B-roll)</label>
                 <select
                   v-model.number="scenarioBrollCount"
-                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+                  class="mt-1.5 w-full rounded-ui-ctl border border-ui-line bg-ui-surface px-3 py-2.5 text-sm text-ui-ink outline-none focus-visible:border-ui-accent focus-visible:ring-[3px] focus-visible:ring-ui-accent/20"
                 >
                   <option :value="0">Aucun (par défaut)</option>
                   <option :value="1">1 plan de coupe</option>
                   <option :value="2">2 plans de coupe</option>
                   <option :value="3">3 plans de coupe</option>
                 </select>
-                <p class="mt-1.5 text-xs text-[#7B5A3F]">
+                <p class="mt-1.5 text-xs text-ui-ink-2">
                   Des images qui illustrent ce qui est dit, posées par-dessus la vidéo pendant environ 2 secondes. La voix continue, le son d'origine n'est pas touché.
                   Chaque plan génère une image (payant, quelques dizaines de centimes).
                 </p>
@@ -493,21 +445,21 @@
 
             <template v-else>
               <div v-if="selectedWidget.requiresPersona">
-                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">1. Persona</label>
+                <label class="text-[13px] font-semibold text-ui-ink">1. Persona</label>
                 <select
                   v-model="widgetProfileId"
-                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+                  class="mt-1.5 w-full rounded-ui-ctl border border-ui-line bg-ui-surface px-3 py-2.5 text-sm text-ui-ink outline-none focus-visible:border-ui-accent focus-visible:ring-[3px] focus-visible:ring-ui-accent/20"
                 >
                   <option value="">Choisir une persona...</option>
                   <option v-for="item in ambassadorProfiles" :key="item.id" :value="item.id">{{ item.name }}</option>
                 </select>
-                <p v-if="!ambassadorProfiles.length" class="mt-1.5 text-xs text-[#7B5A3F]">Aucune persona avec face ref disponible.</p>
+                <p v-if="!ambassadorProfiles.length" class="mt-1.5 text-xs text-ui-ink-2">Aucune persona avec face ref disponible.</p>
               </div>
               <div v-else>
-                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">1. Profil (pour le classement du contenu)</label>
+                <label class="text-[13px] font-semibold text-ui-ink">1. Profil (pour le classement du contenu)</label>
                 <select
                   v-model="widgetProfileId"
-                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+                  class="mt-1.5 w-full rounded-ui-ctl border border-ui-line bg-ui-surface px-3 py-2.5 text-sm text-ui-ink outline-none focus-visible:border-ui-accent focus-visible:ring-[3px] focus-visible:ring-ui-accent/20"
                 >
                   <option value="">Aucun profil particulier (contenu générique)</option>
                   <optgroup v-if="groupedProfiles.PERSONA.length" label="Personas / Ambassadrices">
@@ -520,7 +472,7 @@
                     <option v-for="item in groupedProfiles.ACTIVITY" :key="item.id" :value="item.id">{{ item.name }}</option>
                   </optgroup>
                 </select>
-                <p class="mt-1.5 text-xs text-[#7B5A3F]">Optionnel : sert seulement à retrouver le contenu dans Mes créations. Sans choix, il sera classé sous un profil générique "Contenus sans persona".</p>
+                <p class="mt-1.5 text-xs text-ui-ink-2">Optionnel : sert seulement à retrouver le contenu dans Mes créations. Sans choix, il sera classé sous un profil générique "Contenus sans persona".</p>
               </div>
             </template>
 
@@ -534,54 +486,55 @@
             />
 
             <div v-if="widgetInputVariables.length">
-              <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">2. Exprime ton besoin</label>
-              <textarea
+              <label class="text-[13px] font-semibold text-ui-ink">2. Exprime ton besoin</label>
+              <UiTextarea
                 v-model="widgetIdea"
-                rows="2"
+                :rows="2"
                 placeholder="Ex : une vidéo qui montre le produit en usage, ambiance naturelle"
-                class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#E8873A]"
+                class="mt-1.5"
               />
-              <button
-                type="button"
-                class="mt-2 rounded-[10px] bg-[#FDE7D6] px-4 py-2 text-sm font-bold text-[#B45F1D] transition-colors hover:bg-[#FAD9BE] disabled:cursor-not-allowed disabled:opacity-60"
-                :disabled="!widgetIdea.trim() || widgetFieldsAssistLoading"
+              <UiButton
+                variant="secondary"
+                size="sm"
+                class="mt-2"
+                :loading="widgetFieldsAssistLoading"
+                :disabled="!widgetIdea.trim()"
                 @click="generateWidgetFieldsFromIdea"
               >
                 {{ widgetFieldsAssistLoading ? 'Remplissage...' : 'Remplir avec Claude' }}
-              </button>
-              <p v-if="widgetFieldsAssistError" class="mt-1.5 text-xs text-red-600">{{ widgetFieldsAssistError }}</p>
+              </UiButton>
+              <p v-if="widgetFieldsAssistError" class="mt-1.5 text-xs text-ui-danger">{{ widgetFieldsAssistError }}</p>
             </div>
 
             <div v-if="widgetInputVariables.some((item) => widgetInputs[item.key])">
-              <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">3. Vérifie et corrige si besoin</label>
+              <label class="text-[13px] font-semibold text-ui-ink">3. Vérifie et corrige si besoin</label>
             </div>
 
             <div v-for="variable in widgetInputVariables" :key="variable.key">
-              <label class="mb-1.5 block text-sm font-semibold text-gray-800">{{ variable.label }}</label>
-              <textarea
+              <label class="mb-1.5 block text-sm font-semibold text-ui-ink">{{ variable.label }}</label>
+              <UiTextarea
                 v-if="variable.type === 'textarea'"
                 v-model="widgetInputs[variable.key]"
-                rows="3"
-                class="w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#E8873A]"
+                :rows="3"
               />
               <input
                 v-else
                 v-model="widgetInputs[variable.key]"
                 :type="variable.type === 'number' ? 'number' : 'text'"
-                class="w-full rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2.5 text-sm outline-none focus:border-[#E8873A]"
+                class="h-11 w-full rounded-ui-ctl border border-ui-line-input bg-ui-surface px-3 text-sm text-ui-ink outline-none focus-visible:border-ui-accent focus-visible:ring-[3px] focus-visible:ring-ui-accent/20"
               />
             </div>
 
             <div v-for="asset in widgetUploadAssets" :key="asset.key">
-              <label class="mb-1.5 block text-sm font-semibold text-gray-800">{{ asset.label || 'Image de référence' }}</label>
+              <label class="mb-1.5 block text-sm font-semibold text-ui-ink">{{ asset.label || 'Image de référence' }}</label>
               <div
-                class="flex items-center gap-3 rounded-[10px] border border-dashed border-[#D9C6B4] bg-white p-3"
+                class="flex items-center gap-3 rounded-ui-ctl border border-dashed border-ui-line-input bg-ui-surface p-3"
               >
-                <img v-if="widgetAssetUrls[asset.key]" :src="widgetAssetUrls[asset.key]" class="h-14 w-14 rounded-[8px] object-cover" />
-                <div class="flex-1 text-xs text-[#7B5A3F]">
+                <img v-if="widgetAssetUrls[asset.key]" :src="widgetAssetUrls[asset.key]" class="h-14 w-14 rounded-ui-tag object-cover" />
+                <div class="flex-1 text-xs text-ui-ink-2">
                   {{ widgetAssetUrls[asset.key] ? 'Image envoyée.' : 'JPG ou PNG.' }}
                 </div>
-                <label class="cursor-pointer rounded-[8px] bg-[#FDE7D6] px-3 py-1.5 text-xs font-bold text-[#B45F1D] transition-colors hover:bg-[#FAD9BE]">
+                <label class="cursor-pointer rounded-ui-tag bg-ui-accent-soft px-3 py-1.5 text-xs font-bold text-ui-accent-ink transition-colors hover:bg-ui-subtle">
                   {{ widgetAssetUploading[asset.key] ? 'Envoi...' : 'Choisir' }}
                   <input type="file" accept="image/jpeg,image/png" class="hidden" @change="onWidgetAssetChange(asset.key, $event)" />
                 </label>
@@ -590,41 +543,36 @@
           </div>
         </template>
 
-        <p v-if="errorMessage" class="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{{ errorMessage }}</p>
+        <p v-if="errorMessage" class="mt-4 rounded-lg border border-ui-danger-line bg-ui-danger-soft px-3 py-2 text-sm text-ui-danger-ink">{{ errorMessage }}</p>
 
-        <button
-          type="button"
-          class="mt-5 rounded-[12px] bg-[#E8873A] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#d4762f] disabled:cursor-not-allowed disabled:opacity-60"
-          :disabled="loading || !canGenerate"
-          @click="requestSubmit"
-        >
+        <UiButton variant="primary" class="mt-5" :disabled="loading || !canGenerate" @click="requestSubmit">
           {{ loading ? 'Génération en cours...' : (carousel.addingSlide.value ? 'Ajouter la slide' : (editingContentId ? 'Régénérer' : 'Générer')) }}
-        </button>
+        </UiButton>
       </section>
 
-      <aside class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-        <h2 class="text-lg font-bold text-[#111111]">Résultat</h2>
-        <p class="mt-2 text-xs text-[#666666]">Le rendu apparaît ici après lancement.</p>
+      <aside class="rounded-ui-card border border-ui-line bg-ui-surface p-5">
+        <h2 class="text-lg font-bold text-ui-ink">Résultat</h2>
+        <p class="mt-2 text-xs text-ui-ink-2">Le rendu apparaît ici après lancement.</p>
 
         <!-- Génération vidéo en cours -->
         <div v-if="videoPolling.active" class="mt-4 space-y-3">
-          <div class="flex items-center gap-3 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] px-4 py-3">
-            <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[#E8873A] border-t-transparent" />
-            <span class="text-sm font-semibold text-[#111111]">Génération vidéo en cours...</span>
+          <div class="flex items-center gap-3 rounded-ui-card border border-ui-line bg-ui-subtle px-4 py-3">
+            <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-ui-accent border-t-transparent" />
+            <span class="text-sm font-semibold text-ui-ink">Génération vidéo en cours...</span>
           </div>
-          <p class="text-xs text-[#888]">La vidéo est générée par {{ videoProviderLabel }} (~60–90 s). Elle apparaîtra ici automatiquement.</p>
+          <p class="text-xs text-ui-ink-muted">La vidéo est générée par {{ videoProviderLabel }} (~60–90 s). Elle apparaîtra ici automatiquement.</p>
           <NuxtLink
             to="/content"
-            class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#E8873A] hover:underline"
+            class="inline-flex items-center gap-1.5 text-xs font-semibold text-ui-accent hover:underline"
           >
             Suivre dans Mes créations →
           </NuxtLink>
         </div>
 
         <!-- Génération en cours (soumission initiale, image ou avant le polling vidéo) -->
-        <div v-else-if="loading" class="mt-4 flex items-center gap-3 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] px-4 py-3">
-          <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[#E8873A] border-t-transparent" />
-          <span class="text-sm font-semibold text-[#111111]">Génération en cours...</span>
+        <div v-else-if="loading" class="mt-4 flex items-center gap-3 rounded-ui-card border border-ui-line bg-ui-subtle px-4 py-3">
+          <span class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-ui-accent border-t-transparent" />
+          <span class="text-sm font-semibold text-ui-ink">Génération en cours...</span>
         </div>
 
         <!-- Résultat vidéo prêt -->
@@ -633,25 +581,25 @@
             <video
               v-if="videoResult.imageUrl"
               :src="videoResult.imageUrl"
-              class="w-full rounded-[14px] border border-[#E5E3DF] object-cover"
+              class="w-full rounded-ui-card border border-ui-line object-cover"
               controls
               playsinline
               muted
             />
-            <p class="text-xs text-[#444]">Vidéo générée avec succès.</p>
-            <NuxtLink to="/content" class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#E8873A] hover:underline">
+            <p class="text-xs text-ui-ink-2">Vidéo générée avec succès.</p>
+            <NuxtLink to="/content" class="inline-flex items-center gap-1.5 text-xs font-semibold text-ui-accent hover:underline">
               Voir dans Mes créations →
             </NuxtLink>
           </template>
           <template v-else-if="videoResult.status === 'FAILED'">
-            <p class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <p class="rounded-lg border border-ui-danger-line bg-ui-danger-soft px-3 py-2 text-sm text-ui-danger-ink">
               {{ videoResult.errorMessage || 'La génération a échoué.' }}
             </p>
           </template>
         </div>
 
         <!-- Résultat image -->
-        <div v-else-if="lastResult && mode === 'image'" class="mt-4 space-y-3 rounded-[14px] border border-[#E5E3DF] bg-[#FAFAF8] p-4 text-sm text-[#222]">
+        <div v-else-if="lastResult && mode === 'image'" class="mt-4 space-y-3 rounded-ui-card border border-ui-line bg-ui-subtle p-4 text-sm text-ui-ink">
           <template v-if="lastResult.mode === 'carousel'">
             <p><strong>Mode :</strong> Carrousel</p>
             <p><strong>Slides générées :</strong> {{ lastResult.generatedCount || 0 }} / {{ lastResult.total || 0 }}</p>
@@ -667,7 +615,7 @@
           </template>
         </div>
 
-        <p v-else class="mt-4 text-sm text-[#777]">Aucun résultat pour le moment.</p>
+        <p v-else class="mt-4 text-sm text-ui-ink-muted">Aucun résultat pour le moment.</p>
       </aside>
     </div>
 
@@ -684,14 +632,14 @@
       @confirm="confirmIdeaReview"
       @cancel="ideaReview.open = false"
     >
-      <label for="idea-review-text" class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Ton besoin</label>
-      <textarea
+      <label for="idea-review-text" class="text-[13px] font-semibold text-ui-ink">Ton besoin</label>
+      <UiTextarea
         id="idea-review-text"
         v-model="ideaReview.draft"
-        rows="6"
-        class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-[#FAFAF8] p-3 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+        :rows="6"
+        class="mt-1.5"
       />
-      <ul class="mt-3 list-disc space-y-1 pl-5 text-xs text-[#7B5A3F]">
+      <ul class="mt-3 list-disc space-y-1 pl-5 text-xs text-ui-ink-2">
         <li>Les images sont créées <strong>sans texte</strong> par défaut.</li>
         <li>Pour du texte sur une image, demande-le clairement, avec la langue (ex : « titre en français : Ma routine du matin »).</li>
         <li v-if="ideaReview.target === 'carousel'">Pense à préciser le nombre de slides ou le ton si ça compte.</li>
@@ -708,29 +656,29 @@
       @confirm="confirmGenerationReview"
       @cancel="generationReview.open = false"
     >
-      <p class="rounded-[10px] bg-[#FDF3EA] px-3 py-2 text-sm font-semibold text-[#B45F1D]">
+      <p class="rounded-ui-ctl bg-ui-accent-soft px-3 py-2 text-sm font-semibold text-ui-accent-ink">
         {{ generationReviewCount }} image{{ generationReviewCount > 1 ? 's' : '' }} à générer, environ {{ generationReviewCost }} $ (tarif Gemini indicatif).
       </p>
       <ol class="mt-3 space-y-2">
         <li
           v-for="(item, index) in generationReviewItems"
           :key="index"
-          class="rounded-[10px] border border-[#E5E3DF] bg-[#FAFAF8] p-3"
+          class="rounded-ui-ctl border border-ui-line bg-ui-subtle p-3"
         >
           <div class="mb-1 flex items-center justify-between gap-2">
-            <span class="text-xs font-bold uppercase tracking-[0.12em] text-[#9A9A9A]">{{ generationReviewItems.length > 1 ? `Slide ${index + 1}` : 'Prompt' }}</span>
+            <span class="text-xs font-semibold text-ui-ink-muted">{{ generationReviewItems.length > 1 ? `Slide ${index + 1}` : 'Prompt' }}</span>
             <span
               v-if="item.textHint"
               class="rounded-full px-2 py-0.5 text-[11px] font-bold"
-              :class="item.textHint === 'with' ? 'bg-[#E8F1FB] text-[#2C5C8F]' : 'bg-[#F1EFEA] text-[#6B6B6B]'"
+              :class="item.textHint === 'with' ? 'bg-ui-info-soft text-ui-info-ink' : 'bg-ui-subtle text-ui-ink-muted'"
             >
               {{ item.textHint === 'with' ? 'Texte demandé' : 'Sans texte' }}
             </span>
           </div>
-          <p class="whitespace-pre-wrap text-sm text-[#111111]">{{ item.text }}</p>
+          <p class="whitespace-pre-wrap text-sm text-ui-ink">{{ item.text }}</p>
         </li>
       </ol>
-      <p v-if="generationReviewAssets" class="mt-3 text-xs text-[#7B5A3F]">
+      <p v-if="generationReviewAssets" class="mt-3 text-xs text-ui-ink-2">
         {{ generationReviewAssets }} asset{{ generationReviewAssets > 1 ? 's' : '' }} de la bibliothèque joint{{ generationReviewAssets > 1 ? 's' : '' }} à cette image.
       </p>
     </StudioReviewDialog>
@@ -745,6 +693,24 @@ const { pushToast } = useUiFeedback()
 const { user } = useAuthSession()
 const activeInfluencerId = useActiveInfluencer()
 const route = useRoute()
+
+// Choix exclusifs affiches avec le composant du kit (UiSegmented).
+const ENTRY_MODE_OPTIONS = [
+  { value: 'free', label: '✍️ Prompt libre' },
+  { value: 'widget', label: '🧩 Widgets' },
+]
+const MEDIA_MODE_OPTIONS = [
+  { value: 'image', label: '🖼️ Image' },
+  { value: 'video', label: '🎬 Vidéo' },
+]
+const WIDGET_TYPE_OPTIONS = [
+  { value: 'IMAGE', label: '🖼️ Image' },
+  { value: 'VIDEO', label: '🎬 Vidéo' },
+]
+const IMAGE_KIND_OPTIONS = [
+  { value: 'single', label: 'Post unique' },
+  { value: 'carousel', label: 'Carrousel' },
+]
 
 const prompt = ref('')
 const mode = ref('image')
@@ -767,6 +733,8 @@ const selectedVideoModel = ref('auto')
 const freePromptIdea = ref('')
 const freePromptAssistLoading = ref(false)
 const freePromptAssistError = ref('')
+// Fichiers de reference joints au besoin (images, PDF, textes) : lus par Claude, jamais stockes.
+const freePromptAttachments = ref([])
 
 // Seedance n est propose que si le compte est credite (voir SEEDANCE_ENABLED).
 const seedanceEnabled = computed(() => Boolean(useRuntimeConfig().public?.seedanceEnabled))
@@ -1046,6 +1014,7 @@ async function generateFreePromptFromIdea() {
       profileId: wantsAmbassador.value ? resolvedAmbassadorId.value : '',
       contextProfileId: primaryInfluencerId.value,
       libraryAssetIds: mode.value === 'image' && imageGenerationKind.value === 'single' && !editingContentId.value ? libraryAssetIds.value : undefined,
+      attachments: freePromptAttachments.value,
     })
     prompt.value = assistedPrompt
   } catch (err) {

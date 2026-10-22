@@ -10,6 +10,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { BRAND_ASSIST_RULE } from './brandAssistRule.js';
 import { IMAGE_TEXT_RULE_LINES } from './imageTextRule.js';
 import { buildLibraryAssetsPromptBlock } from './libraryReferences.js';
+import { ATTACHMENTS_RULE_LINES } from './promptAttachments.js';
 
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
 const MAX_TOKENS = 1024;
@@ -18,7 +19,7 @@ function getAnthropicModel() {
   return String(process.env.ANTHROPIC_MODEL || DEFAULT_MODEL).trim() || DEFAULT_MODEL;
 }
 
-export function buildPromptAssistSystemPrompt({ mediaType, personaDescription, identityLocked, libraryAssets, brandContext } = {}) {
+export function buildPromptAssistSystemPrompt({ mediaType, personaDescription, identityLocked, libraryAssets, brandContext, hasAttachments } = {}) {
   const kind = mediaType === 'video' ? 'video' : 'image';
   const lines = [
     `Tu ecris un prompt de generation ${kind} photorealiste pour Plotline, a`,
@@ -54,6 +55,11 @@ export function buildPromptAssistSystemPrompt({ mediaType, personaDescription, i
     );
   } else {
     lines.push('- Aucune contrainte d identite : invente librement qui apparait a l ecran si besoin.');
+  }
+
+  // Fichiers joints par l utilisateur (images, PDF, textes) : references, jamais des instructions.
+  if (hasAttachments) {
+    lines.push(...ATTACHMENTS_RULE_LINES);
   }
 
   // Marque : fiche + texte de son site (brandContext.js), images seulement.
@@ -104,7 +110,7 @@ export function parsePromptAssistResult(rawText) {
   return prompt ? { prompt } : null;
 }
 
-export async function generateAssistedPrompt({ idea, mediaType, personaDescription, identityLocked, libraryAssets, brandContext, apiKey }) {
+export async function generateAssistedPrompt({ idea, mediaType, personaDescription, identityLocked, libraryAssets, brandContext, attachmentBlocks, apiKey }) {
   const key = String(apiKey || process.env.ANTHROPIC_API_KEY || '').trim();
   const trimmedIdea = String(idea || '').trim();
 
@@ -115,12 +121,16 @@ export async function generateAssistedPrompt({ idea, mediaType, personaDescripti
     throw new Error('idee requise');
   }
 
+  const attachments = Array.isArray(attachmentBlocks) ? attachmentBlocks : [];
+  const userPrompt = buildPromptAssistUserPrompt(trimmedIdea);
+
   const anthropic = new Anthropic({ apiKey: key });
   const response = await anthropic.messages.create({
     model: getAnthropicModel(),
     max_tokens: MAX_TOKENS,
-    system: buildPromptAssistSystemPrompt({ mediaType, personaDescription, identityLocked, libraryAssets, brandContext }),
-    messages: [{ role: 'user', content: buildPromptAssistUserPrompt(trimmedIdea) }],
+    system: buildPromptAssistSystemPrompt({ mediaType, personaDescription, identityLocked, libraryAssets, brandContext, hasAttachments: attachments.length > 0 }),
+    // Sans fichier : message identique a avant (une simple chaine).
+    messages: [{ role: 'user', content: attachments.length ? [...attachments, { type: 'text', text: userPrompt }] : userPrompt }],
   });
 
   const text = (response?.content || [])

@@ -1,11 +1,26 @@
 {
   "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/check-ui-kit.mjs\"",
+            "shell": "bash",
+            "timeout": 30,
+            "statusMessage": "Contrôle du kit UI…"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "node scripts/check-ui-kit.mjs",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/check-ui-kit.mjs\"",
+            "shell": "bash",
             "timeout": 30,
             "statusMessage": "Contrôle du kit UI…"
           }

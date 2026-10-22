@@ -4,6 +4,7 @@ import { buildPersonaDescription } from '../../utils/personaDescription.js';
 import { findPersonaCompatible } from '../../utils/personaLookup.js';
 import { loadLibraryAssetBriefs } from '../../utils/libraryReferenceLoader.js';
 import { normalizeLibraryAssetIds } from '../../utils/libraryReferences.js';
+import { isPromptAttachmentError, normalizePromptAttachments } from '../../utils/promptAttachments.js';
 
 let prismaClient;
 
@@ -38,6 +39,17 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'idea requise' }));
     }
 
+    // Fichiers joints : revalides ici (nombre, tailles, type reel), jamais stockes.
+    let attachments;
+    try {
+      attachments = normalizePromptAttachments(body?.attachments);
+    } catch (attachmentError) {
+      if (isPromptAttachmentError(attachmentError)) {
+        return sendError(event, createError({ statusCode: 400, statusMessage: attachmentError.message }));
+      }
+      throw attachmentError;
+    }
+
     let personaDescription = '';
     if (profileId) {
       const prisma = await getPrisma();
@@ -65,6 +77,7 @@ export default defineEventHandler(async (event) => {
       personaDescription,
       libraryAssets,
       brandContext,
+      attachmentBlocks: attachments.blocks,
       identityLocked: Boolean(profileId && personaDescription),
       apiKey: runtimeConfig.anthropicApiKey,
     });
