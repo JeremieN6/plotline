@@ -111,6 +111,7 @@ const kicker = (ctx, text, y = 440) => (text ? ctx.fx(`<div class="kick">${esc(n
 
 /** Avatar dans un disque de sauge (portrait) : le buste depasse un peu du disque, comme sur la maquette. */
 function avatarDisc(ctx, scene, { cx = 540, bottom = 1700, d = 520 } = {}) {
+  if (ctx.noAvatar) return '';
   const settings = scene.avatar || {};
   if (settings.hidden) return '';
   const beats = scene.beats?.length ? scene.beats : [{ at: 0, expr: settings.expr || 'neutral' }];

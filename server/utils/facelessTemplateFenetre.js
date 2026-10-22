@@ -151,6 +151,7 @@ function windowBox(ctx, { h, y = WIN_TOP, tab = '', inner, screenClass = '' }) {
 }
 
 function avatar(ctx, scene, spotKey) {
+  if (ctx.noAvatar) return '';
   const spot = SPOTS[spotKey];
   const settings = scene.avatar || {};
   if (settings.hidden) return '';

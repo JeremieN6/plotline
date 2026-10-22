@@ -3,7 +3,7 @@ import { getOrCreateDefaultProfile } from '../../utils/defaultProfile.js';
 import { runOwnVoiceJob, detectAudioType } from '../../utils/facelessOwnVoice.js';
 import { OWN_VOICE_MAX_BYTES } from '../../utils/ownVoice.js';
 import { resolveElevenLabsApiKey } from '../../utils/elevenLabsTts.js';
-import { defaultFacelessStyle, readyIllustrations } from '../../utils/facelessStyle.js';
+import { defaultFacelessStyle, pickStyleSlot, readyIllustrations } from '../../utils/facelessStyle.js';
 import { loadPersonaStyle } from '../../utils/facelessStyleStore.js';
 import { describeIllustrationCost } from '../../utils/facelessIllustration.js';
 import { MAX_NEW_PER_VIDEO } from '../../data/facelessIllustrations.js';
@@ -61,7 +61,7 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 404, statusMessage: 'Profil introuvable' }));
     }
     persona = loaded.persona;
-    style = loaded.style;
+    style = pickStyleSlot(loaded.style, field('styleSlot'));
   }
   const captions = field('captions') === '' ? style.captions.enabled : field('captions') !== 'false';
 

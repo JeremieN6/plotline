@@ -97,7 +97,7 @@ test('buildFacelessHtml herbier : rameau, titres en italique, cases a cocher, et
     { say: 'L’ingredient star : l’aloe vera, Aloe barbadensis, un classique des soins.', layout: 'word', title: 'Ingrédient', word: 'Aloe', text: 'Aloe barbadensis' },
     { say: 'Decryptons : aqua, sulfate, dimethicone, jus d’aloe, parfum. Verdict : a reposer.', layout: 'label', title: 'Ingrédients', tab: 'Shampoing · 250 ml', text: 'Verdict : **à reposer.**', items: [{ text: 'Aqua', at: 0 }, { text: 'Sodium Laureth Sulfate', tone: 'avoid', sub: 'sulfate', at: 0 }, { text: 'Aloe Barbadensis Leaf Juice', tone: 'good', sub: 'aloe vera', at: 0 }, { text: 'Parfum', tone: 'watch', sub: 'à surveiller', at: 0 }] },
     { say: 'Abonne toi pour decrypter la suite avec moi, merci beaucoup.', layout: 'avatar', text: '**Abonne-toi** pour la suite' },
-  ]), { style: defaultFacelessStyle('herbier-terracotta', 'FEMALE') });
+  ]), { style: defaultFacelessStyle('herbier-terracotta', 'FEMALE', { avatar: 'svg' }) });
   const scenes = html.split('<section class="scene').slice(1);
   assert.equal(scenes.length, 5);
   assert.match(scenes[0], /data-sway="1.2"/);

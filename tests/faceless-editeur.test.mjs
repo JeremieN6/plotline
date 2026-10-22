@@ -81,7 +81,7 @@ test('buildFacelessHtml editeur : panneau, frappe, curseur, bulle, diff, termina
     { say: 'On appelle ca le cache.', layout: 'word', word: 'cache' },
     { say: 'Encore le cache.', layout: 'word', word: 'cache' },
     { say: 'Quinze fois plus rapide.', layout: 'stat', word: '×15', compare: [{ label: 'sans cache', value: '27,9 ms' }, { label: 'avec cache', value: '1,9 ms' }] },
-  ]), { style: defaultFacelessStyle('editeur-cyan', 'MALE') });
+  ]), { style: defaultFacelessStyle('editeur-cyan', 'MALE', { avatar: 'svg' }) });
   assert.match(html, /class="panel"/);
   assert.match(html, /site\.js/);
   assert.match(html, /data-type-at=/);

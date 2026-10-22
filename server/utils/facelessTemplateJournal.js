@@ -77,6 +77,7 @@ const CHECK = (at) => `<svg viewBox="0 0 40 40" width="40" height="40" fill="non
 
 /** Avatar du persona en bas a droite (le buste), la ou la maquette pose le personnage devant son ordinateur. */
 function avatarCorner(ctx, scene, { right = 40, bottom = 1700, w = 470 } = {}) {
+  if (ctx.noAvatar) return '';
   const settings = scene.avatar || {};
   if (settings.hidden) return '';
   const beats = scene.beats?.length ? scene.beats : [{ at: 0, expr: settings.expr || 'neutral' }];

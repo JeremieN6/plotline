@@ -78,8 +78,8 @@ test('le pack n est jamais pris du client, seulement de la base', () => {
   assert.equal(merged.avatar.pack.entries.happy.url, 'https://blob/happy.png');
   assert.equal(merged.avatar.pack.baseUrl, 'https://blob/base.png');
 
-  // Sans pack en base, un client qui demande "pack" retombe sur le dessin.
-  assert.equal(mergeClientStyle(null, client).avatar.kind, 'svg');
+  // Sans pack en base, un client qui demande "pack" ne reçoit aucun avatar (jamais un dessin impose).
+  assert.equal(mergeClientStyle(null, client).avatar.kind, 'none');
   assert.equal(normalizeFacelessStyle(client).avatar.pack, null);
 });
 
@@ -139,7 +139,7 @@ test('buildFacelessHtml : transitions limitees a celles de la DA', () => {
 });
 
 test('buildFacelessHtml : une image du pack remplace le dessin', () => {
-  const style = defaultFacelessStyle('papercraft-pastel', 'FEMALE');
+  const style = defaultFacelessStyle('papercraft-pastel', 'FEMALE', { avatar: 'svg' });
   const timeline = sampleTimeline({ avatar: { beats: [{ at: 0, expr: 'happy' }] } });
   const html = buildFacelessHtml(timeline, { style, packEntries: { happy: { mode: 'head', url: 'https://blob/h.png' } } });
   assert.match(html, /<img class="avatar-img"[^>]*src="https:\/\/faceless\.assets\/avatar\/happy\.png"/);
@@ -179,7 +179,7 @@ test('prompt du plan : DA + liste des images du pack', () => {
   assert.match(prompt, /- happy : Content \(tête seule\)/);
   assert.match(prompt, /- body-wave : Salue \(buste\)/);
   assert.ok(!prompt.includes('expressions possibles'));
-  assert.match(buildFacelessPlanSystemPrompt({ style }), /expressions possibles/);
+  assert.match(buildFacelessPlanSystemPrompt({ style: defaultFacelessStyle('brutalisme', 'MALE', { avatar: 'svg' }) }), /expressions possibles/);
 });
 
 test('plan : seuls les id du pack sont acceptes, fond et logo geres', () => {

@@ -4,7 +4,7 @@ import { runFacelessVideoJob } from '../../utils/facelessVideoJob.js';
 import { MAX_SOURCE_TEXT, normalizeFacelessDuration, normalizeSourceText } from '../../utils/facelessPlanGenerator.js';
 import { resolveElevenLabsApiKey } from '../../utils/elevenLabsTts.js';
 import { findFacelessVoice } from '../../data/facelessCatalog.js';
-import { defaultFacelessStyle } from '../../utils/facelessStyle.js';
+import { defaultFacelessStyle, pickStyleSlot } from '../../utils/facelessStyle.js';
 import { loadPersonaStyle } from '../../utils/facelessStyleStore.js';
 import { describeIllustrationCost } from '../../utils/facelessIllustration.js';
 import { readyIllustrations } from '../../utils/facelessStyle.js';
@@ -63,7 +63,8 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 404, statusMessage: 'Profil introuvable' }));
     }
     persona = loaded.persona;
-    style = loaded.style;
+    // DA choisie pour CETTE video (0 = principale, 1 et 2 = options) ; la DA par defaut de la persona ne change pas.
+    style = pickStyleSlot(loaded.style, body?.styleSlot);
   }
 
   // Voix et sous-titres : ce que dit le formulaire, sinon les reglages de la DA.

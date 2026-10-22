@@ -135,6 +135,7 @@ function phrase(ctx, scene, text, { follow, gap = 70, y = TOP, size = 88, kwColo
 
 /** Avatar dans une bulle ronde (anneau de couleur et lueur) ; la pose change en coupe. */
 function bubble(ctx, scene, { follow, gap = -120, y = 0, size = 480, cx = 540, id } = {}) {
+  if (ctx.noAvatar) return '';
   const settings = scene.avatar || {};
   if (settings.hidden) return '';
   const beats = scene.beats?.length ? scene.beats : [{ at: 0, expr: settings.expr || 'neutral' }];

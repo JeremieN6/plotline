@@ -128,6 +128,7 @@ function cardFx(ctx, { inner, at = 0, id, follow, y = TOP, gap = GAP, cls = '', 
 
 /** Avatar illustre, en bas a droite, DEVANT les cartes : un buste monte du bas de l ecran, une tete a le bas fondu. */
 function avatar(ctx, scene) {
+  if (ctx.noAvatar) return '';
   const settings = scene.avatar || {};
   if (settings.hidden) return '';
   const beats = scene.beats?.length ? scene.beats : [{ at: 0, expr: settings.expr || 'neutral' }];

@@ -54,7 +54,7 @@ test('buildFacelessHtml cahier : phrase a deux niveaux, encre calee sur la voix,
     { say: 'Ton site met quatre secondes a charger.', layout: 'hook', text: 'Ton site met **4 secondes** à charger.' },
     { say: 'Trois couches de cache.', layout: 'list', title: 'Trois couches de **cache**', items: [{ text: 'Navigateur', at: 'Trois' }, { text: 'CDN', at: 'cache.' }] },
     { say: 'Chaque couche divise l attente.', layout: 'stat', word: '×15', text: 'Chaque couche **divise**', compare: [{ label: 'Disque', value: '27,9 ms' }, { label: 'RAM', value: '1,9 ms' }, { label: 'Local', value: '0 ms' }] },
-  ]), { style: defaultFacelessStyle('cahier-vert', 'MALE') });
+  ]), { style: defaultFacelessStyle('cahier-vert', 'MALE', { avatar: 'svg' }) });
   assert.match(html, /font-family:"Inter Tight"/);
   assert.match(html, /\["Inter Tight","IBM Plex Mono"\]/);
   assert.match(html, /class="wd kw" data-enter="blur-big"[^>]*data-ink-a="#8b8d86" data-ink-b="#111111"/);
@@ -81,7 +81,7 @@ test('cahier : avatar seulement sur la derniere scene (phrase seule), jamais sur
     { say: 'Ton site met quatre secondes.', layout: 'hook', text: 'Ton site met **4 secondes**' },
     { say: 'Au milieu, une phrase seule.', layout: 'avatar', text: 'Une **phrase** seule' },
     { say: 'Abonne-toi pour la suite.', layout: 'avatar', text: '**Abonne-toi**' },
-  ]), { style: defaultFacelessStyle('cahier-vert', 'MALE') });
+  ]), { style: defaultFacelessStyle('cahier-vert', 'MALE', { avatar: 'svg' }) });
   const scenes = html.split('<section class="scene').slice(1);
   assert.equal(scenes.length, 3);
   assert.doesNotMatch(scenes[0], /class="avatar/);

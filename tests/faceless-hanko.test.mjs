@@ -72,7 +72,7 @@ test('buildFacelessHtml hanko : disque, katakana, tampon avec flash, tier list, 
     { say: 'Personne ne ma prevenu, vraiment personne au monde.', layout: 'title', text: 'Personne ne m’avait **prévenu !**' },
     { say: 'Ma tier list : le premier est culte, le deuxieme excellent.', layout: 'list', title: 'Ma **tier list**', items: [{ text: 'Chihiro', at: 'premier' }, { text: 'Perfect Blue', sub: 'B', at: 'deuxieme' }] },
     { say: 'On dit dun anime quil est culte, le mot est lache vraiment.', layout: 'word', title: 'On dit d’un anime', word: 'Culte', jp: '傑作' },
-  ]), { style: defaultFacelessStyle('hanko-rouge', 'MALE') });
+  ]), { style: defaultFacelessStyle('hanko-rouge', 'MALE', { avatar: 'svg' }) });
   const scenes = html.split('<section class="scene').slice(1);
   assert.equal(scenes.length, 4);
   assert.match(scenes[0], /data-enter="hk-disc"[^>]*data-pulse="0.015"/);

@@ -170,6 +170,7 @@ function avatarVisual(beat, avatar) {
 }
 
 function avatarBlock(scene, defaults) {
+  if (T.style.avatar.kind === 'none') return '';
   const avatar = { ...defaults, ...(scene.avatar || {}) };
   if (avatar.hidden) return '';
   const beats = scene.beats?.length ? scene.beats : [{ at: 0, expr: avatar.expr || 'neutral' }];
@@ -707,6 +708,7 @@ export function buildFacelessHtml(timeline, options = {}) {
   const ctx = {
     fx,
     avatarVisual,
+    noAvatar: style.avatar.kind === 'none',
     style,
     illustrations: T.illustrations,
     illustrationUrl: (id) => `${FACELESS_ASSET_ORIGIN}/illustration/${encodeURIComponent(id)}.jpg`,

@@ -112,6 +112,7 @@ function stack(ctx, scene, text, { top, maxSize = 310, minSize = 130, maxH = 110
 
 /** Avatar pose directement sur l affiche (sans cadre ni fond), en bas a droite : un buste monte depuis le cadre, une tete seule a le bas fondu. */
 function avatarRect(ctx, scene) {
+  if (ctx.noAvatar) return '';
   const settings = scene.avatar || {};
   if (settings.hidden) return '';
   const beats = scene.beats?.length ? scene.beats : [{ at: 0, expr: settings.expr || 'neutral' }];

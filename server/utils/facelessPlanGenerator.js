@@ -69,8 +69,13 @@ export function describeFacelessPersona(persona, { withPersonality = true } = {}
   return lines.filter(Boolean).join('\n');
 }
 
-/** Pur : bloc de consignes sur l avatar, selon qu il s agit d images du pack ou du dessin. */
-function avatarPromptLines(packEntries) {
+/** Pur : bloc de consignes sur l avatar, selon qu il s agit d images du pack ou du dessin (ou d aucun avatar). */
+function avatarPromptLines(packEntries, noAvatar = false) {
+  if (noAvatar && !Object.keys(packEntries || {}).length) {
+    return [
+      '- Cette direction artistique n a AUCUN avatar : ne renseigne jamais "avatar" (laisse {}) et ne compte pas sur un personnage a l ecran. La mise en page "avatar" reste utilisable pour l appel a l action : elle n affiche alors que le texte.',
+    ];
+  }
   const ids = Object.keys(packEntries || {});
   if (ids.length) {
     const lines = ids.map((id) => {
@@ -113,13 +118,16 @@ export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = nu
   const words = Math.round(targetSeconds * WORDS_PER_SECOND);
   const personaText = describeFacelessPersona(persona);
   const da = style || normalizeFacelessStyle({});
+  const noAvatarAtAll = da.avatar.kind === 'none' && !Object.keys(packEntries || {}).length;
   const sfxKey = sfxPaletteKey(da);
   const sfxPaletteLabel = (key) => FACELESS_SFX_PALETTES[key]?.label || 'générale';
 
   return [
     'Tu es scenariste et monteur de videos verticales "faceless" (TikTok, Reels) pour Plotline.',
-    'La video : une voix off raconte, un avatar illustre reagit avec des expressions,',
-    'et des cartes affichent les mots cles dans la direction artistique ci-dessous. Aucun visage filme.',
+    noAvatarAtAll
+      ? 'La video : une voix off raconte et des cartes affichent les mots cles dans la direction artistique ci-dessous. Aucun avatar, aucun visage filme.'
+      : 'La video : une voix off raconte, un avatar illustre reagit avec des expressions,',
+    ...(noAvatarAtAll ? [] : ['et des cartes affichent les mots cles dans la direction artistique ci-dessous. Aucun visage filme.']),
     '',
     'DIRECTION ARTISTIQUE (a respecter)',
     describeStyleForPrompt(da),
@@ -141,7 +149,7 @@ export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = nu
     '- Varie les mises en page, jamais deux fois la meme d affilee sauf "title" pour des chapitres numerotes.',
     '- Le texte a l ecran RESUME, il ne recopie pas la phrase : 2 a 8 mots par carte. Entoure 1 mot cle de **double asterisques** pour le surligner.',
     '- "emoji" : UN seul emoji pertinent, ou rien. Jamais d emoji dans text, title, word ou items.text (il a deja sa place).',
-    ...avatarPromptLines(packEntries),
+    ...avatarPromptLines(packEntries, noAvatarAtAll),
     '- "image" (layout photo) : l id EXACT d une illustration disponible ; "frame" facultatif : "polaroid" ou "plain".',
     '- "bg" : le fond de la scene, "main" (fond principal), "alt" (fond secondaire) ou "dark" (fond sombre). Varie les fonds toutes les 2 ou 3 scenes (jamais plus de 2 scenes "dark" d affilee).',
     '- "items" (layout list) : "at" = un mot EXACT du "say" de la scene, dans l ordre ou il est dit.',

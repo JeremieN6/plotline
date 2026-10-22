@@ -73,6 +73,7 @@ function stamp(ctx, text, { x, y, w = 150, h = 150, size = 88, at = 0.4, rot = 8
 
 /** Avatar dans le disque rouge de l affiche : le buste depasse un peu du disque. */
 function avatarDisc(ctx, scene, { cx = 540, bottom = 1620, d = 540 } = {}) {
+  if (ctx.noAvatar) return '';
   const settings = scene.avatar || {};
   if (settings.hidden) return '';
   const beats = scene.beats?.length ? scene.beats : [{ at: 0, expr: settings.expr || 'neutral' }];
@@ -120,7 +121,8 @@ const LAYOUTS = {
   // Chapitre et appel a l action : une bulle, puis l avatar dans le disque rouge, un tampon "!" sur le disque.
   title(scene, ctx) {
     return bubble(ctx, scene, scene.text || scene.title || '') + avatarDisc(ctx, scene)
-      + stamp(ctx, '!', { x: 540 + 140, y: 1620 - 540 - 20, w: 150, h: 150, size: 100, at: 0.6 });
+      // Le tampon se pose sur le disque de l avatar : sans avatar, il n aurait rien a tamponner.
+      + (ctx.noAvatar ? '' : stamp(ctx, '!', { x: 540 + 140, y: 1620 - 540 - 20, w: 150, h: 150, size: 100, at: 0.6 }));
   },
   avatar(scene, ctx) {
     return LAYOUTS.title({ ...scene, text: scene.text || scene.title || '' }, ctx);

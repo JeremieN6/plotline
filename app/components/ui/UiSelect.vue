@@ -6,7 +6,7 @@
       class="h-11 w-full appearance-none rounded-ui-ctl border border-ui-line-input bg-ui-surface pl-3 pr-10 text-sm text-ui-ink outline-none transition-shadow focus-visible:border-ui-accent focus-visible:ring-[3px] focus-visible:ring-ui-accent/20 disabled:cursor-not-allowed disabled:bg-ui-subtle disabled:text-ui-ink-muted"
       @change="emit('update:modelValue', $event.target.value)"
     >
-      <option v-for="option in normalized" :key="option.value" :value="option.value" :disabled="option.disabled">
+      <option v-for="option in normalized" :key="option.value" :value="option.value" :disabled="option.disabled" :selected="String(option.value) === String(modelValue)">
         {{ option.label }}
       </option>
     </select>

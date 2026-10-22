@@ -57,6 +57,7 @@ function statement(ctx, scene, text, { top = TOP, maxH = 440, base = 88, center 
  * le bas de l ecran, une tete seule a le bas fondu.
  */
 function smallAvatar(ctx, scene) {
+  if (ctx.noAvatar) return '';
   const settings = scene.avatar || {};
   if (settings.hidden) return '';
   const beats = scene.beats?.length ? scene.beats : [{ at: 0, expr: settings.expr || 'neutral' }];

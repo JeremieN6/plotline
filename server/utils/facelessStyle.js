@@ -25,6 +25,8 @@ import { ILLUSTRATION_KINDS, ILLUSTRATION_SOURCES, MAX_ILLUSTRATIONS, MAX_ILLUST
  */
 
 export const STYLE_VERSION = 1;
+/** Une persona (ou marque, ou autre) a une DA principale + au plus 2 DA en option. */
+export const MAX_ALTERNATES = 2;
 const MAX_RULES = 1500;
 const MAX_AVATAR_PROMPT = 400;
 
@@ -67,11 +69,12 @@ export function defaultVoiceFor(gender) {
 }
 
 /** Pur : DA de depart pour un preset, adaptee au genre. */
-export function defaultFacelessStyle(preset = DEFAULT_PRESET, gender = 'FEMALE') {
+export function defaultFacelessStyle(preset = DEFAULT_PRESET, gender = 'FEMALE', { avatar = 'none' } = {}) {
   const base = FACELESS_PRESETS[preset] || FACELESS_PRESETS[DEFAULT_PRESET];
   return normalizeFacelessStyle({
     ...base.style,
-    avatar: { kind: 'svg', svg: defaultSvgAvatar(gender) },
+    // Par defaut AUCUN avatar : le dessin (gratuit) et le pack sont des choix explicites.
+    avatar: { kind: avatar === 'svg' ? 'svg' : 'none', svg: defaultSvgAvatar(gender) },
     voiceId: defaultVoiceFor(gender),
   });
 }
@@ -167,7 +170,7 @@ export function normalizeFacelessStyle(raw, { keepPack = false } = {}) {
     avatarPrompt: text(input.avatarPrompt ?? base.avatarPrompt, MAX_AVATAR_PROMPT),
     voiceId: findFacelessVoice(String(input.voiceId || '')) ? String(input.voiceId) : DEFAULT_FACELESS_VOICE_ID,
     avatar: {
-      kind: avatarIn.kind === 'pack' ? 'pack' : 'svg',
+      kind: avatarIn.kind === 'pack' ? 'pack' : (avatarIn.kind === 'none' ? 'none' : 'svg'),
       svg: {
         hair: pick(svgIn.hair, FACELESS_HAIR_STYLES, svgBase.hair),
         hairColor: safeHexColor(svgIn.hairColor, svgBase.hairColor),
@@ -178,13 +181,57 @@ export function normalizeFacelessStyle(raw, { keepPack = false } = {}) {
       pack: keepPack ? normalizePack(avatarIn.pack) : null,
     },
     illustrations: keepPack ? normalizeIllustrations(input.illustrations) : [],
+    // DA en option (lues en base seulement : on les ecrit une par une via `setAlternate`).
+    alternates: keepPack ? normalizeAlternates(input.alternates) : [],
   };
 
-  // Un pack choisi mais vide ne dessinerait aucun avatar : retour au dessin.
+  // Un pack choisi mais vide ne dessinerait aucun avatar : on ne dessine rien (jamais de dessin impose).
   if (style.avatar.kind === 'pack' && !(style.avatar.pack && Object.values(style.avatar.pack.entries).some((e) => e.url))) {
-    style.avatar.kind = 'svg';
+    style.avatar.kind = 'none';
   }
   return style;
+}
+
+/** Pur : DA en option lues en base (sans pack ni illustrations : elles partagent ceux de la DA principale). */
+export function normalizeAlternates(raw) {
+  return (Array.isArray(raw) ? raw : []).slice(0, MAX_ALTERNATES).map((item) => {
+    const style = normalizeFacelessStyle(item);
+    // "pack" est une intention : le pack (commun aux 3 DA) est lu a l usage, voir `pickStyleSlot`.
+    const kind = item?.avatar?.kind === 'pack' ? 'pack' : style.avatar.kind;
+    return { ...style, avatar: { ...style.avatar, kind, pack: null }, illustrations: [], alternates: [] };
+  });
+}
+
+/**
+ * Pur : la DA du rang demande (0 = principale, 1 et 2 = options), avec le pack d avatars
+ * et les illustrations de la persona (communs aux trois). Un rang inconnu = la principale.
+ */
+export function pickStyleSlot(style, slot = 0) {
+  const index = Number(slot);
+  const alt = Number.isInteger(index) && index >= 1 ? style?.alternates?.[index - 1] : null;
+  if (!alt) return style;
+  const merged = { ...alt, avatar: { ...alt.avatar, pack: style.avatar?.pack || null }, illustrations: style.illustrations || [], alternates: style.alternates };
+  // Un pack choisi mais vide ne dessinerait rien.
+  if (merged.avatar.kind === 'pack' && !Object.values(merged.avatar.pack?.entries || {}).some((e) => e.url)) merged.avatar.kind = 'none';
+  return merged;
+}
+
+/** Pur : range une DA en option (rang 1 ou 2) ; le rang 2 exige que le rang 1 existe. `null` = refus. */
+export function setAlternate(style, slot, clientStyle) {
+  const index = Number(slot) - 1;
+  const list = style?.alternates || [];
+  if (!Number.isInteger(index) || index < 0 || index >= MAX_ALTERNATES || index > list.length) return null;
+  const next = [...list];
+  next[index] = normalizeAlternates([clientStyle])[0];
+  return { ...style, alternates: next };
+}
+
+/** Pur : retire une DA en option (les suivantes remontent d un rang). */
+export function removeAlternate(style, slot) {
+  const index = Number(slot) - 1;
+  const list = style?.alternates || [];
+  if (!Number.isInteger(index) || index < 0 || index >= list.length) return null;
+  return { ...style, alternates: list.filter((_, i) => i !== index) };
 }
 
 /** Pur : DA envoyee par le client + pack deja en base (jamais celui du client). */
@@ -193,6 +240,7 @@ export function mergeClientStyle(existingStyle, clientStyle) {
   const pack = existingStyle?.avatar?.pack || null;
   next.avatar.pack = pack;
   next.illustrations = existingStyle?.illustrations || [];
+  next.alternates = existingStyle?.alternates || [];
   if (clientStyle?.avatar?.kind === 'pack' && pack && Object.values(pack.entries).some((e) => e.url)) next.avatar.kind = 'pack';
   return next;
 }

@@ -114,16 +114,25 @@
                 <UiSelect id="faceless-profile" v-model="profileId" :options="profileOptions" />
               </UiField>
               <p v-if="!profileId" class="mt-2 text-xs text-ui-ink-muted">
-                Sans persona : DA par défaut (papercraft pastel, avatar dessiné). Choisis une persona pour utiliser sa DA.
+                Sans persona : DA par défaut (papercraft pastel, sans avatar). Choisis une persona pour utiliser sa DA.
               </p>
               <div v-else-if="styleInfo" class="mt-2 rounded-ui-ctl border border-ui-line-soft bg-ui-subtle px-3 py-2 text-xs text-ui-ink-2">
                 <p>
-                  <span class="font-semibold text-ui-ink">DA : {{ styleInfo.style.name }}</span>
+                  <span class="font-semibold text-ui-ink">DA : {{ selectedStyle.name }}</span>
                   · avatar : {{ avatarSummary }}
+                </p>
+                <div v-if="daChoices.length > 1" class="mt-2">
+                  <UiField label="Direction artistique de cette vidéo" for-id="faceless-style-slot">
+                    <UiSelect id="faceless-style-slot" v-model="styleSlot" :options="daChoices" />
+                  </UiField>
+                  <p class="mt-1 text-ui-ink-muted">Ce choix ne vaut que pour cette vidéo : la DA principale reste celle par défaut.</p>
+                </div>
+                <p class="mt-2 text-ui-ink-muted">
+                  {{ daChoices.length > 1 ? 'Pour changer la liste des DA de ce profil (principale + options),' : 'Ce profil n’a qu’une DA. Tu peux en ajouter jusqu’à deux autres :' }}
                 </p>
                 <p class="mt-1 flex flex-wrap gap-x-4 gap-y-1">
                   <NuxtLink :to="`/studio/faceless/style?profile=${profileId}`" class="font-semibold text-ui-accent hover:underline">
-                    {{ styleInfo.stored ? 'Modifier la DA →' : 'Créer sa DA →' }}
+                    {{ styleInfo.stored ? 'Gérer les DA du profil →' : 'Créer sa DA →' }}
                   </NuxtLink>
                   <NuxtLink :to="`/library/personas/${profileId}`" class="font-semibold text-ui-accent hover:underline">
                     Dossier de la persona →
@@ -287,6 +296,7 @@ const voiceId = ref('')
 const durationSeconds = ref(30)
 const captions = ref(true)
 const styleInfo = ref(null)
+const styleSlot = ref(0)
 const rememberRule = ref(false)
 const REMEMBER_MAX = 160
 const errorMessage = ref('')
@@ -327,16 +337,40 @@ watch(options, (value) => {
   if (!voiceId.value && value?.defaultVoiceId) voiceId.value = value.defaultVoiceId
 }, { immediate: true })
 
+// DA effectivement utilisee pour cette video : la principale ou l une des options du profil.
+const selectedStyle = computed(() => {
+  const main = styleInfo.value?.style
+  if (!main) return null
+  return Number(styleSlot.value) >= 1 ? (main.alternates?.[Number(styleSlot.value) - 1] || main) : main
+})
+const daChoices = computed(() => {
+  const main = styleInfo.value?.style
+  if (!main) return []
+  return [
+    { value: 0, label: `Principale : ${main.name}` },
+    ...(main.alternates || []).map((alt, index) => ({ value: index + 1, label: `Option ${index + 2} : ${alt.name}` })),
+  ]
+})
 const avatarSummary = computed(() => {
-  const pack = styleInfo.value?.pack
-  if (!pack || pack.kind !== 'pack') return 'dessiné'
-  const count = pack.entries.filter((entry) => entry.url).length
+  const kind = selectedStyle.value?.avatar?.kind
+  if (kind === 'none') return 'aucun'
+  if (kind !== 'pack') return 'dessiné'
+  const count = (styleInfo.value?.pack?.entries || []).filter((entry) => entry.url).length
   return `pack de ${count} images`
+})
+
+// Changer de DA reprend sa voix et ses sous-titres par defaut.
+watch(styleSlot, () => {
+  const style = selectedStyle.value
+  if (!style) return
+  voiceId.value = style.voiceId || voiceId.value
+  captions.value = style.captions.enabled
 })
 
 // Le choix d une persona applique sa DA : voix et sous-titres par defaut.
 async function loadStyleInfo(id) {
   styleInfo.value = null
+  styleSlot.value = 0
   newIllustrations.value = 0
   if (!id) return
   try {
@@ -464,6 +498,7 @@ async function generate() {
       form.append('audio', audioFile.value)
       form.append('idea', idea.value)
       if (profileId.value) form.append('profileId', profileId.value)
+      if (profileId.value && Number(styleSlot.value) > 0) form.append('styleSlot', String(styleSlot.value))
       form.append('captions', String(captions.value))
       if (profileId.value && newIllustrations.value > 0) {
         form.append('maxNewImages', String(newIllustrations.value))
@@ -477,6 +512,7 @@ async function generate() {
           idea: idea.value,
           sourceText: sourceText.value.trim() || undefined,
           profileId: profileId.value || undefined,
+          styleSlot: profileId.value && Number(styleSlot.value) > 0 ? Number(styleSlot.value) : undefined,
           voiceId: voiceId.value,
           durationSeconds: durationSeconds.value,
           captions: captions.value,
