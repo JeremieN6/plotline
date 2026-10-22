@@ -106,3 +106,31 @@ test('les modeles sont rangés en deux categories : les 11 premiers en classique
   assert.equal(templates.filter((template) => template === 'classic').length, 11);
   assert.ok(templates.filter((template) => template !== 'classic').length >= 8);
 });
+
+// Regression : l apercu et les plans figes lisent la DA SANS le pack ; "pack" doit y rester un choix valide.
+import { buildFacelessHtml } from '../server/utils/facelessTemplate.js';
+import { buildPreviewPlan } from '../server/utils/facelessPreview.js';
+
+test('le choix "pack" survit a une lecture sans le pack (apercu, plan fige) et les images s affichent', () => {
+  const asked = normalizeFacelessStyle({ preset: 'editeur-cyan', avatar: { kind: 'pack' } });
+  assert.equal(asked.avatar.kind, 'pack');
+
+  const packEntries = { happy: { mode: 'head', url: 'https://x/h.png' }, wave: { mode: 'body', url: 'https://x/w.png' } };
+  const plan = buildPreviewPlan(asked, packEntries);
+  const timeline = {
+    duration: 6,
+    scenes: plan.scenes.map((scene, i) => ({ ...scene, start: i * 2, end: i * 2 + 2, beats: scene.avatar?.beats || [], words: [] })),
+    sfx: [],
+  };
+  const html = buildFacelessHtml(timeline, { style: asked, packEntries });
+  assert.match(html, /<img class="avatar-img"/, 'les images du pack sont dessinees');
+
+  const without = buildFacelessHtml(timeline, { style: asked, packEntries: {} });
+  assert.doesNotMatch(without, /<img class="avatar-img"|<div class="avatar/, 'pack choisi mais aucune image : rien n est dessine');
+});
+
+test('mergeClientStyle : "pack" sans image en base devient "aucun", avec images il est garde', () => {
+  const client = { avatar: { kind: 'pack' } };
+  assert.equal(mergeClientStyle(null, client).avatar.kind, 'none');
+  assert.equal(mergeClientStyle(withPack(), client).avatar.kind, 'pack');
+});

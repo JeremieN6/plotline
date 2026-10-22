@@ -94,7 +94,7 @@ const nextSeed = () => (seedCounter += 7919);
 const uid = (prefix) => `${prefix}-${nextSeed()}`;
 
 // DA et images d avatar de la page en cours de construction.
-let T = { style: null, packEntries: {}, illustrations: {} };
+let T = { style: null, packEntries: {}, illustrations: {}, noAvatar: false };
 
 /** Entree d animation autorisee par la DA (sinon "pop", sinon la premiere permise). */
 function ent(name) {
@@ -170,7 +170,7 @@ function avatarVisual(beat, avatar) {
 }
 
 function avatarBlock(scene, defaults) {
-  if (T.style.avatar.kind === 'none') return '';
+  if (T.noAvatar) return '';
   const avatar = { ...defaults, ...(scene.avatar || {}) };
   if (avatar.hidden) return '';
   const beats = scene.beats?.length ? scene.beats : [{ at: 0, expr: avatar.expr || 'neutral' }];
@@ -702,13 +702,15 @@ export function buildFacelessHtml(timeline, options = {}) {
   seedCounter = 1;
   const style = options.style || normalizeFacelessStyle({});
   T = { style, packEntries: options.packEntries || {}, illustrations: options.illustrations || {} };
+  // Pas d avatar : choix "aucun", ou pack choisi sans aucune image a afficher (jamais un dessin impose).
+  T.noAvatar = style.avatar.kind === 'none' || (style.avatar.kind === 'pack' && !Object.keys(T.packEntries).length);
 
   const bgOf = (scene) => (['alt', 'dark'].includes(scene.bg) ? scene.bg : 'main');
   const engine = ENGINES[style.template] || null;
   const ctx = {
     fx,
     avatarVisual,
-    noAvatar: style.avatar.kind === 'none',
+    noAvatar: T.noAvatar,
     style,
     illustrations: T.illustrations,
     illustrationUrl: (id) => `${FACELESS_ASSET_ORIGIN}/illustration/${encodeURIComponent(id)}.jpg`,

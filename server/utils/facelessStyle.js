@@ -185,8 +185,10 @@ export function normalizeFacelessStyle(raw, { keepPack = false } = {}) {
     alternates: keepPack ? normalizeAlternates(input.alternates) : [],
   };
 
-  // Un pack choisi mais vide ne dessinerait aucun avatar : on ne dessine rien (jamais de dessin impose).
-  if (style.avatar.kind === 'pack' && !(style.avatar.pack && Object.values(style.avatar.pack.entries).some((e) => e.url))) {
+  // Un pack choisi mais vide (lecture en base, ou le pack est connu) ne dessinerait aucun avatar : on ne dessine rien
+  // (jamais de dessin impose). Hors lecture en base le pack est volontairement absent : le choix "pack" est GARDE,
+  // les images viennent d ailleurs (apercu, plan fige d une video).
+  if (keepPack && style.avatar.kind === 'pack' && !(style.avatar.pack && Object.values(style.avatar.pack.entries).some((e) => e.url))) {
     style.avatar.kind = 'none';
   }
   return style;
@@ -241,7 +243,9 @@ export function mergeClientStyle(existingStyle, clientStyle) {
   next.avatar.pack = pack;
   next.illustrations = existingStyle?.illustrations || [];
   next.alternates = existingStyle?.alternates || [];
-  if (clientStyle?.avatar?.kind === 'pack' && pack && Object.values(pack.entries).some((e) => e.url)) next.avatar.kind = 'pack';
+  // Le client ne peut choisir "pack" que s il existe des images en base ; sinon : aucun avatar.
+  const packReady = Boolean(pack && Object.values(pack.entries).some((e) => e.url));
+  if (next.avatar.kind === 'pack') next.avatar.kind = packReady ? 'pack' : 'none';
   return next;
 }
 
