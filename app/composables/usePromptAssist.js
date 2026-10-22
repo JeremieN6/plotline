@@ -6,10 +6,18 @@
  */
 export function usePromptAssist() {
   // `contextProfileId` : profil actif du Studio ; s il s agit d une marque, le serveur ajoute sa fiche et son site au contexte.
-  async function assistFreePrompt({ idea, mediaType, profileId, libraryAssetIds, contextProfileId }) {
+  // `attachments` : fichiers de reference deja prepares par StudioAttachmentField ({ name, data base64 }) ; le serveur les revalide.
+  async function assistFreePrompt({ idea, mediaType, profileId, libraryAssetIds, contextProfileId, attachments }) {
     return await $fetch('/api/generate/prompt-assist', {
       method: 'POST',
-      body: { idea, mediaType, profileId, contextProfileId: contextProfileId || undefined, libraryAssetIds: libraryAssetIds?.length ? libraryAssetIds : undefined },
+      body: {
+        idea,
+        mediaType,
+        profileId,
+        contextProfileId: contextProfileId || undefined,
+        libraryAssetIds: libraryAssetIds?.length ? libraryAssetIds : undefined,
+        attachments: attachments?.length ? attachments.map(({ name, data }) => ({ name, data })) : undefined,
+      },
     })
   }
 

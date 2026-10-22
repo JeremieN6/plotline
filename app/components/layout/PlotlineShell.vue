@@ -1,139 +1,117 @@
 <template>
-  <div class="min-h-screen bg-[#FAFAF8] text-[#111111]">
+  <div class="min-h-screen bg-ui-bg text-ui-ink">
     <div class="mx-auto flex min-h-screen w-full max-w-[1680px] flex-col lg:flex-row">
-      <header class="sticky top-0 z-30 border-b border-[#E5E3DF] bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
+      <header class="sticky top-0 z-30 border-b border-ui-line bg-ui-surface/95 px-4 py-3 backdrop-blur lg:hidden">
         <div class="flex items-center justify-between gap-3">
-          <button
-            type="button"
-            class="rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2 text-sm font-bold text-[#111111]"
-            @click="mobileMenuOpen = true"
-          >
-            <Icon name="lucide:menu" />
-          </button>
+          <UiIconButton label="Ouvrir le menu" @click="mobileMenuOpen = true">
+            <Icon name="lucide:menu" class="h-5 w-5" />
+          </UiIconButton>
 
-          <div class="flex items-center gap-3">
-            <div class="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#E8873A] text-sm font-bold text-white shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
-              P
-            </div>
-            <!-- <div>
-              <p class="text-base font-bold tracking-tight text-[#111111]">Plotline</p>
-              <p class="text-xs text-[#666666]">Back office SaaS</p>
-            </div> -->
+          <div class="flex h-9 w-9 items-center justify-center rounded-ui-ctl bg-ui-accent font-ui text-sm font-bold text-white">
+            P
           </div>
         </div>
       </header>
 
       <div
         v-if="mobileMenuOpen"
-        class="fixed inset-0 z-40 bg-black/45 lg:hidden"
+        class="fixed inset-0 z-40 bg-ui-ink/45 lg:hidden"
         @click="mobileMenuOpen = false"
       />
 
+      <!-- Rail compact sur bureau (icones seules, comme la maquette du kit),
+           libelles complets en tiroir sur mobile ou quand on le deplie. -->
       <aside
-        class="fixed inset-y-0 left-0 z-50 w-[280px] border-r border-[#E5E3DF] bg-white/95 backdrop-blur transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:w-[240px] lg:flex-shrink-0 lg:translate-x-0"
-        :class="mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'"
+        class="fixed inset-y-0 left-0 z-50 w-[280px] border-r border-ui-line bg-ui-surface font-ui transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:flex-shrink-0 lg:translate-x-0"
+        :class="[mobileMenuOpen ? 'translate-x-0' : '-translate-x-full', rail ? 'lg:w-[76px]' : 'lg:w-[248px]']"
       >
-        <div class="flex h-full flex-col px-4 py-5">
-          <div class="mb-6 flex items-center justify-between gap-3 px-1">
+        <div class="flex h-full flex-col px-3 py-4">
+          <div class="mb-5 flex items-center justify-between gap-3 px-1" :class="rail ? 'lg:justify-center' : ''">
             <div class="flex items-center gap-3">
-              <div class="flex h-10 w-10 items-center justify-center rounded-[12px] bg-[#E8873A] text-sm font-bold text-white shadow-[0_1px_3px_rgba(0,0,0,0.12)]">
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-ctl bg-ui-accent text-sm font-bold text-white">
                 P
               </div>
-              <div>
-                <p class="text-lg font-bold tracking-tight text-[#111111]">Plotline</p>
-                <p class="text-xs text-[#666666]">Back office SaaS</p>
+              <div :class="labelClass">
+                <p class="text-base font-semibold tracking-tight text-ui-ink">Plotline</p>
+                <p class="text-xs text-ui-ink-muted">Back office</p>
               </div>
             </div>
 
             <button
               type="button"
-              class="rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2 text-sm font-bold text-[#111111] lg:hidden"
+              aria-label="Fermer le menu"
+              class="inline-flex h-10 w-10 items-center justify-center rounded-ui-ctl border border-ui-line-input text-ui-ink hover:bg-ui-subtle lg:hidden"
               @click="mobileMenuOpen = false"
             >
-              ✕
+              <Icon name="lucide:x" class="h-4 w-4" />
             </button>
           </div>
 
-          <div class="plotline-switcher relative mb-5">
-            <p class="mb-2 px-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#666666]">{{ switcherLabel }}</p>
+          <div class="plotline-switcher relative mb-4">
+            <p :class="labelClass" class="mb-2 px-1 font-ui-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-ui-ink-muted">{{ switcherLabel }}</p>
             <button
               type="button"
-              class="flex w-full items-center gap-3 rounded-[12px] border border-[#E5E3DF] bg-[#FAFAF8] px-3 py-3 text-left shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition-all duration-150 hover:border-[#E8873A]/40 hover:bg-white"
+              :title="activeInfluencerName"
+              class="flex w-full items-center gap-3 rounded-ui-ctl border border-ui-line bg-ui-bg p-2 text-left transition-colors hover:border-ui-accent/40 hover:bg-ui-surface"
+              :class="rail ? 'lg:justify-center lg:border-transparent lg:bg-transparent lg:p-1' : ''"
               @click="switcherOpen = !switcherOpen"
             >
-              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E8873A] text-sm font-bold text-white shadow-sm">
+              <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ui-accent text-sm font-bold text-white">
                 {{ activeInfluencerInitial }}
               </div>
-              <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-bold text-[#111111]">{{ activeInfluencerName }}</p>
-                <p class="truncate text-xs text-[#666666]">{{ activeInfluencerNiche }}</p>
+              <div :class="labelClass" class="min-w-0 flex-1">
+                <p class="truncate text-sm font-semibold text-ui-ink">{{ activeInfluencerName }}</p>
+                <p class="truncate text-xs text-ui-ink-muted">{{ activeInfluencerNiche }}</p>
               </div>
-              <span class="text-xs text-[#999999]">▾</span>
+              <Icon :class="labelClass" name="lucide:chevrons-up-down" class="h-4 w-4 shrink-0 text-ui-ink-muted" />
             </button>
 
             <div
               v-if="switcherOpen"
-              class="absolute left-0 right-0 top-[calc(100%+10px)] z-20 overflow-hidden rounded-[12px] border border-[#E5E3DF] bg-white shadow-[0_10px_30px_rgba(17,17,17,0.08)]"
+              class="absolute left-0 top-[calc(100%+8px)] z-20 w-[256px] overflow-hidden rounded-ui-card border border-ui-line bg-ui-surface shadow-lg"
             >
               <div class="max-h-72 overflow-y-auto p-2">
                 <button
                   v-for="influencer in influencers"
                   :key="influencer.id"
                   type="button"
-                  class="flex w-full items-center gap-3 rounded-[12px] px-3 py-2.5 text-left transition-colors duration-150 hover:bg-[#FAFAF8]"
+                  class="flex w-full items-center gap-3 rounded-ui-ctl px-3 py-2.5 text-left transition-colors hover:bg-ui-subtle"
                   @click="selectInfluencer(influencer.id)"
                 >
-                  <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#E8873A] text-sm font-bold text-white">
+                  <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ui-accent text-sm font-bold text-white">
                     {{ avatarLetter(influencer.name) }}
                   </div>
                   <div class="min-w-0 flex-1">
-                    <p class="truncate text-sm font-semibold text-[#111111]">{{ influencer.name }}</p>
-                    <p class="truncate text-xs text-[#666666]">{{ profileSecondaryLabel(influencer) }}</p>
+                    <p class="truncate text-sm font-semibold text-ui-ink">{{ influencer.name }}</p>
+                    <p class="truncate text-xs text-ui-ink-muted">{{ profileSecondaryLabel(influencer) }}</p>
                   </div>
                   <span
                     v-if="influencer.id === activeInfluencerId"
-                    class="rounded-full bg-[#FDE7D6] px-2 py-1 text-[11px] font-bold text-[#B45F1D]"
+                    class="rounded-ui-tag bg-ui-accent-soft px-2 py-1 text-[11px] font-semibold text-ui-accent-ink"
                   >
                     Actif
                   </span>
                 </button>
               </div>
-              <div class="border-t border-[#E5E3DF] p-2">
+              <div class="border-t border-ui-line p-2">
                 <template v-if="isContentCreator">
-                  <NuxtLink
-                    to="/profiles/new"
-                    class="flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#E8873A]/40 px-3 py-2 text-sm font-bold text-[#E8873A] transition-colors duration-150 hover:bg-[#FDF3EA]"
-                    @click="switcherOpen = false; mobileMenuOpen = false"
-                  >
-                    <span class="text-lg leading-none">+</span>
+                  <NuxtLink to="/profiles/new" :class="addLinkClass" @click="switcherOpen = false; mobileMenuOpen = false">
+                    <Icon name="lucide:plus" class="h-4 w-4" />
                     Nouveau profil
                   </NuxtLink>
                 </template>
                 <template v-else-if="isBrand">
-                  <NuxtLink
-                    to="/brand-studio?newCampaign=1"
-                    class="mb-2 flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#E8873A]/40 px-3 py-2 text-sm font-bold text-[#E8873A] transition-colors duration-150 hover:bg-[#FDF3EA]"
-                    @click="switcherOpen = false; mobileMenuOpen = false"
-                  >
-                    <span class="text-lg leading-none">+</span>
+                  <NuxtLink to="/brand-studio?newCampaign=1" :class="addLinkClass" class="mb-2" @click="switcherOpen = false; mobileMenuOpen = false">
+                    <Icon name="lucide:plus" class="h-4 w-4" />
                     Nouvelle campagne
                   </NuxtLink>
-                  <NuxtLink
-                    to="/profiles/new"
-                    class="flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#E5E3DF] px-3 py-2 text-sm font-bold text-[#111111] transition-colors duration-150 hover:bg-[#FAFAF8]"
-                    @click="switcherOpen = false; mobileMenuOpen = false"
-                  >
-                    <span class="text-lg leading-none">+</span>
+                  <NuxtLink to="/profiles/new" :class="addLinkClass" @click="switcherOpen = false; mobileMenuOpen = false">
+                    <Icon name="lucide:plus" class="h-4 w-4" />
                     Nouvelle ambassadrice
                   </NuxtLink>
                 </template>
-                <NuxtLink
-                  v-else
-                  to="/profiles/new"
-                  class="flex items-center justify-center gap-2 rounded-[12px] border border-dashed border-[#E8873A]/40 px-3 py-2 text-sm font-bold text-[#E8873A] transition-colors duration-150 hover:bg-[#FDF3EA]"
-                  @click="switcherOpen = false; mobileMenuOpen = false"
-                >
-                  <span class="text-lg leading-none">+</span>
+                <NuxtLink v-else to="/profiles/new" :class="addLinkClass" @click="switcherOpen = false; mobileMenuOpen = false">
+                  <Icon name="lucide:plus" class="h-4 w-4" />
                   {{ addAmbassadorLabel }}
                 </NuxtLink>
               </div>
@@ -142,64 +120,77 @@
 
           <!-- min-h-0 + overflow: sans quoi la liste ne peut pas retrecir et
                pousse le bloc compte (et sa deconnexion) hors de l ecran. -->
-          <nav class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+          <nav class="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto" aria-label="Navigation principale">
             <template v-for="item in navigation" :key="item.to">
-              <button
+              <span
                 v-if="item.disabled"
-                type="button"
                 :class="navClass(item)"
-                class="flex items-center justify-between rounded-[12px] px-3 py-2.5 text-sm font-semibold transition-all duration-150"
-                disabled
+                :title="item.badge ? `${item.label} (${item.badge})` : item.label"
+                aria-disabled="true"
               >
-                <span>{{ item.label }}</span>
-                <span
-                  v-if="item.badge"
-                  class="rounded-full bg-[#F4EFE8] px-2 py-0.5 text-[11px] font-bold text-[#B45F1D]"
-                >
+                <Icon :name="item.icon" class="h-[18px] w-[18px] shrink-0" />
+                <span :class="labelClass" class="flex-1 truncate">{{ item.label }}</span>
+                <span v-if="item.badge" :class="labelClass" class="rounded-ui-tag bg-ui-accent-soft px-2 py-0.5 text-[11px] font-semibold text-ui-accent-ink">
                   {{ item.badge }}
                 </span>
-              </button>
+              </span>
 
               <NuxtLink
                 v-else
                 :to="item.to"
                 :class="navClass(item)"
-                class="flex items-center justify-between rounded-[12px] px-3 py-2.5 text-sm font-semibold transition-all duration-150"
+                :title="item.label"
+                :aria-current="item.to === activeNavTo ? 'page' : undefined"
                 @click="mobileMenuOpen = false"
               >
-                <span>{{ item.label }}</span>
-                <span
-                  v-if="item.badge"
-                  class="rounded-full bg-[#F4EFE8] px-2 py-0.5 text-[11px] font-bold text-[#B45F1D]"
-                >
-                  {{ item.badge }}
-                </span>
+                <Icon :name="item.icon" class="h-[18px] w-[18px] shrink-0" :class="item.to === activeNavTo ? 'text-ui-accent' : ''" />
+                <span :class="labelClass" class="flex-1 truncate">{{ item.label }}</span>
               </NuxtLink>
             </template>
           </nav>
 
-          <div class="mt-6 shrink-0 border-t border-[#E5E3DF] pt-4">
-            <div class="rounded-[12px] border border-[#E5E3DF] bg-[#FAFAF8] p-3">
+          <div class="mt-4 shrink-0 border-t border-ui-line pt-3">
+            <button
+              type="button"
+              class="mb-2 hidden h-10 w-full items-center gap-3 rounded-ui-ctl px-3 text-sm font-semibold text-ui-ink-2 transition-colors hover:bg-ui-subtle hover:text-ui-ink lg:flex"
+              :class="rail ? 'lg:justify-center lg:px-0' : ''"
+              :title="rail ? 'Déplier le menu' : 'Replier le menu'"
+              :aria-label="rail ? 'Déplier le menu' : 'Replier le menu'"
+              @click="toggleRail"
+            >
+              <Icon :name="rail ? 'lucide:panel-left-open' : 'lucide:panel-left-close'" class="h-[18px] w-[18px] shrink-0" />
+              <span :class="labelClass">Replier le menu</span>
+            </button>
+
+            <div class="rounded-ui-ctl border border-ui-line bg-ui-bg p-2" :class="rail ? 'lg:border-transparent lg:bg-transparent lg:p-0' : ''">
               <NuxtLink
                 to="/settings"
-                class="flex items-center gap-3 rounded-[10px] px-2 py-2 transition-colors duration-150 hover:bg-white"
+                :title="userEmail"
+                class="flex items-center gap-3 rounded-ui-ctl p-1 transition-colors hover:bg-ui-surface"
+                :class="rail ? 'lg:justify-center' : ''"
                 @click="mobileMenuOpen = false"
               >
-                <div class="flex h-10 w-10 items-center justify-center rounded-full bg-[#111111] text-sm font-bold text-white">
+                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ui-ink text-sm font-bold text-white">
                   {{ userInitial }}
                 </div>
-                <div class="min-w-0 flex-1">
-                  <p class="truncate text-sm font-semibold text-[#111111]">{{ userEmail }}</p>
-                  <p class="text-xs text-[#666666]">Compte connecté</p>
+                <div :class="labelClass" class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-semibold text-ui-ink">{{ userEmail }}</p>
+                  <p class="text-xs text-ui-ink-muted">Compte connecté</p>
                 </div>
               </NuxtLink>
 
+              <UiButton :class="labelClass" class="mt-2 w-full" size="sm" @click="logout">
+                Se déconnecter
+              </UiButton>
               <button
                 type="button"
-                class="mt-2 inline-flex w-full items-center justify-center rounded-[10px] border border-[#E5E3DF] bg-white px-3 py-2 text-xs font-bold text-[#111111] transition-colors duration-150 hover:bg-[#F6F3EE]"
+                title="Se déconnecter"
+                aria-label="Se déconnecter"
+                class="mt-1 hidden h-10 w-full items-center justify-center rounded-ui-ctl text-ui-ink-2 transition-colors hover:bg-ui-subtle hover:text-ui-ink"
+                :class="rail ? 'lg:flex' : ''"
                 @click="logout"
               >
-                Se déconnecter
+                <Icon name="lucide:log-out" class="h-[18px] w-[18px]" />
               </button>
             </div>
           </div>
@@ -221,42 +212,32 @@
         >
           <div
             v-if="showOnboardingModal"
-            class="fixed inset-0 z-[100] flex items-center justify-center bg-[#0E0B07]/55 p-5 backdrop-blur-[2px]"
+            class="fixed inset-0 z-[100] flex items-center justify-center bg-ui-ink/55 p-5 font-ui backdrop-blur-[2px]"
           >
-            <div class="relative w-full max-w-xl overflow-hidden rounded-[28px] border border-[#F4CDA9]/40 bg-[#19110A] text-[#FFF4E6] shadow-[0_28px_80px_rgba(0,0,0,0.45)]">
-              <div class="absolute inset-0 bg-[radial-gradient(circle_at_18%_15%,rgba(232,135,58,0.28),transparent_48%),radial-gradient(circle_at_86%_4%,rgba(246,177,102,0.18),transparent_38%)]" />
+            <div class="relative w-full max-w-xl rounded-ui-card border border-ui-line bg-ui-surface p-7 shadow-xl sm:p-9">
+              <p class="font-ui-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-ui-accent">Onboarding</p>
+              <h2 class="mt-3 text-2xl font-semibold tracking-tight text-ui-ink">Crée ta première {{ wording.ambassador }}</h2>
+              <p class="mt-3 text-sm leading-relaxed text-ui-ink-2">
+                Ton workspace est prêt, mais il n y a encore aucune identité active. Ajoute une première {{ wording.ambassador }} pour débloquer le dashboard, le calendrier et la génération.
+              </p>
 
-              <div class="relative p-7 sm:p-9">
-                <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#F6B37A]">Onboarding</p>
-                <h2 class="mt-3 text-3xl font-black tracking-tight text-white">Crée ta première {{ wording.ambassador }}</h2>
-                <p class="mt-3 text-sm leading-relaxed text-[#F7D8BF]">
-                  Ton workspace est prêt, mais il n y a encore aucune identité active. Ajoute une première {{ wording.ambassador }} pour débloquer le dashboard, le calendrier et la génération.
-                </p>
+              <div class="mt-6 grid gap-3 rounded-ui-card border border-ui-line bg-ui-subtle p-4 text-sm">
+                <p class="font-semibold text-ui-ink">Ce que tu vas configurer maintenant :</p>
+                <ol class="list-inside list-decimal space-y-2 text-ui-ink-2">
+                  <li>Nom et niche de ton {{ wording.visualIdentity }}</li>
+                  <li>Style visuel de base</li>
+                  <li>Cohérence Faciale pour verrouiller l'identité</li>
+                </ol>
+              </div>
 
-                <div class="mt-6 grid gap-3 rounded-[16px] border border-[#3A2A1E] bg-[#120C07]/85 p-4 text-sm">
-                  <p class="font-semibold text-white">Ce que tu vas configurer maintenant :</p>
-                  <ol class="space-y-2 text-[#F5D4B8]">
-                    <li>Nom et niche de ton {{ wording.visualIdentity }}</li>
-                    <li>Style visuel de base</li>
-                    <li>Cohérence Faciale pour verrouiller l'identité</li>
-                  </ol>
-                </div>
-
-                <div class="mt-7 flex flex-col gap-3 sm:flex-row">
-                  <NuxtLink
-                    to="/profiles/new"
-                    class="inline-flex flex-1 items-center justify-center rounded-[12px] bg-[#E8873A] px-4 py-3 text-sm font-bold text-white transition-all duration-150 hover:-translate-y-0.5 hover:bg-[#d4762f]"
-                  >
-                    {{ createAmbassadorLabel }}
-                  </NuxtLink>
-                  <button
-                    type="button"
-                    class="inline-flex items-center justify-center rounded-[12px] border border-[#5C4633] bg-transparent px-4 py-3 text-sm font-bold text-[#F8DCC3] transition-colors duration-150 hover:bg-[#2A1C12]"
-                    @click="logout"
-                  >
-                    Changer de compte
-                  </button>
-                </div>
+              <div class="mt-7 flex flex-col gap-3 sm:flex-row">
+                <NuxtLink
+                  to="/profiles/new"
+                  class="inline-flex h-11 flex-1 items-center justify-center rounded-ui-ctl bg-ui-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-ui-accent-hover"
+                >
+                  {{ createAmbassadorLabel }}
+                </NuxtLink>
+                <UiButton @click="logout">Changer de compte</UiButton>
               </div>
             </div>
           </div>
@@ -277,6 +258,18 @@ const { wording, ambassadorFor } = useWording()
 const activeInfluencerId = useActiveInfluencer()
 const switcherOpen = ref(false)
 const mobileMenuOpen = ref(false)
+
+// Rail compact par defaut sur bureau ; le choix est memorise dans un cookie
+// (lisible cote serveur : pas de saut visuel a l hydratation).
+const sidebarCookie = useCookie('plotline-sidebar', { default: () => 'rail', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax' })
+const rail = computed(() => sidebarCookie.value !== 'full')
+// Les libelles n existent que si le menu est deplie (bureau) ; le tiroir mobile les garde toujours.
+const labelClass = computed(() => (rail.value ? 'lg:hidden' : ''))
+const addLinkClass = 'flex items-center justify-center gap-2 rounded-ui-ctl border border-dashed border-ui-accent/40 px-3 py-2 text-sm font-semibold text-ui-accent transition-colors hover:bg-ui-accent-soft'
+
+function toggleRail() {
+  sidebarCookie.value = rail.value ? 'full' : 'rail'
+}
 
 // `pending` et `error` sont indispensables ici: sans eux, une liste vide pendant
 // le chargement ou apres un echec est indiscernable d un compte sans profil, et
@@ -356,56 +349,60 @@ const routeInfluencerId = computed(() => {
 const navigation = computed(() => {
   const items = baseNavigation.value
   if (!user.value?.isAdmin) return items
-  return [...items, { label: 'Personnalité (admin)', to: '/admin/personality' }]
+  return [...items, { label: 'Personnalité (admin)', to: '/admin/personality', icon: 'lucide:flask-conical' }]
 })
 
 const baseNavigation = computed(() => {
   const settingsItem = {
     label: settingsNavLabel.value,
     to: activeInfluencer.value ? `/profiles/${activeInfluencer.value.id}/edit` : '/profiles/new',
+    icon: 'lucide:settings',
     disabled: !activeInfluencer.value,
   }
 
   // La liste des profils n etait atteignable que depuis le menu des comptes
   // marque: ailleurs, il fallait taper l URL a la main. Elle est desormais
   // presente pour les trois types de compte.
-  const profilesItem = { label: 'Mes profils', to: '/profiles' }
-  const libraryItem = { label: 'Bibliothèque', to: '/library' }
+  const profilesItem = { label: 'Mes profils', to: '/profiles', icon: 'lucide:users' }
+  const libraryItem = { label: 'Bibliothèque', to: '/library', icon: 'lucide:library' }
+  const homeItem = { label: 'Accueil', to: '/dashboard', icon: 'lucide:house' }
+  const calendarItem = { label: 'Calendrier', to: '/calendar', icon: 'lucide:calendar' }
+  const analyticsItem = { label: 'Analytics', to: '/analytics', icon: 'lucide:chart-column', badge: 'Bientôt', disabled: true }
 
   if (isContentCreator.value) {
     return [
-      { label: 'Accueil', to: '/dashboard' },
-      { label: 'Studio', to: '/studio' },
+      homeItem,
+      { label: 'Studio', to: '/studio', icon: 'lucide:wand-sparkles' },
       libraryItem,
-      { label: 'Mes créations', to: '/content' },
+      { label: 'Mes créations', to: '/content', icon: 'lucide:layout-grid' },
       profilesItem,
-      { label: 'Calendrier', to: '/calendar' },
-      { label: 'Analytics', to: '/analytics', badge: 'Bientôt', disabled: true },
+      calendarItem,
+      analyticsItem,
       settingsItem,
     ]
   }
 
   if (isBrand.value) {
     return [
-      { label: 'Accueil', to: '/dashboard' },
-      { label: 'Brand Studio', to: '/brand-studio' },
+      homeItem,
+      { label: 'Brand Studio', to: '/brand-studio', icon: 'lucide:wand-sparkles' },
       libraryItem,
       profilesItem,
-      { label: 'Calendrier', to: '/calendar' },
-      { label: 'Analytics', to: '/analytics', badge: 'Bientôt', disabled: true },
+      calendarItem,
+      analyticsItem,
       settingsItem,
     ]
   }
 
   return [
-    { label: 'Accueil', to: '/dashboard' },
-    { label: 'Générer', to: activeInfluencer.value ? `/profiles/${activeInfluencer.value.id}/generate` : '/profiles', disabled: !activeInfluencer.value },
-    { label: 'Studio', to: '/studio' },
+    homeItem,
+    { label: 'Générer', to: activeInfluencer.value ? `/profiles/${activeInfluencer.value.id}/generate` : '/profiles', icon: 'lucide:sparkles', disabled: !activeInfluencer.value },
+    { label: 'Studio', to: '/studio', icon: 'lucide:wand-sparkles' },
     libraryItem,
-    { label: 'Contenu', to: '/content' },
+    { label: 'Contenu', to: '/content', icon: 'lucide:layout-grid' },
     profilesItem,
-    { label: 'Calendrier', to: '/calendar' },
-    { label: 'Analytics', to: '/analytics', badge: 'Bientôt', disabled: true },
+    calendarItem,
+    analyticsItem,
     settingsItem,
   ]
 })
@@ -513,13 +510,16 @@ const activeNavTo = computed(() => {
 })
 
 function navClass(item) {
+  const base = 'flex h-10 items-center gap-3 rounded-ui-ctl px-3 text-sm font-semibold transition-colors'
+  const centered = rail.value ? ' lg:justify-center lg:px-0' : ''
+
   if (item.disabled) {
-    return 'cursor-not-allowed border border-transparent text-[#111111] opacity-50 hover:bg-transparent'
+    return `${base}${centered} cursor-not-allowed text-ui-ink opacity-50`
   }
 
   return item.to === activeNavTo.value
-    ? 'bg-[#111111] text-white shadow-[0_1px_3px_rgba(0,0,0,0.10)]'
-    : 'text-[#111111] hover:bg-[#FAFAF8] hover:text-[#111111]'
+    ? `${base}${centered} bg-ui-subtle text-ui-ink`
+    : `${base}${centered} text-ui-ink-2 hover:bg-ui-subtle hover:text-ui-ink`
 }
 
 function handleOutsideClick(event) {
