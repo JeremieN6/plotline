@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
 
 import { finalizeContentWithVersion, markGenerationFailure } from './contentVersions.js';
-import { synthesizeWithTimestamps } from './elevenLabsTts.js';
+import { ELEVENLABS_V3_MODEL, synthesizeWithTimestamps } from './elevenLabsTts.js';
 import { applyNewImages, collectNewImageRequests, generateFacelessPlan, restoreSpokenText, retouchFacelessPlan, sanitizeFacelessPlan, spokenTextChanged } from './facelessPlanGenerator.js';
 import { facelessAssetFolder, generateIllustration } from './facelessIllustration.js';
 import { loadPackAssets, readFacelessMedia, saveFacelessMedia } from './facelessMedia.js';
@@ -160,9 +160,19 @@ export async function renderFacelessFromPlan(plan, voice, { style = null, packEn
   }
 }
 
-async function synthesizePlanVoice(plan, voiceId) {
+/**
+ * Voix du script entier. `voice` : un identifiant de voix (voix de synthese) ou
+ * { source: 'clone', voiceId, stability } (voix clonee : modele v3, le texte garde ses balises de ton).
+ */
+async function synthesizePlanVoice(plan, voice) {
+  const settings = typeof voice === 'string' ? { voiceId: voice } : (voice || {});
   const script = plan.scenes.map((scene) => scene.say).join(' ');
-  return synthesizeWithTimestamps({ text: script, voiceId });
+  return synthesizeWithTimestamps({
+    text: script,
+    voiceId: settings.voiceId,
+    modelId: settings.source === 'clone' ? ELEVENLABS_V3_MODEL : undefined,
+    stability: settings.stability,
+  });
 }
 
 /**
@@ -191,15 +201,16 @@ export async function attachNewImages({ plan, illustrations = {}, generateNewIll
  * Le pipeline complet (sans base de donnees) : renvoie le MP4, le plan et la
  * voix. `plan` deja ecrit (essai) : Claude n est pas rappele.
  */
-export async function produceFacelessVideo({ idea, sourceText = '', plan: givenPlan, persona, targetSeconds, captions, voiceId, style = null, illustrations = {}, maxNew = 0, generateNewIllustrations = null, onStep = () => {} } = {}) {
+export async function produceFacelessVideo({ idea, sourceText = '', direction = '', plan: givenPlan, persona, targetSeconds, captions, voiceId, voiceMode = 'synth', stability, style = null, illustrations = {}, maxNew = 0, generateNewIllustrations = null, onStep = () => {} } = {}) {
+  const clone = voiceMode === 'clone';
   const da = style || normalizeFacelessStyle({});
   const packEntries = readyPackEntries(da);
   const packIds = Object.keys(packEntries);
 
   onStep('plan');
   let plan = givenPlan
-    ? sanitizeFacelessPlan(givenPlan, { captions, packIds, illustrationIds: Object.keys(illustrations), maxNew })
-    : await generateFacelessPlan({ idea, sourceText, persona, targetSeconds, captions, style: da, packEntries, illustrations, maxNew });
+    ? sanitizeFacelessPlan(givenPlan, { captions, packIds, illustrationIds: Object.keys(illustrations), maxNew, allowTags: clone })
+    : await generateFacelessPlan({ idea, sourceText, direction, persona, targetSeconds, captions, style: da, packEntries, illustrations, maxNew, toneTags: clone });
 
   // Nouvelles images demandees par Claude (autorisees et plafonnees en amont) : generees AVANT la voix,
   // pour ne rien depenser de plus si une etape echoue.
@@ -208,11 +219,12 @@ export async function produceFacelessVideo({ idea, sourceText = '', plan: givenP
   const available = attached.available;
 
   onStep('voice');
-  const voice = await synthesizePlanVoice(plan, voiceId || da.voiceId);
+  const voiceSettings = clone ? { source: 'clone', voiceId, stability } : { source: 'synth', voiceId: voiceId || da.voiceId };
+  const voice = await synthesizePlanVoice(plan, voiceSettings);
 
   onStep('render');
   const { video, duration } = await renderFacelessFromPlan(plan, voice, { style: da, packEntries, illustrations: available });
-  return { video, plan, voice, duration, style: da, packEntries, illustrationEntries: pickIllustrations(plan, available) };
+  return { video, plan, voice, voiceSettings, duration, style: da, packEntries, illustrationEntries: pickIllustrations(plan, available) };
 }
 
 /**
@@ -235,6 +247,8 @@ export async function retouchFacelessVideo({ spec, instruction, persona, remembe
     plan: spec.plan,
     instruction: ownVoice ? `${instruction}\n(Contrainte : la voix est celle enregistree par le createur. Ne modifie, ne deplace et ne supprime aucun mot de aucun "say" ; tu peux seulement les repartir entre scenes. Les nombres restent ecrits comme ils sont dits dans les "say" (ex. "Vingt-deux") ; les chiffres (22, 11 %) ne s affichent que dans les textes a l ecran. Les reperes "at" citent un mot EXACT du "say".)` : instruction,
     persona, targetSeconds: spec.targetSeconds, captions: spec.captions !== false, style, packEntries, illustrations: known,
+    // Voix clonee : le plan garde ses balises de ton, et une consigne de ton peut les changer.
+    toneTags: spec?.voice?.source === 'clone',
   }).catch((error) => {
     // Devant une consigne qui exige de changer le texte, Claude repond parfois en prose au lieu d un plan.
     throw ownVoice && /sans JSON/.test(String(error?.message)) ? new Error(ownVoiceRefusal) : error;
@@ -246,7 +260,7 @@ export async function retouchFacelessVideo({ spec, instruction, persona, remembe
   if (newVoice && ownVoice) throw new Error(ownVoiceRefusal);
   onStep(newVoice ? 'voice' : 'voice-reused');
   const voice = newVoice
-    ? await synthesizePlanVoice(plan, spec.voiceId)
+    ? await synthesizePlanVoice(plan, spec.voice || spec.voiceId)
     : { audio: await readVoice(spec.voiceUrl), words: spec.words };
 
   onStep('render');
@@ -299,11 +313,11 @@ export function inBackground(prisma, contentId, previousStatus, task) {
 
 export const logStep = (contentId) => (step) => console.log(`[faceless] contentId=${contentId} etape=${step}`);
 
-function facelessVideoTask({ prisma, contentId, idea, sourceText = '', persona, targetSeconds, captions, voiceId, style, userId, illustrations = {}, maxNew = 0, caption }) {
+function facelessVideoTask({ prisma, contentId, idea, sourceText = '', direction = '', plan = null, persona, targetSeconds, captions, voiceId, voiceMode = 'synth', stability, style, userId, illustrations = {}, maxNew = 0, caption }) {
   return async () => {
     const generateNewIllustrations = maxNew > 0 && persona && userId ? makeIllustrationGenerator({ prisma, userId, persona, style }) : null;
     const result = await produceFacelessVideo({
-      idea, sourceText, persona, targetSeconds, captions, voiceId, style, illustrations, maxNew, generateNewIllustrations, onStep: logStep(contentId),
+      idea, sourceText, direction, plan, persona, targetSeconds, captions, voiceId, voiceMode, stability, style, illustrations, maxNew, generateNewIllustrations, onStep: logStep(contentId),
     });
     const voiceUrl = await saveFacelessMedia(result.voice.audio, { folder: 'generated', extension: 'mp3', contentType: 'audio/mpeg' });
     await finalizeFaceless(prisma, contentId, {
@@ -311,7 +325,8 @@ function facelessVideoTask({ prisma, contentId, idea, sourceText = '', persona, 
       voiceUrl,
       caption,
       // Le texte source (un article entier) n est pas conserve dans le rendu : seule l idee l est.
-      base: { idea: idea || String(sourceText || '').slice(0, 300), voiceId: voiceId || result.style.voiceId, targetSeconds, captions, personaId: persona?.id || null },
+      // `voice` : de quoi regenerer la meme voix (modele, voix clonee, stabilite) quand une retouche change le texte ou le ton.
+      base: { idea: idea || String(sourceText || '').slice(0, 300), voiceId: voiceId || result.style.voiceId, voice: result.voiceSettings, targetSeconds, captions, personaId: persona?.id || null },
     });
   };
 }
@@ -343,6 +358,7 @@ export function runFacelessRetouchJob({ prisma, contentId, spec, instruction, pe
       base: {
         idea: spec.idea,
         voiceId: spec.voiceId,
+        voice: spec.voice || undefined,
         targetSeconds: spec.targetSeconds,
         captions: spec.captions,
         personaId: spec.personaId || null,

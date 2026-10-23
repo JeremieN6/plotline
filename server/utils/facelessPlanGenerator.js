@@ -14,6 +14,7 @@ import { buildPersonalityBrief } from './personalityBrief.js';
 import { findCatalogEntry } from '../data/facelessAvatarCatalog.js';
 import { ILLUSTRATION_KINDS, MAX_ILLUSTRATION_PROMPT, MAX_NEW_PER_VIDEO } from '../data/facelessIllustrations.js';
 import { countSpokenTokens } from './facelessTimeline.js';
+import { AUDIO_TAGS, normalizeAudioTags, stripAudioTags } from './audioTags.js';
 import { TEXT_STYLE_PROMPT_LINES, stripDashPunctuation } from './textStyleRules.js';
 import { FACELESS_LAYOUTS, FACELESS_POSES, FACELESS_SFX } from '../data/facelessCatalog.js';
 import { FACELESS_SFX_PALETTES } from '../data/facelessSfxPalettes.js';
@@ -114,7 +115,20 @@ function illustrationPromptLines(illustrations, maxNew) {
   return lines;
 }
 
-export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = null, captions = true, style = null, packEntries = null, illustrations = null, maxNew = 0 } = {}) {
+/** Pur : consignes de ton pour la voix clonee (balises Eleven v3 dans le texte dit). */
+export function toneTagPromptLines() {
+  return [
+    '',
+    'TON DE LA VOIX (balises)',
+    '- La voix est une voix clonee expressive : tu diriges le ton en mettant des BALISES entre crochets DANS le "say", juste avant les mots concernes, par ex. "[curious] Tu savais que 70 % des mails n arrivent jamais ? [excited] Eh oui !".',
+    '- Balises autorisees (en anglais, minuscules, ecrites exactement ainsi) : ' + Object.entries(AUDIO_TAGS).map(([tag, desc]) => '[' + tag + '] (' + desc + ')').join(', ') + '.',
+    '- Dirige comme un acteur : l accroche est tranchee et nerveuse, un chiffre ou une revelation peut etre [surprised] ou [serious], un aveu [sighs], une pique [sarcastic]. Un ton par idee, pas par mot.',
+    '- 0 a 2 balises par scene, pas dans toutes les scenes : quand le ton ne change pas, n en mets pas. Jamais deux balises collees. Jamais de balise dans text, title, word ou items (elles ne servent qu a la voix).',
+    '- Evite le ton mou et neutre : prends position, varie le rythme (phrases courtes, pauses) et la ponctuation (? ! ...) pour que la voix ne soit jamais monotone.',
+  ];
+}
+
+export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = null, captions = true, style = null, packEntries = null, illustrations = null, maxNew = 0, toneTags = false } = {}) {
   const words = Math.round(targetSeconds * WORDS_PER_SECOND);
   const personaText = describeFacelessPersona(persona);
   const da = style || normalizeFacelessStyle({});
@@ -137,6 +151,7 @@ export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = nu
     '- Ton oral, naturel, comme une vraie personne qui parle a sa communaute : phrases courtes, tutoiement.',
     '- La premiere scene est une ACCROCHE forte (promesse, question, contraste) ; la derniere un appel a l action (s abonner, commenter, suivre la suite).',
     '- Une scene = une ou deux phrases dites ("say"). Les sigles s ecrivent normalement (SPF, DKIM).',
+    ...(toneTags ? toneTagPromptLines() : []),
     ...TEXT_STYLE_PROMPT_LINES,
     '- Jamais de chiffres de revenus inventes, de promesse de gain garantie, de fausses statistiques.',
     '- Ne cite aucune marque deposee ni logo.',
@@ -184,10 +199,20 @@ export function normalizeSourceText(value) {
     .trim();
 }
 
-export function buildFacelessPlanUserPrompt(idea, sourceText = '') {
+/** Longueur maximale des directives de montage ecrites par le createur. */
+export const MAX_DIRECTION = 1500;
+
+/** Pur : directives du createur (prioritaires sur tes habitudes) ajoutees a la demande. */
+export function directionBlock(direction) {
+  const text = String(direction || '').trim().slice(0, MAX_DIRECTION);
+  if (!text) return [];
+  return ['', 'DIRECTIVES DU CREATEUR (prioritaires, a appliquer a la lettre : ton, rythme, position, mises en page, fonds, avatar...) :', text];
+}
+
+export function buildFacelessPlanUserPrompt(idea, sourceText = '', direction = '') {
   const cleanIdea = String(idea || '').trim();
   const source = normalizeSourceText(sourceText).slice(0, MAX_SOURCE_TEXT);
-  if (!source) return `Idee de la video :\n${cleanIdea}`;
+  if (!source) return [`Idee de la video :\n${cleanIdea}`, ...directionBlock(direction)].join('\n');
 
   return [
     'Consigne de la video :',
@@ -204,6 +229,7 @@ export function buildFacelessPlanUserPrompt(idea, sourceText = '') {
     '- Garde un seul exemple concret du texte. Abandonne le reste, meme interessant : une video courte ne tient pas deux idees.',
     '- Si le texte nuance sa position, garde la position et laisse tomber la nuance. Ne prete jamais a l auteur une opinion qu il n exprime pas, et n invente aucun fait absent du texte.',
     '- Termine par une invitation a lire la suite ou a reagir.',
+    ...directionBlock(direction),
   ].join('\n');
 }
 
@@ -240,8 +266,10 @@ function sanitizeAvatar(avatar, layout, packIds = []) {
 }
 
 /** Pur : nettoie une scene ; renvoie null si elle n a rien a dire. */
-export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illustrationIds = [], newBudget = { left: 0 } } = {}) {
-  const say = clip(stripDashPunctuation(raw?.say), 320);
+export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illustrationIds = [], newBudget = { left: 0 }, allowTags = false } = {}) {
+  // Les balises de ton ne servent qu a la voix clonee : ailleurs elles seraient LUES a voix haute, on les retire.
+  const spoken = allowTags ? normalizeAudioTags(stripDashPunctuation(raw?.say)) : stripAudioTags(stripDashPunctuation(raw?.say));
+  const say = allowTags ? normalizeAudioTags(clip(spoken, 400)) : clip(spoken, 320);
   if (!say) return null;
 
   let layout = FACELESS_LAYOUTS[raw?.layout] ? raw.layout : 'avatar';
@@ -325,18 +353,18 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
 }
 
 /** Pur : plan complet nettoye. Leve une erreur si moins de 2 scenes exploitables. */
-export function sanitizeFacelessPlan(raw, { captions = true, packIds = [], illustrationIds = [], maxNew = 0, maxScenes = MAX_SCENES, maxChars = MAX_SPOKEN_CHARS } = {}) {
+export function sanitizeFacelessPlan(raw, { captions = true, packIds = [], illustrationIds = [], maxNew = 0, maxScenes = MAX_SCENES, maxChars = MAX_SPOKEN_CHARS, allowTags = false } = {}) {
   const scenes = [];
   const newBudget = { left: Math.max(0, Math.min(Number(maxNew) || 0, MAX_NEW_PER_VIDEO)) };
   let spokenChars = 0;
 
   for (const candidate of (Array.isArray(raw?.scenes) ? raw.scenes : []).slice(0, maxScenes)) {
-    const scene = sanitizeFacelessScene(candidate, { captions, packIds, illustrationIds, newBudget });
+    const scene = sanitizeFacelessScene(candidate, { captions, packIds, illustrationIds, newBudget, allowTags });
     if (!scene) continue;
-    if (spokenChars + scene.say.length > maxChars) break;
+    if (spokenChars + stripAudioTags(scene.say).length > maxChars) break;
     // Une scene sans aucun mot (ponctuation seule) casserait la repartition des mots.
     if (!countSpokenTokens(scene.say)) continue;
-    spokenChars += scene.say.length + 1;
+    spokenChars += stripAudioTags(scene.say).length + 1;
     scenes.push(scene);
   }
 
@@ -389,7 +417,7 @@ export function parseFacelessPlanResponse(rawText) {
   return JSON.parse(text.slice(start, end + 1));
 }
 
-async function askClaudeForPlan({ system, userContent, captions, packIds, illustrationIds, maxNew, apiKey, createMessage }) {
+async function askClaudeForPlan({ system, userContent, captions, packIds, illustrationIds, maxNew, allowTags = false, apiKey, createMessage }) {
   const key = String(apiKey || process.env.ANTHROPIC_API_KEY || '').trim();
   if (!createMessage && !key) throw new Error('ANTHROPIC_API_KEY non configuree');
 
@@ -402,14 +430,15 @@ async function askClaudeForPlan({ system, userContent, captions, packIds, illust
   const response = await (createMessage ? createMessage(request) : new Anthropic({ apiKey: key }).messages.create(request));
   const text = (response?.content || []).filter((b) => b?.type === 'text').map((b) => b.text).join('\n');
 
-  return sanitizeFacelessPlan(parseFacelessPlanResponse(text), { captions, packIds, illustrationIds, maxNew });
+  return sanitizeFacelessPlan(parseFacelessPlanResponse(text), { captions, packIds, illustrationIds, maxNew, allowTags });
 }
 
 /** Appel Claude. `createMessage` est injectable (tests). */
-export async function generateFacelessPlan({ idea, sourceText = '', persona, targetSeconds, captions = true, style = null, packEntries = null, illustrations = null, maxNew = 0, apiKey, createMessage } = {}) {
+export async function generateFacelessPlan({ idea, sourceText = '', direction = '', persona, targetSeconds, captions = true, style = null, packEntries = null, illustrations = null, maxNew = 0, toneTags = false, apiKey, createMessage } = {}) {
   return askClaudeForPlan({
-    system: buildFacelessPlanSystemPrompt({ targetSeconds: normalizeFacelessDuration(targetSeconds), persona, captions, style, packEntries, illustrations, maxNew }),
-    userContent: buildFacelessPlanUserPrompt(idea, sourceText),
+    system: buildFacelessPlanSystemPrompt({ targetSeconds: normalizeFacelessDuration(targetSeconds), persona, captions, style, packEntries, illustrations, maxNew, toneTags }),
+    userContent: buildFacelessPlanUserPrompt(idea, sourceText, direction),
+    allowTags: toneTags,
     captions,
     packIds: Object.keys(packEntries || {}),
     illustrationIds: Object.keys(illustrations || {}),
@@ -471,15 +500,16 @@ export function spokenTextChanged(previousPlan, nextPlan) {
   return spoken(previousPlan) !== spoken(nextPlan);
 }
 
-export function buildFacelessRetouchSystemPrompt({ targetSeconds = 30, persona = null, captions = true, style = null, packEntries = null, illustrations = null } = {}) {
+export function buildFacelessRetouchSystemPrompt({ targetSeconds = 30, persona = null, captions = true, style = null, packEntries = null, illustrations = null, toneTags = false } = {}) {
   return [
-    buildFacelessPlanSystemPrompt({ targetSeconds, persona, captions, style, packEntries, illustrations, maxNew: 0 }),
+    buildFacelessPlanSystemPrompt({ targetSeconds, persona, captions, style, packEntries, illustrations, maxNew: 0, toneTags }),
     '',
     'RETOUCHE',
     'Tu ne crees pas une nouvelle video : tu RETOUCHES un plan existant selon la consigne de l utilisateur.',
     '- Applique la consigne precisement, et ne change RIEN d autre (meme ordre de scenes, memes textes, memes expressions, memes bruitages ailleurs).',
     '- Ne modifie le texte dit ("say") QUE si la consigne porte sur ce qui est dit (script, ton, duree, une phrase precise). Sinon recopie chaque "say" a l identique, caractere pour caractere : la voix deja enregistree sera reutilisee.',
     '- Si tu modifies un "say", verifie que les reperes "at" de cette scene citent toujours des mots exacts de la nouvelle phrase.',
+    ...(toneTags ? ['- Une consigne de TON ("plus d energie", "plus tranchant", "moins mou", "etonne-toi sur le chiffre") se traite en changeant les balises de ton et la ponctuation du "say" concerne, et au besoin en reecrivant la phrase pour qu elle prenne position. Tu peux alors modifier le "say" (la voix sera regeneree).'] : []),
     '- "Plus long a l ecran", "trop rapide" sur un element : ajuste son repere "at" (plus tot) ou separe la scene en deux scenes.',
     '- Renvoie le plan COMPLET, dans la meme forme JSON que d habitude.',
   ].join('\n');
@@ -496,11 +526,12 @@ export function buildFacelessRetouchUserPrompt(plan, instruction) {
 }
 
 /** Retouche d un plan par Claude. `createMessage` est injectable (tests). */
-export async function retouchFacelessPlan({ plan, instruction, persona, targetSeconds, captions = true, style = null, packEntries = null, illustrations = null, apiKey, createMessage } = {}) {
+export async function retouchFacelessPlan({ plan, instruction, persona, targetSeconds, captions = true, style = null, packEntries = null, illustrations = null, toneTags = false, apiKey, createMessage } = {}) {
   if (!String(instruction || '').trim()) throw new Error('Consigne de retouche vide');
   return askClaudeForPlan({
-    system: buildFacelessRetouchSystemPrompt({ targetSeconds: normalizeFacelessDuration(targetSeconds), persona, captions, style, packEntries, illustrations }),
+    system: buildFacelessRetouchSystemPrompt({ targetSeconds: normalizeFacelessDuration(targetSeconds), persona, captions, style, packEntries, illustrations, toneTags }),
     userContent: buildFacelessRetouchUserPrompt(plan, instruction),
+    allowTags: toneTags,
     captions,
     packIds: Object.keys(packEntries || {}),
     illustrationIds: Object.keys(illustrations || {}),

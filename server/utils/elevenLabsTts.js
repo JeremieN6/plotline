@@ -7,13 +7,26 @@
 const API_BASE = 'https://api.elevenlabs.io/v1';
 export const ELEVENLABS_DEFAULT_MODEL = 'eleven_multilingual_v2';
 export const ELEVENLABS_OUTPUT_FORMAT = 'mp3_44100_128';
+/** Modele expressif : comprend les balises de ton ([excited]...), voix clonee comprise. */
+export const ELEVENLABS_V3_MODEL = 'eleven_v3';
+/** v3 n accepte que trois valeurs de stabilite : 0 (creatif), 0,5 (naturel), 1 (sobre). */
+export const V3_STABILITY = { creative: 0, natural: 0.5, robust: 1 };
 
 export function resolveElevenLabsApiKey() {
   return String(process.env.ELEVEN_LABS_API_KEY || process.env.ELEVENLABS_API_KEY || '').trim();
 }
 
 /** Pur : corps de la requete de synthese. */
-export function buildElevenLabsBody({ text, modelId = ELEVENLABS_DEFAULT_MODEL, voiceSettings } = {}) {
+export function buildElevenLabsBody({ text, modelId = ELEVENLABS_DEFAULT_MODEL, voiceSettings, stability } = {}) {
+  if (modelId === ELEVENLABS_V3_MODEL) {
+    const wanted = Number(stability);
+    return {
+      text: String(text || '').trim(),
+      model_id: modelId,
+      language_code: 'fr',
+      voice_settings: { stability: Object.values(V3_STABILITY).includes(wanted) ? wanted : V3_STABILITY.natural },
+    };
+  }
   return {
     text: String(text || '').trim(),
     model_id: modelId,
@@ -38,7 +51,19 @@ export function alignmentToWords(alignment) {
   const words = [];
   let current = null;
 
+  // Les balises de ton ([excited]...) sont dans l alignement mais ne sont pas des mots dits.
+  let inTag = false;
   chars.forEach((char, i) => {
+    if (char === '[') {
+      if (current) words.push(current);
+      current = null;
+      inTag = true;
+      return;
+    }
+    if (inTag) {
+      if (char === ']') inTag = false;
+      return;
+    }
     if (/\s/.test(char)) {
       if (current) words.push(current);
       current = null;
@@ -57,7 +82,7 @@ export function alignmentToWords(alignment) {
  * Synthese + temps des mots. Renvoie { audio: Buffer (mp3), words }.
  * `fetchImpl` est injectable (tests).
  */
-export async function synthesizeWithTimestamps({ text, voiceId, modelId, apiKey, fetchImpl = fetch } = {}) {
+export async function synthesizeWithTimestamps({ text, voiceId, modelId, stability, apiKey, fetchImpl = fetch } = {}) {
   const key = String(apiKey || resolveElevenLabsApiKey()).trim();
   if (!key) throw new Error('ELEVEN_LABS_API_KEY non configuree');
   if (!String(voiceId || '').trim()) throw new Error('Voix ElevenLabs manquante');
@@ -66,7 +91,7 @@ export async function synthesizeWithTimestamps({ text, voiceId, modelId, apiKey,
   const response = await fetchImpl(url, {
     method: 'POST',
     headers: { 'xi-api-key': key, 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(buildElevenLabsBody({ text, modelId })),
+    body: JSON.stringify(buildElevenLabsBody({ text, modelId, stability })),
   });
 
   if (!response.ok) {
@@ -85,4 +110,27 @@ export async function synthesizeWithTimestamps({ text, voiceId, modelId, apiKey,
   if (!audio.length) throw new Error('ElevenLabs a repondu sans audio');
 
   return { audio, words: alignmentToWords(data?.alignment || data?.normalized_alignment) };
+}
+
+/**
+ * Voix CLONEES du compte ElevenLabs (celles que le proprietaire a enregistrees) : [{ id, name }].
+ * Mise en cache courte (la liste change rarement). Ne leve jamais : liste vide si l appel echoue.
+ */
+let cloneVoicesCache = { at: 0, voices: [] };
+export async function listCloneVoices({ apiKey, fetchImpl = fetch, now = Date.now() } = {}) {
+  if (now - cloneVoicesCache.at < 5 * 60 * 1000 && cloneVoicesCache.voices.length) return cloneVoicesCache.voices;
+  const key = String(apiKey || resolveElevenLabsApiKey()).trim();
+  if (!key) return [];
+  try {
+    const response = await fetchImpl(`${API_BASE}/voices`, { headers: { 'xi-api-key': key } });
+    if (!response.ok) return [];
+    const data = await response.json();
+    const voices = (Array.isArray(data?.voices) ? data.voices : [])
+      .filter((voice) => voice?.category === 'cloned' && voice?.voice_id)
+      .map((voice) => ({ id: String(voice.voice_id), name: String(voice.name || 'Ma voix') }));
+    cloneVoicesCache = { at: now, voices };
+    return voices;
+  } catch {
+    return [];
+  }
 }

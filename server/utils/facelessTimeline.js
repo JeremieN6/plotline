@@ -8,6 +8,8 @@
  * bruitage) peuvent etre donnes en secondes ou par un MOT de la phrase.
  */
 
+import { stripAudioTags } from './audioTags.js';
+
 export const FACELESS_DEFAULTS = {
   width: 1080,
   height: 1920,
@@ -94,7 +96,7 @@ function resolveList(list, words) {
 
 /** Pur : nombre de mots (separes par des espaces) d un texte dit. */
 export function countSpokenTokens(text) {
-  return String(text || '').split(/\s+/).filter(Boolean).length;
+  return stripAudioTags(text).split(/\s+/).filter(Boolean).length;
 }
 
 /**

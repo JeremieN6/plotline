@@ -16,15 +16,21 @@ import {
 } from '../../data/facelessThemes.js';
 import { FACELESS_DURATIONS } from '../../utils/facelessPlanGenerator.js';
 import { defaultFacelessStyle, MAX_ALTERNATES } from '../../utils/facelessStyle.js';
+import { listCloneVoices } from '../../utils/elevenLabsTts.js';
+import { AUDIO_TAGS } from '../../utils/audioTags.js';
 
 const labelled = (obj) => Object.entries(obj).map(([value, label]) => ({ value, label }));
 
 // Options du formulaire "Video faceless" et de la page "Direction artistique".
 export default defineEventHandler(async (event) => {
   const authModule = await import('../../utils/auth.js');
-  await authModule.requireAuthUser(event);
+  const user = await authModule.requireAuthUser(event);
+  // Les voix clonees sont celles du compte ElevenLabs de Plotline : seul le proprietaire les voit.
+  const cloneVoices = user?.isAdmin ? await listCloneVoices() : [];
 
   return {
+    cloneVoices,
+    audioTags: Object.entries(AUDIO_TAGS).map(([tag, description]) => ({ tag, description })),
     voices: FACELESS_VOICES,
     defaultVoiceId: DEFAULT_FACELESS_VOICE_ID,
     durations: FACELESS_DURATIONS,

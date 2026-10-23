@@ -49,7 +49,7 @@
           </UiField>
 
           <UiField label="Quelle voix ?">
-            <UiSegmented v-model="voiceMode" label="Quelle voix ?" :options="VOICE_MODES" />
+            <UiSegmented v-model="voiceMode" label="Quelle voix ?" :options="voiceModes" />
           </UiField>
 
           <div v-if="voiceMode === 'own'" class="space-y-4 rounded-ui-card border border-ui-line-soft bg-ui-subtle p-4">
@@ -108,6 +108,22 @@
             </UiField>
           </div>
 
+          <div v-if="voiceMode === 'clone'" class="space-y-4 rounded-ui-card border border-ui-line-soft bg-ui-subtle p-4">
+            <p class="text-sm leading-6 text-ui-ink-2">
+              Ta voix clonée lit le script, avec le ton que tu veux : Claude place des balises (« [excited] », « [sighs] »…) et tu peux les
+              changer à la main. Tu n’as plus rien à enregistrer. Tu diriges aussi le montage : avant (directives ci-dessous), pendant
+              (« Préparer le plan à relire ») ou après (retouches).
+            </p>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <UiField v-if="cloneVoiceOptions.length > 1" label="Voix clonée" for-id="faceless-clone-voice">
+                <UiSelect id="faceless-clone-voice" v-model="cloneVoiceId" :options="cloneVoiceOptions" />
+              </UiField>
+              <UiField label="Expressivité" for-id="faceless-clone-stability" hint="Forte = ton très marqué mais moins stable. Sobre = plus régulier, moins expressif.">
+                <UiSelect id="faceless-clone-stability" v-model="voiceStability" :options="STABILITY_OPTIONS" />
+              </UiField>
+            </div>
+          </div>
+
           <div class="grid gap-4 sm:grid-cols-2">
             <div>
               <UiField label="2. Persona (optionnel)" for-id="faceless-profile" hint="Donne son ton et son public au script, et range la vidéo chez elle.">
@@ -145,7 +161,7 @@
               <UiSelect id="faceless-voice" v-model="voiceId" :options="voiceOptions" />
             </UiField>
 
-            <UiField v-if="voiceMode === 'synth'" label="4. Durée visée" for-id="faceless-duration">
+            <UiField v-if="voiceMode !== 'own'" label="4. Durée visée" for-id="faceless-duration">
               <UiSelect id="faceless-duration" :model-value="durationSeconds" :options="durationOptions" @update:model-value="durationSeconds = Number($event)" />
             </UiField>
 
@@ -157,6 +173,15 @@
               </span>
             </label>
           </div>
+
+          <UiField
+            v-if="voiceMode !== 'own'"
+            label="Directives de montage et de ton (optionnel)"
+            for-id="faceless-direction"
+            hint="Tu as le dernier mot. Ex. : « accroche agressive, prends position », « fond sombre sur le chiffre », « avatar étonné à la conclusion », « jamais de ton mou »."
+          >
+            <UiTextarea id="faceless-direction" v-model="direction" :rows="3" :maxlength="1500" placeholder="Ce que Claude doit respecter, avant même d’écrire le plan." />
+          </UiField>
 
           <div v-if="profileId" class="rounded-ui-ctl border border-ui-line bg-ui-subtle p-3">
             <UiField
@@ -175,8 +200,11 @@
           </div>
 
           <div class="flex flex-wrap items-center gap-3 border-t border-ui-line-soft pt-4">
-            <UiButton variant="primary" :loading="polling" :disabled="!canGenerate" @click="generate">
+            <UiButton variant="primary" :loading="polling" :disabled="!canGenerate || Boolean(plan)" @click="generate">
               {{ polling ? 'Montage en cours…' : (voiceMode === 'own' ? 'Monter avec ma voix' : 'Générer la vidéo') }}
+            </UiButton>
+            <UiButton v-if="voiceMode !== 'own' && !plan" variant="secondary" :loading="planLoading" :disabled="!canGenerate" @click="makePlan">
+              {{ planLoading ? 'Claude écrit le plan…' : 'Préparer le plan à relire' }}
             </UiButton>
             <p class="text-xs text-ui-ink-muted">
               {{ voiceMode === 'own' ? 'Environ 2 à 4 minutes (transcription, nettoyage, montage).' : 'Environ 1 à 3 minutes.' }}
@@ -185,6 +213,19 @@
           </div>
 
           <UiAlert v-if="errorMessage" title="La génération n’a pas pu démarrer">{{ errorMessage }}</UiAlert>
+          <UiAlert v-if="planError" title="Le plan n’a pas pu être préparé">{{ planError }}</UiAlert>
+
+          <StudioFacelessPlanEditor
+            v-if="plan"
+            v-model="plan"
+            :clone="voiceMode === 'clone'"
+            :audio-tags="options?.audioTags || []"
+            :revising="revising"
+            :generating="polling"
+            @revise="revisePlan"
+            @generate="generate"
+            @discard="plan = null"
+          />
         </div>
       </UiCard>
 
@@ -267,9 +308,10 @@ const RETOUCH_SUGGESTIONS = [
 ]
 
 // Voix : synthetique (ElevenLabs, script ecrit par Claude) ou celle de l utilisateur (enregistrement).
-const VOICE_MODES = [
-  { value: 'synth', label: 'Voix de synthèse (Claude écrit le script)' },
-  { value: 'own', label: 'Ma propre voix' },
+const STABILITY_OPTIONS = [
+  { value: 'creative', label: 'Forte (très expressive)' },
+  { value: 'natural', label: 'Équilibrée' },
+  { value: 'robust', label: 'Sobre (régulière)' },
 ]
 const DEFAULT_TIPS = [
   'Enregistre dans une pièce calme, le micro à 15-20 cm de la bouche, et parle comme à une amie.',
@@ -282,6 +324,14 @@ const idea = ref('')
 const SOURCE_MAX = 12000
 const sourceText = ref('')
 const voiceMode = ref('synth')
+// Voix clonee (proprietaire du compte seulement) : voix, expressivite, directives du createur, plan a valider.
+const cloneVoiceId = ref('')
+const voiceStability = ref('natural')
+const direction = ref('')
+const plan = ref(null)
+const planLoading = ref(false)
+const revising = ref(false)
+const planError = ref('')
 // Un peu sous la limite du serveur web (nginx : 25 Mo pour tout le formulaire, en-têtes compris).
 const OWN_VOICE_MAX_MB = 24
 const audioFile = ref(null)
@@ -318,6 +368,13 @@ const { data: options } = await useFetch('/api/faceless/options', { key: 'facele
 
 const profiles = computed(() => (Array.isArray(profilesData.value) ? profilesData.value : []))
 const voices = computed(() => options.value?.voices || [])
+const cloneVoiceOptions = computed(() => (options.value?.cloneVoices || []).map((voice) => ({ value: voice.id, label: voice.name })))
+// « Ma voix clonee » n existe que si le compte ElevenLabs en a une ET que l utilisateur en est le proprietaire (le serveur ne l envoie qu a lui).
+const voiceModes = computed(() => [
+  { value: 'synth', label: 'Voix de synthèse (Claude écrit le script)' },
+  ...(cloneVoiceOptions.value.length ? [{ value: 'clone', label: 'Ma voix clonée (tons dirigés)' }] : []),
+  { value: 'own', label: 'Ma propre voix' },
+])
 const durations = computed(() => options.value?.durations || [20, 30, 45, 60])
 const imageCost = computed(() => options.value?.imageCostUsd || 0.134)
 
@@ -335,6 +392,7 @@ const newImageOptions = computed(() => [
 
 watch(options, (value) => {
   if (!voiceId.value && value?.defaultVoiceId) voiceId.value = value.defaultVoiceId
+  if (!cloneVoiceId.value && value?.cloneVoices?.length) cloneVoiceId.value = value.cloneVoices[0].id
 }, { immediate: true })
 
 // DA effectivement utilisee pour cette video : la principale ou l une des options du profil.
@@ -390,7 +448,8 @@ onMounted(() => { if (profileId.value) loadStyleInfo(profileId.value) })
 
 const canGenerate = computed(() => !polling.value && (voiceMode.value === 'own'
   ? Boolean(audioFile.value)
-  : (idea.value.trim().length > 0 || sourceText.value.trim().length > 0) && Boolean(voiceId.value)))
+  : (Boolean(plan.value) || idea.value.trim().length > 0 || sourceText.value.trim().length > 0)
+    && Boolean(voiceMode.value === 'clone' ? cloneVoiceId.value : voiceId.value)))
 const pollingLabel = computed(() => (pollingKind.value === 'retouch'
   ? 'Retouche du plan, puis nouveau montage…'
   : 'Script, voix puis montage image par image…'))
@@ -477,6 +536,50 @@ async function makeOutline() {
   }
 }
 
+// Corps commun des demandes de plan, de revision et de generation (voix, duree, DA, directives).
+function commonBody() {
+  return {
+    idea: idea.value,
+    sourceText: sourceText.value.trim() || undefined,
+    direction: direction.value.trim() || undefined,
+    profileId: profileId.value || undefined,
+    styleSlot: profileId.value && Number(styleSlot.value) > 0 ? Number(styleSlot.value) : undefined,
+    voiceMode: voiceMode.value === 'clone' ? 'clone' : 'synth',
+    voiceId: voiceMode.value === 'clone' ? cloneVoiceId.value : voiceId.value,
+    voiceStability: voiceMode.value === 'clone' ? voiceStability.value : undefined,
+    durationSeconds: durationSeconds.value,
+    captions: captions.value,
+    illustrations: { maxNew: profileId.value ? newIllustrations.value : 0 },
+  }
+}
+
+async function makePlan() {
+  planError.value = ''
+  planLoading.value = true
+  try {
+    const result = await $fetch('/api/faceless/plan', { method: 'POST', body: commonBody() })
+    plan.value = result.plan
+  } catch (error) {
+    planError.value = error?.data?.statusMessage || error?.statusMessage || 'Impossible de préparer le plan.'
+  } finally {
+    planLoading.value = false
+  }
+}
+
+async function revisePlan(instructionText) {
+  planError.value = ''
+  revising.value = true
+  try {
+    const result = await $fetch('/api/faceless/plan-revise', { method: 'POST', body: { ...commonBody(), plan: plan.value, instruction: instructionText } })
+    plan.value = result.plan
+    pushToast({ title: 'Plan révisé', message: 'Relis-le : tu peux encore tout modifier.', tone: 'success' })
+  } catch (error) {
+    planError.value = error?.data?.statusMessage || error?.statusMessage || 'Impossible de réviser le plan.'
+  } finally {
+    revising.value = false
+  }
+}
+
 async function generate() {
   if (profileId.value && newIllustrations.value > 0) {
     const max = (Math.round(newIllustrations.value * imageCost.value * 100) / 100).toFixed(2)
@@ -508,17 +611,10 @@ async function generate() {
     } else {
       response = await $fetch('/api/generate/faceless', {
         method: 'POST',
-        body: {
-          idea: idea.value,
-          sourceText: sourceText.value.trim() || undefined,
-          profileId: profileId.value || undefined,
-          styleSlot: profileId.value && Number(styleSlot.value) > 0 ? Number(styleSlot.value) : undefined,
-          voiceId: voiceId.value,
-          durationSeconds: durationSeconds.value,
-          captions: captions.value,
-          illustrations: { maxNew: profileId.value ? newIllustrations.value : 0, confirmCost: newIllustrations.value > 0 },
-        },
+        body: { ...commonBody(), plan: plan.value || undefined, illustrations: { maxNew: profileId.value ? newIllustrations.value : 0, confirmCost: newIllustrations.value > 0 } },
       })
+      // Le plan relu est parti avec la demande : il ne sert plus.
+      plan.value = null
     }
     contentId.value = response.contentId
     startPolling(response.contentId, 'generate')
