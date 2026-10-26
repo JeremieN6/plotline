@@ -183,7 +183,7 @@
 
             <NuxtLink
               v-if="item.scheduledAt"
-              to="/calendar"
+              :to="{ path: '/calendar', query: { month: monthKey(item.scheduledAt), idea: item.id } }"
               class="inline-flex min-h-11 items-center text-xs font-semibold text-ui-ink-2 underline underline-offset-2 hover:text-ui-ink"
             >
               Voir dans le calendrier
@@ -197,7 +197,8 @@
 
 <script setup>
 import { contentTypeOf } from '../../utils/contentTypes.js'
-import { formatDateRange, formatShortDate } from '../../utils/formatDate.js'
+import { formatDateRange } from '../../utils/formatDate.js'
+import { monthKey } from '../../utils/calendarGrid.js'
 
 const route = useRoute()
 const router = useRouter()
