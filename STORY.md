@@ -194,6 +194,38 @@ est fournie, pour un usage futur ou l'identite compte davantage.
 
 ---
 
+### 2026-10-15 -- La video faceless devient le moteur principal des videos d'articles
+
+**Contexte** : les videos tirees des articles de blog passaient par un modele de
+generation video avec un personnage invente a l'ecran. Le rendu etait juge
+"tout juste correct", la parole restait fragile (mots repetes ou sautes), et
+chaque video coutait plusieurs euros. Un inconnu a l'ecran ne ressemble pas non
+plus a un createur qui ne montre pas son visage.
+
+**Decision** : produire ces videos avec un format "faceless" construit dans
+Plotline : un script ecrit a partir de l'article, une voix, et un montage
+compose par le produit (textes, schemas, sous-titres, bruitages) avec une
+direction artistique choisie par profil. Aucun modele de generation video n'est
+necessaire. Le texte de l'article est transmis en entier, le createur relit et
+corrige le plan avant toute depense, et garde le dernier mot.
+
+**Resultat** : le faceless a remplace avec succes l'ancien modele pour les
+videos d'articles. Il est plus fiable (le texte dit est exactement le texte
+ecrit), beaucoup moins cher, et la marque Sassify peut porter ses propres
+videos. C'est devenu le moteur video par defaut du produit, y compris pour les
+reels du planificateur editorial.
+
+**Ce qui l'a accompagne** : une famille de directions artistiques (jusqu'a trois
+par profil), une voix clonee du createur avec des tons dirigeables, pour ne plus
+avoir a s'enregistrer, et une ligne editoriale plus tranchee : le createur
+juge souvent les premiers jets "trop mous, pas assez clivants". Les hashtags
+automatiques ont aussi ete abandonnes : ils ne portent plus rien en portee.
+
+**Reste a valider** : la qualite ressentie de la voix clonee et le niveau de
+detail des directives de ton, a juger a l'ecoute sur de vraies videos.
+
+---
+
 ## Ce que la cible attend / a appris
 
 **Cible** : createurs et petites agences qui font vivre une ou plusieurs
@@ -248,6 +280,9 @@ suivantes s'appliquent a tout contenu produit a partir de ce fichier :
 ---
 
 ## Derniere mise a jour
+
+2026-10-26 -- Ajout du pivot "la video faceless devient le moteur principal des videos
+d'articles" (remplacement du modele de generation video, voix clonee, directives).
 
 2026-09-09 -- Ajout du pivot sur l'abandon de l'identity lock par defaut pour
 le contenu sans besoin de continuite de personnage (videos home.sassify.fr).
