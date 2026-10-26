@@ -29,6 +29,9 @@ theme: {
       success: { DEFAULT: '#2F7A4D', soft: '#EAF4EE', ink: '#1F5636' },
       info: { DEFAULT: '#2B5FAA', soft: '#E8EEF8', ink: '#23497F' },
       danger: { DEFAULT: '#B42318', soft: '#FCEDEC', ink: '#8A1C12', line: '#F4C7C2' },
+      // Types de contenu (Feed = accent). Luminosités écartées : on les distingue aussi sans la teinte.
+      reel: { DEFAULT: '#4B2F9E', soft: '#EFEAFB', ink: '#3A2478' },
+      story: { DEFAULT: '#1F9A82', soft: '#E3F3F0', ink: '#075A49' },
     },
     borderRadius: { tag: '6px', ctl: '10px', card: '14px' },
   },
@@ -65,13 +68,22 @@ Focus : `focus-visible:ring-[3px] ring-accent/20 border-accent` sur tous les con
 | `UiTagInput` | `v-model: string[]`, `tone: default \| danger` | Entrée pour ajouter, × pour retirer. Remplace toutes les textareas « un élément par ligne ». |
 | `UiSegmented` | `v-model`, `options` (2 à 4) | Choix exclusifs courts |
 | `UiToggleChips` | `v-model: string[]`, `options` | Multi-choix (plateformes…), `aria-pressed` |
-| `UiBadge` | `status: ready \| edited \| profile \| review \| running \| error \| empty` | Pill 12/600 |
+| `UiBadge` | `status: ready \| edited \| profile \| review \| running \| error \| empty \| draft \| approved \| generating \| published`, `type: feed \| reel \| story` | Pill 12/600. `type` = pastille de la couleur du type + libellé ; `draft…published` = statuts d'un contenu planifié (`generating` avec spinner, `published` avec coche). Source : `app/utils/contentTypes.js`. |
 | `UiProgress` | `value`, `max`, `label` | Barre 6 px |
 | `UiSkeleton` | `lines` | Remplace tout « Chargement… » |
 | `UiCard` | slots `title`, `actions`, default | Padding 20, en-tête séparé par un filet |
 | `UiAlert` | `tone: error \| info`, `title`, slot action | Erreur = quoi, pourquoi, action |
 | `UiEmptyState` | `title`, `text`, slot action | Bordure pointillée |
+| `UiSwitch` | `v-model: boolean`, `label`, `disabled` | `role="switch"`, `aria-checked`, tout le bouton (≥ 44 px) est la cible. |
+| `UiDisclosure` | `title`, `hint`, `open` | Dépliant fermé par défaut ; en-tête bouton, `aria-expanded`, chevron qui pivote. |
+| `UiDatePopover` | `v-model` (ISO), `label`, `disabled` | Badge-bouton qui ouvre un sélecteur date + heure ; Échap et clic extérieur ferment. Format affiché : `app/utils/formatDate.js`. |
 | `UiSectionNav` | `items: {key,label,status}[]`, `v-model:active` | États : ready, active, running, error, empty |
+
+## Types, statuts et dates (calendrier, plan éditorial)
+
+- Types : Feed (accent), Reel (violet, `ui-reel`), Story (vert, `ui-story`). Une seule source : `app/utils/contentTypes.js` (`contentTypeOf(format)`). Le texte d'un badge de type utilise `ink` sur `soft` (≥ 4,5:1) ; `DEFAULT` ne sert qu'aux repères (points).
+- Statuts d'un contenu planifié : Brouillon (contour pointillé), Approuvé (plein), En génération (pointillé + spinner), Publié (plein + coche).
+- Dates : une seule fonction, `formatShortDate` → `mar. 6 oct., 18:00` ; périodes : `formatDateRange` → `6–11 oct.`.
 
 ## Règles
 

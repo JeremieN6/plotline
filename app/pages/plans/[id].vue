@@ -1,178 +1,193 @@
 <template>
-  <div class="space-y-6">
-    <header class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-      <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#E8873A]">Plan éditorial</p>
-      <h1 class="mt-2 text-3xl font-bold tracking-tight text-[#111111]">
-        {{ plan?.profile?.name || 'Plan' }}
-      </h1>
-      <p class="mt-2 text-sm text-[#666666]">
-        Relis chaque idée avant génération. Rien n'est produit tant que tu n'as pas approuvé.
-      </p>
-    </header>
+  <div class="space-y-5 font-ui">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.08em] text-ui-accent">Plan éditorial</p>
+      <h1 class="mt-1 text-2xl font-bold tracking-[-0.01em] text-ui-ink">{{ plan?.profile?.name || 'Plan' }}</h1>
+    </div>
 
-    <p v-if="pending" class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 text-sm text-[#666666]">
-      Chargement du plan...
-    </p>
+    <UiSkeleton v-if="pending && !plan" :lines="4" />
 
-    <p v-else-if="error" class="rounded-[20px] border border-[#F0C7C7] bg-[#FDF3F3] p-5 text-sm text-[#A33A3A]">
-      Impossible de charger ce plan.
-    </p>
+    <UiAlert v-else-if="error && !plan" title="Impossible de charger ce plan">
+      Le plan n'a pas pu être lu : il a peut-être été supprimé, ou la connexion a échoué.
+      <template #action>
+        <UiButton size="sm" @click="refresh()">Réessayer</UiButton>
+      </template>
+    </UiAlert>
 
     <template v-else-if="plan">
-      <div class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-        <div class="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p class="text-sm font-bold text-[#111111]">
-              {{ keptCount }} idée{{ keptCount > 1 ? 's' : '' }} à générer
-              <span v-if="discardedCount" class="font-semibold text-[#999999]">
-                · {{ discardedCount }} écartée{{ discardedCount > 1 ? 's' : '' }}
-              </span>
+      <!-- Une seule barre d'action, collante : contexte du plan à gauche, actions à droite. -->
+      <div
+        class="sticky top-[69px] z-20 -mx-4 border-b border-ui-line bg-ui-bg/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:top-0 lg:-mx-8 lg:px-8"
+      >
+        <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-ui-ink">
+              {{ plan.profile?.name }}
+              <template v-if="periodLabel"> · {{ periodLabel }}</template>
+              · {{ plan.items.length }} idée{{ plan.items.length > 1 ? 's' : '' }}
             </p>
-            <p class="mt-1 text-xs text-[#8A8A8A]">
-              <template v-if="alreadyGeneratedCount">
-                {{ alreadyGeneratedCount }} déjà générée{{ alreadyGeneratedCount > 1 ? 's' : '' }} — elles ne seront pas refaites.
-              </template>
-              <template v-else>
-                C'est ici que les crédits de génération sont engagés.
-              </template>
-            </p>
-            <p v-if="dirtyItems.length" class="mt-1 text-xs font-semibold text-[#B45F1D]">
-              {{ dirtyItems.length }} modification{{ dirtyItems.length > 1 ? 's' : '' }} en attente — elles seront enregistrées avant génération.
+            <p class="mt-0.5 text-xs text-ui-ink-muted">
+              <template v-if="discardedCount">{{ discardedCount }} exclue{{ discardedCount > 1 ? 's' : '' }}</template>
+              <template v-if="discardedCount && alreadyGeneratedCount"> · </template>
+              <template v-if="alreadyGeneratedCount">{{ alreadyGeneratedCount }} déjà générée{{ alreadyGeneratedCount > 1 ? 's' : '' }}, elle{{ alreadyGeneratedCount > 1 ? 's' : '' }} ne {{ alreadyGeneratedCount > 1 ? 'seront' : 'sera' }} pas refaite{{ alreadyGeneratedCount > 1 ? 's' : '' }}</template>
+              <template v-if="!discardedCount && !alreadyGeneratedCount">Rien n'est produit tant que tu n'as pas généré.</template>
             </p>
           </div>
 
-          <div class="flex flex-wrap items-center gap-2">
-            <button
-              v-if="plan.status === 'DRAFT'"
-              type="button"
-              class="rounded-[12px] border border-[#E5E3DF] bg-white px-4 py-2.5 text-sm font-bold text-[#666666] transition-colors hover:bg-[#FAFAF8] disabled:cursor-not-allowed disabled:opacity-60"
-              :disabled="approving || discarding"
-              @click="discardPlan"
-            >
-              {{ discarding ? 'Abandon...' : 'Jeter ce plan' }}
-            </button>
-
-            <button
-              type="button"
-              class="rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#D97A2F] disabled:cursor-not-allowed disabled:opacity-60"
-              :disabled="approving || discarding || !pendingGenerationCount"
-              @click="approvePlan"
-            >
-              {{ approving ? 'Lancement...' : `Générer ${pendingGenerationCount} contenu${pendingGenerationCount > 1 ? 's' : ''}` }}
-            </button>
+          <div class="flex flex-col items-end gap-1">
+            <div class="flex flex-wrap items-center justify-end gap-2">
+              <UiButton v-if="plan.status === 'DRAFT'" :disabled="approving || discarding" :loading="discarding" @click="discardPlan">
+                Jeter ce plan
+              </UiButton>
+              <UiButton variant="primary" :disabled="approving || discarding || generationRunning || !pendingGenerationCount" :loading="approving" @click="approvePlan">
+                {{ primaryLabel }}
+              </UiButton>
+            </div>
+            <p class="max-w-xs text-right text-xs text-ui-ink-muted" aria-live="polite">{{ primaryHint }}</p>
           </div>
         </div>
 
-        <p v-if="feedback" class="mt-3 text-sm" :class="feedbackTone === 'error' ? 'text-[#A33A3A]' : 'text-[#2F7A4F]'">
-          {{ feedback }}
-        </p>
+        <div v-if="generationRunning" class="mt-3">
+          <UiProgress :value="generationDone" :max="generationTotal" label="Génération en cours" />
+        </div>
       </div>
+
+      <UiAlert v-if="feedback" :tone="feedbackTone === 'error' ? 'error' : 'info'" :title="feedbackTone === 'error' ? 'Action impossible' : undefined">
+        {{ feedback }}
+        <template v-if="feedbackTone !== 'error' && generationStarted" #action>
+          <NuxtLink to="/content" class="text-sm font-semibold text-ui-info-ink underline underline-offset-2">Voir dans Mes créations</NuxtLink>
+        </template>
+      </UiAlert>
+
+      <!-- Bande des jours du plan : un point de la couleur du type par idée ; un clic fait défiler jusqu'à l'idée. -->
+      <nav v-if="weekDays.length" aria-label="Jours du plan">
+        <ol class="flex gap-2 overflow-x-auto pb-1">
+          <li v-for="day in weekDays" :key="day.key" class="shrink-0">
+            <button
+              type="button"
+              :disabled="!day.items.length"
+              class="flex min-h-11 min-w-14 flex-col items-center justify-center gap-1 rounded-ui-ctl border border-ui-line bg-ui-surface px-2 py-1.5 text-xs font-semibold text-ui-ink-2 transition-colors hover:bg-ui-subtle focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ui-accent/20 disabled:cursor-default disabled:border-ui-line-soft disabled:bg-transparent disabled:text-ui-ink-muted disabled:hover:bg-transparent"
+              :aria-label="`${day.label}${day.items.length ? ` : ${day.items.length} idée${day.items.length > 1 ? 's' : ''}` : ' : rien de prévu'}`"
+              @click="scrollToItem(day.items[0]?.id)"
+            >
+              <span>{{ day.label }}</span>
+              <span class="flex h-2 items-center gap-1" aria-hidden="true">
+                <span v-for="entry in day.items" :key="entry.id" class="h-2 w-2 rounded-full" :class="contentTypeOf(entry.format).dot" />
+              </span>
+            </button>
+          </li>
+        </ol>
+      </nav>
+
+      <UiEmptyState v-if="!plan.items.length" title="Ce plan est vide" text="Aucune idée n'a été proposée pour cette période. Prépare un nouveau plan depuis le calendrier.">
+        <template #action>
+          <NuxtLink to="/calendar" class="text-sm font-semibold text-ui-accent underline underline-offset-2">Retour au calendrier</NuxtLink>
+        </template>
+      </UiEmptyState>
 
       <div class="space-y-4">
         <article
           v-for="item in plan.items"
+          :id="`idea-${item.id}`"
           :key="item.id"
-          class="rounded-[20px] border bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)] transition-opacity"
-          :class="item.keep ? 'border-[#E5E3DF]' : 'border-[#E5E3DF] opacity-55'"
+          class="scroll-mt-40 rounded-ui-card border border-ui-line p-5 transition-colors duration-500"
+          :class="[highlightId === item.id ? 'bg-ui-accent-soft' : 'bg-ui-surface', !item.keep && !item.contentId ? 'opacity-60' : '']"
+          :aria-busy="statusOf(item) === 'generating' ? 'true' : undefined"
         >
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div class="flex items-center gap-2.5">
-              <span class="rounded-full bg-[#F5F2ED] px-2.5 py-1 text-xs font-bold text-[#666666]">
-                {{ item.position }}
-              </span>
-              <span class="rounded-full bg-[#FDF0E4] px-2.5 py-1 text-xs font-bold text-[#B45F1D]">
-                {{ item.format }}
-              </span>
-              <span
-                v-if="productionLabels[item.format]"
-                class="text-[11px] font-medium text-[#AAAAAA]"
-                title="Comment ce contenu sera produit"
-              >
+          <!-- 1. En-tête : numéro, type, format, date modifiable, statut ; interrupteur à droite -->
+          <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-ui-subtle px-2 font-ui-mono text-xs font-medium text-ui-ink-2">{{ item.position }}</span>
+              <UiBadge :type="contentTypeOf(item.format).key" />
+              <span v-if="productionLabels[item.format]" class="text-xs text-ui-ink-muted" title="Comment ce contenu sera produit">
                 {{ productionLabels[item.format] }}
               </span>
-              <span class="text-xs font-semibold text-[#8A8A8A]">{{ formatDate(item.scheduledAt) }}</span>
-              <span
-                v-if="item.contentId"
-                class="rounded-full bg-[#E7F3EC] px-2.5 py-1 text-xs font-bold text-[#2F7A4F]"
-              >
-                Généré
-              </span>
+              <UiDatePopover
+                :model-value="toIso(item.scheduledAt)"
+                :disabled="isLocked(item)"
+                @update:model-value="(value) => changeDate(item, value)"
+              />
+              <UiBadge :status="statusOf(item)" />
             </div>
 
-            <button
-              v-if="!item.contentId"
-              type="button"
-              class="text-xs font-bold underline underline-offset-2 transition-colors"
-              :class="item.keep ? 'text-[#B45F1D] hover:text-[#8E4B16]' : 'text-[#666666] hover:text-[#111111]'"
-              @click="toggleKeep(item)"
-            >
-              {{ item.keep ? 'Écarter' : 'Réintégrer' }}
-            </button>
+            <div class="flex flex-wrap items-center gap-3">
+              <span class="text-xs text-ui-ink-muted" aria-live="polite">
+                <template v-if="saveState[item.id] === 'saving'">Enregistrement…</template>
+                <template v-else-if="saveState[item.id] === 'saved'">Enregistré</template>
+              </span>
+              <UiSwitch
+                v-if="!item.contentId"
+                :model-value="item.keep"
+                :disabled="approving || generationRunning"
+                label="Générer"
+                @update:model-value="() => toggleKeep(item)"
+              />
+              <NuxtLink v-else to="/content" class="inline-flex min-h-11 items-center text-sm font-semibold text-ui-accent underline underline-offset-2">
+                Voir dans Mes créations
+              </NuxtLink>
+            </div>
           </div>
 
-          <div class="mt-4 space-y-3">
-            <div>
-              <template v-if="item.format === 'STORY'">
-                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Clip</label>
-                <p class="mt-1.5 rounded-[10px] border border-dashed border-[#E5E3DF] bg-[#FAFAF8] p-3 text-sm text-[#666666]">
-                  <template v-if="storyKeywordCount > 0">
-                    Choisi automatiquement à la génération parmi les {{ storyKeywordCount }} mots-clés de stories de la personnalité (clips Pinterest), sans personnage.
-                  </template>
-                  <template v-else>
-                    Choisi automatiquement à la génération dans la banque Pinterest (catégorie : {{ storyCategoryLabel }}), sans personnage.
-                  </template>
-                  Rien à écrire ici : seule la légende compte.
-                </p>
+          <UiAlert v-if="saveState[item.id] === 'error'" class="mt-3" title="Enregistrement impossible">
+            {{ saveError[item.id] || 'La modification n\'a pas pu être enregistrée.' }}
+            <template #action>
+              <UiButton size="sm" @click="saveItem(item)">Réessayer</UiButton>
+            </template>
+          </UiAlert>
+
+          <div class="mt-4 space-y-4">
+            <!-- 2. Légende : ce que l'utilisateur relit vraiment -->
+            <UiField label="Légende" :for-id="`caption-${item.id}`">
+              <UiTextarea
+                :id="`caption-${item.id}`"
+                v-model="item.caption"
+                :rows="3"
+                :disabled="isLocked(item)"
+                @update:model-value="scheduleSave(item)"
+              />
+            </UiField>
+
+            <!-- 3. Hashtags -->
+            <UiField label="Hashtags" hint="Entrée ou virgule pour ajouter" :for-id="`tags-${item.id}`">
+              <UiTagInput
+                :id="`tags-${item.id}`"
+                :model-value="item.hashtagList || []"
+                :disabled="isLocked(item)"
+                placeholder="Ajouter un hashtag…"
+                @update:model-value="(value) => changeHashtags(item, value)"
+              />
+            </UiField>
+
+            <!-- 4. Prompt de scène / sujet de la vidéo, replié -->
+            <UiAlert v-if="item.format === 'STORY'" tone="info">
+              <template v-if="storyKeywordCount > 0">
+                Le clip est choisi automatiquement à la génération parmi les {{ storyKeywordCount }} mots-clés de stories de la personnalité. Seule la légende compte.
               </template>
               <template v-else>
-                <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">{{ promptLabel(item) }}</label>
-                <textarea
-                  v-model="item.prompt"
-                  :disabled="Boolean(item.contentId)"
-                  class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-[#FAFAF8] p-3 text-sm text-[#111111] outline-none focus:border-[#E8873A] disabled:opacity-60"
-                  style="min-height: 90px;"
-                />
+                Le clip est choisi automatiquement à la génération dans la banque Pinterest (catégorie : {{ storyCategoryLabel }}). Seule la légende compte.
               </template>
-            </div>
-
-            <div>
-              <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Légende</label>
-              <textarea
-                v-model="item.caption"
-                :disabled="Boolean(item.contentId)"
-                class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-[#FAFAF8] p-3 text-sm text-[#111111] outline-none focus:border-[#E8873A] disabled:opacity-60"
-                style="min-height: 60px;"
+            </UiAlert>
+            <UiDisclosure v-else :title="promptLabel(item)">
+              <UiTextarea
+                :id="`prompt-${item.id}`"
+                v-model="item.prompt"
+                :rows="4"
+                :disabled="isLocked(item)"
+                :invalid="!String(item.prompt || '').trim()"
+                class="font-ui-mono !text-[13px]"
+                :aria-label="promptLabel(item)"
+                @update:model-value="scheduleSave(item)"
               />
-            </div>
+              <p v-if="!String(item.prompt || '').trim()" class="mt-1 text-xs text-ui-danger-ink">Le prompt ne peut pas être vide : il n'est pas enregistré tant qu'il est vide.</p>
+            </UiDisclosure>
 
-            <div>
-              <label class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#AAAAAA]">Hashtags</label>
-              <input
-                v-model="item.hashtags"
-                :disabled="Boolean(item.contentId)"
-                class="mt-1.5 w-full rounded-[10px] border border-[#E5E3DF] bg-[#FAFAF8] px-3 py-2 text-sm text-[#111111] outline-none focus:border-[#E8873A] disabled:opacity-60"
-              >
-            </div>
-
-            <div v-if="!item.contentId" class="flex items-center gap-3">
-              <button
-                type="button"
-                class="rounded-[10px] border px-3 py-2 text-xs font-bold transition-colors disabled:opacity-60"
-                :class="isDirty(item)
-                  ? 'border-[#E8873A] bg-[#FDF3EA] text-[#B45F1D] hover:bg-[#FAE7D6]'
-                  : 'border-[#E5E3DF] bg-white text-[#111111] hover:bg-[#FAFAF8]'"
-                :disabled="savingIds.includes(item.id)"
-                @click="saveItem(item)"
-              >
-                {{ savingIds.includes(item.id) ? 'Enregistrement...' : 'Enregistrer' }}
-              </button>
-              <span v-if="isDirty(item)" class="text-xs font-semibold text-[#B45F1D]">
-                Modifications non enregistrées
-              </span>
-              <span v-else-if="savedIds.includes(item.id)" class="text-xs font-semibold text-[#2F7A4F]">
-                Enregistré
-              </span>
-            </div>
+            <NuxtLink
+              v-if="item.scheduledAt"
+              to="/calendar"
+              class="inline-flex min-h-11 items-center text-xs font-semibold text-ui-ink-2 underline underline-offset-2 hover:text-ui-ink"
+            >
+              Voir dans le calendrier
+            </NuxtLink>
           </div>
         </article>
       </div>
@@ -181,13 +196,19 @@
 </template>
 
 <script setup>
+import { contentTypeOf } from '../../utils/contentTypes.js'
+import { formatDateRange, formatShortDate } from '../../utils/formatDate.js'
+
 const route = useRoute()
 const router = useRouter()
+const { requestConfirmation } = useUiFeedback()
 
 const planId = computed(() => String(route.params.id || ''))
 
 const { data, pending, error, refresh } = await useFetch(() => `/api/plans/${planId.value}`, {
   key: computed(() => `plan-${planId.value}`),
+  // Les idees sont modifiees en place (texte, date, interrupteur) : les compteurs et la bande des jours doivent suivre.
+  deep: true,
 })
 
 const plan = computed(() => data.value?.plan ?? null)
@@ -202,116 +223,193 @@ const storyCategoryLabel = computed(() => STORY_CATEGORY_LABELS[data.value?.stor
 
 function promptLabel(item) {
   // Une video faceless n a pas de scene : l idee est le sujet que la voix va raconter.
-  return item.format === 'REEL' && data.value?.reelEngine === 'faceless' ? 'Sujet de la vidéo' : 'Scène à générer'
+  return item.format === 'REEL' && data.value?.reelEngine === 'faceless' ? 'Sujet de la vidéo' : 'Prompt de scène'
 }
 
-const savingIds = ref([])
-const savedIds = ref([])
-const approving = ref(false)
-const discarding = ref(false)
-const feedback = ref('')
-const feedbackTone = ref('success')
+const toIso = (value) => {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString()
+}
 
-/**
- * Empreinte du dernier texte enregistre, par idee. Les champs sont modifies
- * localement: sans ce reperage, une scene reecrite puis envoyee directement en
- * generation partait avec l ancien texte, et les credits etaient depenses pour
- * un contenu que l utilisateur ne voulait plus.
- */
+// --- Hashtags : l'API stocke une chaine separee par des espaces, l'ecran travaille sur une liste. ---
+const normalizeTag = (tag) => {
+  const clean = String(tag || '').replace(/\s+/g, '').replace(/^#+/, '')
+  return clean ? `#${clean}` : ''
+}
+const parseHashtags = (text) => String(text || '').split(/\s+/).map(normalizeTag).filter(Boolean)
+const serializeHashtags = (tags) => (tags || []).map(normalizeTag).filter(Boolean).join(' ')
+
+// --- Enregistrement automatique (800 ms apres la derniere frappe), mises a jour partielles par idee. ---
+const SAVE_DELAY = 800
+const FIELDS = ['prompt', 'caption', 'hashtags', 'scheduledAt']
+
+const saveState = ref({}) // id -> saving | saved | error
+const saveError = ref({})
 const savedSnapshots = ref({})
+const timers = {}
 
-function snapshotOf(item) {
-  return `${item.prompt || ''} ${item.caption || ''} ${item.hashtags || ''}`
-}
+const valueOf = (item, field) => (field === 'scheduledAt' ? toIso(item.scheduledAt) : String(item[field] ?? ''))
 
 watch(
   plan,
   (value) => {
     const next = {}
     for (const item of value?.items || []) {
-      next[item.id] = snapshotOf(item)
+      if (!item.hashtagList) item.hashtagList = parseHashtags(item.hashtags)
+      next[item.id] = Object.fromEntries(FIELDS.map((field) => [field, valueOf(item, field)]))
     }
     savedSnapshots.value = next
   },
   { immediate: true },
 )
 
-function isDirty(item) {
-  if (item.contentId) return false
+function changedFields(item) {
   const saved = savedSnapshots.value[item.id]
-  return saved !== undefined && saved !== snapshotOf(item)
+  if (!saved || item.contentId) return {}
+  const changes = {}
+  for (const field of FIELDS) {
+    const current = valueOf(item, field)
+    if (current === saved[field]) continue
+    // Un prompt vide serait refuse par le serveur : on ne l'envoie pas (l'ecran l'indique).
+    if (field === 'prompt' && !current.trim()) continue
+    changes[field] = current
+  }
+  return changes
 }
 
-const dirtyItems = computed(() => (plan.value?.items || []).filter((item) => isDirty(item)))
+const dirtyItems = computed(() => (plan.value?.items || []).filter((item) => Object.keys(changedFields(item)).length))
 
-const keptCount = computed(() => (plan.value?.items || []).filter((item) => item.keep).length)
-const discardedCount = computed(() => (plan.value?.items || []).filter((item) => !item.keep).length)
-const alreadyGeneratedCount = computed(() => (plan.value?.items || []).filter((item) => item.contentId).length)
-
-// Seules les idées conservées et pas encore générées engagent des crédits.
-const pendingGenerationCount = computed(
-  () => (plan.value?.items || []).filter((item) => item.keep && !item.contentId).length,
-)
-
-function formatDate(value) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleString('fr-FR', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-async function patchItem(item, body) {
-  return await $fetch(`/api/plans/${planId.value}/items/${item.id}`, {
-    method: 'PATCH',
-    body,
-  })
+function scheduleSave(item) {
+  clearTimeout(timers[item.id])
+  timers[item.id] = setTimeout(() => saveItem(item), SAVE_DELAY)
 }
 
 async function saveItem(item) {
-  savingIds.value = [...savingIds.value, item.id]
-  savedIds.value = savedIds.value.filter((id) => id !== item.id)
+  clearTimeout(timers[item.id])
+  const body = changedFields(item)
+  if (!Object.keys(body).length) {
+    if (saveState.value[item.id] === 'error') saveState.value = { ...saveState.value, [item.id]: undefined }
+    return true
+  }
 
+  saveState.value = { ...saveState.value, [item.id]: 'saving' }
   try {
-    await patchItem(item, {
-      prompt: item.prompt,
-      caption: item.caption || '',
-      hashtags: item.hashtags || '',
-    })
-    savedSnapshots.value = { ...savedSnapshots.value, [item.id]: snapshotOf(item) }
-    savedIds.value = [...savedIds.value, item.id]
+    await $fetch(`/api/plans/${planId.value}/items/${item.id}`, { method: 'PATCH', body })
+    savedSnapshots.value = { ...savedSnapshots.value, [item.id]: { ...savedSnapshots.value[item.id], ...body } }
+    // Une frappe est arrivee pendant l'envoi : on repart pour un tour.
+    if (Object.keys(changedFields(item)).length) {
+      scheduleSave(item)
+    } else {
+      saveState.value = { ...saveState.value, [item.id]: 'saved' }
+    }
     return true
   } catch (err) {
-    feedbackTone.value = 'error'
-    feedback.value = err?.statusMessage || 'Enregistrement impossible.'
+    saveError.value = { ...saveError.value, [item.id]: err?.statusMessage || '' }
+    saveState.value = { ...saveState.value, [item.id]: 'error' }
     return false
-  } finally {
-    savingIds.value = savingIds.value.filter((id) => id !== item.id)
   }
 }
 
+function changeHashtags(item, tags) {
+  item.hashtagList = (tags || []).map(normalizeTag).filter(Boolean)
+  item.hashtags = serializeHashtags(item.hashtagList)
+  scheduleSave(item)
+}
+
+function changeDate(item, iso) {
+  if (!iso) return
+  item.scheduledAt = iso
+  saveItem(item)
+}
+
+onBeforeUnmount(() => Object.values(timers).forEach((timer) => clearTimeout(timer)))
+
+// --- Inclure / exclure ---
+const feedback = ref('')
+const feedbackTone = ref('success')
+const generationStarted = ref(false)
+
 async function toggleKeep(item) {
   const next = !item.keep
-
+  item.keep = next
   try {
-    await patchItem(item, { keep: next })
-    item.keep = next
+    await $fetch(`/api/plans/${planId.value}/items/${item.id}`, { method: 'PATCH', body: { keep: next } })
   } catch (err) {
+    item.keep = !next
     feedbackTone.value = 'error'
     feedback.value = err?.statusMessage || 'Modification impossible.'
   }
 }
+
+// --- Compteurs ---
+const keptCount = computed(() => (plan.value?.items || []).filter((item) => item.keep).length)
+const discardedCount = computed(() => (plan.value?.items || []).filter((item) => !item.keep && !item.contentId).length)
+const alreadyGeneratedCount = computed(() => (plan.value?.items || []).filter((item) => item.contentId).length)
+
+// Seules les idees conservees et pas encore generees engagent des credits.
+const pendingGenerationCount = computed(
+  () => (plan.value?.items || []).filter((item) => item.keep && !item.contentId).length,
+)
+
+// --- Generation : suivi des contenus lances ---
+const approving = ref(false)
+const discarding = ref(false)
+const contentDone = ref({}) // contentId -> true quand le contenu a fini (ou echoue)
+const watchedIds = ref([])
+
+const generationTotal = computed(() => watchedIds.value.length)
+const generationDone = computed(() => watchedIds.value.filter((id) => contentDone.value[id]).length)
+const generationRunning = computed(() => watchedIds.value.length > 0 && generationDone.value < watchedIds.value.length)
+
+function statusOf(item) {
+  if (item.contentId) return watchedIds.value.includes(item.contentId) && !contentDone.value[item.contentId] ? 'generating' : 'approved'
+  if (approving.value && item.keep) return 'generating'
+  return 'draft'
+}
+
+const isLocked = (item) => Boolean(item.contentId) || statusOf(item) === 'generating'
+
+let pollTimer = null
+async function pollContents() {
+  clearTimeout(pollTimer)
+  const waiting = watchedIds.value.filter((id) => !contentDone.value[id])
+  if (!waiting.length) return
+  await Promise.all(waiting.map(async (id) => {
+    try {
+      const status = await $fetch(`/api/content/${id}/status`)
+      if (status?.done) contentDone.value = { ...contentDone.value, [id]: true }
+    } catch {
+      // Une lecture ratee ne bloque pas le suivi : on reessaie au prochain tour.
+    }
+  }))
+  if (watchedIds.value.some((id) => !contentDone.value[id])) pollTimer = setTimeout(pollContents, 4000)
+}
+
+onBeforeUnmount(() => clearTimeout(pollTimer))
+
+const primaryLabel = computed(() => {
+  if (approving.value) return 'Lancement…'
+  if (generationRunning.value) return `Génération ${Math.min(generationDone.value + 1, generationTotal.value)} / ${generationTotal.value}…`
+  return `Générer ${pendingGenerationCount.value} contenu${pendingGenerationCount.value > 1 ? 's' : ''}`
+})
+
+const primaryHint = computed(() => {
+  if (generationRunning.value) return 'Les contenus arrivent dans Mes créations, à valider avant publication.'
+  if (!pendingGenerationCount.value) {
+    if (alreadyGeneratedCount.value && !keptCount.value) return 'Tout est déjà généré.'
+    if (alreadyGeneratedCount.value && keptCount.value === alreadyGeneratedCount.value) return 'Tout est déjà généré.'
+    return 'Aucune idée à générer : réactive au moins une idée avec l\'interrupteur « Générer ».'
+  }
+  if (dirtyItems.value.length) return 'Engage tes crédits de génération. Les modifications en attente seront enregistrées avant.'
+  return 'Engage tes crédits de génération'
+})
 
 async function approvePlan() {
   approving.value = true
   feedback.value = ''
 
   try {
-    // Les modifications en attente sont enregistrees d abord: generer a partir
+    // Les modifications en attente sont enregistrees d abord : generer a partir
     // d un texte perime coute des credits pour un contenu deja abandonne.
     for (const item of dirtyItems.value) {
       const ok = await saveItem(item)
@@ -323,9 +421,12 @@ async function approvePlan() {
     }
 
     const result = await $fetch(`/api/plans/${planId.value}/approve`, { method: 'POST' })
+    watchedIds.value = Array.isArray(result.contentIds) ? result.contentIds : []
     await refresh()
+    generationStarted.value = true
     feedbackTone.value = 'success'
     feedback.value = `${result.launched} génération(s) lancée(s). Les contenus arrivent dans Mes créations, à valider avant publication.`
+    pollContents()
   } catch (err) {
     feedbackTone.value = 'error'
     feedback.value = err?.statusMessage || 'Approbation impossible.'
@@ -335,6 +436,14 @@ async function approvePlan() {
 }
 
 async function discardPlan() {
+  const confirmed = await requestConfirmation({
+    title: 'Jeter ce plan ?',
+    message: 'Aucune de ces idées ne sera générée. Cette action est définitive.',
+    confirmLabel: 'Jeter le plan',
+    tone: 'danger',
+  })
+  if (!confirmed) return
+
   discarding.value = true
   feedback.value = ''
 
@@ -348,4 +457,55 @@ async function discardPlan() {
     discarding.value = false
   }
 }
+
+// --- Periode et bande des jours ---
+const dates = computed(() => (plan.value?.items || []).map((item) => new Date(item.scheduledAt)).filter((date) => !Number.isNaN(date.getTime())).sort((a, b) => a - b))
+const periodLabel = computed(() => (dates.value.length ? formatDateRange(dates.value[0], dates.value[dates.value.length - 1]) : ''))
+
+const weekDays = computed(() => {
+  if (!dates.value.length) return []
+  const first = new Date(dates.value[0])
+  first.setHours(0, 0, 0, 0)
+  const last = new Date(dates.value[dates.value.length - 1])
+  last.setHours(0, 0, 0, 0)
+  const days = []
+  for (let cursor = new Date(first); cursor <= last && days.length < 31; cursor.setDate(cursor.getDate() + 1)) {
+    const start = new Date(cursor)
+    const end = new Date(cursor)
+    end.setDate(end.getDate() + 1)
+    days.push({
+      key: start.toISOString(),
+      label: new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric' }).format(start),
+      items: (plan.value?.items || []).filter((item) => {
+        const date = new Date(item.scheduledAt)
+        return date >= start && date < end
+      }),
+    })
+  }
+  return days
+})
+
+// --- Defilement et surbrillance (lien depuis le calendrier : /plans/<id>?idea=<idee>) ---
+const highlightId = ref('')
+let highlightTimer = null
+
+function scrollToItem(id) {
+  if (!id || !import.meta.client) return
+  document.getElementById(`idea-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  highlightId.value = id
+  clearTimeout(highlightTimer)
+  highlightTimer = setTimeout(() => { highlightId.value = '' }, 2000)
+}
+
+onMounted(() => {
+  const idea = String(route.query.idea || '')
+  if (idea) nextTick(() => scrollToItem(idea))
+  // Un plan deja approuve : on verifie si ses contenus ont fini de se generer.
+  const launched = (plan.value?.items || []).map((item) => item.contentId).filter(Boolean)
+  if (plan.value?.status === 'APPROVED' && launched.length) {
+    watchedIds.value = launched
+    pollContents()
+  }
+})
+onBeforeUnmount(() => clearTimeout(highlightTimer))
 </script>

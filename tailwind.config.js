@@ -24,6 +24,10 @@ export default {
           success: { DEFAULT: '#2F7A4D', soft: '#EAF4EE', ink: '#1F5636' },
           info: { DEFAULT: '#2B5FAA', soft: '#E8EEF8', ink: '#23497F' },
           danger: { DEFAULT: '#B42318', soft: '#FCEDEC', ink: '#8A1C12', line: '#F4C7C2' },
+          // Types de contenu (Feed = accent). Luminosites volontairement ecartees (reel sombre, feed moyen, story clair) :
+          // les types se distinguent aussi sans la teinte. Texte = `ink` (>= 4,5:1 sur `soft`), `DEFAULT` = reperes seulement.
+          reel: { DEFAULT: '#4B2F9E', soft: '#EFEAFB', ink: '#3A2478' },
+          story: { DEFAULT: '#1F9A82', soft: '#E3F3F0', ink: '#075A49' },
         },
       },
       fontFamily: {
