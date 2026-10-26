@@ -198,50 +198,7 @@
       </aside>
 
       <main class="min-w-0 flex-1 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
-        <div :class="showOnboardingModal ? 'pointer-events-none select-none blur-[2px] opacity-40' : ''">
-          <slot />
-        </div>
-
-        <transition
-          enter-active-class="transition duration-200 ease-out"
-          enter-from-class="opacity-0 scale-[0.98]"
-          enter-to-class="opacity-100 scale-100"
-          leave-active-class="transition duration-150 ease-in"
-          leave-from-class="opacity-100 scale-100"
-          leave-to-class="opacity-0 scale-[0.98]"
-        >
-          <div
-            v-if="showOnboardingModal"
-            class="fixed inset-0 z-[100] flex items-center justify-center bg-ui-ink/55 p-5 font-ui backdrop-blur-[2px]"
-          >
-            <div class="relative w-full max-w-xl rounded-ui-card border border-ui-line bg-ui-surface p-7 shadow-xl sm:p-9">
-              <p class="font-ui-mono text-[11px] font-semibold uppercase tracking-[0.16em] text-ui-accent">Onboarding</p>
-              <h2 class="mt-3 text-2xl font-semibold tracking-tight text-ui-ink">Crée ta première {{ wording.ambassador }}</h2>
-              <p class="mt-3 text-sm leading-relaxed text-ui-ink-2">
-                Ton workspace est prêt, mais il n y a encore aucune identité active. Ajoute une première {{ wording.ambassador }} pour débloquer le dashboard, le calendrier et la génération.
-              </p>
-
-              <div class="mt-6 grid gap-3 rounded-ui-card border border-ui-line bg-ui-subtle p-4 text-sm">
-                <p class="font-semibold text-ui-ink">Ce que tu vas configurer maintenant :</p>
-                <ol class="list-inside list-decimal space-y-2 text-ui-ink-2">
-                  <li>Nom et niche de ton {{ wording.visualIdentity }}</li>
-                  <li>Style visuel de base</li>
-                  <li>Cohérence Faciale pour verrouiller l'identité</li>
-                </ol>
-              </div>
-
-              <div class="mt-7 flex flex-col gap-3 sm:flex-row">
-                <NuxtLink
-                  to="/profiles/new"
-                  class="inline-flex h-11 flex-1 items-center justify-center rounded-ui-ctl bg-ui-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-ui-accent-hover"
-                >
-                  {{ createAmbassadorLabel }}
-                </NuxtLink>
-                <UiButton @click="logout">Changer de compte</UiButton>
-              </div>
-            </div>
-          </div>
-        </transition>
+        <slot />
       </main>
     </div>
   </div>
@@ -271,20 +228,9 @@ function toggleRail() {
   sidebarCookie.value = rail.value ? 'full' : 'rail'
 }
 
-// `pending` et `error` sont indispensables ici: sans eux, une liste vide pendant
-// le chargement ou apres un echec est indiscernable d un compte sans profil, et
-// l assistant de creation s ouvre sur quelqu un qui en a deja.
-const {
-  data: influencersData,
-  pending: influencersPending,
-  error: influencersError,
-} = await useFetch('/api/profiles', {
+const { data: influencersData } = await useFetch('/api/profiles', {
   key: 'plotline-shell-influencers',
 })
-
-const influencersLoaded = computed(
-  () => !influencersPending.value && !influencersError.value && Array.isArray(influencersData.value),
-)
 
 const influencers = computed(() => influencersData.value || [])
 const activeInfluencer = computed(() => {
@@ -309,11 +255,6 @@ const addAmbassadorLabel = computed(() => {
   if (isContentCreator.value) return 'Nouveau profil'
   return 'Nouvelle influenceuse'
 })
-const createAmbassadorLabel = computed(() => {
-  if (isBrand.value) return 'Créer une ambassadrice'
-  if (isContentCreator.value) return 'Créer une ambassadrice'
-  return 'Créer une influenceuse'
-})
 const activeProfileTypeLabel = computed(() => {
   const profileType = String(activeInfluencer.value?.profileType || '').trim().toUpperCase()
   if (profileType === 'PERSONA') return ambassadorFor(activeInfluencer.value?.gender)
@@ -327,15 +268,6 @@ const settingsNavLabel = computed(() => {
   if (!activeInfluencer.value) return `Paramètres ${wording.value.ambassador}`
   return `Paramètres ${activeProfileTypeLabel.value}`
 })
-const showOnboardingModal = computed(() => {
-  if (!isInfluencerCreator.value) return false
-  // Ne rien affirmer tant que la liste n est pas reellement chargee.
-  if (!influencersLoaded.value) return false
-  if (route.path.startsWith('/onboarding')) return false
-  if (route.path.startsWith('/profiles/new')) return false
-  return influencers.value.length === 0
-})
-
 const routeInfluencerId = computed(() => {
   const segments = String(route.path || '').split('/').filter(Boolean)
   if (segments[0] !== 'profiles') return ''

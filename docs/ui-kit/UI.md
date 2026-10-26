@@ -74,6 +74,7 @@ Focus : `focus-visible:ring-[3px] ring-accent/20 border-accent` sur tous les con
 | `UiCard` | slots `title`, `actions`, default | Padding 20, en-tête séparé par un filet |
 | `UiAlert` | `tone: error \| info`, `title`, slot action | Erreur = quoi, pourquoi, action |
 | `UiEmptyState` | `title`, `text`, slot action | Bordure pointillée |
+| `UiDrawer` | `v-model:open`, `title`, `description`, slots default et `footer` | Panneau latéral droit (420 px max) : Échap et clic extérieur ferment, le focus reste piégé dans le panneau et revient à l'élément qui l'a ouvert, `aria-labelledby`, défilement de la page bloqué. Bandeau d'actions en bas (slot `footer`). `data-autofocus` désigne le champ qui prend le focus. |
 | `UiSwitch` | `v-model: boolean`, `label`, `disabled` | `role="switch"`, `aria-checked`, tout le bouton (≥ 44 px) est la cible. |
 | `UiDisclosure` | `title`, `hint`, `open` | Dépliant fermé par défaut ; en-tête bouton, `aria-expanded`, chevron qui pivote. |
 | `UiDatePopover` | `v-model` (ISO), `label`, `disabled` | Badge-bouton qui ouvre un sélecteur date + heure ; Échap et clic extérieur ferment. Format affiché : `app/utils/formatDate.js`. |

@@ -1,5 +1,7 @@
 <template>
   <div ref="rootRef" class="relative inline-block font-ui">
+    <!-- Declencheur : le badge par defaut, ou le slot `trigger` (ex. un bouton « Reprogrammer »). -->
+    <slot name="trigger" :toggle="toggle" :open="open" :display="display" :disabled="disabled" :set-ref="setTriggerRef">
     <button
       ref="triggerRef"
       type="button"
@@ -16,13 +18,15 @@
       </svg>
       <span>{{ display || 'Choisir une date' }}</span>
     </button>
+    </slot>
 
     <div
       v-if="open"
       ref="panelRef"
       role="dialog"
       :aria-label="`Modifier ${label.toLowerCase()}`"
-      class="absolute left-0 top-[calc(100%+8px)] z-30 w-72 rounded-ui-card border border-ui-line bg-ui-surface p-4 shadow-lg"
+      class="absolute z-30 w-72 rounded-ui-card border border-ui-line bg-ui-surface p-4 shadow-lg"
+      :class="[placement === 'top' ? 'bottom-[calc(100%+8px)]' : 'top-[calc(100%+8px)]', align === 'right' ? 'right-0' : 'left-0']"
       @keydown.esc.stop.prevent="close(true)"
     >
       <div class="grid gap-3">
@@ -52,6 +56,8 @@ const props = defineProps({
   modelValue: { type: String, default: '' },
   label: { type: String, default: 'Date de publication' },
   disabled: { type: Boolean, default: false },
+  placement: { type: String, default: 'bottom' }, // bottom | top
+  align: { type: String, default: 'left' }, // left | right
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -60,6 +66,9 @@ const open = ref(false)
 const rootRef = ref(null)
 const triggerRef = ref(null)
 const panelRef = ref(null)
+const customTrigger = ref(null)
+// Le slot `trigger` donne son element pour y rendre le focus a la fermeture.
+function setTriggerRef(el) { customTrigger.value = el }
 const draftDate = ref('')
 const draftTime = ref('')
 
@@ -77,7 +86,7 @@ async function toggle() {
 
 function close(returnFocus = false) {
   open.value = false
-  if (returnFocus) triggerRef.value?.focus()
+  if (returnFocus) (triggerRef.value || customTrigger.value)?.focus()
 }
 
 function apply() {
