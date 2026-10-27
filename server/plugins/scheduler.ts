@@ -31,6 +31,16 @@ export default defineNitroPlugin(() => {
 
     try {
       const { prisma } = await import('../utils/prisma.js');
+
+      // Contenus restes en PROCESSING apres un redemarrage du serveur.
+      try {
+        const { sweepOrphanedGenerations } = await import('../utils/orphanedGenerations.js');
+        const swept = await sweepOrphanedGenerations(prisma);
+        if (swept) console.warn(`[scheduler] ${swept} generation(s) orpheline(s) marquee(s) en echec`);
+      } catch (sweepError) {
+        console.error('[scheduler] Balayage des generations orphelines impossible:', sweepError?.message || sweepError);
+      }
+
       const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
       const { results, error } = await runScheduledPublications({ prisma, baseUrl });
 

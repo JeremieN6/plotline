@@ -306,8 +306,27 @@ async function runSettled(prisma, contentId, previousStatus, task) {
   }
 }
 
+// Jobs en cours dans CE process : l arret du serveur les attend (voir le plugin
+// faceless-shutdown), sinon un deploiement tue la generation en plein vol.
+const activeJobs = new Set();
+
+export function activeFacelessJobCount() {
+  return activeJobs.size;
+}
+
+/** Attend la fin des jobs en cours, au plus `timeoutMs` ; renvoie le nombre encore actifs. */
+export async function waitForActiveFacelessJobs(timeoutMs) {
+  if (!activeJobs.size) return 0;
+  let timer;
+  const timeout = new Promise((resolve) => { timer = setTimeout(resolve, timeoutMs); });
+  await Promise.race([Promise.allSettled([...activeJobs]), timeout]);
+  clearTimeout(timer);
+  return activeJobs.size;
+}
+
 export function inBackground(prisma, contentId, previousStatus, task) {
-  runSettled(prisma, contentId, previousStatus, task);
+  const job = runSettled(prisma, contentId, previousStatus, task).finally(() => activeJobs.delete(job));
+  activeJobs.add(job);
   return { contentId, status: 'processing', model: 'faceless' };
 }
 
