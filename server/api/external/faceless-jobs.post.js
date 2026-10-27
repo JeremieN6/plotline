@@ -4,6 +4,7 @@ import { parseExternalFacelessBody } from '../../utils/facelessExternal.js';
 import { resolveElevenLabsApiKey } from '../../utils/elevenLabsTts.js';
 import { loadPersonaStyle } from '../../utils/facelessStyleStore.js';
 import { readyIllustrations } from '../../utils/facelessStyle.js';
+import { resolveOwnerCloneVoice } from '../../utils/facelessVoiceChoice.js';
 
 let prismaClient;
 
@@ -61,6 +62,11 @@ export default defineEventHandler(async (event) => {
   }
   const { persona, style } = loaded;
 
+  // Voix clonee du proprietaire par defaut ; repli sur la voix de la DA si le compte n est pas
+  // proprietaire ou si aucune voix clonee n existe.
+  const owner = await prisma.user.findUnique({ where: { id: profile.userId }, select: { email: true } });
+  const cloneVoice = await resolveOwnerCloneVoice({ ownerEmail: owner?.email });
+
   const generatedContent = await createGeneratedContentRecord(prisma, {
     influencerId: persona.id,
     brandId: null,
@@ -72,7 +78,7 @@ export default defineEventHandler(async (event) => {
     prompt: idea || sourceText.slice(0, 200),
   });
 
-  console.log(`[external/faceless-jobs] contentId=${generatedContent.id} profileId=${profile.id} sourceProject=${sourceProject || 'inconnu'} slug=${slug || 'aucun'} duree=${targetSeconds}s`);
+  console.log(`[external/faceless-jobs] contentId=${generatedContent.id} profileId=${profile.id} sourceProject=${sourceProject || 'inconnu'} slug=${slug || 'aucun'} duree=${targetSeconds}s voix=${cloneVoice ? 'clonee' : 'synthese'}`);
 
   return runFacelessVideoJob({
     prisma,
@@ -82,7 +88,9 @@ export default defineEventHandler(async (event) => {
     persona,
     targetSeconds,
     captions: style.captions.enabled,
-    voiceId: style.voiceId,
+    voiceId: cloneVoice?.voiceId || style.voiceId,
+    voiceMode: cloneVoice?.voiceMode || 'synth',
+    stability: cloneVoice?.stability,
     style,
     userId: profile.userId,
     illustrations: readyIllustrations(style),

@@ -8,7 +8,7 @@
       <slot />
     </div>
     <p v-if="error" class="mt-1.5 text-xs text-ui-danger" role="alert">{{ error }}</p>
-    <p v-else-if="hint" class="mt-1.5 text-xs text-ui-ink-muted">{{ hint }}</p>
+    <p v-else-if="hint" class="mt-1.5 whitespace-pre-line text-xs text-ui-ink-muted">{{ hint }}</p>
   </div>
 </template>
 

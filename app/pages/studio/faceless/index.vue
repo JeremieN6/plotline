@@ -118,7 +118,7 @@
               <UiField v-if="cloneVoiceOptions.length > 1" label="Voix clonée" for-id="faceless-clone-voice">
                 <UiSelect id="faceless-clone-voice" v-model="cloneVoiceId" :options="cloneVoiceOptions" />
               </UiField>
-              <UiField label="Expressivité" for-id="faceless-clone-stability" hint="Forte = ton très marqué mais moins stable. Sobre = plus régulier, moins expressif.">
+              <UiField label="Expressivité" for-id="faceless-clone-stability" :hint="'Forte = ton très marqué mais moins stable.\nSobre = plus régulier, moins expressif.'">
                 <UiSelect id="faceless-clone-stability" v-model="voiceStability" :options="STABILITY_OPTIONS" />
               </UiField>
             </div>
@@ -243,6 +243,12 @@
           <UiEmptyState v-else-if="!polling" title="Pas encore de vidéo" text="La vidéo apparaîtra ici." />
 
           <div v-if="info?.retouchable && videoUrl && !polling" class="space-y-3 border-t border-ui-line-soft pt-4">
+            <UiDisclosure v-if="info.script?.length" title="Script de la vidéo" :hint="`${info.script.length} scènes`">
+              <div class="space-y-2 rounded-ui-ctl bg-ui-subtle p-3 text-sm leading-relaxed text-ui-ink-2">
+                <p v-if="info.idea" class="text-xs text-ui-ink-muted">Brief : {{ info.idea }}</p>
+                <p v-for="(line, index) in info.script" :key="index">{{ line }}</p>
+              </div>
+            </UiDisclosure>
             <UiField
               label="Retoucher"
               for-id="faceless-retouch"

@@ -131,3 +131,17 @@ test('prompts : consignes de ton seulement pour la voix clonee, directives du cr
   assert.match(directed, /fond sombre sur le chiffre/);
   assert.match(buildFacelessPlanUserPrompt('Consigne', 'Un article assez long pour compter.', 'Plus clivant'), /Plus clivant/);
 });
+
+test('voix par defaut des articles : clone du proprietaire, sinon voix de la DA', async () => {
+  const { resolveOwnerCloneVoice } = await import('../server/utils/facelessVoiceChoice.js');
+  const listClones = async () => [{ id: 'clone1', name: 'Moi' }];
+  const isAdmin = (email) => email === 'moi@x.fr';
+
+  const owner = await resolveOwnerCloneVoice({ ownerEmail: 'moi@x.fr', listClones, isAdmin, mode: '' });
+  assert.deepEqual(owner, { voiceMode: 'clone', voiceId: 'clone1', stability: V3_STABILITY.natural });
+
+  assert.equal(await resolveOwnerCloneVoice({ ownerEmail: 'autre@x.fr', listClones, isAdmin, mode: '' }), null);
+  assert.equal(await resolveOwnerCloneVoice({ ownerEmail: 'moi@x.fr', listClones: async () => [], isAdmin, mode: '' }), null);
+  assert.equal(await resolveOwnerCloneVoice({ ownerEmail: 'moi@x.fr', listClones, isAdmin, mode: 'synth' }), null);
+  assert.equal(await resolveOwnerCloneVoice({ ownerEmail: 'moi@x.fr', listClones: async () => { throw new Error('x'); }, isAdmin, mode: '' }), null);
+});

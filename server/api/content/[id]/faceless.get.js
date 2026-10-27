@@ -42,6 +42,8 @@ export default defineEventHandler(async (event) => {
     retouchable,
     canRetouchNow: retouchable && content.status === 'PENDING',
     idea: retouchable ? spec.idea || '' : '',
+    // Texte dit, une entree par scene (balises de ton comprises), pour le relire avant de retoucher.
+    script: retouchable ? spec.plan.scenes.map((scene) => String(scene?.say || '').trim()).filter(Boolean) : [],
     personaId: retouchable ? spec.personaId || '' : '',
     retouches: retouchable && Array.isArray(spec.retouches) ? spec.retouches : [],
   };
