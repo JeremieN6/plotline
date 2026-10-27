@@ -66,5 +66,11 @@ export default defineNitroPlugin(() => {
   // Ne pas maintenir le process en vie uniquement pour ce timer.
   timer.unref?.();
 
+  // Premier passage peu apres le demarrage : sans lui, chaque redemarrage (un
+  // deploiement) remet le compte a rebours de 10 min a zero, et des
+  // redemarrages rapproches empecheraient tout balayage des orphelins.
+  const firstTick = setTimeout(tick, 60_000);
+  firstTick.unref?.();
+
   console.log('[scheduler] Publicateur planifie actif (verification chaque minute)');
 });
