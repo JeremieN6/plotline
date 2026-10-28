@@ -20,8 +20,10 @@ export const FACELESS_DEFAULTS = {
   tail: 0.9,
   // Le visuel arrive un poil avant la voix.
   visualLead: 0.06,
-  maxCaptionWords: 3,
-  maxCaptionChars: 17,
+  // Les mots apparaissent un par un (voir le runtime) : au plus 5 a l ecran en meme temps. Le texte entier
+  // d un sous-titre est reduit au besoin pour tenir sur UNE ligne.
+  maxCaptionWords: 5,
+  maxCaptionChars: 26,
 };
 
 /** Pur : mot normalise pour la comparaison (minuscules, sans accents ni ponctuation). */

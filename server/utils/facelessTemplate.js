@@ -10,6 +10,10 @@ import { HERBIER_CAPTION_TOP, herbierCss, herbierScene } from './facelessTemplat
 import { HANKO_CAPTION_TOP, hankoCss, hankoScene } from './facelessTemplateHanko.js';
 import { JOURNAL_CAPTION_TOP, journalCss, journalScene } from './facelessTemplateJournal.js';
 
+// Place des sous-titres des modeles animes quand la DA les veut EN BAS : au-dessus de la zone
+// couverte par l interface des reseaux (~250 px du bas), sous le contenu des scenes.
+const ENGINE_CAPTION_BOTTOM = 1560;
+
 // Modeles visuels autres que "classic" : dessin des scenes, feuille de style, place des sous-titres.
 const ENGINES = {
   fenetre: { scene: fenetreScene, css: fenetreCss, captionTop: FENETRE_CAPTION_TOP, capWrap: true },
@@ -635,7 +639,9 @@ function buildRuntime(fontFamilies, extraLoads = []) {
       if (chunk) {
         caps.style.top = sc.captionTop + 'px';
         tone = sc.bg === 'dark' ? 'tone-dark' : '';
-        caption = chunk.words.map((w) => '<span' + (t >= w.start && t < w.end ? ' class="on"' : (t >= w.end ? ' class="past"' : '')) + '>' + w.text.replace(/[<&]/g, '') + '</span>').join('');
+        // Les mots apparaissent un par un, au moment ou ils sont dits : un mot pas encore dit garde sa place
+        // (invisible) pour que la ligne ne bouge ni ne change de taille pendant qu elle se remplit.
+        caption = chunk.words.map((w) => '<span' + (t >= w.start && t < w.end ? ' class="on"' : (t >= w.end ? ' class="past"' : ' style="visibility:hidden"')) + '>' + w.text.replace(/[<&]/g, '') + '</span>').join('');
         if (data.capWrap) caption = '<div class="cap-in">' + caption + '</div>';
       }
     });
@@ -733,8 +739,9 @@ export function buildFacelessHtml(timeline, options = {}) {
       end: s.end,
       bg: bgFor(s),
       captionChunks: s.captionChunks || [],
-      // Haut : sous la zone de l interface TikTok ; bas : sous le mot geant ou sur le buste.
-      captionTop: engine ? engine.captionTop : (top ? 150 : (s.layout === 'word' ? 840 : 1400)),
+      // Haut : sous la zone de l interface TikTok ; bas : sous le mot geant ou sur le buste. Les modeles
+      // animes respectent aussi le choix de la DA (haut = leur place d origine).
+      captionTop: engine ? (top ? engine.captionTop : ENGINE_CAPTION_BOTTOM) : (top ? 150 : (s.layout === 'word' ? 840 : 1400)),
     })),
   };
 

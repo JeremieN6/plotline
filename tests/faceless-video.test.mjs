@@ -53,7 +53,7 @@ test('buildCaptionChunks : 3 mots max, coupure apres ponctuation', () => {
   assert.equal(chunks[2].end, 2);
 });
 
-test('buildCaptionChunks : un sous-titre tient sur une ligne (17 caracteres max), un mot long reste seul', () => {
+test('buildCaptionChunks : un sous-titre tient sur une ligne (limite de caracteres), un mot long reste seul', () => {
   const ended = withWordEnds([
     { text: 'Avant', start: 0 },
     { text: "d'optimiser", start: 0.3 },
@@ -61,9 +61,17 @@ test('buildCaptionChunks : un sous-titre tient sur une ligne (17 caracteres max)
     { text: 'que', start: 0.9 },
     { text: 'automatisations', start: 1.2 },
   ], 1.6);
-  const lines = buildCaptionChunks(ended, { maxWords: 3, end: 2 }).map((c) => c.words.map((w) => w.text).join(' '));
+  const lines = buildCaptionChunks(ended, { maxWords: 3, maxChars: 17, end: 2 }).map((c) => c.words.map((w) => w.text).join(' '));
   assert.deepEqual(lines, ["Avant d'optimiser", 'quoi que', 'automatisations']);
   assert.equal(lines.every((line) => line.length <= 17), true);
+});
+
+test('buildCaptionChunks : par defaut jamais plus de 5 mots a la fois (les mots apparaissent un par un)', () => {
+  const words = 'on ajoute un mot a la fois sans jamais depasser cinq mots affiches'.split(' ').map((text, i) => ({ text, start: i * 0.3 }));
+  const chunks = buildCaptionChunks(withWordEnds(words, 4), { end: 4 });
+  assert.equal(chunks.every((chunk) => chunk.words.length <= 5), true);
+  assert.equal(Math.max(...chunks.map((chunk) => chunk.words.length)), 5);
+  assert.equal(chunks.flatMap((chunk) => chunk.words).length, words.length);
 });
 
 test('layoutFacelessTimeline : scenes calees sur la voix, reperes par mot', () => {
