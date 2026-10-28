@@ -155,6 +155,9 @@
             <UiSelect v-model="da.captions.position" :options="captionPositions" aria-label="Position des sous-titres" />
             <UiSelect v-model="da.captions.style" :options="options.captionStyles" aria-label="Style des sous-titres" />
           </div>
+          <UiAlert v-if="da.captions.enabled && da.captions.position === 'bottom' && da.avatar.kind !== 'none'" tone="info" class="mt-3">
+            Les sous-titres peuvent passer devant l’avatar. Le haut de l’écran évite ce chevauchement.
+          </UiAlert>
 
           <UiField class="mt-5" label="Règles de montage (lues par Claude à chaque vidéo)" hint="Quand tu retouches une vidéo, tu peux ajouter une consigne ici d’un clic (« retenir pour les prochaines vidéos »).">
             <UiTextarea v-model="da.rules" :rows="5" :maxlength="1500" />
