@@ -87,19 +87,26 @@ const normalizeWord = (text) => String(text || '').toLowerCase().normalize('NFD'
  * "tres tres bete") sont des emphases : elles restent.
  * @returns {Array<{from:number,to:number,reason:string}>} plages d indices ORIGINAUX
  */
-export function findImmediateRepeats(words, { minLen = 3, maxLen = 14, maxGapSeconds = 1.2 } = {}) {
+export function findImmediateRepeats(words, { minLen = 3, maxLen = 14, maxGapSeconds = 1.2, maxFragments = 2 } = {}) {
   const list = Array.isArray(words) ? words : [];
   const tokens = list.map((w) => normalizeWord(w.text));
   const cuts = [];
   let i = 0;
   while (i < list.length) {
     let found = 0;
-    for (let len = Math.min(maxLen, Math.floor((list.length - i) / 2)); len >= minLen; len -= 1) {
-      let same = true;
-      for (let k = 0; k < len; k += 1) {
-        if (!tokens[i + k] || tokens[i + k] !== tokens[i + len + k]) { same = false; break; }
+    for (let len = Math.min(maxLen, Math.floor(list.length / 2)); len >= minLen && !found; len -= 1) {
+      // `skip` : un mot coupe net ("les d-") reste colle derriere la premiere prise avant la reprise.
+      for (let skip = 0; skip <= maxFragments && !found; skip += 1) {
+        const second = i + len + skip;
+        if (second + len > list.length) break;
+        let same = true;
+        // Le fragment colle a la premiere prise (pas le debut de la reprise, dit plus tard) : meme souffle.
+        for (let k = 0; k < skip && same; k += 1) {
+          same = tokens[i + len + k].length <= 2 && list[i + len + k].start - list[i + len + k - 1].end <= maxGapSeconds;
+        }
+        for (let k = 0; k < len && same; k += 1) same = Boolean(tokens[i + k]) && tokens[i + k] === tokens[second + k];
+        if (same && list[second].start - list[second - 1].end <= maxGapSeconds) found = len + skip;
       }
-      if (same && list[i + len].start - list[i + len - 1].end <= maxGapSeconds) { found = len; break; }
     }
     if (found) {
       cuts.push({ from: list[i].i, to: list[i + found - 1].i, reason: 'Reprise immédiate de la même phrase' });
@@ -109,6 +116,29 @@ export function findImmediateRepeats(words, { minLen = 3, maxLen = 14, maxGapSec
     }
   }
   return cuts;
+}
+
+const SENTENCE_END_WORD = /[.!?…]["»”)]*$/;
+
+/**
+ * Pur : une indication de montage dite a voix haute commence souvent par une amorce ("Et la, quand je dis
+ * X, tu m'affiches...") ; si Claude n en coupe que la fin, l amorce ("Et la, quand je dis X, tu") reste
+ * audible dans la video. Pour toute coupe voisine d une indication, on remonte donc jusqu au debut de la
+ * phrase : les mots conserves juste avant la coupe, qui ne finissent pas une phrase, sont retires aussi.
+ * @returns {Array<{from:number,to:number,reason:string}>} coupes (indices ORIGINAUX), a normaliser ensuite
+ */
+export function extendInstructionCuts(words, cuts, directives, { maxBack = 12 } = {}) {
+  const list = Array.isArray(words) ? words : [];
+  const sorted = [...cuts].sort((a, b) => a.from - b.from);
+  return sorted.map((cut, index) => {
+    const related = (directives || []).some((d) => d.at >= cut.from - maxBack && d.at <= cut.to);
+    if (!related) return cut;
+    const floor = index > 0 ? sorted[index - 1].to + 1 : 0;
+    let from = cut.from;
+    // Les mots juste avant la coupe forment une phrase inachevee : elle fait partie de la consigne.
+    while (from - 1 >= floor && cut.from - from < maxBack && !SENTENCE_END_WORD.test(list[from - 1]?.text || '')) from -= 1;
+    return from === cut.from ? cut : { ...cut, from, reason: `${cut.reason || 'Indication'} (amorce comprise)`.slice(0, 80) };
+  });
 }
 
 /** Pur : indices des mots conserves. */
@@ -236,7 +266,7 @@ export function buildCleaningSystemPrompt() {
     '- Les reprises : quand le createur recommence une phrase, supprime la ou les tentatives rate(e)s et GARDE la derniere prise, la plus complete.',
     '- Les phrases abandonnees, faux departs, mots begayes, repetitions involontaires.',
     '- Les hesitations ("euh", "hum", "bah" qui ne servent a rien) et les commentaires adresses a toi-meme ("attends", "on recommence", "ok c est bon").',
-    '- Les indications de montage dites a voix haute (voir plus bas) : ce sont des consignes, pas du texte de la video.',
+    '- Les indications de montage dites a voix haute (voir plus bas) : ce sont des consignes, pas du texte de la video. Coupe la consigne ENTIERE, de son PREMIER mot (l amorce comprise : "Et la, quand je dis X, tu m affiches X en grand...") jusqu a son DERNIER mot. Il ne doit jamais rester un debut de consigne ("Et la, quand je dis X, tu") dans les mots conserves.',
     'NE SUPPRIME PAS une phrase correcte juste parce qu elle est maladroite, ni une repetition voulue (effet de style, enumeration).',
     '',
     'INDICATIONS DE MONTAGE (directives) : quand le createur dit quelque chose comme "la, change le fond", "mets un fond sombre", "ici je suis surpris", "affiche le logo de ...", releve l instruction reformulee a l imperatif, ancree sur l indice du mot ou elle commence (at). Le passage dit correspondant doit aussi etre dans cuts.',

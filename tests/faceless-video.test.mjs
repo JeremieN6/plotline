@@ -374,3 +374,26 @@ test('sous-titres : actifs sur TOUTES les mises en page quand ils sont autorises
     assert.equal(sanitizeFacelessScene({ say: 'Une phrase.', layout, text: 'T', title: 'T', word: 'mot', items: [{ text: 'a', at: 'Une' }, { text: 'b', at: 'phrase.' }] }, { captions: false }).captions, false, layout);
   }
 });
+
+test('centrage vertical : zone libre selon la place des sous-titres, contenu centre, rien ne bouge si inutile', async () => {
+  const { centerShift, contentBand, buildFacelessHtml } = await import('../server/utils/facelessTemplate.js');
+
+  // Sous-titres en haut : la zone libre va de 400 a 1580 ; en bas : au-dessus des sous-titres ; absents : de 260 a 1580.
+  assert.deepEqual(contentBand({ capOn: true, capPos: 'top', captionTop: 200 }), { top: 400, bottom: 1580 });
+  assert.deepEqual(contentBand({ capOn: true, capPos: 'bottom', captionTop: 1560 }), { top: 260, bottom: 1510 });
+  assert.deepEqual(contentBand({ capOn: false, capPos: 'top', captionTop: 200 }), { top: 260, bottom: 1580 });
+
+  // Un contenu colle en haut descend au centre de la zone ; un contenu deja bien place (ou trop haut pour la zone) ne bouge pas.
+  const band = { top: 400, bottom: 1580 };
+  assert.equal(centerShift({ top: 410, bottom: 810 }, band), 380);
+  assert.equal(centerShift({ top: 790, bottom: 1190 }, band), 0);
+  assert.equal(centerShift({ top: 410, bottom: 1700 }, band), 0);
+  // Jamais en dehors de la zone : le contenu centre y reste.
+  const dy = centerShift({ top: 410, bottom: 1010 }, band);
+  assert.ok(410 + dy >= band.top && 1010 + dy <= band.bottom);
+
+  // La page de rendu embarque ces fonctions et la place des sous-titres.
+  const html = buildFacelessHtml({ duration: 2, scenes: [{ start: 0, end: 2, layout: 'avatar', text: 'Salut', captionChunks: [] }] });
+  assert.match(html, /function centerShift/);
+  assert.match(html, /"capPos":"(top|bottom)"/);
+});

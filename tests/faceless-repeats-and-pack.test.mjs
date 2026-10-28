@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { findImmediateRepeats, keptIndices, normalizeCleaning, tokenizeTranscript } from '../server/utils/ownVoice.js';
+import { extendInstructionCuts, findImmediateRepeats, keptIndices, normalizeCleaning, tokenizeTranscript } from '../server/utils/ownVoice.js';
 import { mergePackEntries } from '../server/utils/facelessVideoJob.js';
 
 const say = (text, start = 0, step = 0.3) => tokenizeTranscript(text.split(' ').map((t, k) => ({ type: 'word', text: t, start: start + k * step, end: start + k * step + 0.25 })));
@@ -145,4 +145,24 @@ test('restoreSpokenText : la forme d origine des mots revient, les coupes entre 
   // Un vrai changement de texte (nombre de mots different) n est PAS masque.
   const different = { scenes: [{ say: 'Vingt-deux leads, 11 % d\'ouverture.' }, { say: 'C\'était pas le message du tout.' }] };
   assert.equal(spokenTextChanged(original, restoreSpokenText(different, original)), true);
+});
+
+test('findImmediateRepeats : une premiere prise coupee net ("les d-") avant la reprise est coupee avec son fragment', () => {
+  const words = say("des spas. N'oublie pas de t'abonner pour savoir tous les d- N'oublie pas de t'abonner pour savoir tous les autres trucs");
+  const cuts = findImmediateRepeats(words);
+  assert.equal(cuts.length, 1);
+  const kept = keptIndices(words.length, cuts).map((i) => words[i].text).join(' ');
+  assert.equal(kept, "des spas. N'oublie pas de t'abonner pour savoir tous les autres trucs");
+});
+
+test('extendInstructionCuts : l amorce d une consigne dite a voix haute part avec la consigne', () => {
+  const words = say("c'est un super chiffre. Et là, quand je dis Skinalyze, tu m'affiches Skinalyze en grand avec un emoji étoile. Sauf qu'en fait, c'était des robots.");
+  const start = words.findIndex((w) => w.text === "m'affiches");
+  const end = words.findIndex((w) => w.text === 'étoile.');
+  // Claude n a coupe que la fin de la consigne : l amorce "Et là, quand je dis Skinalyze, tu" resterait dans la video.
+  const cuts = extendInstructionCuts(words, [{ from: start, to: end, reason: 'consigne' }], [{ at: start, instruction: 'afficher Skinalyze' }]);
+  const kept = keptIndices(words.length, normalizeCleaning({ cuts }, words.length).cuts).map((i) => words[i].text).join(' ');
+  assert.equal(kept, "c'est un super chiffre. Sauf qu'en fait, c'était des robots.");
+  // Sans consigne associee, la coupe reste telle quelle (un faux depart ordinaire n emporte pas la phrase d avant).
+  assert.deepEqual(extendInstructionCuts(words, [{ from: start, to: end, reason: 'raté' }], []), [{ from: start, to: end, reason: 'raté' }]);
 });

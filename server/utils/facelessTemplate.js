@@ -408,10 +408,32 @@ ${capStyle}
 `;
 }
 
+// Centrage vertical du contenu d une scene SANS avatar, dans la zone libre entre les sous-titres et le bord
+// protege (interface des reseaux). Fonctions pures, aussi injectees telles quelles dans la page de rendu.
+/** Pur : zone libre { top, bottom } selon la place des sous-titres (`captionTop` = leur position, `capOn` = il y en a). */
+export function contentBand({ capOn, capPos, captionTop }) {
+  if (!capOn) return { top: 260, bottom: 1580 };
+  if (capPos === 'bottom') return { top: 260, bottom: Math.min(1580, captionTop - 50) };
+  return { top: 400, bottom: 1580 };
+}
+
+/**
+ * Pur : decalage vertical (px) qui centre un contenu { top, bottom } dans la zone libre ; 0 s il ne tient pas
+ * dans la zone, ou si le gain est negligeable (moins de 24 px : on ne bouge pas une scene deja bien placee).
+ */
+export function centerShift({ top, bottom }, band) {
+  const height = bottom - top;
+  if (!(height > 0) || height > band.bottom - band.top) return 0;
+  const dy = Math.round((band.top + band.bottom) / 2 - height / 2 - top);
+  return Math.abs(dy) < 24 ? 0 : dy;
+}
+
 // Execute dans la page. Aucune animation CSS : tout depend de t.
 function buildRuntime(fontFamilies, extraLoads = []) {
   return `
 (() => {
+  ${contentBand.toString()}
+  ${centerShift.toString()}
   const data = JSON.parse(document.getElementById('timeline').textContent);
   const scenes = [...document.querySelectorAll('.scene')];
   const caps = document.getElementById('captions');
@@ -689,6 +711,19 @@ function buildRuntime(fontFamilies, extraLoads = []) {
       const ref = document.getElementById(el.dataset.follow);
       if (ref) el.style.top = (ref.offsetTop + ref.offsetHeight + Number(el.dataset.gap || 0)) + 'px';
     });
+    // Une scene sans avatar dont le contenu est colle en haut est centree dans la zone libre (un seul decalage
+    // pour tout le contenu : les ecarts entre elements restent les memes ; cadres et fonds plein ecran ne bougent pas).
+    scenes.forEach((s, index) => {
+      const sc = data.scenes[index];
+      if (!sc || s.querySelector('.avatar')) return;
+      // Les formes decoratives du fond (etoiles, nuages...) restent a leur place : elles ne font pas partie du contenu.
+      const nodes = [...s.children].filter((el) => el.classList.contains('fx') && el.offsetHeight < 1500 && !el.querySelector('.paper-shape'));
+      if (!nodes.length) return;
+      const box = { top: Infinity, bottom: -Infinity };
+      nodes.forEach((el) => { box.top = Math.min(box.top, el.offsetTop); box.bottom = Math.max(box.bottom, el.offsetTop + el.offsetHeight); });
+      const dy = centerShift(box, contentBand({ capOn: data.capOn, capPos: data.capPos, captionTop: sc.captionTop }));
+      if (dy) nodes.forEach((el) => { el.style.top = (el.offsetTop + dy) + 'px'; });
+    });
     scenes.forEach((s) => { s.style.display = 'none'; });
     return true;
   });
@@ -734,6 +769,8 @@ export function buildFacelessHtml(timeline, options = {}) {
   const runtimeData = {
     motion: style.motion,
     capWrap: Boolean(engine?.capWrap),
+    capPos: top ? 'top' : 'bottom',
+    capOn: timeline.scenes.some((s) => (s.captionChunks || []).length > 0),
     scenes: timeline.scenes.map((s) => ({
       start: s.start,
       end: s.end,

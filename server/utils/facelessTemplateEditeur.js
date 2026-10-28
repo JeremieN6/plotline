@@ -134,6 +134,11 @@ function phrase(ctx, scene, text, { follow, gap = 70, y = TOP, size = 88, kwColo
 }
 
 /** Avatar dans une bulle ronde (anneau de couleur et lueur) ; la pose change en coupe. */
+/** Pur : la bulle d avatar existe-t-elle pour cette scene ? */
+function hasBubble(ctx, scene) {
+  return !ctx.noAvatar && !(scene.avatar || {}).hidden;
+}
+
 function bubble(ctx, scene, { follow, gap = -120, y = 0, size = 480, cx = 540, id } = {}) {
   if (ctx.noAvatar) return '';
   const settings = scene.avatar || {};
@@ -192,7 +197,8 @@ const LAYOUTS = {
     return panel(ctx, { id, tab: scene.tab || 'solution.js', inner: codeHtml(ctx, lines, schedule, activeLineIndex(lines, keywordOf(scene.text))) })
       // La bulle chevauche le bas du panneau, a droite, sans cacher le code (lignes courtes a gauche).
       + bubble(ctx, scene, { follow: id, id: bid, size: 420, cx: 790, gap: -40 })
-      + phrase(ctx, scene, scene.text || scene.title, { follow: bid, gap: 40, kwColor: ctx.style.palette.accent });
+      // Sans bulle (pas d avatar, ou avatar masque), la phrase se pose sous le panneau : sa reference n existerait pas.
+      + phrase(ctx, scene, scene.text || scene.title, { follow: hasBubble(ctx, scene) ? bid : id, gap: hasBubble(ctx, scene) ? 40 : 70, kwColor: ctx.style.palette.accent });
   },
   // Liste : un tableau dont chaque element se tape sur son mot ; la ligne dite est surlignee.
   list(scene, ctx) {

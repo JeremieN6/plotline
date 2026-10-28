@@ -16,7 +16,7 @@ import { saveFacelessMedia } from './facelessMedia.js';
 import { normalizeFacelessStyle, readyPackEntries } from './facelessStyle.js';
 import {
   OWN_VOICE_MAX_WORDS, buildCleaningSystemPrompt, buildCleaningUserPrompt, buildCutFilter, buildKeepSegments,
-  findImmediateRepeats, keptIndices, normalizeCleaning, numberedTranscript, remapDirectives, splitIntoScenes, tokenizeTranscript,
+  extendInstructionCuts, findImmediateRepeats, keptIndices, normalizeCleaning, numberedTranscript, remapDirectives, splitIntoScenes, tokenizeTranscript,
 } from './ownVoice.js';
 
 const execFileAsync = promisify(execFile);
@@ -154,8 +154,10 @@ export async function produceOwnVoiceVideo({ audio, idea = '', persona, captions
   if (words.length > OWN_VOICE_MAX_WORDS) throw new Error(`Enregistrement trop long (${words.length} mots, maximum ${OWN_VOICE_MAX_WORDS} : environ 4 minutes)`);
 
   onStep('nettoyage');
-  const claudeCleaning = await clean({ words, context: idea });
-  // Filet de securite en code : une phrase dite deux fois de suite et gardee par Claude est coupee (on garde la derniere prise).
+  const rawCleaning = await clean({ words, context: idea });
+  // Filet de securite en code : l amorce d une consigne dite a voix haute ne reste jamais dans la video
+  // (Claude n en coupe parfois que la fin), puis une phrase dite deux fois de suite est coupee (on garde la derniere prise).
+  const claudeCleaning = { ...rawCleaning, cuts: normalizeCleaning({ cuts: extendInstructionCuts(words, rawCleaning.cuts, rawCleaning.directives) }, words.length).cuts };
   const repeats = findImmediateRepeats(keptIndices(words.length, claudeCleaning.cuts).map((i) => words[i]));
   const cleaning = repeats.length
     ? { ...claudeCleaning, cuts: normalizeCleaning({ cuts: [...claudeCleaning.cuts, ...repeats] }, words.length).cuts }
