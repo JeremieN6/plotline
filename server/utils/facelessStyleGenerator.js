@@ -103,5 +103,6 @@ export async function generateFacelessStyle({ description, current = null, perso
   const style = normalizeFacelessStyle(merged);
   // La voix n est pas decidee par Claude : celle de la DA actuelle, sinon celle qui va au genre de la persona.
   style.voiceId = current?.voiceId || defaultVoiceFor(persona?.gender === 'MALE' ? 'MALE' : 'FEMALE');
+  style.cloneVoiceId = current?.cloneVoiceId || '';
   return style;
 }

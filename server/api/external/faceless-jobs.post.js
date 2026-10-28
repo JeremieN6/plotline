@@ -62,10 +62,10 @@ export default defineEventHandler(async (event) => {
   }
   const { persona, style } = loaded;
 
-  // Voix clonee du proprietaire par defaut ; repli sur la voix de la DA si le compte n est pas
-  // proprietaire ou si aucune voix clonee n existe.
+  // Voix clonee designee par la DA du profil (sinon l unique voix clonee du compte) ; repli sur la voix
+  // de la DA si le compte n est pas proprietaire, si la voix n existe pas ou si le choix est ambigu.
   const owner = await prisma.user.findUnique({ where: { id: profile.userId }, select: { email: true } });
-  const cloneVoice = await resolveOwnerCloneVoice({ ownerEmail: owner?.email });
+  const cloneVoice = await resolveOwnerCloneVoice({ ownerEmail: owner?.email, style, singleFallback: true, mode: process.env.ARTICLE_VIDEO_VOICE });
 
   const generatedContent = await createGeneratedContentRecord(prisma, {
     influencerId: persona.id,

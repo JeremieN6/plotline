@@ -125,6 +125,9 @@
             <UiField label="Voix par défaut">
               <UiSelect v-model="da.voiceId" :options="voiceOptions" />
             </UiField>
+            <UiField v-if="options.cloneVoices?.length" label="Voix clonée par défaut" hint="Utilisée pour les vidéos du calendrier et des articles.&#10;Aucune : la voix de synthèse ci-dessus.">
+              <UiSelect v-model="da.cloneVoiceId" :options="cloneVoiceOptions" />
+            </UiField>
           </div>
 
           <p class="mt-5 text-sm font-semibold text-ui-ink">Couleurs</p>
@@ -247,6 +250,10 @@ const maxAlternates = computed(() => options.value.maxAlternates || 2)
 
 const profileOptions = computed(() => [{ value: '', label: 'Choisir un profil…' }, ...profiles.value.map((profile) => ({ value: profile.id, label: profile.name }))])
 const voiceOptions = computed(() => (options.value.voices || []).map((voice) => ({ value: voice.id, label: voice.label })))
+const cloneVoiceOptions = computed(() => [
+  { value: '', label: 'Aucune (voix de synthèse)' },
+  ...(options.value.cloneVoices || []).map((voice) => ({ value: voice.id, label: voice.name })),
+])
 const decorOptions = [{ value: 'shapes', label: 'Oui (étoiles, cœurs, nuages…)' }, { value: 'none', label: 'Non' }]
 const captionPositions = [{ value: 'bottom', label: 'En bas' }, { value: 'top', label: 'En haut' }]
 
@@ -361,7 +368,7 @@ function createSlot() {
 }
 
 function applyPreset(preset) {
-  const keep = { avatar: da.value.avatar, voiceId: da.value.voiceId, avatarPrompt: da.value.avatarPrompt }
+  const keep = { avatar: da.value.avatar, voiceId: da.value.voiceId, cloneVoiceId: da.value.cloneVoiceId || '', avatarPrompt: da.value.avatarPrompt }
   drafts.value[slot.value] = { ...JSON.parse(JSON.stringify(preset.style)), ...keep }
 }
 

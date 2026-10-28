@@ -102,6 +102,9 @@ function normalizePack(raw) {
   };
 }
 
+/** Pur : forme d un identifiant de voix ElevenLabs. */
+export const CLONE_VOICE_ID = /^[A-Za-z0-9]{10,40}$/;
+
 /** Pur : id d une illustration (ecrit par le serveur). */
 export const ILLUSTRATION_ID = /^ill-[a-z0-9]{6,12}$/;
 
@@ -169,6 +172,9 @@ export function normalizeFacelessStyle(raw, { keepPack = false } = {}) {
     rules: rulesText(input.rules ?? base.rules ?? '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, MAX_RULES),
     avatarPrompt: text(input.avatarPrompt ?? base.avatarPrompt, MAX_AVATAR_PROMPT),
     voiceId: findFacelessVoice(String(input.voiceId || '')) ? String(input.voiceId) : DEFAULT_FACELESS_VOICE_ID,
+    // Voix CLONEE par defaut (id ElevenLabs), reservee au proprietaire : le format est verifie ici,
+    // l appartenance au compte ElevenLabs l est a l enregistrement et a l usage.
+    cloneVoiceId: CLONE_VOICE_ID.test(String(input.cloneVoiceId || '')) ? String(input.cloneVoiceId) : '',
     avatar: {
       kind: avatarIn.kind === 'pack' ? 'pack' : (avatarIn.kind === 'none' ? 'none' : 'svg'),
       svg: {

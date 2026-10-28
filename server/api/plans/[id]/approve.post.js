@@ -13,6 +13,7 @@ import { getStoryKeywords } from '../../../utils/personalityPlanning.js';
 import { readyIllustrations } from '../../../utils/facelessStyle.js';
 import { normalizeFacelessDuration } from '../../../utils/facelessPlanGenerator.js';
 import { resolveElevenLabsApiKey } from '../../../utils/elevenLabsTts.js';
+import { resolveOwnerCloneVoice } from '../../../utils/facelessVoiceChoice.js';
 
 let prismaClient;
 
@@ -63,6 +64,9 @@ async function generateForItem({ prisma, runtimeConfig, item, profile, withFaceR
         const loaded = await loadPersonaStyle(prisma, profile.id, userId);
         if (!loaded) throw new Error('Profil introuvable pour la video faceless');
         const { persona, style } = loaded;
+        // Voix clonee seulement si la DA du profil la designe (jamais « la premiere » du compte).
+        const owner = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+        const cloneVoice = await resolveOwnerCloneVoice({ ownerEmail: owner?.email, style });
         await runFacelessVideoJobAndWait({
           prisma,
           contentId: item.contentId,
@@ -70,7 +74,9 @@ async function generateForItem({ prisma, runtimeConfig, item, profile, withFaceR
           persona,
           targetSeconds: normalizeFacelessDuration(undefined),
           captions: style.captions.enabled,
-          voiceId: style.voiceId,
+          voiceId: cloneVoice?.voiceId || style.voiceId,
+          voiceMode: cloneVoice?.voiceMode || 'synth',
+          stability: cloneVoice?.stability,
           style,
           userId,
           illustrations: readyIllustrations(style),

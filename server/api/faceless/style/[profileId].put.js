@@ -2,18 +2,30 @@ import { requireFacelessPersona, summarizePack } from '../../../utils/facelessAp
 import { MAX_ALTERNATES, mergeClientStyle, removeAlternate, setAlternate } from '../../../utils/facelessStyle.js';
 import { saveProfileStyle } from '../../../utils/facelessStyleStore.js';
 import { AVATAR_PACK_CATALOG } from '../../../data/facelessAvatarCatalog.js';
+import { listCloneVoices } from '../../../utils/elevenLabsTts.js';
 
 // Enregistre une DA d une persona. `slot` : 0 = la DA principale (defaut), 1 et 2 = les DA en
 // option (`remove: true` retire une option). Les champs sont normalises ; le pack d avatars
 // et les illustrations (images, adresses) ne sont JAMAIS pris dans la requete : ils restent
 // ceux que le serveur a ecrits, et sont communs aux trois DA.
 export default defineEventHandler(async (event) => {
-  const { prisma, persona, style: existing } = await requireFacelessPersona(event, event.context?.params?.profileId);
+  const { prisma, user, persona, style: existing } = await requireFacelessPersona(event, event.context?.params?.profileId);
   const body = await readBody(event);
 
   const slot = body?.slot === undefined ? 0 : Number(body.slot);
   if (!Number.isInteger(slot) || slot < 0 || slot > MAX_ALTERNATES) {
     return sendError(event, createError({ statusCode: 400, statusMessage: 'rang de DA invalide' }));
+  }
+
+  // Voix clonee par defaut : reservee au proprietaire et limitee aux voix clonees de son compte ElevenLabs.
+  const wantedClone = body?.remove === true ? '' : String(body?.style?.cloneVoiceId || '').trim();
+  if (wantedClone) {
+    if (!user.isAdmin) {
+      return sendError(event, createError({ statusCode: 403, statusMessage: 'La voix clonée est réservée au propriétaire du compte' }));
+    }
+    if (!(await listCloneVoices()).some((voice) => voice.id === wantedClone)) {
+      return sendError(event, createError({ statusCode: 400, statusMessage: 'Voix clonée inconnue sur le compte ElevenLabs' }));
+    }
   }
 
   let next;

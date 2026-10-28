@@ -423,11 +423,20 @@ const avatarSummary = computed(() => {
   return `pack de ${count} images`
 })
 
+// Reprend la voix par defaut d une DA : celle de synthese, et la voix clonee qu elle designe (si le compte la voit).
+function applyStyleVoice(style) {
+  voiceId.value = style.voiceId || voiceId.value
+  if (style.cloneVoiceId && cloneVoiceOptions.value.some((option) => option.value === style.cloneVoiceId)) {
+    cloneVoiceId.value = style.cloneVoiceId
+    if (voiceMode.value === 'synth') voiceMode.value = 'clone'
+  }
+}
+
 // Changer de DA reprend sa voix et ses sous-titres par defaut.
 watch(styleSlot, () => {
   const style = selectedStyle.value
   if (!style) return
-  voiceId.value = style.voiceId || voiceId.value
+  applyStyleVoice(style)
   captions.value = style.captions.enabled
 })
 
@@ -441,7 +450,7 @@ async function loadStyleInfo(id) {
     const result = await $fetch(`/api/faceless/style/${id}`)
     if (profileId.value !== id) return
     styleInfo.value = result
-    voiceId.value = result.style.voiceId || voiceId.value
+    applyStyleVoice(result.style)
     captions.value = result.style.captions.enabled
   } catch {
     styleInfo.value = null

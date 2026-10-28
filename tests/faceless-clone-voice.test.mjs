@@ -137,11 +137,33 @@ test('voix par defaut des articles : clone du proprietaire, sinon voix de la DA'
   const listClones = async () => [{ id: 'clone1', name: 'Moi' }];
   const isAdmin = (email) => email === 'moi@x.fr';
 
-  const owner = await resolveOwnerCloneVoice({ ownerEmail: 'moi@x.fr', listClones, isAdmin, mode: '' });
+  // Articles : sans voix designee, l unique voix clonee du compte.
+  const owner = await resolveOwnerCloneVoice({ ownerEmail: 'moi@x.fr', singleFallback: true, listClones, isAdmin });
   assert.deepEqual(owner, { voiceMode: 'clone', voiceId: 'clone1', stability: V3_STABILITY.natural });
+  // Calendrier : jamais de repli, seule une voix designee par la DA compte.
+  assert.equal(await resolveOwnerCloneVoice({ ownerEmail: 'moi@x.fr', listClones, isAdmin }), null);
 
-  assert.equal(await resolveOwnerCloneVoice({ ownerEmail: 'autre@x.fr', listClones, isAdmin, mode: '' }), null);
-  assert.equal(await resolveOwnerCloneVoice({ ownerEmail: 'moi@x.fr', listClones: async () => [], isAdmin, mode: '' }), null);
-  assert.equal(await resolveOwnerCloneVoice({ ownerEmail: 'moi@x.fr', listClones, isAdmin, mode: 'synth' }), null);
-  assert.equal(await resolveOwnerCloneVoice({ ownerEmail: 'moi@x.fr', listClones: async () => { throw new Error('x'); }, isAdmin, mode: '' }), null);
+  assert.equal(await resolveOwnerCloneVoice({ ownerEmail: 'autre@x.fr', singleFallback: true, listClones, isAdmin }), null);
+  assert.equal(await resolveOwnerCloneVoice({ ownerEmail: 'moi@x.fr', singleFallback: true, listClones: async () => [], isAdmin }), null);
+  assert.equal(await resolveOwnerCloneVoice({ ownerEmail: 'moi@x.fr', singleFallback: true, listClones, isAdmin, mode: 'synth' }), null);
+  assert.equal(await resolveOwnerCloneVoice({ ownerEmail: 'moi@x.fr', singleFallback: true, listClones: async () => { throw new Error('x'); }, isAdmin }), null);
+});
+
+test('voix clonee designee par la DA : la bonne voix, jamais « la premiere » quand il y en a deux', async () => {
+  const { resolveOwnerCloneVoice } = await import('../server/utils/facelessVoiceChoice.js');
+  const { normalizeFacelessStyle } = await import('../server/utils/facelessStyle.js');
+  const listClones = async () => [{ id: 'JeremieVoice1', name: 'Jérémie' }, { id: 'AmandineVoice', name: 'Amandine' }];
+  const isAdmin = () => true;
+
+  const amandine = await resolveOwnerCloneVoice({ ownerEmail: 'a@x.fr', style: { cloneVoiceId: 'AmandineVoice' }, listClones, isAdmin });
+  assert.equal(amandine.voiceId, 'AmandineVoice');
+  // Deux voix et aucun choix : ambigu, donc la voix de synthese de la DA (null), meme pour les articles.
+  assert.equal(await resolveOwnerCloneVoice({ ownerEmail: 'a@x.fr', singleFallback: true, listClones, isAdmin }), null);
+  // Une voix designee mais disparue du compte : pas de voix au hasard.
+  assert.equal(await resolveOwnerCloneVoice({ ownerEmail: 'a@x.fr', style: { cloneVoiceId: 'Supprimee1234' }, singleFallback: true, listClones, isAdmin }), null);
+
+  // Dans la DA : un identifiant bien forme est garde, le reste devient « aucune ».
+  assert.equal(normalizeFacelessStyle({ cloneVoiceId: 'AmandineVoice' }).cloneVoiceId, 'AmandineVoice');
+  assert.equal(normalizeFacelessStyle({ cloneVoiceId: 'a b; drop table' }).cloneVoiceId, '');
+  assert.equal(normalizeFacelessStyle({}).cloneVoiceId, '');
 });
