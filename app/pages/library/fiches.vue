@@ -172,6 +172,9 @@ async function applySheet(sheet) {
       method: 'POST',
       body: { influencerId: profile.id, tempImagePath: prepared.tempImagePath },
     })
+    // La fiche porte maintenant le nom de la persona (sans cela elle resterait « Sans persona »). Un echec ici ne defait pas l application.
+    await $fetch(`/api/face-ref-sheets/${sheet.id}/link`, { method: 'POST', body: { profileId: profile.id } }).catch(() => null)
+    await refresh()
     pushToast({ title: 'Fiche appliquée', message: profile.name, tone: 'success' })
   } catch (err) {
     pushToast({ title: 'Application impossible', message: messageOf(err, 'Erreur inconnue'), tone: 'error', duration: 6000 })
