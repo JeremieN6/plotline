@@ -166,3 +166,27 @@ test('extendInstructionCuts : l amorce d une consigne dite a voix haute part ave
   // Sans consigne associee, la coupe reste telle quelle (un faux depart ordinaire n emporte pas la phrase d avant).
   assert.deepEqual(extendInstructionCuts(words, [{ from: start, to: end, reason: 'raté' }], []), [{ from: start, to: end, reason: 'raté' }]);
 });
+
+test('avatar fidele a la fiche : prompts photo realiste, sans style dessine, rendu enregistre dans la DA', async () => {
+  const { buildBaseAvatarPrompt, buildEntryPrompt } = await import('../server/utils/facelessAvatarPack.js');
+  const { normalizeFacelessStyle } = await import('../server/utils/facelessStyle.js');
+
+  const base = buildBaseAvatarPrompt('rendu 3D Pixar', { faithful: true });
+  assert.match(base, /photorealistic/i);
+  assert.match(base, /exact person/i);
+  assert.doesNotMatch(base, /Pixar|stylized avatar/i, 'le style dessine ne doit pas contredire la photo');
+  assert.match(base, /#00FF00/, 'le fond vert de detourage reste demande');
+
+  const entry = buildEntryPrompt({ prompt: 'smiling, waving', mode: 'head' }, 'rendu 3D Pixar', { faithful: true });
+  assert.match(entry, /SAME person/);
+  assert.match(entry, /smiling, waving/);
+  assert.doesNotMatch(entry, /Pixar/);
+
+  // Sans l option : prompts d avant, avec le style.
+  assert.match(buildBaseAvatarPrompt('rendu 3D Pixar'), /rendu 3D Pixar/);
+  assert.match(buildEntryPrompt({ prompt: 'x', mode: 'head' }, 'rendu 3D Pixar'), /rendu 3D Pixar/);
+
+  assert.equal(normalizeFacelessStyle({}).avatarRender, 'stylized');
+  assert.equal(normalizeFacelessStyle({ avatarRender: 'faithful' }).avatarRender, 'faithful');
+  assert.equal(normalizeFacelessStyle({ avatarRender: 'n importe quoi' }).avatarRender, 'stylized');
+});

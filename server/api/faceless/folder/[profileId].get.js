@@ -46,6 +46,7 @@ export default defineEventHandler(async (event) => {
       avatarKind: style.avatar.kind,
     },
     avatarPrompt: style.avatarPrompt,
+    avatarRender: style.avatarRender,
     pack,
     illustrations: (style.illustrations || []).map((item) => ({ ...item, kindLabel: ILLUSTRATION_KINDS[item.kind] })),
     illustrationKinds: Object.entries(ILLUSTRATION_KINDS).map(([value, label]) => ({ value, label })),

@@ -14,7 +14,17 @@ const CONCURRENCY = 2;
 const GREEN_RULES = 'Flat solid pure green background (#00FF00), no shadow, no floor, no text, no border, no other characters, no green anywhere on the character. Square image. Keep a clear margin around the subject: nothing held or used by the character is cropped by the edges.';
 
 /** Pur : consigne de l image de base (a partir de la fiche de reference de la persona). */
-export function buildBaseAvatarPrompt(avatarPrompt) {
+export function buildBaseAvatarPrompt(avatarPrompt, { faithful = false } = {}) {
+  if (faithful) {
+    return [
+      'The attached image is a character reference sheet showing SEVERAL views of the SAME real-looking person.',
+      'Produce ONE photorealistic photograph of that exact person: identical face, face shape, eyes, hair (color, length, style), skin tone, and every visible detail such as piercings, jewelry, freckles or tattoos.',
+      'Do NOT stylize, do NOT draw, no cartoon, no 3D render, no illustration, no beauty filter. Do NOT add anything that is not in the reference: no glasses, no hat, no extra accessories.',
+      'Natural soft studio light, sharp crisp hair edges (no motion blur, no haze around the hair), realistic skin texture.',
+      'Show the person from the head to the waist, facing the camera, friendly neutral expression, simple everyday outfit (the outfit of the reference when visible).',
+      GREEN_RULES,
+    ].join(' ');
+  }
   return [
     'Create ONE stylized avatar character based on the person in the attached reference image: keep the recognizable features that are VISIBLE in it (hair, face shape, skin tone, piercings, jewelry).',
     'Do NOT add anything that is not in the reference: no glasses, no hat, no extra accessories.',
@@ -25,7 +35,16 @@ export function buildBaseAvatarPrompt(avatarPrompt) {
 }
 
 /** Pur : consigne d une entree du pack (meme personnage que l image de reference jointe). */
-export function buildEntryPrompt(entry, avatarPrompt) {
+export function buildEntryPrompt(entry, avatarPrompt, { faithful = false } = {}) {
+  if (faithful) {
+    return [
+      'Photograph the SAME person as the attached reference image: identical face, hair, skin tone, outfit, accessories and colors.',
+      'Photorealistic, same light and same photo quality as the reference. Not a drawing, not 3D, no beauty filter, crisp hair edges.',
+      `Pose and expression: ${entry.prompt}.`,
+      entry.mode === 'head' ? 'Show only the head and neck, centered.' : 'Show the person from the head to the waist or lower, centered.',
+      GREEN_RULES,
+    ].join(' ');
+  }
   return [
     'Draw the SAME character as the attached reference image: identical face, hair, skin tone, outfit, accessories, colors and art style',
     `(${avatarPrompt || 'chibi sticker style, big head, flat colors, clean outline'}).`,
@@ -132,8 +151,8 @@ function imagePart(buffer, mimeType = 'image/png') {
  * Genere UNE image du pack. `deps` (injectables) : generate(prompt, parts) ->
  * { data (base64), mimeType }, save(buffer, { extension, contentType }) -> url.
  */
-export async function generatePackEntry({ baseBuffer, entry, avatarPrompt, deps }) {
-  const inline = await deps.generate(buildEntryPrompt(entry, avatarPrompt), [imagePart(baseBuffer)]);
+export async function generatePackEntry({ baseBuffer, entry, avatarPrompt, faithful = false, deps }) {
+  const inline = await deps.generate(buildEntryPrompt(entry, avatarPrompt, { faithful }), [imagePart(baseBuffer)]);
   const raw = Buffer.from(String(inline?.data || ''), 'base64');
   if (!raw.length) throw new Error('Le modele n a renvoye aucune image');
   const png = await keyAndTrimPng(raw);
@@ -141,8 +160,8 @@ export async function generatePackEntry({ baseBuffer, entry, avatarPrompt, deps 
 }
 
 /** Genere l image de base a partir de la fiche de reference. Renvoie l URL (fond vert conserve). */
-export async function generateBaseAvatar({ referenceBuffer, referenceMime, avatarPrompt, deps }) {
-  const inline = await deps.generate(buildBaseAvatarPrompt(avatarPrompt), [imagePart(referenceBuffer, referenceMime || 'image/jpeg')]);
+export async function generateBaseAvatar({ referenceBuffer, referenceMime, avatarPrompt, faithful = false, deps }) {
+  const inline = await deps.generate(buildBaseAvatarPrompt(avatarPrompt, { faithful }), [imagePart(referenceBuffer, referenceMime || 'image/jpeg')]);
   const raw = Buffer.from(String(inline?.data || ''), 'base64');
   if (!raw.length) throw new Error('Le modele n a renvoye aucune image');
   return deps.save(raw, { extension: inline?.mimeType === 'image/png' ? 'png' : 'jpg', contentType: inline?.mimeType || 'image/jpeg' });
@@ -156,7 +175,7 @@ export async function generateBaseAvatar({ referenceBuffer, referenceMime, avata
  * `store.update(mutator)` : modifie la DA stockee de facon sure.
  * Renvoie tout de suite { started, count }.
  */
-export async function startPackJob({ ids, store, baseUrl, avatarPrompt, deps, gender, costPerImageUsd }) {
+export async function startPackJob({ ids, store, baseUrl, avatarPrompt, faithful = false, deps, gender, costPerImageUsd }) {
   const list = validatePackIds(ids, gender);
 
   await store.update((style) => {
@@ -183,7 +202,7 @@ export async function startPackJob({ ids, store, baseUrl, avatarPrompt, deps, ge
           const entry = findCatalogEntry(id);
           let result;
           try {
-            result = { status: 'done', url: await generatePackEntry({ baseBuffer, entry, avatarPrompt, deps }), error: '' };
+            result = { status: 'done', url: await generatePackEntry({ baseBuffer, entry, avatarPrompt, faithful, deps }), error: '' };
           } catch (error) {
             console.warn(`[faceless-avatar] image ${id} en echec : ${error?.message || error}`);
             result = { status: 'failed', url: '', error: String(error?.message || error).slice(0, 200) };

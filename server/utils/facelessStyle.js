@@ -171,6 +171,8 @@ export function normalizeFacelessStyle(raw, { keepPack = false } = {}) {
     density: pick(input.density, FACELESS_DENSITIES, base.density),
     rules: rulesText(input.rules ?? base.rules ?? '').replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, MAX_RULES),
     avatarPrompt: text(input.avatarPrompt ?? base.avatarPrompt, MAX_AVATAR_PROMPT),
+    // Rendu des images du pack : « stylized » (le style ci-dessus) ou « faithful » = la meme personne que sa fiche de reference, en photo realiste.
+    avatarRender: input.avatarRender === 'faithful' ? 'faithful' : 'stylized',
     voiceId: findFacelessVoice(String(input.voiceId || '')) ? String(input.voiceId) : DEFAULT_FACELESS_VOICE_ID,
     // Voix CLONEE par defaut (id ElevenLabs), reservee au proprietaire : le format est verifie ici,
     // l appartenance au compte ElevenLabs l est a l enregistrement et a l usage.

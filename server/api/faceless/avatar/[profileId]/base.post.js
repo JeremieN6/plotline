@@ -27,6 +27,7 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event);
   const mode = body?.mode === 'upload' ? 'upload' : 'generate';
   const avatarPrompt = String(body?.avatarPrompt || style.avatarPrompt || '').trim().slice(0, 400);
+  const avatarRender = body?.avatarRender === undefined ? style.avatarRender : (body.avatarRender === 'faithful' ? 'faithful' : 'stylized');
   if (body?.model && !findImageModel(String(body.model))) {
     return sendError(event, createError({ statusCode: 400, statusMessage: 'Modele d image inconnu' }));
   }
@@ -63,6 +64,7 @@ export default defineEventHandler(async (event) => {
         referenceBuffer: reference.buffer,
         referenceMime: reference.mimeType,
         avatarPrompt,
+        faithful: avatarRender === 'faithful',
         deps: {
           generate: (prompt, parts) => generateImageFromGeminiWithSafetyFallback(prompt, parts, { model }),
           save: (buffer, type) => saveFacelessMedia(buffer, { folder: facelessAssetFolder(persona.id, 'avatar'), ...type }),
@@ -82,6 +84,7 @@ export default defineEventHandler(async (event) => {
     current.avatar.pack = pack;
     if (styleDescribed) current.avatarPrompt = styleDescribed;
     else if (avatarPrompt) current.avatarPrompt = avatarPrompt;
+    current.avatarRender = avatarRender;
     return current;
   });
 

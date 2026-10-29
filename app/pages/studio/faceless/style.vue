@@ -371,7 +371,7 @@ function createSlot() {
 }
 
 function applyPreset(preset) {
-  const keep = { avatar: da.value.avatar, voiceId: da.value.voiceId, cloneVoiceId: da.value.cloneVoiceId || '', avatarPrompt: da.value.avatarPrompt }
+  const keep = { avatar: da.value.avatar, voiceId: da.value.voiceId, cloneVoiceId: da.value.cloneVoiceId || '', avatarPrompt: da.value.avatarPrompt, avatarRender: da.value.avatarRender }
   drafts.value[slot.value] = { ...JSON.parse(JSON.stringify(preset.style)), ...keep }
 }
 

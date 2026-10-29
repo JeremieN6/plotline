@@ -33,9 +33,10 @@ export default defineEventHandler(async (event) => {
   }
 
   // Le style graphique de l avatar se modifie depuis le dossier : il est enregistre avant de generer.
-  const avatarPrompt = String(body?.avatarPrompt ?? style.avatarPrompt ?? '').replace(/s+/g, ' ').trim().slice(0, 400);
-  if (avatarPrompt !== style.avatarPrompt) {
-    await updateProfileStyle(prisma, persona.id, user.id, (current) => ({ ...current, avatarPrompt }));
+  const avatarPrompt = String(body?.avatarPrompt ?? style.avatarPrompt ?? '').replace(/\s+/g, ' ').trim().slice(0, 400);
+  const avatarRender = body?.avatarRender === undefined ? style.avatarRender : (body.avatarRender === 'faithful' ? 'faithful' : 'stylized');
+  if (avatarPrompt !== style.avatarPrompt || avatarRender !== style.avatarRender) {
+    await updateProfileStyle(prisma, persona.id, user.id, (current) => ({ ...current, avatarPrompt, avatarRender }));
   }
 
   const baseUrl = style.avatar.pack?.baseUrl;
@@ -48,6 +49,7 @@ export default defineEventHandler(async (event) => {
       ids,
       baseUrl,
       avatarPrompt,
+      faithful: avatarRender === 'faithful',
       gender: persona.gender,
       costPerImageUsd,
       store: { update: (mutator) => updateProfileStyle(prisma, persona.id, user.id, mutator) },
