@@ -27,8 +27,9 @@ export const FACELESS_DURATIONS = [20, 30, 45, 60];
 // Debit observe d une voix ElevenLabs en francais : ~2,6 mots/s.
 const WORDS_PER_SECOND = 2.6;
 const MAX_SCENES = 14;
-// Plafond de caracteres dits par video (quota ElevenLabs, ~1 min 30 de voix).
-export const MAX_SPOKEN_CHARS = 1400;
+// Plafond de caracteres dits par video (credits ElevenLabs, ~2 min 15 de voix ; une requete v3 en accepte 5 000).
+// 1 400 coupait en silence la derniere scene d'une video de ~1 minute (l'appel a l'action).
+export const MAX_SPOKEN_CHARS = 3000;
 
 export function normalizeFacelessDuration(value) {
   const n = Number.parseInt(String(value ?? ''), 10);
