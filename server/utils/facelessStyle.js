@@ -155,6 +155,8 @@ export function normalizeFacelessStyle(raw, { keepPack = false } = {}) {
     preset,
     // Modele visuel : celui demande, sinon celui du preset (les DA enregistrees avant les modeles sont "classic").
     template: pick(input.template, FACELESS_TEMPLATES, base.template || 'classic'),
+    // Cadre d ecran d ordinateur autour du contenu (modele Dashboard seulement) : jamais actif sans choix explicite.
+    screenFrame: input.screenFrame === true,
     palette,
     font: pick(input.font, FACELESS_FONTS, base.font),
     card: pick(input.card, FACELESS_CARD_STYLES, base.card),

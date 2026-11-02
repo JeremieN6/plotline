@@ -137,13 +137,16 @@ function cardFx(ctx, { inner, at = 0, id, follow, y = TOP, gap = GAP, cls = '', 
   return ctx.fx(html, { x, y, w, enter, fixedEnter: true, at, rot: 0, boil: 0, z: 3, id, follow, gap });
 }
 
+/** Avatar de la scene en cours quand le cadre d ecran est actif : il se pose DEVANT la fenetre, pas dedans. */
+let frontHtml = '';
+
 /** Avatar illustre, en bas a droite, DEVANT les cartes : un buste monte du bas de l ecran, une tete a le bas fondu. */
 function avatar(ctx, scene) {
   if (ctx.noAvatar) return '';
   const settings = scene.avatar || {};
   if (settings.hidden) return '';
   const beats = scene.beats?.length ? scene.beats : [{ at: 0, expr: settings.expr || 'neutral' }];
-  return beats.map((beat, i) => {
+  const html = beats.map((beat, i) => {
     const until = i + 1 < beats.length ? beats[i + 1].at : undefined;
     const visual = ctx.avatarVisual(beat, settings);
     const flip = beat.flip ?? settings.flip ?? false;
@@ -155,6 +158,9 @@ function avatar(ctx, scene) {
       enter: i === 0 ? 'rise-soft' : 'instant', fixedEnter: true, at: i === 0 ? 0.15 : beat.at, until, rot: 0, boil: 0, z: 6,
     });
   }).join('');
+  if (!ctx.style.screenFrame) return html;
+  frontHtml += html;
+  return '';
 }
 
 /** Courbe animee : aire (clip de gauche a droite), trait (se dessine), points (apparaissent), halo sur le dernier. */
@@ -276,10 +282,57 @@ export function dashboardBg(scene) {
   return scene.bg === 'dark' ? 'dark' : 'main';
 }
 
+/**
+ * Cadre d ecran d ordinateur (option « screenFrame » de la DA) : le contenu de la scene est dessine tel quel, puis mis a
+ * l echelle dans une fenetre (barre a trois pastilles, adresse). La zone du contenu cadree par la fenetre depend de la mise
+ * en page : [haut, bas] en unites de la scene, marge comprise. Un avatar se pose devant la fenetre.
+ */
+export const SCREEN_FRAME = { x: 70, w: 940, bar: 92, minScreen: 520 };
+export const SCREEN_SCALE = SCREEN_FRAME.w / 1080;
+export const FRAME_BOX = {
+  hook: [380, 1440], title: [380, 1220], list: [380, 1340], word: [560, 1180], stat: [380, 1450],
+  avatar: [480, 1120], photo: [380, 1500], logo: [640, 1020],
+};
+
+/** Pur : geometrie de la fenetre d une mise en page : hauteur d ecran, hauteur totale, haut de la fenetre. */
+export function screenFrameGeometry(kind) {
+  const [top, bottom] = FRAME_BOX[kind] || FRAME_BOX.avatar;
+  const boxH = Math.max(bottom - top, Math.round(SCREEN_FRAME.minScreen / SCREEN_SCALE));
+  const screenH = Math.round(boxH * SCREEN_SCALE);
+  const height = SCREEN_FRAME.bar + screenH;
+  return { boxTop: top, boxH, screenH, height, y: Math.max(330, Math.round(1000 - height / 2)) };
+}
+
+function screenWindow(ctx, inner, kind, dark) {
+  const g = screenFrameGeometry(kind);
+  const html = `<div class="win${dark ? ' dk' : ''}" style="height:${g.height}px">`
+    + '<div class="wbar"><span class="wdot r"></span><span class="wdot y"></span><span class="wdot g"></span><span class="waddr">tableau-de-bord</span></div>'
+    + `<div class="wscreen" style="height:${g.screenH}px"><div class="wscale" style="top:${-Math.round(g.boxTop * SCREEN_SCALE)}px">${inner}</div></div></div>`;
+  return `<div class="wback${dark ? ' dk' : ''}"></div>`
+    + ctx.fx(html, { x: SCREEN_FRAME.x, y: g.y, w: SCREEN_FRAME.w, h: g.height, enter: 'window', fixedEnter: true, z: 2, boil: 0, data: { exit: 'shrink' } });
+}
+
+/** Une seule image dans l ecran : l illustration du dossier remplit tout l ecran, la legende en pastille au bas. */
+function screenShot(scene, ctx) {
+  const g = screenFrameGeometry('photo');
+  const img = ctx.fx(`<img class="shot" alt="" src="${ctx.illustrationUrl(scene.image)}">`, { x: 0, y: g.boxTop, w: 1080, h: g.boxH, enter: 'fade-in', fixedEnter: true, rot: 0, boil: 0, z: 1 });
+  const cap = scene.text
+    ? ctx.fx(`<div class="shot-cap">${esc(noMarks(scene.text))}</div>`, { x: 60, y: g.boxTop + g.boxH - 190, w: 960, enter: 'card', fixedEnter: true, at: 0.4, rot: 0, boil: 0, z: 3 })
+    : '';
+  return img + cap;
+}
+
 /** HTML d une scene pour le modele Dashboard. */
 export function dashboardScene(scene, ctx) {
-  const layout = LAYOUTS[scene.layout] || LAYOUTS.avatar;
-  return layout(scene, ctx);
+  const kind = LAYOUTS[scene.layout] ? scene.layout : 'avatar';
+  const layout = LAYOUTS[kind];
+  if (!ctx.style.screenFrame) return layout(scene, ctx);
+  frontHtml = '';
+  const shot = kind === 'photo' && ctx.illustrations[scene.image];
+  const html = screenWindow(ctx, shot ? screenShot(scene, ctx) : layout(scene, ctx), shot ? 'photo' : kind, scene.bg === 'dark');
+  const front = frontHtml;
+  frontHtml = '';
+  return html + front;
 }
 
 /** Feuille de style du modele Dashboard. */
@@ -344,6 +397,17 @@ body{background:${p.background};font-family:"${fontFamily}",${emojiFonts},sans-s
 .avatar.flip{transform:scaleX(-1)}
 .avatar-img{width:100%;height:100%;object-fit:contain;object-position:center bottom;display:block}
 .m-head .avatar-img{-webkit-mask-image:linear-gradient(to bottom,#000 72%,transparent 98%);mask-image:linear-gradient(to bottom,#000 72%,transparent 98%)}
+.wback{position:absolute;inset:0;background:linear-gradient(135deg,${accentRgba(a, 0.18)},${accentRgba(a, 0.05)}),#e8eaf2}
+.wback.dk{background:radial-gradient(circle at 50% 38%,${accentRgba(a, 0.34)},transparent 62%),${p.dark}}
+.win{border-radius:34px;overflow:hidden;background:#fff;box-shadow:0 30px 70px rgba(15,23,42,.30)}
+.wbar{height:${SCREEN_FRAME.bar}px;display:flex;align-items:center;gap:16px;padding:0 40px;background:#f4f5f8;border-bottom:2px solid var(--line)}
+.wdot{width:24px;height:24px;border-radius:50%;flex:0 0 auto}.wdot.r{background:#ff5f57}.wdot.y{background:#febc2e}.wdot.g{background:#28c840}
+.waddr{margin-left:30px;flex:1;height:52px;border-radius:26px;background:#fff;border:2px solid var(--line);display:flex;align-items:center;padding:0 34px;font-size:30px;color:var(--gray)}
+.wscreen{position:relative;overflow:hidden;background:${p.background}}
+.wscale{position:absolute;left:0;width:1080px;height:1920px;transform:scale(${SCREEN_SCALE});transform-origin:0 0}
+.win.dk{background:#16213b;box-shadow:0 0 0 2px #2c3b5e,0 30px 70px rgba(0,0,0,.55)}.win.dk .wbar{background:#162036;border-color:#243049}.win.dk .waddr{background:#0f172a;border-color:#243049;color:#94a3b8}.win.dk .wscreen{background:#141f38}
+.shot{display:block;width:100%;height:100%;object-fit:cover}
+.shot-cap{display:inline-block;background:#fff;border-radius:999px;padding:20px 44px;font-size:46px;font-weight:600;letter-spacing:-.02em;box-shadow:0 12px 34px rgba(15,23,42,.22)}
 #captions{position:absolute;left:70px;width:860px;top:190px;z-index:20;display:none;justify-content:center;white-space:nowrap}
 #captions .cap-in{display:inline-flex;align-items:center;gap:16px;background:#fff;border-radius:999px;padding:18px 44px;box-shadow:0 10px 30px rgba(15,23,42,.14)}
 #captions .cap-in::before{content:"";width:18px;height:18px;border-radius:50%;background:var(--accent);flex:0 0 auto}

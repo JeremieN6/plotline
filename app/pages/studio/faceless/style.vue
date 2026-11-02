@@ -100,6 +100,13 @@
         <section class="rounded-ui-card border border-ui-line bg-ui-surface p-5">
           <h2 class="text-lg font-semibold text-ui-ink">2. Les réglages</h2>
           <UiAlert v-if="templateNote" tone="info" :title="templateNote.title" class="mt-3">{{ templateNote.text }}</UiAlert>
+          <div v-if="da.template === 'dashboard'" class="mt-3">
+            <UiSwitch v-model="da.screenFrame" label="Cadre d’écran d’ordinateur" />
+            <p class="mt-1 text-xs text-ui-ink-muted">
+              Chaque scène est présentée dans une fenêtre de navigateur. Un avatar se place devant. Sur une scène « Photo », l’image remplit tout l’écran.
+              Choisis « Fond sombre » pour une scène : la fenêtre passe en version sombre.
+            </p>
+          </div>
           <div class="mt-4 grid gap-4 sm:grid-cols-2">
             <UiField label="Nom de la DA">
               <UiInput v-model="da.name" maxlength="60" />
@@ -371,7 +378,7 @@ function createSlot() {
 }
 
 function applyPreset(preset) {
-  const keep = { avatar: da.value.avatar, voiceId: da.value.voiceId, cloneVoiceId: da.value.cloneVoiceId || '', avatarPrompt: da.value.avatarPrompt, avatarRender: da.value.avatarRender }
+  const keep = { avatar: da.value.avatar, voiceId: da.value.voiceId, cloneVoiceId: da.value.cloneVoiceId || '', avatarPrompt: da.value.avatarPrompt, avatarRender: da.value.avatarRender, screenFrame: Boolean(da.value.screenFrame) }
   drafts.value[slot.value] = { ...JSON.parse(JSON.stringify(preset.style)), ...keep }
 }
 
