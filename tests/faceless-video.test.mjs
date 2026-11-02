@@ -397,3 +397,49 @@ test('centrage vertical : zone libre selon la place des sous-titres, contenu cen
   assert.match(html, /function centerShift/);
   assert.match(html, /"capPos":"(top|bottom)"/);
 });
+
+test('elements de liste : repere introuvable place entre ses voisins, reperes identiques sur deux occurrences', async () => {
+  const { resolveItemCues } = await import('../server/utils/facelessTimeline.js');
+  const w = (text, start) => ({ text, start, end: start + 0.4 });
+  const words = [w('Office', 2), w('manager', 2.5), w('outil', 6.8), w('dédié', 7.4)];
+  const out = resolveItemCues([{ text: 'a', at: 'office' }, { text: 'b', at: 'outil' }, { text: 'c', at: 'Long-courrier' }], words);
+  assert.equal(out[0].at, 2);
+  assert.equal(out[1].at, 6.8);
+  assert.ok(out[2].at > 6.8 && out[2].at <= 7.8, `attendu apres le 2e element, obtenu ${out[2].at}`);
+
+  const mails = [w('Email', 1), w('un', 1.4), w('email', 3), w('deux', 3.4), w('enfin', 5), w('email', 5.4)];
+  const seq = resolveItemCues([{ at: 'Email' }, { at: 'email' }, { at: 'enfin' }], mails);
+  assert.deepEqual(seq.map((i) => i.at), [1, 3, 5]);
+
+  // un 2e element sans repere (0) ne s affiche pas des le debut
+  const zero = resolveItemCues([{ at: 'office' }, { at: 0 }], words);
+  assert.ok(zero[1].at > 2);
+  // nombres : inchanges
+  assert.deepEqual(resolveItemCues([{ at: 1.5 }, { at: 3 }], words).map((i) => i.at), [1.5, 3]);
+});
+
+test('dashboard : cadre d ecran optionnel, sans effet quand il est desactive', async () => {
+  const { buildFacelessHtml } = await import('../server/utils/facelessTemplate.js');
+  const { defaultFacelessStyle, normalizeFacelessStyle } = await import('../server/utils/facelessStyle.js');
+  const { layoutFacelessTimelineFromTrack } = await import('../server/utils/facelessTimeline.js');
+  const { screenFrameGeometry } = await import('../server/utils/facelessTemplateDashboard.js');
+  const words = [{ text: 'Salut', start: 0, end: 0.4 }, { text: 'toi', start: 0.4, end: 0.8 }];
+  const plan = { title: 't', caption: '', hashtags: [], theme: 'x', scenes: [
+    { say: 'Salut', layout: 'hook', text: 'Salut', title: '', word: '', items: [], sfx: [], captions: false, bg: 'main', avatar: { mode: 'head', pose: 'idle', beats: [{ at: 0, expr: 'neutral', flip: false }] } },
+    { say: 'toi', layout: 'word', text: '', title: '', word: 'toi', items: [], sfx: [], captions: false, bg: 'dark', avatar: { mode: 'head', pose: 'idle', beats: [{ at: 0, expr: 'neutral', flip: false }] } },
+  ] };
+  const tl = layoutFacelessTimelineFromTrack(plan, { path: 'x', duration: 0.8, words }, { leadIn: 0, gap: 0, tail: 0.2, visualLead: 0 });
+  const off = buildFacelessHtml(tl, { style: defaultFacelessStyle('dashboard-indigo', 'MALE') });
+  const on = buildFacelessHtml(tl, { style: { ...defaultFacelessStyle('dashboard-indigo', 'MALE'), screenFrame: true } });
+  assert.ok(!off.includes('class="win'), 'sans cadre : aucune fenetre');
+  assert.equal((on.match(/class="win/g) || []).length, 2, 'une fenetre par scene');
+  assert.ok(on.includes('class="win dk"'), 'scene sombre : fenetre sombre');
+  // le reglage ne passe que par une valeur vraie explicite
+  assert.equal(normalizeFacelessStyle({ screenFrame: 'oui' }).screenFrame, false);
+  assert.equal(normalizeFacelessStyle({ screenFrame: true }).screenFrame, true);
+  // la fenetre ne sort jamais de la zone libre
+  for (const kind of ['hook', 'title', 'list', 'word', 'stat', 'avatar', 'photo', 'logo']) {
+    const g = screenFrameGeometry(kind);
+    assert.ok(g.y >= 330 && g.y + g.height <= 1720, `${kind} : ${g.y}+${g.height}`);
+  }
+});

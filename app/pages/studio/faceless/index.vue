@@ -218,8 +218,12 @@
           <StudioFacelessPlanEditor
             v-if="plan"
             v-model="plan"
+            :template="selectedStyle?.template || 'classic'"
             :clone="voiceMode === 'clone'"
             :audio-tags="options?.audioTags || []"
+            :profile-id="profileId"
+            :illustrations="styleInfo?.illustrations || []"
+            @imported="onIllustrationImported"
             :revising="revising"
             :generating="polling"
             @revise="revisePlan"
@@ -454,6 +458,18 @@ async function loadStyleInfo(id) {
     captions.value = result.style.captions.enabled
   } catch {
     styleInfo.value = null
+  }
+}
+
+// Une image importee depuis l'editeur du plan rejoint la liste du dossier sans tout recharger.
+function onIllustrationImported(entry) {
+  if (!styleInfo.value || !entry?.id) return
+  const list = styleInfo.value.illustrations || []
+  if (list.some((item) => item.id === entry.id)) return
+  styleInfo.value = {
+    ...styleInfo.value,
+    illustrationCount: list.length + 1,
+    illustrations: [...list, { id: entry.id, label: entry.label, kind: entry.kind, url: entry.url }],
   }
 }
 

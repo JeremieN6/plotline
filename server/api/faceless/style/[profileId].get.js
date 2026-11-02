@@ -11,6 +11,8 @@ export default defineEventHandler(async (event) => {
     gender: persona.gender,
     hasFaceRef: Boolean(persona.faceRefPath),
     illustrationCount: (style.illustrations || []).length,
+    // Images du dossier (pour choisir celle d'une scene Photo dans l'editeur du plan).
+    illustrations: (style.illustrations || []).map((item) => ({ id: item.id, label: item.label, kind: item.kind, url: item.url })),
     stored,
     style: { ...style, avatar: { ...style.avatar, pack: null } },
     pack: summarizePack(style, AVATAR_PACK_CATALOG),

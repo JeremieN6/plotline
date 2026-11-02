@@ -4,8 +4,8 @@
       <p class="font-ui-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-ui-accent">Plan à valider</p>
       <h3 class="mt-1 text-lg font-semibold text-ui-ink">Relis, corrige, puis lance la vidéo</h3>
       <p class="mt-1 text-xs leading-5 text-ui-ink-muted">
-        Rien n’est encore dépensé en voix ni en montage. Tout est modifiable : ce que dit chaque scène, ce qui s’affiche, le fond,
-        l’ordre. Tu peux aussi demander à Claude de réviser tout le plan. Ce que tu as écrit à la main est conservé.
+        Rien n’est encore dépensé en voix ni en montage. Pour chaque scène, choisis « Ce qui s’affiche » : les champs proposés dessous
+        sont exactement ceux que cette mise en page lit. Tu peux aussi demander à Claude de réviser tout le plan. Ce que tu as écrit à la main est conservé.
       </p>
     </header>
 
@@ -56,32 +56,96 @@
           <UiTextarea :id="`plan-say-${index}`" v-model="scene.say" :rows="2" :maxlength="400" @focus="focused = index" />
         </UiField>
 
-        <div class="grid gap-3 sm:grid-cols-3">
-          <UiField label="Ce qui s’affiche" :for-id="`plan-layout-${index}`">
+        <div class="grid gap-3 sm:grid-cols-2">
+          <UiField label="Ce qui s’affiche" :for-id="`plan-layout-${index}`" hint="Change les champs proposés juste dessous.">
             <UiSelect :id="`plan-layout-${index}`" v-model="scene.layout" :options="layoutOptions(scene)" />
-          </UiField>
-          <UiField label="Texte à l’écran" :for-id="`plan-text-${index}`" hint="**mot** = mis en avant">
-            <UiInput :id="`plan-text-${index}`" v-model="scene.text" maxlength="110" />
           </UiField>
           <UiField label="Fond" :for-id="`plan-bg-${index}`">
             <UiSelect :id="`plan-bg-${index}`" v-model="scene.bg" :options="BG_OPTIONS" />
           </UiField>
         </div>
 
-        <details class="text-xs text-ui-ink-2">
-          <summary class="cursor-pointer font-semibold text-ui-ink-2">Autres champs de cette scène</summary>
-          <div class="mt-2 grid gap-3 sm:grid-cols-3">
-            <UiField label="Titre" :for-id="`plan-stitle-${index}`">
-              <UiInput :id="`plan-stitle-${index}`" v-model="scene.title" maxlength="40" />
-            </UiField>
-            <UiField label="Mot en grand" :for-id="`plan-word-${index}`">
-              <UiInput :id="`plan-word-${index}`" v-model="scene.word" maxlength="14" />
-            </UiField>
-            <UiField label="Emoji" :for-id="`plan-emoji-${index}`">
-              <UiInput :id="`plan-emoji-${index}`" v-model="scene.emoji" maxlength="8" />
-            </UiField>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <UiField
+            v-for="field in specOf(scene).fields"
+            :key="field.key"
+            :label="field.required ? `${field.label} (obligatoire)` : field.label"
+            :for-id="`plan-${field.key}-${index}`"
+            :hint="field.hint || ''"
+          >
+            <UiInput :id="`plan-${field.key}-${index}`" v-model="scene[field.key]" :maxlength="field.max" />
+          </UiField>
+          <UiField v-if="specOf(scene).tab" :label="specOf(scene).tab.label" :for-id="`plan-tab-${index}`" hint="Facultatif.">
+            <UiInput :id="`plan-tab-${index}`" v-model="scene.tab" :maxlength="specOf(scene).tab.max" />
+          </UiField>
+          <UiField v-if="specOf(scene).jp" :label="specOf(scene).jp.label" :for-id="`plan-jp-${index}`" hint="Facultatif, rien n’est dessiné si c’est vide.">
+            <UiInput :id="`plan-jp-${index}`" v-model="scene.jp" :maxlength="specOf(scene).jp.max" />
+          </UiField>
+          <UiField v-if="specOf(scene).emoji" label="Emoji (autocollant)" :for-id="`plan-emoji-${index}`" hint="Facultatif.">
+            <UiInput :id="`plan-emoji-${index}`" v-model="scene.emoji" maxlength="8" />
+          </UiField>
+        </div>
+
+        <UiField v-if="specOf(scene).code" :label="specOf(scene).code.label" :for-id="`plan-code-${index}`" hint="Facultatif : sans code, une ligne est déduite du mot clé.">
+          <UiTextarea :id="`plan-code-${index}`" :model-value="(scene.code || []).join('\n')" :rows="3" @update:model-value="setCode(scene, $event)" />
+        </UiField>
+
+        <div v-if="specOf(scene).items" class="space-y-2">
+          <p class="text-xs font-semibold text-ui-ink">
+            Éléments de la liste
+            <span class="font-normal text-ui-ink-muted">({{ (scene.items || []).length }} sur {{ specOf(scene).items.max }}, 2 au minimum)</span>
+          </p>
+          <div v-for="(item, itemIndex) in scene.items || []" :key="itemIndex" class="grid gap-2 rounded-ui-ctl border border-ui-line-soft bg-ui-subtle p-2 sm:grid-cols-[4rem_1fr_1fr_auto]">
+            <UiInput v-model="item.emoji" maxlength="8" placeholder="Emoji" :aria-label="`Emoji de l’élément ${itemIndex + 1}`" />
+            <UiInput v-model="item.text" maxlength="40" placeholder="Texte de l’élément" :aria-label="`Texte de l’élément ${itemIndex + 1}`" />
+            <UiInput v-model="item.at" maxlength="40" placeholder="Mot dit qui le déclenche" :aria-label="`Mot qui déclenche l’élément ${itemIndex + 1}`" />
+            <UiButton variant="ghost" size="sm" @click="removeRow(scene.items, itemIndex)">Retirer</UiButton>
+            <p v-if="!cueIsSpoken(scene.say, item.at)" class="text-xs text-ui-danger-ink sm:col-span-4">
+              Ce mot n’est pas dans ce qui est dit : l’élément apparaîtra au milieu de la phrase. Mets un mot de « Ce que dit la voix ».
+            </p>
+            <div v-if="specOf(scene).items.subLabel || specOf(scene).items.tone" class="grid gap-2 sm:col-span-4 sm:grid-cols-2">
+              <UiInput v-if="specOf(scene).items.subLabel" v-model="item.sub" maxlength="40" :placeholder="specOf(scene).items.subLabel" :aria-label="`${specOf(scene).items.subLabel}, élément ${itemIndex + 1}`" />
+              <UiSelect v-if="specOf(scene).items.tone" v-model="item.tone" :options="TONE_OPTIONS" :aria-label="`Jugement de l’élément ${itemIndex + 1}`" />
+            </div>
           </div>
-        </details>
+          <UiButton variant="secondary" size="sm" :disabled="(scene.items || []).length >= specOf(scene).items.max" @click="addItem(scene)">+ Élément</UiButton>
+        </div>
+
+        <div v-if="specOf(scene).compare" class="space-y-2">
+          <p class="text-xs font-semibold text-ui-ink">
+            Comparaisons
+            <span class="font-normal text-ui-ink-muted">(facultatif, uniquement des chiffres présents dans ce qui est dit)</span>
+          </p>
+          <div v-for="(row, rowIndex) in scene.compare || []" :key="rowIndex" class="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+            <UiInput v-model="row.label" maxlength="24" placeholder="Libellé (ex. Avant)" :aria-label="`Libellé de la comparaison ${rowIndex + 1}`" />
+            <UiInput v-model="row.value" maxlength="16" placeholder="Valeur (ex. 12 %)" :aria-label="`Valeur de la comparaison ${rowIndex + 1}`" />
+            <UiButton variant="ghost" size="sm" @click="removeRow(scene.compare, rowIndex)">Retirer</UiButton>
+          </div>
+          <UiButton variant="secondary" size="sm" :disabled="(scene.compare || []).length >= specOf(scene).compare.max" @click="addRow(scene, 'compare', specOf(scene).compare.max)">+ Comparaison</UiButton>
+        </div>
+
+        <div v-if="specOf(scene).series" class="space-y-2">
+          <p class="text-xs font-semibold text-ui-ink">
+            Points de la courbe
+            <span class="font-normal text-ui-ink-muted">(facultatif, 2 au minimum pour tracer une courbe)</span>
+          </p>
+          <div v-for="(row, rowIndex) in scene.series || []" :key="rowIndex" class="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+            <UiInput v-model="row.label" maxlength="10" placeholder="Repère (ex. Jan)" :aria-label="`Repère du point ${rowIndex + 1}`" />
+            <UiInput v-model="row.value" maxlength="16" placeholder="Valeur" :aria-label="`Valeur du point ${rowIndex + 1}`" />
+            <UiButton variant="ghost" size="sm" @click="removeRow(scene.series, rowIndex)">Retirer</UiButton>
+          </div>
+          <UiButton variant="secondary" size="sm" :disabled="(scene.series || []).length >= specOf(scene).series.max" @click="addRow(scene, 'series', specOf(scene).series.max)">+ Point</UiButton>
+        </div>
+
+        <StudioFacelessImagePicker
+          v-if="specOf(scene).kind === 'photo'"
+          v-model="scene.image"
+          :profile-id="profileId"
+          :illustrations="illustrations"
+          :scene-index="index"
+          @imported="emit('imported', $event)"
+        />
+        <UiAlert v-if="problemOf(scene)" tone="info">{{ problemOf(scene) }}</UiAlert>
       </li>
     </ol>
 
@@ -125,14 +189,21 @@
 // Plan de montage d une video faceless, ecrit par Claude puis relu par le createur AVANT toute depense
 // de voix ou de rendu. Le createur a le dernier mot : chaque scene est editable, et le plan peut etre
 // revise en langage naturel. Les autres champs (elements de liste, poses d avatar, bruitages) sont gardes tels quels.
+import { LAYOUT_LABELS, sceneFieldsFor, incompleteReason, cueIsSpoken } from '~/utils/facelessSceneFields'
+
 const props = defineProps({
   modelValue: { type: Object, required: true },
+  // Modele visuel de la DA choisie : il decide quels champs une mise en page lit vraiment.
+  template: { type: String, default: 'classic' },
+  // Persona dont le dossier fournit les images d'une scene Photo ; sans persona, pas de selecteur.
+  profileId: { type: String, default: '' },
+  illustrations: { type: Array, default: () => [] },
   clone: { type: Boolean, default: false },
   audioTags: { type: Array, default: () => [] },
   revising: { type: Boolean, default: false },
   generating: { type: Boolean, default: false },
 })
-const emit = defineEmits(['update:modelValue', 'revise', 'generate', 'discard'])
+const emit = defineEmits(['update:modelValue', 'revise', 'generate', 'discard', 'imported'])
 
 const plan = computed(() => props.modelValue)
 const instruction = ref('')
@@ -141,16 +212,28 @@ const focused = ref(0)
 const WORDS_PER_SECOND = 2.6
 const TAG = /\[[^\]\n]{1,24}\]/g
 
-const LAYOUT_LABELS = {
-  hook: 'Accroche (gros titre)',
-  title: 'Phrase / chapitre',
-  list: 'Liste',
-  avatar: 'Avatar / appel à l’action',
-  word: 'Mot géant',
-  stat: 'Chiffre clé',
-  photo: 'Photo',
-  logo: 'Logo',
-  label: 'Étiquette de produit',
+const TONE_OPTIONS = [
+  { value: '', label: 'Sans jugement' },
+  { value: 'good', label: 'Bon signe' },
+  { value: 'avoid', label: 'À éviter' },
+  { value: 'watch', label: 'À surveiller / à venir' },
+]
+const specOf = (scene) => sceneFieldsFor(scene.layout, props.template)
+const problemOf = (scene) => incompleteReason(scene, props.template)
+
+function setCode(scene, text) {
+  scene.code = String(text || '').split('\n').slice(0, 6).map((line) => line.slice(0, 32))
+}
+function removeRow(rows, index) {
+  rows.splice(index, 1)
+}
+function addRow(scene, key, max) {
+  if (!Array.isArray(scene[key])) scene[key] = []
+  if (scene[key].length < max) scene[key].push({ label: '', value: '' })
+}
+function addItem(scene) {
+  if (!Array.isArray(scene.items)) scene.items = []
+  scene.items.push({ emoji: '', text: '', sub: '', tone: '', at: '' })
 }
 const BG_OPTIONS = [
   { value: 'main', label: 'Fond principal' },

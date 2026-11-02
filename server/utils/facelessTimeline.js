@@ -96,6 +96,51 @@ function resolveList(list, words) {
   return (Array.isArray(list) ? list : []).map((item) => ({ ...item, at: resolveCue(item?.at, words) }));
 }
 
+/**
+ * Pur : instants d apparition des elements d une liste, relatifs au debut de la voix de la scene.
+ * Chaque repere est cherche APRES celui de l element precedent (deux elements dont le repere est le meme mot,
+ * « Email 1 » puis « Email 2 », tombent sur deux occurrences differentes, pas sur la meme). Un repere introuvable
+ * dans ce qui est dit n affiche PLUS l element des le debut de la scene : il est place entre l element precedent et le
+ * suivant (ou la fin de la phrase). Un element apres le premier dont le repere vaut 0 est traite de la meme facon.
+ */
+export function resolveItemCues(list, words = []) {
+  const items = Array.isArray(list) ? list : [];
+  const spoken = words.map((w) => normalizeWord(w.text));
+  const last = words[words.length - 1];
+  const end = last ? Number(last.end ?? last.start) : 0;
+
+  let cursor = 0;
+  const times = items.map((item, index) => {
+    const cue = item?.at;
+    if (typeof cue === 'number' && Number.isFinite(cue)) return cue > 0 || index === 0 ? Math.max(0, cue) : null;
+    const wanted = String(cue ?? '').split(/\s+/).map(normalizeWord).filter(Boolean);
+    if (!wanted.length) return index === 0 ? 0 : null;
+    const find = (from) => {
+      for (let i = from; i + wanted.length <= spoken.length; i += 1) {
+        if (wanted.every((w, k) => spoken[i + k] === w)) return i;
+      }
+      return -1;
+    };
+    let at = find(cursor);
+    if (at < 0) at = find(0);
+    if (at < 0) return null;
+    cursor = at + wanted.length;
+    return Number(words[at].start);
+  });
+
+  return items.map((item, index) => {
+    if (times[index] != null) return { ...item, at: times[index] };
+    let before = 0;
+    for (let i = index - 1; i >= 0; i -= 1) if (times[i] != null) { before = times[i]; break; }
+    let after = null;
+    for (let i = index + 1; i < times.length; i += 1) if (times[i] != null) { after = times[i]; break; }
+    const upper = after ?? Math.max(before, end);
+    const at = index === 0 ? 0 : Math.max(before, before + (upper - before) / 2);
+    times[index] = at;
+    return { ...item, at };
+  });
+}
+
 /** Pur : nombre de mots (separes par des espaces) d un texte dit. */
 export function countSpokenTokens(text) {
   return stripAudioTags(text).split(/\s+/).filter(Boolean).length;
@@ -132,7 +177,7 @@ function placeScenes(spec, segments, voice, opts) {
       voiceStart,
       voiceEnd,
       words: absolute,
-      items: resolveList(scene.items, words),
+      items: resolveItemCues(scene.items, words),
       beats: resolveList(scene.avatar?.beats, words),
       sfx: resolveList(scene.sfx, words),
     };
