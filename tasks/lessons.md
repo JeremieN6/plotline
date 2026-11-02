@@ -437,3 +437,8 @@ En ajoutant l avatar « aucun », j ai fait ramener « pack » a « aucun » qua
 - **Erreur** : en Nuxt 4, `useFetch` renvoie des donnees NON profondes (`deep: false`). Modifier une idee en place (texte, date, interrupteur) mettait a jour le champ mais pas les compteurs, la barre d'action ni la bande des jours calcules a partir de la liste ; la page etait fausse sans aucune erreur. Meme piege : `pending` repasse a vrai pendant `refresh()`, donc un `v-if="pending"` demonte toute la page (et le suivi en cours) a chaque rafraichissement.
 - **Regle** : une page qui edite ses donnees en place declare `deep: true` ; le squelette de chargement ne s'affiche que sans donnees (`pending && !data`). A verifier en modifiant un champ puis en regardant ce qui en depend.
 - Meme jour : `Intl.DateTimeFormat` en mois abrege (`short`) renvoie deja le point (« nov. ») ; ne pas en ajouter un second dans la phrase.
+
+## 2026-11-03 : un etat restaure sans ce dont il depend
+
+- **Erreur** : la sauvegarde du plan faceless dans le navigateur gardait le plan mais pas la DA choisie pour la video. Au retour sur la page, le chargement du profil remettait la DA principale : l editeur proposait les champs d un autre modele visuel (plus de pastille, de libelle ni de comparaisons) et la video serait partie avec la mauvaise DA. Teste seulement sur le plan seul, jamais sur un profil a plusieurs DA.
+- **Regle** : quand on sauvegarde et restaure un etat, lister ce dont son AFFICHAGE et son USAGE dependent (ici la DA de la video) et le sauvegarder avec lui ; le restaurer APRES ce qui le reinitialise (ici le chargement du profil). Verifier la restauration sur un cas avec options, pas seulement sur le cas par defaut.

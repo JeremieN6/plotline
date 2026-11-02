@@ -46,10 +46,12 @@ export function parseSavedPlan(raw, { profileId = '', now = Date.now() } = {}) {
   if (!Number.isFinite(saved.savedAt) || now - saved.savedAt > PLAN_MAX_AGE_MS) return null
   const plan = saved.plan
   if (!plan || typeof plan !== 'object' || !Array.isArray(plan.scenes) || !plan.scenes.length) return null
-  return { plan, savedAt: saved.savedAt }
+  // DA choisie pour la video (0 = principale, 1 et 2 = options) : sans elle, le plan reviendrait sur la principale.
+  const slot = Number(saved.styleSlot)
+  return { plan, savedAt: saved.savedAt, styleSlot: Number.isInteger(slot) && slot >= 0 && slot <= 2 ? slot : 0 }
 }
 
 /** Pur : sérialise le plan en cours pour le navigateur. */
-export function serializePlan(plan, { profileId = '', now = Date.now() } = {}) {
-  return JSON.stringify({ profileId: String(profileId || ''), savedAt: now, plan })
+export function serializePlan(plan, { profileId = '', styleSlot = 0, now = Date.now() } = {}) {
+  return JSON.stringify({ profileId: String(profileId || ''), styleSlot: Number(styleSlot) || 0, savedAt: now, plan })
 }

@@ -219,7 +219,7 @@
           <UiAlert v-if="planError" title="Le plan n’a pas pu être préparé">{{ planError }}</UiAlert>
 
           <UiAlert v-if="plan && planRestoredAt" tone="info" title="Plan retrouvé">
-            Ce plan était enregistré dans ce navigateur ({{ planRestoredLabel }}). Rien n'a été redemandé à Claude. « Abandonner ce plan » pour repartir de zéro.
+            Ce plan était enregistré dans ce navigateur ({{ planRestoredLabel }}), avec la DA « {{ selectedStyle?.name || 'principale' }} ». Rien n'a été redemandé à Claude. « Abandonner ce plan » pour repartir de zéro.
           </UiAlert>
 
           <StudioFacelessPlanEditor
@@ -465,6 +465,7 @@ async function loadStyleInfo(id) {
     styleInfo.value = result
     applyStyleVoice(result.style)
     captions.value = result.style.captions.enabled
+    applyPendingStyleSlot()
   } catch {
     styleInfo.value = null
   }
@@ -613,6 +614,15 @@ const planRestoredLabel = computed(() => {
   return hours < 48 ? `il y a ${hours} h` : `il y a ${Math.round(hours / 24)} jours`
 })
 
+// DA du plan retrouve : appliquee une fois les DA du profil chargees (le chargement remet la principale).
+let pendingStyleSlot = null
+function applyPendingStyleSlot() {
+  if (pendingStyleSlot === null || !styleInfo.value?.style) return
+  const slot = pendingStyleSlot
+  pendingStyleSlot = null
+  if (slot === 0 || (styleInfo.value.style.alternates || []).length >= slot) styleSlot.value = slot
+}
+
 function restoreSavedPlan() {
   if (plan.value || !import.meta.client) return
   try {
@@ -620,24 +630,28 @@ function restoreSavedPlan() {
     if (!saved) return
     plan.value = saved.plan
     planRestoredAt.value = saved.savedAt
+    pendingStyleSlot = saved.styleSlot
+    applyPendingStyleSlot()
   } catch {
     // stockage indisponible : le plan reste simplement en memoire
   }
 }
 
 let planSaveTimer = null
-watch(plan, (value) => {
+function schedulePlanSave() {
   if (!import.meta.client) return
   clearTimeout(planSaveTimer)
   planSaveTimer = setTimeout(() => {
     try {
-      if (value) localStorage.setItem(PLAN_STORAGE_KEY, serializePlan(value, { profileId: profileId.value || '' }))
+      if (plan.value) localStorage.setItem(PLAN_STORAGE_KEY, serializePlan(plan.value, { profileId: profileId.value || '', styleSlot: Number(styleSlot.value) || 0 }))
       else localStorage.removeItem(PLAN_STORAGE_KEY)
     } catch {
       // stockage plein ou bloque : sans consequence
     }
   }, 500)
-}, { deep: true })
+}
+watch(plan, schedulePlanSave, { deep: true })
+watch(styleSlot, () => { if (plan.value && pendingStyleSlot === null) schedulePlanSave() })
 
 async function makePlan() {
   planError.value = ''

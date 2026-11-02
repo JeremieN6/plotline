@@ -77,3 +77,16 @@ test('mot geant : libelle modifiable selon le modele, et une phrase de 22 caract
   assert.equal(scene.title, 'Mon libellé');
   assert.equal(scene.layout, 'word');
 });
+
+test('plan sauvegarde : la DA choisie pour la video (option) est gardee', async () => {
+  const { starterPlan, parseSavedPlan, serializePlan } = await import('../app/utils/facelessStarterPlan.js');
+  const now = 1_000_000_000_000;
+  const raw = serializePlan(starterPlan(), { profileId: 'p1', styleSlot: 1, now });
+  assert.equal(parseSavedPlan(raw, { profileId: 'p1', now })?.styleSlot, 1);
+  // ancien format (sans DA) : principale
+  const old = JSON.stringify({ profileId: 'p1', savedAt: now, plan: starterPlan() });
+  assert.equal(parseSavedPlan(old, { profileId: 'p1', now })?.styleSlot, 0);
+  // valeur hors bornes : principale
+  const bad = JSON.stringify({ profileId: 'p1', savedAt: now, styleSlot: 7, plan: starterPlan() });
+  assert.equal(parseSavedPlan(bad, { profileId: 'p1', now })?.styleSlot, 0);
+});
