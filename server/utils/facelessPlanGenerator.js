@@ -280,7 +280,7 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
     text: clipMultiline(withoutEmoji(stripDashPunctuation(raw?.text)), 110),
     title: clip(withoutEmoji(stripDashPunctuation(raw?.title)), 40),
     number: clip(raw?.number, 3),
-    word: clip(withoutEmoji(stripDashPunctuation(raw?.word)), 14),
+    word: clip(withoutEmoji(stripDashPunctuation(raw?.word)), 30),
     // Onglet de la fenetre (modele Fenetre) : un nom de fichier ou d adresse, ignore ailleurs.
     tab: clip(String(raw?.tab ?? '').replace(/[^\p{L}\p{N}._\-/ ]/gu, ''), 24),
     // Caractere(s) japonais du modele Hanko (katakana de l accroche, tampon du mot cle) : 4 au plus, jamais d autre alphabet.

@@ -700,10 +700,13 @@ function buildRuntime(fontFamilies, extraLoads = []) {
     document.querySelectorAll('[data-fit-w], [data-fit-h]').forEach((el) => {
       const maxW = +el.dataset.fitW || Infinity, maxH = +el.dataset.fitH || Infinity;
       let size = parseFloat(getComputedStyle(el).fontSize);
+      // Un espacement serre en pixels (-12px) ne suit pas la taille : reduit avec elle, il collerait les mots entre eux.
+      const baseSize = size, baseSpacing = parseFloat(getComputedStyle(el).letterSpacing);
       // scrollWidth : un mot trop long deborde d un bloc de largeur fixe sans en changer offsetWidth.
       for (let i = 0; i < 60 && (Math.max(el.offsetWidth, el.scrollWidth) > maxW || el.offsetHeight > maxH) && size > 20; i += 1) {
         size *= 0.95;
         el.style.fontSize = size.toFixed(1) + 'px';
+        if (Number.isFinite(baseSpacing) && baseSpacing !== 0) el.style.letterSpacing = (baseSpacing * size / baseSize).toFixed(2) + 'px';
       }
     });
     // Puis les elements "follow" se posent sous leur reference, une fois les tailles ajustees.

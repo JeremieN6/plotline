@@ -71,7 +71,7 @@
             :key="field.key"
             :label="field.required ? `${field.label} (obligatoire)` : field.label"
             :for-id="`plan-${field.key}-${index}`"
-            :hint="field.hint || ''"
+            :hint="fieldHint(field, scene)"
           >
             <UiInput :id="`plan-${field.key}-${index}`" v-model="scene[field.key]" :maxlength="field.max" />
           </UiField>
@@ -219,6 +219,8 @@ const TONE_OPTIONS = [
   { value: 'avoid', label: 'À éviter' },
   { value: 'watch', label: 'À surveiller / à venir' },
 ]
+// Ce que dit l'aide d'un champ, plus le nombre de caracteres utilises : au-dela de la limite, le texte est coupe.
+const fieldHint = (field, scene) => [field.hint, `${String(scene[field.key] || '').length} / ${field.max} caractères`].filter(Boolean).join(' ')
 const specOf = (scene) => sceneFieldsFor(scene.layout, props.template)
 const problemOf = (scene) => incompleteReason(scene, props.template)
 

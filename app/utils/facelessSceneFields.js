@@ -23,7 +23,7 @@ const BASE = {
   ],
   list: [{ key: 'title', label: 'Titre de la liste', max: 40 }],
   avatar: [{ key: 'text', label: 'Phrase affichée', max: 110, hint: '**mot** = mis en avant' }],
-  word: [{ key: 'word', label: 'Le mot en grand', required: true, max: 14 }],
+  word: [{ key: 'word', label: 'Le mot en grand', required: true, max: 30, hint: 'Un mot ou un court groupe de mots : plus il est long, plus il s’affiche petit.' }],
   stat: [
     { key: 'word', label: 'Le chiffre', required: true, max: 14, hint: 'Ex. 70 %' },
     { key: 'text', label: 'Phrase de contexte', max: 110 },
@@ -32,6 +32,22 @@ const BASE = {
   logo: [{ key: 'word', label: 'Nom à afficher', required: true, max: 14 }],
   label: [{ key: 'text', label: 'Verdict (ligne du bas)', max: 110 }],
 }
+
+// Champs en plus du mot geant, selon le modele (libelle au-dessus, phrase de soutien...).
+const WORD_EXTRAS = {
+  dashboard: [{ key: 'title', label: 'Libellé au-dessus du mot', max: 40, hint: 'Vide : « À retenir ».' }],
+  herbier: [
+    { key: 'title', label: 'Libellé au-dessus du mot', max: 40, hint: 'Vide : « Ingrédient ».' },
+    { key: 'text', label: 'Nom latin, tapé sous le mot', max: 110 },
+  ],
+  hanko: [{ key: 'title', label: 'Libellé au-dessus du mot', max: 40 }],
+  journal: [
+    { key: 'title', label: 'Libellé au-dessus du mot', max: 40 },
+    { key: 'text', label: 'Phrase de soutien sous le mot', max: 110 },
+  ],
+  cahier: [{ key: 'text', label: 'Phrase d’introduction au-dessus du mot', max: 110 }],
+  editeur: [{ key: 'text', label: 'Phrase sous le terminal', max: 110 }],
+};
 
 // Modeles dont l accroche et le chapitre affichent le champ « title » comme petit libelle AU-DESSUS de la phrase.
 const KICKER_TEMPLATES = ['herbier', 'journal', 'fenetre', 'dashboard']
@@ -93,6 +109,8 @@ export function sceneFieldsFor(layout, template = 'classic') {
       { key: 'text', label: 'Phrase affichée', max: 110, hint: '**mot** = mis en avant' },
     ]
   }
+
+  if (kind === 'word') fields = [...fields, ...(WORD_EXTRAS[template] || []).map((field) => ({ ...field }))]
 
   const tabOk = (TAB_LAYOUTS[template] || []).includes(kind)
   const items = kind === 'list' || kind === 'label'

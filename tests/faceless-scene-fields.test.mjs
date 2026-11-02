@@ -63,3 +63,17 @@ test('trame de depart et sauvegarde du plan en cours', async () => {
   assert.equal(parseSavedPlan('pas du json', { profileId: 'p1', now }), null);
   assert.equal(parseSavedPlan(JSON.stringify({ profileId: '', savedAt: now, plan: { scenes: [] } }), { profileId: '', now }), null);
 });
+
+test('mot geant : libelle modifiable selon le modele, et une phrase de 22 caracteres n est plus coupee', async () => {
+  assert.deepEqual(sceneFieldsFor('word', 'dashboard').fields.map((f) => f.key), ['word', 'title']);
+  assert.deepEqual(sceneFieldsFor('word', 'journal').fields.map((f) => f.key), ['word', 'title', 'text']);
+  assert.deepEqual(sceneFieldsFor('word', 'cahier').fields.map((f) => f.key), ['word', 'text']);
+  assert.deepEqual(sceneFieldsFor('word', 'classic').fields.map((f) => f.key), ['word']);
+  assert.equal(sceneFieldsFor('word', 'dashboard').fields[0].max, 30);
+
+  const { sanitizeFacelessScene } = await import('../server/utils/facelessPlanGenerator.js');
+  const scene = sanitizeFacelessScene({ say: 'Reformuler la promesse change tout.', layout: 'word', word: 'Reformuler la promesse', title: 'Mon libellé' });
+  assert.equal(scene.word, 'Reformuler la promesse');
+  assert.equal(scene.title, 'Mon libellé');
+  assert.equal(scene.layout, 'word');
+});
