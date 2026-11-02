@@ -45,3 +45,21 @@ test('scene photo : sans image, un avertissement ; avec image, aucun', () => {
   assert.match(incompleteReason({ layout: 'photo', image: '' }, 'dashboard'), /image/i);
   assert.equal(incompleteReason({ layout: 'photo', image: 'ill_1' }, 'dashboard'), '');
 });
+
+test('trame de depart et sauvegarde du plan en cours', async () => {
+  const { starterPlan, blankScene, parseSavedPlan, serializePlan, PLAN_MAX_AGE_MS } = await import('../app/utils/facelessStarterPlan.js');
+  const plan = starterPlan();
+  assert.equal(plan.scenes.length, 5);
+  assert.deepEqual(plan.scenes.map((s) => s.layout), ['hook', 'avatar', 'avatar', 'avatar', 'avatar']);
+  assert.ok(plan.scenes.every((s) => s.say === ''), 'aucun texte dit : une scene vide est ignoree au montage');
+  // deux scenes vides ne partagent jamais le meme objet (modifier l une ne touche pas l autre)
+  assert.notEqual(blankScene().avatar, blankScene().avatar);
+
+  const now = 1_000_000_000_000;
+  const raw = serializePlan(plan, { profileId: 'p1', now });
+  assert.equal(parseSavedPlan(raw, { profileId: 'p1', now: now + 60_000 })?.plan.scenes.length, 5);
+  assert.equal(parseSavedPlan(raw, { profileId: 'autre', now }), null, 'autre persona : pas de restauration');
+  assert.equal(parseSavedPlan(raw, { profileId: 'p1', now: now + PLAN_MAX_AGE_MS + 1 }), null, 'plan perime');
+  assert.equal(parseSavedPlan('pas du json', { profileId: 'p1', now }), null);
+  assert.equal(parseSavedPlan(JSON.stringify({ profileId: '', savedAt: now, plan: { scenes: [] } }), { profileId: '', now }), null);
+});

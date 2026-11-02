@@ -190,6 +190,7 @@
 // de voix ou de rendu. Le createur a le dernier mot : chaque scene est editable, et le plan peut etre
 // revise en langage naturel. Les autres champs (elements de liste, poses d avatar, bruitages) sont gardes tels quels.
 import { LAYOUT_LABELS, sceneFieldsFor, incompleteReason, cueIsSpoken } from '~/utils/facelessSceneFields'
+import { blankScene } from '~/utils/facelessStarterPlan'
 
 const props = defineProps({
   modelValue: { type: Object, required: true },
@@ -257,9 +258,6 @@ function layoutOptions(scene) {
   return keys.map((value) => ({ value, label: LAYOUT_LABELS[value] }))
 }
 
-function blankScene() {
-  return { say: '', layout: 'title', text: '', title: '', word: '', emoji: '', bg: 'main', captions: true, items: [], sfx: [], avatar: { mode: 'head', pose: 'idle', beats: [{ at: 0, expr: 'neutral', flip: false }] } }
-}
 function move(index, delta) {
   const scenes = plan.value.scenes
   const target = index + delta

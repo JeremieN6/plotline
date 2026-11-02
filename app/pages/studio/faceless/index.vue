@@ -206,6 +206,9 @@
             <UiButton v-if="voiceMode !== 'own' && !plan" variant="secondary" :loading="planLoading" :disabled="!canGenerate" @click="makePlan">
               {{ planLoading ? 'Claude écrit le plan…' : 'Préparer le plan à relire' }}
             </UiButton>
+            <UiButton v-if="voiceMode !== 'own' && !plan" variant="ghost" :disabled="polling || planLoading" @click="startBlankPlan">
+              Écrire le plan moi-même
+            </UiButton>
             <p class="text-xs text-ui-ink-muted">
               {{ voiceMode === 'own' ? 'Environ 2 à 4 minutes (transcription, nettoyage, montage).' : 'Environ 1 à 3 minutes.' }}
               Tu peux quitter la page : la vidéo arrive dans Mes créations.
@@ -214,6 +217,10 @@
 
           <UiAlert v-if="errorMessage" title="La génération n’a pas pu démarrer">{{ errorMessage }}</UiAlert>
           <UiAlert v-if="planError" title="Le plan n’a pas pu être préparé">{{ planError }}</UiAlert>
+
+          <UiAlert v-if="plan && planRestoredAt" tone="info" title="Plan retrouvé">
+            Ce plan était enregistré dans ce navigateur ({{ planRestoredLabel }}). Rien n'a été redemandé à Claude. « Abandonner ce plan » pour repartir de zéro.
+          </UiAlert>
 
           <StudioFacelessPlanEditor
             v-if="plan"
@@ -228,7 +235,7 @@
             :generating="polling"
             @revise="revisePlan"
             @generate="generate"
-            @discard="plan = null"
+            @discard="discardPlan"
           />
         </div>
       </UiCard>
@@ -339,6 +346,8 @@ const cloneVoiceId = ref('')
 const voiceStability = ref('natural')
 const direction = ref('')
 const plan = ref(null)
+// Plan retrouve dans le navigateur (date de sauvegarde) : 0 = plan neuf.
+const planRestoredAt = ref(0)
 const planLoading = ref(false)
 const revising = ref(false)
 const planError = ref('')
@@ -584,11 +593,58 @@ function commonBody() {
   }
 }
 
+// ---- Plan en cours : trame a ecrire soi-meme, et sauvegarde dans le navigateur (aucun appel a Claude).
+function startBlankPlan() {
+  planError.value = ''
+  planRestoredAt.value = 0
+  plan.value = starterPlan()
+}
+
+function discardPlan() {
+  planRestoredAt.value = 0
+  plan.value = null
+}
+
+const planRestoredLabel = computed(() => {
+  const minutes = Math.max(0, Math.round((now.value - planRestoredAt.value) / 60000))
+  if (minutes < 1) return 'à l’instant'
+  if (minutes < 60) return `il y a ${minutes} min`
+  const hours = Math.round(minutes / 60)
+  return hours < 48 ? `il y a ${hours} h` : `il y a ${Math.round(hours / 24)} jours`
+})
+
+function restoreSavedPlan() {
+  if (plan.value || !import.meta.client) return
+  try {
+    const saved = parseSavedPlan(localStorage.getItem(PLAN_STORAGE_KEY), { profileId: profileId.value || '' })
+    if (!saved) return
+    plan.value = saved.plan
+    planRestoredAt.value = saved.savedAt
+  } catch {
+    // stockage indisponible : le plan reste simplement en memoire
+  }
+}
+
+let planSaveTimer = null
+watch(plan, (value) => {
+  if (!import.meta.client) return
+  clearTimeout(planSaveTimer)
+  planSaveTimer = setTimeout(() => {
+    try {
+      if (value) localStorage.setItem(PLAN_STORAGE_KEY, serializePlan(value, { profileId: profileId.value || '' }))
+      else localStorage.removeItem(PLAN_STORAGE_KEY)
+    } catch {
+      // stockage plein ou bloque : sans consequence
+    }
+  }, 500)
+}, { deep: true })
+
 async function makePlan() {
   planError.value = ''
   planLoading.value = true
   try {
     const result = await $fetch('/api/faceless/plan', { method: 'POST', body: commonBody() })
+    planRestoredAt.value = 0
     plan.value = result.plan
   } catch (error) {
     planError.value = error?.data?.statusMessage || error?.statusMessage || 'Impossible de préparer le plan.'
@@ -677,7 +733,11 @@ if (contentId.value) {
 
 onMounted(() => {
   if (contentId.value && info.value?.status === 'PROCESSING') startPolling(contentId.value, 'retouch')
+  restoreSavedPlan()
 })
+
+// Persona choisie apres l'ouverture : son plan en cours (s'il y en a un) revient.
+watch(profileId, () => { restoreSavedPlan() })
 
 onBeforeUnmount(stopPolling)
 </script>
