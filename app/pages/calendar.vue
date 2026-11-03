@@ -100,7 +100,7 @@
                     type="button"
                     class="rounded-ui-tag px-1.5 py-1 text-[11px] font-semibold text-ui-accent opacity-0 transition-opacity hover:bg-ui-accent-soft focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ui-accent/20 group-hover:opacity-100"
                     :aria-label="`Ajouter un contenu le ${dayLabel(cell.date)}`"
-                    @click.stop="openPlanDrawer({ start: cell.date })"
+                    @click.stop="openChoose(cell.date)"
                   >+ Ajouter</button>
                 </div>
 
@@ -219,7 +219,60 @@
             </button>
           </li>
         </ul>
-        <UiButton v-if="dayCell.isFuture && selectedInfluencer" @click="openPlanDrawer({ start: dayCell.date })">+ Ajouter un contenu ce jour</UiButton>
+        <UiButton v-if="dayCell.isFuture && selectedInfluencer" @click="openChoose(dayCell.date)">+ Ajouter un contenu ce jour</UiButton>
+      </div>
+
+      <!-- Choix pour un jour : préparer un plan, ou ajouter des contenus déjà créés -->
+      <div v-else-if="drawerMode === 'choose'" class="space-y-3">
+        <button
+          type="button"
+          class="flex w-full flex-col items-start gap-1 rounded-ui-card border border-ui-line bg-ui-surface p-4 text-left hover:bg-ui-subtle focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ui-accent/20"
+          @click="openPlanDrawer({ start: pickDate })"
+        >
+          <span class="text-sm font-semibold text-ui-ink">Préparer un plan</span>
+          <span class="text-sm text-ui-ink-2">Claude propose des idées datées à partir de ce jour. Tu les relis avant toute génération.</span>
+        </button>
+        <button
+          type="button"
+          class="flex w-full flex-col items-start gap-1 rounded-ui-card border border-ui-line bg-ui-surface p-4 text-left hover:bg-ui-subtle focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ui-accent/20 disabled:cursor-not-allowed disabled:opacity-60"
+          :disabled="!readyContents.length"
+          @click="openPick"
+        >
+          <span class="text-sm font-semibold text-ui-ink">Ajouter des contenus déjà créés</span>
+          <span class="text-sm text-ui-ink-2">
+            {{ readyContents.length
+              ? `${readyContents.length} contenu${readyContents.length > 1 ? 's' : ''} validé${readyContents.length > 1 ? 's' : ''}, sans date, prêt${readyContents.length > 1 ? 's' : ''} à être publié${readyContents.length > 1 ? 's' : ''} automatiquement.`
+              : 'Aucun contenu validé en attente de date pour ce profil. Valide un contenu dans Mes créations pour le retrouver ici.' }}
+          </span>
+        </button>
+      </div>
+
+      <!-- Contenus déjà créés à planifier -->
+      <div v-else-if="drawerMode === 'pick'" class="space-y-4">
+        <UiField label="Heure du premier contenu" for-id="pick-time" hint="Les suivants sont espacés de 3 h. Un créneau à 22 h ou plus tard passe au lendemain.">
+          <UiInput id="pick-time" v-model="pickTime" type="time" />
+        </UiField>
+        <ul class="space-y-2">
+          <li v-for="content in readyContents" :key="content.id">
+            <label
+              class="flex min-h-11 cursor-pointer items-center gap-3 rounded-ui-ctl border bg-ui-surface px-3 py-2 text-sm text-ui-ink-2 hover:bg-ui-subtle"
+              :class="pickedIds.includes(content.id) ? 'border-ui-accent' : 'border-ui-line-input'"
+            >
+              <input type="checkbox" class="accent-ui-accent" :checked="pickedIds.includes(content.id)" @change="togglePick(content.id)">
+              <video v-if="isVideo(content)" :src="content.imageUrl" class="h-12 w-12 shrink-0 rounded-ui-tag object-cover" muted playsinline preload="metadata" />
+              <img v-else :src="content.imageUrl" class="h-12 w-12 shrink-0 rounded-ui-tag object-cover" alt="">
+              <span class="min-w-0 flex-1">
+                <span class="flex items-center gap-1.5">
+                  <span class="h-2.5 w-2.5 shrink-0 rounded-full" :class="contentTypeOf(content.format).dot" aria-hidden="true" />
+                  <span class="text-xs font-semibold text-ui-ink">{{ contentTypeOf(content.format).label }}</span>
+                </span>
+                <span class="block truncate">{{ content.captionText || 'Sans légende' }}</span>
+              </span>
+              <span v-if="pickSlotById[content.id]" class="shrink-0 font-ui-mono text-xs font-medium text-ui-ink">{{ formatShortDate(pickSlotById[content.id]) }}</span>
+            </label>
+          </li>
+        </ul>
+        <UiAlert v-if="pickError" title="Planification impossible">{{ pickError }}</UiAlert>
       </div>
 
       <!-- Préparer un plan (aussi : « Ajouter » sur un jour vide) -->
@@ -254,6 +307,12 @@
             </template>
           </UiDatePopover>
         </div>
+        <div v-else-if="drawerMode === 'pick'" class="flex flex-wrap items-center justify-between gap-2">
+          <UiButton @click="drawerMode = 'choose'">Retour</UiButton>
+          <UiButton variant="primary" :disabled="!pickedIds.length || !pickTime" :loading="scheduling" @click="scheduleSelected">
+            {{ pickedIds.length > 1 ? `Planifier ${pickedIds.length} contenus` : 'Planifier' }}
+          </UiButton>
+        </div>
         <div v-else-if="drawerMode === 'plan'" class="flex justify-end">
           <UiButton variant="primary" :disabled="!selectedInfluencer || !planStart" :loading="creatingPlan" @click="createPlan">Préparer un plan</UiButton>
         </div>
@@ -267,8 +326,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { CONTENT_TYPES, contentStatusOf, contentTypeOf } from '../utils/contentTypes.js'
 import { formatShortDate } from '../utils/formatDate.js'
 import {
-  addDays, buildMonthWeeks, findTrailingGap, monthKey, monthTarget, parseMonthKey, parseTags, presetDays, splitCaption,
-  startOfDay, statusFromContent, summarizeMonth, timeLabel,
+  addDays, buildMonthWeeks, findTrailingGap, monthKey, monthTarget, parseMonthKey, parseTags, pickSchedulable, presetDays, splitCaption,
+  spreadSlots, startOfDay, statusFromContent, summarizeMonth, timeLabel,
 } from '../utils/calendarGrid.js'
 
 const route = useRoute()
@@ -291,6 +350,7 @@ const selectedInfluencer = computed(() => data.value?.find((item) => item.id ===
 // --- Contenus du calendrier : contenus produits + idées des plans brouillons ---
 const entries = ref([])
 const entriesLoading = ref(true)
+const readyContents = ref([])
 const cadence = ref(0)
 const pageLoading = computed(() => loading.value || entriesLoading.value)
 
@@ -335,6 +395,7 @@ watch(
   async (value) => {
     if (!value) {
       entries.value = []
+      readyContents.value = []
       cadence.value = 0
       entriesLoading.value = false
       return
@@ -347,9 +408,11 @@ watch(
         requestFetch(`/api/profiles/${value.id}`).catch(() => null),
       ])
       entries.value = [...(response.contents || []).filter((content) => content.scheduledAt).map(toEntry), ...drafts]
+      readyContents.value = pickSchedulable(response.contents || []).map(toEntry)
       cadence.value = Number(profile?.postsPerWeek) || 0
     } catch {
       entries.value = []
+      readyContents.value = []
       cadence.value = 0
     } finally {
       entriesLoading.value = false
@@ -436,7 +499,7 @@ function onGridKeydown(event) {
 
 // --- Panneau latéral ---
 const drawerOpen = ref(false)
-const drawerMode = ref('') // detail | day | plan
+const drawerMode = ref('') // detail | day | choose | pick | plan
 const current = ref(null)
 const dayCell = ref(null)
 const actionError = ref('')
@@ -444,11 +507,13 @@ const actionError = ref('')
 const drawerTitle = computed(() => {
   if (drawerMode.value === 'detail' && current.value) return `${contentTypeOf(current.value.format).label} · ${formatShortDate(current.value.scheduledAt)}`
   if (drawerMode.value === 'day' && dayCell.value) return dayLabel(dayCell.value.date).replace(/^./, (c) => c.toUpperCase())
+  if (drawerMode.value === 'choose' && pickDate.value) return dayLabel(pickDate.value).replace(/^./, (c) => c.toUpperCase())
+  if (drawerMode.value === 'pick' && pickDate.value) return `Ajouter le ${dayLabel(pickDate.value)}`
   return 'Planifier une période'
 })
 const drawerDescription = computed(() => {
   if (drawerMode.value === 'day' && dayCell.value) return `${dayCell.value.items.length} contenu${dayCell.value.items.length > 1 ? 's' : ''}`
-  if (drawerMode.value === 'plan' && selectedInfluencer.value) return selectedInfluencer.value.name
+  if (['plan', 'choose', 'pick'].includes(drawerMode.value) && selectedInfluencer.value) return selectedInfluencer.value.name
   return ''
 })
 
@@ -467,10 +532,70 @@ function activateCell(cell) {
   if (!cell.inMonth) return
   if (cell.items.length === 1) openEntry(cell.items[0])
   else if (cell.items.length > 1) openDay(cell)
-  else if (cell.isFuture && selectedInfluencer.value) openPlanDrawer({ start: cell.date })
+  else if (cell.isFuture && selectedInfluencer.value) openChoose(cell.date)
 }
 function onCellClick(cell) {
   if (cell.inMonth && cell.items.length) openDay(cell)
+}
+
+// --- Ajouter des contenus déjà créés ---
+const pickDate = ref(null)
+const pickTime = ref('09:00')
+const pickedIds = ref([])
+const pickError = ref('')
+const scheduling = ref(false)
+
+function openChoose(date) {
+  pickDate.value = startOfDay(date)
+  pickedIds.value = []
+  pickError.value = ''
+  drawerMode.value = 'choose'
+  drawerOpen.value = true
+}
+function openPick() {
+  // Aujourd'hui : on propose la prochaine heure pleine plutôt qu'un créneau déjà passé.
+  const now = new Date()
+  const isToday = startOfDay(now).getTime() === pickDate.value.getTime()
+  pickTime.value = isToday ? `${String(Math.min(now.getHours() + 1, 21)).padStart(2, '0')}:00` : '09:00'
+  pickError.value = ''
+  drawerMode.value = 'pick'
+}
+function togglePick(id) {
+  pickedIds.value = pickedIds.value.includes(id) ? pickedIds.value.filter((value) => value !== id) : [...pickedIds.value, id]
+}
+const pickSlots = computed(() => (pickDate.value ? spreadSlots(pickDate.value, pickTime.value, pickedIds.value.length) : []))
+const pickSlotById = computed(() => Object.fromEntries(pickedIds.value.map((id, index) => [id, pickSlots.value[index]?.toISOString()]).filter(([, slot]) => slot)))
+
+async function scheduleSelected() {
+  if (!pickedIds.value.length) return
+  pickError.value = ''
+  const slots = pickSlots.value
+  if (slots.length !== pickedIds.value.length || slots[0].getTime() <= Date.now()) {
+    pickError.value = 'Choisis une heure à venir : un créneau déjà passé serait publié aussitôt.'
+    return
+  }
+  scheduling.value = true
+  const done = []
+  try {
+    for (let index = 0; index < pickedIds.value.length; index += 1) {
+      const id = pickedIds.value[index]
+      const iso = slots[index].toISOString()
+      await $fetch(`/api/content/${id}/schedule`, { method: 'PATCH', body: { scheduledAt: iso } })
+      done.push({ id, iso })
+    }
+  } catch (err) {
+    pickError.value = `${err?.statusMessage || 'La planification a échoué.'}${done.length ? ` ${done.length} contenu${done.length > 1 ? 's' : ''} déjà planifié${done.length > 1 ? 's' : ''}.` : ''}`
+  } finally {
+    scheduling.value = false
+  }
+  if (!done.length) return
+  const doneIds = new Set(done.map((item) => item.id))
+  const planned = readyContents.value.filter((content) => doneIds.has(content.id))
+  entries.value = [...entries.value, ...planned.map((content) => ({ ...content, status: 'approved', scheduledAt: done.find((item) => item.id === content.id).iso }))]
+  readyContents.value = readyContents.value.filter((content) => !doneIds.has(content.id))
+  pickedIds.value = pickedIds.value.filter((id) => !doneIds.has(id))
+  pushToast({ title: done.length > 1 ? `${done.length} contenus planifiés` : 'Contenu planifié', message: 'Ils seront publiés automatiquement.', tone: 'success' })
+  if (!pickError.value) drawerOpen.value = false
 }
 
 // --- Préparer un plan ---

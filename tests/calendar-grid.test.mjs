@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  buildMonthWeeks, findTrailingGap, monthKey, monthTarget, parseMonthKey, parseTags, presetDays, splitCaption, statusFromContent, summarizeMonth, timeLabel,
+  buildMonthWeeks, findTrailingGap, pickSchedulable, spreadSlots, monthKey, monthTarget, parseMonthKey, parseTags, presetDays, splitCaption, statusFromContent, summarizeMonth, timeLabel,
 } from '../app/utils/calendarGrid.js';
 
 const entry = (day, hour, format = 'FEED', status = 'approved') => ({ id: `${day}-${hour}`, format, status, scheduledAt: new Date(2026, 9, day, hour, 0).toISOString() });
@@ -72,4 +72,38 @@ test('statuts, cles de mois et heure', () => {
   assert.equal(parseMonthKey('2026-13'), null);
   assert.equal(parseMonthKey('abc'), null);
   assert.equal(timeLabel(new Date(2026, 9, 6, 9, 5).toISOString()), '09:05');
+});
+
+test('planifiable : valides, sans date, non publies, avec media, hors carrousel', () => {
+  const base = { id: 'a', status: 'VALIDATED', scheduledAt: null, publishedAt: null, carouselId: null, imageUrl: 'https://x/a.png' };
+  const list = [
+    base,
+    { ...base, id: 'b', status: 'PENDING' },
+    { ...base, id: 'c', scheduledAt: '2026-11-10T10:00:00Z' },
+    { ...base, id: 'd', publishedAt: '2026-11-01T10:00:00Z' },
+    { ...base, id: 'e', carouselId: 'car1' },
+    { ...base, id: 'f', imageUrl: '' },
+  ];
+  assert.deepEqual(pickSchedulable(list).map((c) => c.id), ['a']);
+});
+
+test('creneaux : un seul = l heure choisie ; plusieurs = 3 h d ecart', () => {
+  const day = new Date(2026, 10, 10);
+  const slots = spreadSlots(day, '09:00', 3);
+  assert.deepEqual(slots.map((d) => [d.getDate(), d.getHours()]), [[10, 9], [10, 12], [10, 15]]);
+  assert.equal(spreadSlots(day, '18:30', 1)[0].getMinutes(), 30);
+  assert.deepEqual(spreadSlots(day, 'x', 2), []);
+});
+
+test('creneaux : trop tard le soir => lendemain a l heure de depart', () => {
+  const day = new Date(2026, 10, 10);
+  // 15:00, 18:00, 21:00 ok ; le suivant (00:00) passe au lendemain 15:00
+  const slots = spreadSlots(day, '15:00', 5);
+  assert.deepEqual(slots.map((d) => [d.getDate(), d.getHours()]), [[10, 15], [10, 18], [10, 21], [11, 15], [11, 18]]);
+  // 20:00 -> 23:00 depasse 22 h => lendemain 20:00
+  const late = spreadSlots(day, '20:00', 2);
+  assert.deepEqual(late.map((d) => [d.getDate(), d.getHours()]), [[10, 20], [11, 20]]);
+  // passage de fin de mois
+  const eom = spreadSlots(new Date(2026, 10, 30), '20:00', 2);
+  assert.deepEqual(eom.map((d) => [d.getMonth(), d.getDate()]), [[10, 30], [11, 1]]);
 });

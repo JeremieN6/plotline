@@ -146,3 +146,49 @@ export function monthTarget(postsPerWeek, monthDate) {
   const days = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate()
   return Math.max(1, Math.round((perWeek * days) / 7))
 }
+
+// --- Ajouter au calendrier des contenus deja crees ---
+
+export const SLOT_GAP_HOURS = 3
+// Un creneau a cette heure ou apres est repousse au lendemain (pas de publication en pleine nuit).
+export const LATEST_SLOT_HOUR = 22
+
+/**
+ * Contenus qu'on peut planifier : valides, sans date, pas publies, avec un media.
+ * Les slides de carrousel sont ecartees : le publicateur les posterait une par une.
+ */
+export function pickSchedulable(contents = []) {
+  return contents.filter((content) => String(content?.status).toUpperCase() === 'VALIDATED'
+    && !content.scheduledAt
+    && !content.publishedAt
+    && !content.carouselId
+    && content.imageUrl)
+}
+
+/**
+ * Creneaux de publication d'un jour : le premier a l'heure choisie, puis un tous les `gapHours`.
+ * Un creneau qui tomberait a `latestHour` ou plus tard (ou apres minuit) passe au lendemain, a l'heure de depart,
+ * et l'espacement repart de la.
+ */
+export function spreadSlots(day, startTime, count, { gapHours = SLOT_GAP_HOURS, latestHour = LATEST_SLOT_HOUR } = {}) {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(String(startTime || ''))
+  if (!match || !(count > 0)) return []
+  const hour = Number(match[1])
+  const minute = Number(match[2])
+  let cursor = new Date(day)
+  cursor.setHours(hour, minute, 0, 0)
+  const slots = [new Date(cursor)]
+  for (let i = 1; i < count; i += 1) {
+    const next = new Date(cursor)
+    next.setHours(next.getHours() + gapHours)
+    const sameDayAsCursor = next.getFullYear() === cursor.getFullYear() && next.getMonth() === cursor.getMonth() && next.getDate() === cursor.getDate()
+    if (!sameDayAsCursor || next.getHours() >= latestHour) {
+      cursor = addDays(startOfDay(cursor), 1)
+      cursor.setHours(hour, minute, 0, 0)
+    } else {
+      cursor = next
+    }
+    slots.push(new Date(cursor))
+  }
+  return slots
+}
