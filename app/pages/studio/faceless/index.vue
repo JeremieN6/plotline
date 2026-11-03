@@ -209,12 +209,23 @@
             <UiButton v-if="voiceMode !== 'own' && !plan" variant="ghost" :disabled="polling || planLoading" @click="startBlankPlan">
               Écrire le plan moi-même
             </UiButton>
+            <UiButton v-if="voiceMode !== 'own'" variant="ghost" size="sm" @click="adviceOpen = true">
+              Avis de Claude
+            </UiButton>
             <p class="text-xs text-ui-ink-muted">
               {{ voiceMode === 'own' ? 'Environ 2 à 4 minutes (transcription, nettoyage, montage).' : 'Environ 1 à 3 minutes.' }}
               Tu peux quitter la page : la vidéo arrive dans Mes créations.
             </p>
           </div>
 
+          <StudioFacelessAdvice
+            v-if="voiceMode !== 'own'"
+            v-model:open="adviceOpen"
+            :build-body="adviceBody"
+            :plan-ready="Boolean(plan)"
+            :applying="revising"
+            @apply="applyAdvice"
+          />
           <UiAlert v-if="errorMessage" title="La génération n’a pas pu démarrer">{{ errorMessage }}</UiAlert>
           <UiAlert v-if="planError" title="Le plan n’a pas pu être préparé">{{ planError }}</UiAlert>
 
@@ -592,6 +603,17 @@ function commonBody() {
     captions: captions.value,
     illustrations: { maxNew: profileId.value ? newIllustrations.value : 0 },
   }
+}
+
+const adviceOpen = ref(false)
+function applyAdvice(instructionText) {
+  adviceOpen.value = false
+  revisePlan(instructionText)
+}
+
+// Contexte de la discussion « avis de Claude » : le brief et le plan tels qu'ils sont a l'instant de la question.
+function adviceBody() {
+  return { ...commonBody(), plan: plan.value || undefined }
 }
 
 // ---- Plan en cours : trame a ecrire soi-meme, et sauvegarde dans le navigateur (aucun appel a Claude).
