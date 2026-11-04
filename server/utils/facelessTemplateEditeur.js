@@ -237,7 +237,7 @@ const LAYOUTS = {
       const last = compare.length - 1;
       const rows = compare.map((row, i) => {
         const plus = i === last;
-        return `<div class="drow wd ${plus ? 'plus' : 'minus'}" data-enter="row-in" data-at="${at(scene, 0.35 + i * 0.3)}" data-rot="0" data-boil="0">`
+        return `<div class="drow wd ${plus ? 'plus' : 'minus'}" data-fit-row data-enter="row-in" data-at="${at(scene, 0.35 + i * 0.3)}" data-rot="0" data-boil="0">`
           + `<span class="dsign">${plus ? '+' : '−'}</span><span class="dlabel">${esc(row.label)}</span><span class="dval">${esc(row.value)}</span></div>`;
       }).join('');
       parts.push(panel(ctx, { id: diffId, tab: scene.tab || 'perf.diff', inner: `<div class="diff">${rows}</div>`, fit: false }));

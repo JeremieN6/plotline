@@ -3,6 +3,8 @@ import { buildFacelessHtml } from './facelessTemplate.js';
 import { enqueueRender, renderFacelessStills } from './facelessRenderer.js';
 import { loadPackAssets } from './facelessMedia.js';
 import { normalizeFacelessStyle } from './facelessStyle.js';
+import { sanitizeFacelessScene } from './facelessPlanGenerator.js';
+import { stripAudioTags } from './audioTags.js';
 
 /**
  * Apercu d une DA : trois images d une courte video type (accroche, liste,
@@ -101,4 +103,52 @@ export async function renderStylePreview({ style, packEntries = {}, readMedia } 
     .composite(frames.map((input, i) => ({ input, left: i * (frameW + gap), top: 0 })))
     .jpeg({ quality: 84 })
     .toBuffer();
+}
+
+const SCENE_PLACEHOLDER_SAY = 'Texte dit de la scène.';
+
+/**
+ * Pur : la scene du plan en cours (telle que l editeur la montre), rendue seule.
+ * Meme nettoyage que pour la vraie video ; une scene sans texte dit recoit un texte de remplacement
+ * (sinon elle serait ignoree) ; une mise en page incomplete retombe sur « avatar », comme au montage.
+ * @returns {{ plan, track, scene }}
+ */
+export function buildScenePreview(rawScene, { style, packEntries = {}, illustrations = {} } = {}) {
+  const raw = { ...(rawScene || {}), say: String(rawScene?.say || '').trim() ? rawScene.say : SCENE_PLACEHOLDER_SAY };
+  const scene = sanitizeFacelessScene(raw, {
+    captions: style.captions.enabled,
+    packIds: Object.keys(packEntries),
+    illustrationIds: Object.keys(illustrations),
+    allowTags: true,
+  });
+  const plan = { theme: style.preset, scenes: [{ ...scene, sfx: [] }] };
+  const words = [];
+  let cursor = 0;
+  for (const text of stripAudioTags(scene.say).replace(/\*\*/g, '').split(/\s+/).filter(Boolean)) {
+    words.push({ text, start: cursor, end: cursor + WORD_SECONDS });
+    cursor += WORD_SECONDS;
+  }
+  return { plan, track: { path: 'preview', duration: cursor, words }, scene: plan.scenes[0] };
+}
+
+/** Pur : { html, time } de l apercu d une scene (instant choisi quand presque tout est entre a l ecran). */
+export function buildScenePreviewPage(rawScene, { style, packEntries = {}, illustrations = {} } = {}) {
+  const { plan, track } = buildScenePreview(rawScene, { style, packEntries, illustrations });
+  const timeline = layoutFacelessTimelineFromTrack(plan, track, { leadIn: 0, gap: 0, tail: 0.6, visualLead: 0 });
+  const first = timeline.scenes[0];
+  const time = Number(Math.min(first.end - 0.05, first.start + 0.85 * (first.end - first.start)).toFixed(2));
+  return { html: buildFacelessHtml(timeline, { style, packEntries, illustrations }), time, plan };
+}
+
+/**
+ * Apercu d UNE scene : une image fixe JPEG, sans voix ni appel payant (un rendu Chromium).
+ * @returns {Promise<Buffer>} JPEG
+ */
+export async function renderScenePreview({ scene, style, packEntries = {}, illustrations = {}, readMedia } = {}) {
+  const normalized = normalizeFacelessStyle(style);
+  const { html, time, plan } = buildScenePreviewPage(scene, { style: normalized, packEntries, illustrations });
+  const assets = await loadPackAssets(plan, packEntries, readMedia, illustrations);
+  const { stills } = await enqueueRender(() => renderFacelessStills({ html, times: [time], assets }));
+  const sharp = (await import('sharp')).default;
+  return sharp(stills[0].png).resize(405, 720).jpeg({ quality: 84 }).toBuffer();
 }

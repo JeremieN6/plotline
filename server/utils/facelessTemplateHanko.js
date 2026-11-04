@@ -167,7 +167,7 @@ const LAYOUTS = {
   // Chiffre cle : un grand chiffre mincho rouge, une phrase, puis les valeurs a comparer.
   stat(scene, ctx) {
     const k = pace(scene);
-    const rows = (scene.compare || []).slice(0, 3).map((row, i) => `<div class="srow wd" data-enter="jp-line" data-at="${((0.8 + i * 0.2) * k).toFixed(2)}" data-rot="0" data-boil="0"><span class="sl">${esc(row.label)}</span><span class="sv">${esc(row.value)}</span></div>`).join('');
+    const rows = (scene.compare || []).slice(0, 3).map((row, i) => `<div class="srow wd" data-fit-row data-enter="jp-line" data-at="${((0.8 + i * 0.2) * k).toFixed(2)}" data-rot="0" data-boil="0"><span class="sl">${esc(row.label)}</span><span class="sv">${esc(row.value)}</span></div>`).join('');
     const html = `<div class="gword wd num" data-enter="hk-giant" data-at="${(0.2 * k).toFixed(2)}" data-rot="0" data-boil="0" data-fit-w="${W}">${esc(scene.word)}</div>${rows ? `<div class="srows">${rows}</div>` : ''}`;
     return kicker(ctx, scene.title, { y: 440 }) + heading(ctx, scene, scene.text || '', { size: 100, top: 500, maxH: 240 }) + ctx.fx(html, { x: X, y: 800, w: W, enter: 'instant', fixedEnter: true, rot: 0, boil: 0, z: 3 });
   },

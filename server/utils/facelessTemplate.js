@@ -696,6 +696,11 @@ function buildRuntime(fontFamilies, extraLoads = []) {
     [...document.images].map((img) => (img.complete ? null : new Promise((resolve) => { img.onload = resolve; img.onerror = resolve; }))),
   )).then(() => {
     scenes.forEach((s) => { s.style.display = 'block'; });
+    // Une ligne « libelle + valeur » plus large que sa place est reduite d un bloc (zoom) pour tenir : un libelle ou une valeur
+    // longs ne sortent jamais de l ecran. Avant l ajustement des tailles : il mesure les hauteurs apres cette reduction.
+    document.querySelectorAll('[data-fit-row]').forEach((el) => {
+      if (el.scrollWidth > el.clientWidth + 1) el.style.zoom = (el.clientWidth / el.scrollWidth).toFixed(3);
+    });
     // Un texte ne deborde jamais : on reduit sa taille jusqu a ce qu il tienne (largeur ou hauteur maximale).
     document.querySelectorAll('[data-fit-w], [data-fit-h]').forEach((el) => {
       const maxW = +el.dataset.fitW || Infinity, maxH = +el.dataset.fitH || Infinity;

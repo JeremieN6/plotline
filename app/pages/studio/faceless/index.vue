@@ -240,6 +240,7 @@
             :clone="voiceMode === 'clone'"
             :audio-tags="options?.audioTags || []"
             :profile-id="profileId"
+            :style-slot="Number(styleSlot) || 0"
             :illustrations="styleInfo?.illustrations || []"
             @imported="onIllustrationImported"
             :revising="revising"

@@ -47,8 +47,22 @@
           <div class="flex items-center gap-1">
             <button type="button" class="rounded-ui-ctl px-2 py-1 text-xs text-ui-ink-2 hover:bg-ui-subtle disabled:opacity-40" :disabled="index === 0" aria-label="Monter la scène" @click="move(index, -1)">↑</button>
             <button type="button" class="rounded-ui-ctl px-2 py-1 text-xs text-ui-ink-2 hover:bg-ui-subtle disabled:opacity-40" :disabled="index === plan.scenes.length - 1" aria-label="Descendre la scène" @click="move(index, 1)">↓</button>
+            <button type="button" class="rounded-ui-ctl px-2 py-1 text-xs font-semibold text-ui-accent hover:bg-ui-accent-soft disabled:opacity-40" :disabled="previews[index]?.loading" @click="showPreview(index)">
+              {{ previews[index]?.loading ? 'Aperçu…' : 'Aperçu' }}
+            </button>
             <button type="button" class="rounded-ui-ctl px-2 py-1 text-xs text-ui-ink-2 hover:bg-ui-subtle" @click="addAfter(index)">+ Scène</button>
             <button type="button" class="rounded-ui-ctl px-2 py-1 text-xs text-ui-danger-ink hover:bg-ui-danger-soft disabled:opacity-40" :disabled="plan.scenes.length <= 2" @click="remove(index)">Supprimer</button>
+          </div>
+        </div>
+
+        <div v-if="previews[index]?.image || previews[index]?.error" class="flex items-start gap-3 rounded-ui-ctl border border-ui-line-soft bg-ui-subtle p-3">
+          <img v-if="previews[index].image" :src="previews[index].image" class="w-40 shrink-0 rounded-ui-tag border border-ui-line" alt="Aperçu de la scène">
+          <div class="min-w-0 flex-1 space-y-1">
+            <p v-if="previews[index].image" class="text-xs leading-5 text-ui-ink-muted">
+              Image fixe de cette scène avec la DA de la vidéo, au moment où presque tout est affiché. Elle ne se met pas à jour toute seule : relance « Aperçu » après une modification.
+            </p>
+            <p v-else class="text-xs leading-5 text-ui-danger-ink">{{ previews[index].error }}</p>
+            <button type="button" class="text-xs font-semibold text-ui-ink-2 hover:underline" @click="closePreview(index)">Fermer l’aperçu</button>
           </div>
         </div>
 
@@ -117,8 +131,14 @@
             <span class="font-normal text-ui-ink-muted">(facultatif, uniquement des chiffres présents dans ce qui est dit)</span>
           </p>
           <div v-for="(row, rowIndex) in scene.compare || []" :key="rowIndex" class="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-            <UiInput v-model="row.label" maxlength="24" placeholder="Libellé (ex. Avant)" :aria-label="`Libellé de la comparaison ${rowIndex + 1}`" />
-            <UiInput v-model="row.value" maxlength="16" placeholder="Valeur (ex. 12 %)" :aria-label="`Valeur de la comparaison ${rowIndex + 1}`" />
+            <div>
+              <UiInput v-model="row.label" maxlength="24" placeholder="Libellé (ex. Avant)" :aria-label="`Libellé de la comparaison ${rowIndex + 1}`" />
+              <p class="mt-1 text-xs text-ui-ink-muted">{{ String(row.label || '').length }} / 24 caractères</p>
+            </div>
+            <div>
+              <UiInput v-model="row.value" maxlength="24" placeholder="Valeur (ex. 12 %)" :aria-label="`Valeur de la comparaison ${rowIndex + 1}`" />
+              <p class="mt-1 text-xs text-ui-ink-muted">{{ String(row.value || '').length }} / 24 caractères</p>
+            </div>
             <UiButton variant="ghost" size="sm" @click="removeRow(scene.compare, rowIndex)">Retirer</UiButton>
           </div>
           <UiButton variant="secondary" size="sm" :disabled="(scene.compare || []).length >= specOf(scene).compare.max" @click="addRow(scene, 'compare', specOf(scene).compare.max)">+ Comparaison</UiButton>
@@ -198,6 +218,8 @@ const props = defineProps({
   template: { type: String, default: 'classic' },
   // Persona dont le dossier fournit les images d'une scene Photo ; sans persona, pas de selecteur.
   profileId: { type: String, default: '' },
+  // DA choisie pour cette video (0 = principale, 1 et 2 = options) : l apercu d une scene la reprend.
+  styleSlot: { type: Number, default: 0 },
   illustrations: { type: Array, default: () => [] },
   clone: { type: Boolean, default: false },
   audioTags: { type: Array, default: () => [] },
@@ -260,19 +282,43 @@ function layoutOptions(scene) {
   return keys.map((value) => ({ value, label: LAYOUT_LABELS[value] }))
 }
 
+// Apercu d une scene : une image fixe rendue par le serveur (gratuit : ni Claude, ni voix). Par numero de scene.
+const previews = ref({})
+async function showPreview(index) {
+  const scene = plan.value.scenes[index]
+  if (!scene) return
+  previews.value = { ...previews.value, [index]: { loading: true } }
+  try {
+    const result = await $fetch('/api/faceless/scene-preview', {
+      method: 'POST',
+      body: { scene: JSON.parse(JSON.stringify(scene)), profileId: props.profileId || undefined, styleSlot: props.styleSlot > 0 ? props.styleSlot : undefined },
+    })
+    previews.value = { ...previews.value, [index]: { image: result.image } }
+  } catch (error) {
+    previews.value = { ...previews.value, [index]: { error: error?.data?.statusMessage || error?.statusMessage || 'Aperçu impossible.' } }
+  }
+}
+function closePreview(index) {
+  const { [index]: removed, ...rest } = previews.value
+  previews.value = rest
+}
+
 function move(index, delta) {
   const scenes = plan.value.scenes
   const target = index + delta
   if (target < 0 || target >= scenes.length) return
   ;[scenes[index], scenes[target]] = [scenes[target], scenes[index]]
+  previews.value = {}
 }
 function addAfter(index) {
   plan.value.scenes.splice(index + 1, 0, blankScene())
+  previews.value = {}
   focused.value = index + 1
 }
 function remove(index) {
   if (plan.value.scenes.length <= 2) return
   plan.value.scenes.splice(index, 1)
+  previews.value = {}
 }
 
 // Insere la balise a l endroit du curseur de la scene en cours d edition.

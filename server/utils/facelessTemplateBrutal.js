@@ -175,7 +175,7 @@ const LAYOUTS = {
   stat(scene, ctx) {
     const compare = (scene.compare || []).slice(0, 3);
     const size = Math.max(120, Math.min(360, Math.floor(W / (Math.max(1, String(scene.word || '').length) * CHAR_EM))));
-    const rows = compare.map((row, i) => `<div class="srow wd" data-enter="wipe" data-at="${(0.5 + i * 0.25).toFixed(2)}" data-rot="0" data-boil="0">`
+    const rows = compare.map((row, i) => `<div class="srow wd" data-fit-row data-enter="wipe" data-at="${(0.5 + i * 0.25).toFixed(2)}" data-rot="0" data-boil="0">`
       + `<span class="slabel">${esc(row.label)}</span><span class="sval">${esc(row.value)}</span></div>`).join('');
     const num = `<div class="snum"><span class="lnw wd fl" data-enter="wipe" data-at="0.12" data-rot="0" data-boil="0" data-fit-w="${W}" style="font-size:${size}px">`
       + `<i class="flbg" data-sx-at="0.06" data-sx-dur="0.18"></i><b>${esc(scene.word)}</b></span></div>`;

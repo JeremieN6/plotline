@@ -313,7 +313,7 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
   // hook : deux petites cartes de metriques du modele Dashboard).
   if (layout === 'stat' || layout === 'hook') {
     scene.compare = (Array.isArray(raw?.compare) ? raw.compare : []).slice(0, 3)
-      .map((row) => ({ label: clip(withoutEmoji(stripDashPunctuation(row?.label)), 24), value: clip(withoutEmoji(row?.value), 16) }))
+      .map((row) => ({ label: clip(withoutEmoji(stripDashPunctuation(row?.label)), 24), value: clip(withoutEmoji(row?.value), 24) }))
       .filter((row) => row.label && row.value);
   }
 

@@ -232,7 +232,7 @@ const LAYOUTS = {
         ? `<div class="bar-track"><div class="bar ${i === 0 ? 'b1' : 'b2'}" data-bar-w="${widths[i]}" data-bar-at="${(0.7 + i * 0.3).toFixed(2)}"></div></div>`
         : '';
       return `<div class="cmp wd" data-enter="row-in" data-at="${(0.6 + i * 0.3).toFixed(2)}" data-rot="0" data-boil="0">`
-        + `<div class="cmp-head"><span class="cmp-label">${esc(row.label)}</span><span class="cmp-value${i ? ' dim' : ''}">${esc(row.value)}</span></div>${bar}</div>`;
+        + `<div class="cmp-head" data-fit-row><span class="cmp-label">${esc(row.label)}</span><span class="cmp-value${i ? ' dim' : ''}">${esc(row.value)}</span></div>${bar}</div>`;
     }).join('');
     const kicker = scene.title ? `<div class="kicker">// ${esc(String(scene.title).replace(/\*\*/g, ''))}</div>` : '';
     const inner = `${kicker}<div class="stat-num wd" data-enter="giant" data-at="0.2" data-rot="0" data-boil="0" data-fit-w="${SCREEN_INNER_W}"${count}>${esc(scene.word)}</div>`
