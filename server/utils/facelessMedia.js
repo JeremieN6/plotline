@@ -58,6 +58,7 @@ export function usedIllustrationIds(plan, illustrationEntries) {
   const used = new Set();
   for (const scene of plan?.scenes || []) {
     if (scene?.image && illustrationEntries[scene.image]) used.add(scene.image);
+    for (const entry of scene?.images || []) if (entry?.id && illustrationEntries[entry.id]) used.add(entry.id);
   }
   return [...used];
 }

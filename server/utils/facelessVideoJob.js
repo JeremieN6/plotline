@@ -80,6 +80,7 @@ export function pickIllustrations(plan, available) {
   const used = {};
   for (const scene of plan?.scenes || []) {
     if (scene?.image && available[scene.image]) used[scene.image] = available[scene.image];
+    for (const entry of scene?.images || []) if (entry?.id && available[entry.id]) used[entry.id] = available[entry.id];
   }
   return used;
 }

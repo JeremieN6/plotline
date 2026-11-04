@@ -65,9 +65,14 @@ export const FACELESS_LAYOUTS = {
   avatar: 'avatar en buste qui monte du bas + courte carte text en haut ; ideal pour l appel a l action',
   word: 'un seul mot (champ word, 12 caracteres max) en tres grand + emoji optionnel',
   photo: 'image dans un cadre (polaroid) pour illustrer concretement ce qui est dit : champ image (id d une illustration disponible) + champ text (legende de 1 a 5 mots)',
+  slideshow: 'defile d images : 2 a 5 images du dossier qui se suivent dans le meme cadre (champ images [{id, at}] : id d une illustration disponible, at = mot EXACT du texte dit qui declenche l image, vide pour la premiere) + champ text facultatif (legende) ; pour parcourir les etapes d une demo ou d une interface',
   logo: 'carte de nom pour une marque, un outil ou un service cite (champ word = le nom, emoji = son icone, tres courts)',
   label: 'etiquette de produit decryptee ligne par ligne (modele Herbier seulement) : title = libelle, tab = contenance ("Shampoing · 250 ml"), items [{text: ingredient dans l ordre de l etiquette, tone: avoid|good|watch, sub: mot court de la pastille, at}] (4 a 8), text = verdict',
   stat: 'chiffre cle : word = le chiffre (8 caracteres max, ex "×15", "4 s", "-30 %"), text court facultatif, compare facultatif [{label, value}] (2 ou 3, ex "sans cache" / "27,9 ms") ; UNIQUEMENT des chiffres presents dans le script ou le texte source, jamais inventes',
 };
 
 export const FACELESS_POSES = ['idle', 'wave', 'point'];
+
+// Defile d images : animation du passage d une image a la suivante, et nombre maximal d images.
+export const FACELESS_SLIDESHOW_TRANSITIONS = { fade: 'Fondu', cut: 'Coupe franche', zoom: 'Zoom', wipe: 'Balayage' };
+export const SLIDESHOW_MAX_IMAGES = 5;

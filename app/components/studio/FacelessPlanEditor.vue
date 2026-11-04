@@ -165,6 +165,49 @@
           :scene-index="index"
           @imported="emit('imported', $event)"
         />
+        <div v-if="specOf(scene).slideshow" class="space-y-3">
+          <StudioFacelessImagePicker
+            multiple
+            :values="(scene.images || []).map((image) => image.id)"
+            :max="specOf(scene).slideshow.max"
+            :profile-id="profileId"
+            :illustrations="illustrations"
+            :scene-index="index"
+            @update:values="setSlideshowImages(scene, $event)"
+            @imported="emit('imported', $event)"
+          />
+          <ol v-if="(scene.images || []).length" class="space-y-2">
+            <li v-for="(image, imageIndex) in scene.images" :key="image.id" class="flex flex-wrap items-center gap-2 rounded-ui-ctl border border-ui-line-soft p-2">
+              <img :src="illustrationUrl(image.id)" alt="" class="h-12 w-10 shrink-0 rounded-ui-tag border border-ui-line object-cover">
+              <span class="w-6 shrink-0 font-ui-mono text-xs font-semibold text-ui-ink-2">{{ imageIndex + 1 }}.</span>
+              <div class="min-w-0 flex-1 basis-48">
+                <UiInput
+                  v-if="imageIndex > 0"
+                  v-model="image.at"
+                  maxlength="40"
+                  placeholder="Mot dit qui déclenche cette image"
+                  :aria-label="`Mot qui déclenche l’image ${imageIndex + 1}`"
+                />
+                <p v-else class="text-xs text-ui-ink-muted">Visible dès le début de la scène.</p>
+                <p v-if="imageIndex > 0 && !cueIsSpoken(scene.say, image.at)" class="mt-1 text-xs text-ui-danger-ink">Ce mot n’est pas dans « Ce que dit la voix » : l’image apparaîtra à un moment approximatif.</p>
+              </div>
+              <button type="button" class="rounded-ui-ctl px-2 py-1 text-xs text-ui-ink-2 hover:bg-ui-subtle disabled:opacity-40" :disabled="imageIndex === 0" aria-label="Monter l’image" @click="moveImage(scene, imageIndex, -1)">↑</button>
+              <button type="button" class="rounded-ui-ctl px-2 py-1 text-xs text-ui-ink-2 hover:bg-ui-subtle disabled:opacity-40" :disabled="imageIndex === scene.images.length - 1" aria-label="Descendre l’image" @click="moveImage(scene, imageIndex, 1)">↓</button>
+              <button type="button" class="rounded-ui-ctl px-2 py-1 text-xs text-ui-danger-ink hover:bg-ui-danger-soft" @click="removeImage(scene, imageIndex)">Retirer</button>
+            </li>
+          </ol>
+          <p class="text-xs leading-5 text-ui-ink-muted">
+            Sans mot déclencheur, les images se partagent la scène à parts égales. Avec des mots, chaque image reste jusqu’au mot suivant.
+          </p>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <UiField label="Animation du passage d’une image à l’autre" :for-id="`plan-transition-${index}`">
+              <UiSelect :id="`plan-transition-${index}`" :model-value="scene.transition || 'fade'" :options="transitions" @update:model-value="scene.transition = $event" />
+            </UiField>
+            <UiField label="Bruitage à chaque changement" :for-id="`plan-image-sound-${index}`" hint="Automatique : le son d’interface du modèle visuel.">
+              <UiSelect :id="`plan-image-sound-${index}`" :model-value="scene.imageSound || ''" :options="soundOptions" @update:model-value="scene.imageSound = $event" />
+            </UiField>
+          </div>
+        </div>
         <UiAlert v-if="problemOf(scene)" tone="info">{{ problemOf(scene) }}</UiAlert>
       </li>
     </ol>
@@ -221,6 +264,9 @@ const props = defineProps({
   // DA choisie pour cette video (0 = principale, 1 et 2 = options) : l apercu d une scene la reprend.
   styleSlot: { type: Number, default: 0 },
   illustrations: { type: Array, default: () => [] },
+  // Defile d'images : animations de passage et bruitages proposes par le serveur.
+  transitionOptions: { type: Array, default: () => [] },
+  sfxOptions: { type: Array, default: () => [] },
   clone: { type: Boolean, default: false },
   audioTags: { type: Array, default: () => [] },
   revising: { type: Boolean, default: false },
@@ -280,6 +326,24 @@ const totalWords = computed(() => plan.value.scenes.reduce((sum, scene) => sum +
 function layoutOptions(scene) {
   const keys = Object.keys(LAYOUT_LABELS).filter((key) => key !== 'label' || scene.layout === 'label')
   return keys.map((value) => ({ value, label: LAYOUT_LABELS[value] }))
+}
+
+// Defile d'images.
+const transitions = computed(() => (props.transitionOptions.length ? props.transitionOptions : [{ value: 'fade', label: 'Fondu' }, { value: 'cut', label: 'Coupe franche' }, { value: 'zoom', label: 'Zoom' }, { value: 'wipe', label: 'Balayage' }]))
+const soundOptions = computed(() => [{ value: '', label: 'Automatique' }, { value: 'none', label: 'Aucun bruitage' }, ...props.sfxOptions])
+const illustrationUrl = (id) => props.illustrations.find((item) => item.id === id)?.url || ''
+function setSlideshowImages(scene, ids) {
+  const known = new Map((scene.images || []).map((image) => [image.id, image]))
+  scene.images = ids.map((id) => known.get(id) || { id, at: '' })
+  previews.value = {}
+}
+function moveImage(scene, index, delta) {
+  const target = index + delta
+  if (target < 0 || target >= scene.images.length) return
+  ;[scene.images[index], scene.images[target]] = [scene.images[target], scene.images[index]]
+}
+function removeImage(scene, index) {
+  scene.images.splice(index, 1)
 }
 
 // Apercu d une scene : une image fixe rendue par le serveur (gratuit : ni Claude, ni voix). Par numero de scene.

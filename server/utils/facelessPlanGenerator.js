@@ -16,7 +16,7 @@ import { ILLUSTRATION_KINDS, MAX_ILLUSTRATION_PROMPT, MAX_NEW_PER_VIDEO } from '
 import { countSpokenTokens } from './facelessTimeline.js';
 import { AUDIO_TAGS, normalizeAudioTags, stripAudioTags } from './audioTags.js';
 import { TEXT_STYLE_PROMPT_LINES, stripDashPunctuation } from './textStyleRules.js';
-import { FACELESS_LAYOUTS, FACELESS_POSES, FACELESS_SFX } from '../data/facelessCatalog.js';
+import { FACELESS_LAYOUTS, FACELESS_POSES, FACELESS_SFX, FACELESS_SLIDESHOW_TRANSITIONS, SLIDESHOW_MAX_IMAGES } from '../data/facelessCatalog.js';
 import { FACELESS_SFX_PALETTES } from '../data/facelessSfxPalettes.js';
 import { sfxPaletteKey, sfxPaletteNames } from './facelessSfxPlan.js';
 
@@ -108,6 +108,9 @@ function illustrationPromptLines(illustrations, maxNew) {
     lines.push('- aucune');
   }
   lines.push('Mise en page "photo" : une image dans un cadre, pour illustrer concretement ce qui est dit (un lieu, un objet, une situation), jamais pour decorer. Au plus une scene "photo" sur trois.');
+  if (ids.length >= 2) {
+    lines.push('Mise en page "slideshow" : 2 a 5 images de la liste qui se suivent dans le meme cadre, pour parcourir les etapes d une demo ou d une interface. Au plus UNE scene "slideshow" par video. "images" : [{ "id": id EXACT d une illustration, "at": un mot EXACT du texte dit de la scene qui declenche cette image (vide pour la premiere) }], dans l ordre ou elles apparaissent. Laisse "transition" et "imageSound" vides.');
+  }
   if (maxNew > 0) {
     lines.push('Tu peux demander AU PLUS ' + maxNew + ' nouvelle(s) image(s) : a la place de "image", mets "newImage": { "kind": "photo" | "illustration" | "mockup", "prompt": "<description EN ANGLAIS, une phrase concrete, sans visage ni texte>" }. Chaque image coute de l argent : ne la demande que si elle apporte vraiment quelque chose, et prefere reutiliser celles de la liste.');
   } else {
@@ -161,7 +164,7 @@ export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = nu
     'MONTAGE (par scene)',
     '- "layout" parmi :',
     // "label" (etiquette de produit) n est propose que par le modele Herbier.
-    ...Object.entries(FACELESS_LAYOUTS).filter(([key]) => key !== 'label' || da.template === 'herbier').map(([key, desc]) => `  - ${key} : ${desc}`),
+    ...Object.entries(FACELESS_LAYOUTS).filter(([key]) => (key !== 'label' || da.template === 'herbier') && (key !== 'slideshow' || Object.keys(illustrations || {}).length >= 2)).map(([key, desc]) => `  - ${key} : ${desc}`),
     '- Varie les mises en page, jamais deux fois la meme d affilee sauf "title" pour des chapitres numerotes.',
     '- Le texte a l ecran RESUME, il ne recopie pas la phrase : 2 a 8 mots par carte. Entoure 1 mot cle de **double asterisques** pour le surligner.',
     '- "emoji" : UN seul emoji pertinent, ou rien. Jamais d emoji dans text, title, word ou items.text (il a deja sa place).',
@@ -178,7 +181,7 @@ export function buildFacelessPlanSystemPrompt({ targetSeconds = 30, persona = nu
     ...illustrationPromptLines(illustrations, maxNew),
     '',
     'Reponds uniquement avec un objet JSON brut, sans markdown ni commentaire. Forme exacte :',
-    '{"title": string, "caption": string (legende du post, 1 a 3 phrases), "hashtags": [string], "scenes": [{"say": string, "layout": string, "text"?: string, "title"?: string, "number"?: string, "word"?: string, "tab"?: string, "jp"?: string, "code"?: [string], "compare"?: [{"label": string, "value": string}], "series"?: [{"label": string, "value": string}], "image"?: string, "newImage"?: {"kind": string, "prompt": string}, "frame"?: string, "emoji"?: string, "items"?: [{"emoji": string, "text": string, "sub"?: string, "tone"?: string, "at": string}], "bg": string, "avatar": {...}, "sfx": [...], "captions": boolean}]}',
+    '{"title": string, "caption": string (legende du post, 1 a 3 phrases), "hashtags": [string], "scenes": [{"say": string, "layout": string, "text"?: string, "title"?: string, "number"?: string, "word"?: string, "tab"?: string, "jp"?: string, "code"?: [string], "compare"?: [{"label": string, "value": string}], "series"?: [{"label": string, "value": string}], "image"?: string, "images"?: [{"id": string, "at": string}], "newImage"?: {"kind": string, "prompt": string}, "frame"?: string, "emoji"?: string, "items"?: [{"emoji": string, "text": string, "sub"?: string, "tone"?: string, "at": string}], "bg": string, "avatar": {...}, "sfx": [...], "captions": boolean}]}',
   ].join('\n');
 }
 
@@ -331,8 +334,31 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
     scene.frame = ['polaroid', 'plain'].includes(raw?.frame) ? raw.frame : '';
   }
 
+  // Defile d images : 2 a 5 images du dossier, dans l ordre, chacune declenchee par un mot dit (la premiere des le debut).
+  // Une seule image valide : c est une scene photo ; aucune : la scene retombe sur "avatar" (voir plus bas).
+  if (layout === 'slideshow') {
+    const seen = new Set();
+    scene.images = (Array.isArray(raw?.images) ? raw.images : []).slice(0, 12)
+      .map((entry) => ({ id: String(entry?.id ?? entry?.image ?? ''), at: sanitizeCue(entry?.at) }))
+      .filter((entry) => illustrationIds.includes(entry.id) && !seen.has(entry.id) && seen.add(entry.id))
+      .slice(0, SLIDESHOW_MAX_IMAGES);
+    scene.transition = Object.hasOwn(FACELESS_SLIDESHOW_TRANSITIONS, raw?.transition) ? raw.transition : 'fade';
+    scene.imageSound = raw?.imageSound === 'none' ? 'none' : (Object.hasOwn(FACELESS_SFX, raw?.imageSound) ? raw.imageSound : '');
+    scene.frame = ['polaroid', 'plain'].includes(raw?.frame) ? raw.frame : '';
+    if (scene.images.length === 1) {
+      layout = 'photo';
+      scene.layout = 'photo';
+      scene.image = scene.images[0].id;
+      scene.newImage = null;
+      delete scene.images;
+      delete scene.transition;
+      delete scene.imageSound;
+    }
+  }
+
   // Une mise en page sans son contenu obligatoire retombe sur "avatar".
   const incomplete = (layout === 'hook' && !scene.text)
+    || (layout === 'slideshow' && (scene.images || []).length < 2)
     || (layout === 'photo' && !scene.image && !scene.newImage)
     || (layout === 'title' && !scene.title)
     || ((layout === 'list' || layout === 'label') && scene.items.length < 2)
@@ -343,6 +369,9 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
     scene.text = scene.text || scene.title || scene.word;
     delete scene.image;
     delete scene.newImage;
+    delete scene.images;
+    delete scene.transition;
+    delete scene.imageSound;
     delete scene.frame;
     delete scene.compare;
     delete scene.series;
@@ -460,7 +489,7 @@ export function planForEditing(plan) {
     caption: plan?.caption || '',
     hashtags: plan?.hashtags || [],
     scenes: (plan?.scenes || []).map((scene) => Object.fromEntries(
-      ['say', 'layout', 'text', 'title', 'number', 'word', 'tab', 'jp', 'code', 'emoji', 'items', 'compare', 'series', 'image', 'frame', 'bg', 'avatar', 'sfx']
+      ['say', 'layout', 'text', 'title', 'number', 'word', 'tab', 'jp', 'code', 'emoji', 'items', 'compare', 'series', 'image', 'images', 'transition', 'imageSound', 'frame', 'bg', 'avatar', 'sfx']
         .filter((key) => key === 'say' || key === 'layout' || key === 'avatar' || compact(scene[key]))
         .map((key) => [key, scene[key]]),
     )),

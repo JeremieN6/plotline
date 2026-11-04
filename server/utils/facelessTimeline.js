@@ -164,6 +164,26 @@ export function assignWordsToScenes(scenes, words) {
   });
 }
 
+/**
+ * Pur : instants d apparition des images d un defile, relatifs au debut de la voix de la scene. La premiere image est
+ * visible des le debut ; les autres suivent le mot dit qui les declenche. Si AUCUN mot n est donne, les images se
+ * partagent la voix a parts egales. Les instants ne reculent jamais.
+ */
+export function resolveSlideshowCues(list, words = []) {
+  const images = Array.isArray(list) ? list : [];
+  if (!images.length) return images;
+  const last = words[words.length - 1];
+  const end = last ? Number(last.end ?? last.start) : 0;
+  const hasCue = (image, index) => index > 0 && (typeof image?.at === 'number' ? image.at > 0 : String(image?.at ?? '').trim() !== '');
+  if (!images.some(hasCue)) return images.map((image, index) => ({ ...image, at: Number(((index * end) / images.length).toFixed(3)) }));
+  let previous = 0;
+  return resolveItemCues(images.map((image, index) => (index === 0 ? { ...image, at: 0 } : image)), words)
+    .map((image, index) => {
+      previous = index === 0 ? 0 : Math.max(previous, image.at);
+      return { ...image, at: previous };
+    });
+}
+
 // Coeur commun : `segments[i]` = { voiceStart, voiceEnd, words (temps absolus) }.
 function placeScenes(spec, segments, voice, opts) {
   const scenes = spec.scenes;
@@ -178,6 +198,7 @@ function placeScenes(spec, segments, voice, opts) {
       voiceEnd,
       words: absolute,
       items: resolveItemCues(scene.items, words),
+      ...(scene.layout === 'slideshow' ? { images: resolveSlideshowCues(scene.images, words) } : {}),
       beats: resolveList(scene.avatar?.beats, words),
       sfx: resolveList(scene.sfx, words),
     };
@@ -242,6 +263,8 @@ function finishTimeline(spec, placed, voice, opts) {
     // Repere voix -> repere scene. Un repere a 0 reste au debut visuel de la scene.
     const offset = scene.voiceStart - scene.start;
     scene.items = scene.items.map((it) => ({ ...it, at: it.at + offset }));
+    // Defile : la premiere image reste visible des le debut visuel de la scene.
+    if (scene.images) scene.images = scene.images.map((im, k) => ({ ...im, at: k === 0 ? 0 : im.at + offset }));
     scene.beats = scene.beats.map((b) => ({ ...b, at: b.at > 0 ? b.at + offset : 0 }));
     scene.sfx = scene.sfx.map((s) => ({ ...s, at: s.at > 0 ? s.at + offset : 0 }));
     scene.captionChunks = scene.captions

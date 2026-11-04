@@ -48,7 +48,7 @@ export function finalizeSfx(sfx, scenes, { paletteKey = 'full', minGap = 1.8, mi
   const sceneAt = (entry) => scenes[entry.scene] || scenes.find((s) => entry.start >= s.start && entry.start < s.end);
   const candidates = [];
   for (const entry of sfx || []) {
-    const name = adaptSfxName(entry.name, paletteKey);
+    const name = entry.custom ? entry.name : adaptSfxName(entry.name, paletteKey);
     const scene = sceneAt(entry);
     if (!name || !scene) continue;
     if (scene.end - scene.start < (entry.engine ? minSceneEngine : minScene)) continue;

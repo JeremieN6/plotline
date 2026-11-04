@@ -1,9 +1,10 @@
 <template>
   <div class="space-y-3 rounded-ui-ctl border border-ui-line-soft bg-ui-subtle p-3 font-ui">
     <div>
-      <p class="text-xs font-semibold text-ui-ink">Image affichée dans l’écran</p>
+      <p class="text-xs font-semibold text-ui-ink">{{ multiple ? `Images du défilé (${values.length} / ${max})` : 'Image affichée dans l’écran' }}</p>
       <p class="mt-0.5 text-xs text-ui-ink-muted">
-        Choisis une image du dossier de la persona, ou importes-en une (PNG ou JPG, 8 Mo maximum). Elle reste ensuite dans le dossier, gratuitement.
+        {{ multiple ? 'Clique les images dans l’ordre où elles doivent défiler.' : 'Choisis une image du dossier de la persona, ou importes-en une.' }}
+        Tu peux aussi en importer une (PNG ou JPG, 8 Mo maximum) : elle reste ensuite dans le dossier, gratuitement.
       </p>
     </div>
 
@@ -15,13 +16,16 @@
           <button
             type="button"
             role="option"
-            :aria-selected="modelValue === item.id ? 'true' : 'false'"
+            :aria-selected="isSelected(item.id) ? 'true' : 'false'"
             :title="item.label"
             class="group block w-full overflow-hidden rounded-ui-ctl border bg-ui-surface text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ui-accent/20"
-            :class="modelValue === item.id ? 'border-ui-accent ring-2 ring-ui-accent/30' : 'border-ui-line hover:border-ui-line-input'"
-            @click="emit('update:modelValue', modelValue === item.id ? '' : item.id)"
+            :class="isSelected(item.id) ? 'border-ui-accent ring-2 ring-ui-accent/30' : 'border-ui-line hover:border-ui-line-input'"
+            @click="toggle(item.id)"
           >
-            <img :src="item.url" alt="" class="aspect-[4/5] w-full object-cover">
+            <span class="relative block">
+              <img :src="item.url" alt="" class="aspect-[4/5] w-full object-cover">
+              <span v-if="multiple && orderOf(item.id)" class="absolute left-1 top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-ui-accent px-1 font-ui-mono text-[11px] font-semibold text-white">{{ orderOf(item.id) }}</span>
+            </span>
             <span class="block truncate px-2 py-1 text-[11px] text-ui-ink-2">{{ item.label }}</span>
           </button>
         </li>
@@ -58,11 +62,26 @@
 // (POST /api/faceless/illustrations/:profileId, mode upload : gratuit, type et poids vérifiés côté serveur).
 const props = defineProps({
   modelValue: { type: String, default: '' },
+  // Mode « defile d images » : plusieurs images, dans l'ordre du clic.
+  multiple: { type: Boolean, default: false },
+  values: { type: Array, default: () => [] },
+  max: { type: Number, default: 5 },
   profileId: { type: String, default: '' },
   illustrations: { type: Array, default: () => [] },
   sceneIndex: { type: Number, default: 0 },
 })
-const emit = defineEmits(['update:modelValue', 'imported'])
+const emit = defineEmits(['update:modelValue', 'update:values', 'imported'])
+
+const isSelected = (id) => (props.multiple ? props.values.includes(id) : props.modelValue === id)
+const orderOf = (id) => props.values.indexOf(id) + 1
+function toggle(id) {
+  if (!props.multiple) {
+    emit('update:modelValue', props.modelValue === id ? '' : id)
+    return
+  }
+  if (props.values.includes(id)) emit('update:values', props.values.filter((value) => value !== id))
+  else if (props.values.length < props.max) emit('update:values', [...props.values, id])
+}
 
 const MAX_BYTES = 8 * 1024 * 1024
 const KIND_OPTIONS = [
@@ -110,7 +129,11 @@ async function onPick(event) {
       body: { mode: 'upload', imageBase64, kind: kind.value, label: name },
     })
     emit('imported', result.illustration)
-    emit('update:modelValue', result.illustration.id)
+    if (props.multiple) {
+      if (props.values.length < props.max) emit('update:values', [...props.values, result.illustration.id])
+    } else {
+      emit('update:modelValue', result.illustration.id)
+    }
     label.value = ''
   } catch (error) {
     errorMessage.value = error?.data?.statusMessage || error?.statusMessage || error?.message || 'Import impossible.'

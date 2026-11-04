@@ -239,6 +239,8 @@
             :template="selectedStyle?.template || 'classic'"
             :clone="voiceMode === 'clone'"
             :audio-tags="options?.audioTags || []"
+            :transition-options="options?.slideshowTransitions || []"
+            :sfx-options="options?.sfx || []"
             :profile-id="profileId"
             :style-slot="Number(styleSlot) || 0"
             :illustrations="styleInfo?.illustrations || []"

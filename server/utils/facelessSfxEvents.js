@@ -23,8 +23,8 @@ export function sceneSoundEvents(scene, { template = 'classic' } = {}) {
   const dur = Math.max(0, Number(scene?.end ?? 0) - Number(scene?.start ?? 0));
   const k = pace(scene);
   const events = [];
-  const add = (role, at, weight = 1) => {
-    if (at >= 0 && at < dur - 0.2) events.push({ role, at: Number(at.toFixed(3)), weight });
+  const add = (role, at, weight = 1, name = '') => {
+    if (at >= 0 && at < dur - 0.2) events.push({ role, at: Number(at.toFixed(3)), weight, ...(name ? { name } : {}) });
   };
   const clampAt = (at) => Math.min(Math.max(0, Number(at) || 0), Math.max(0.2, dur - 0.5));
   const hanko = template === 'hanko';
@@ -61,6 +61,13 @@ export function sceneSoundEvents(scene, { template = 'classic' } = {}) {
     case 'stat':
       add('click', 0.3, 0.9);
       break;
+    case 'slideshow': {
+      // Defile : un son a chaque changement d image (celui choisi pour la scene, ou le son de rangee de la palette).
+      if (scene.imageSound === 'none') break;
+      add('appear', 0.25, 0.8);
+      (scene.images || []).slice(1).forEach((image) => add('item', clampAt(image.at), 1, scene.imageSound || ''));
+      break;
+    }
     case 'photo':
       add('appear', 0.25, 0.8);
       if (hanko && scene.tab) add('strong', 0.8, 1.5);
@@ -95,9 +102,10 @@ export function engineSfx(scenes, style, paletteKey = 'full') {
   const out = [];
   (scenes || []).forEach((scene, index) => {
     for (const event of sceneSoundEvents(scene, { template: style?.template })) {
-      const name = palette ? palette.byRole[event.role] : FULL_BY_ROLE[event.role];
+      // Un son CHOISI par le createur (defile d images) passe tel quel, meme hors de la palette de la DA.
+      const name = event.name || (palette ? palette.byRole[event.role] : FULL_BY_ROLE[event.role]);
       if (!name) continue;
-      out.push({ name, start: Number((scene.start + event.at).toFixed(3)), gain: 0.5, scene: index, cued: true, engine: true, role: event.role, weight: event.weight });
+      out.push({ name, start: Number((scene.start + event.at).toFixed(3)), gain: 0.5, scene: index, cued: true, engine: true, role: event.role, weight: event.weight, custom: Boolean(event.name) });
     }
   });
   return out;

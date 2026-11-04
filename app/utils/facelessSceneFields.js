@@ -10,6 +10,7 @@ export const LAYOUT_LABELS = {
   word: 'Mot géant',
   stat: 'Chiffre clé',
   photo: 'Photo',
+  slideshow: 'Défilé d’images',
   logo: 'Logo',
   label: 'Étiquette de produit',
 }
@@ -29,6 +30,7 @@ const BASE = {
     { key: 'text', label: 'Phrase de contexte', max: 110 },
   ],
   photo: [{ key: 'text', label: 'Légende de l’image', max: 110 }],
+  slideshow: [{ key: 'text', label: 'Légende (facultative)', max: 110 }],
   logo: [{ key: 'word', label: 'Nom à afficher', required: true, max: 14 }],
   label: [{ key: 'text', label: 'Verdict (ligne du bas)', max: 110 }],
 }
@@ -130,6 +132,7 @@ export function sceneFieldsFor(layout, template = 'classic') {
     jp: template === 'hanko' && (kind === 'hook' || kind === 'word') ? { label: 'Caractères japonais (1 à 4)', max: 4 } : null,
     code: template === 'editeur' && (kind === 'hook' || kind === 'title') ? { label: 'Code affiché (une ligne par ligne, 32 caractères max)', max: 6 } : null,
     items,
+    slideshow: kind === 'slideshow' ? { max: 5, min: 2 } : null,
     compare,
     series: template === 'dashboard' && kind === 'stat' ? { max: 8 } : null,
     emoji: template === 'classic' && ['hook', 'title', 'word', 'logo'].includes(kind),
@@ -146,6 +149,7 @@ export function incompleteReason(scene, template = 'classic') {
     const filled = (scene.items || []).filter((item) => String(item?.text || '').trim()).length
     return filled < 2 ? 'Il faut au moins 2 éléments, sinon la scène s’affichera comme « Avatar ».' : ''
   }
+  if (layout === 'slideshow') return (scene.images || []).length < 2 ? 'Choisis au moins 2 images, sinon la scène s’affichera comme « Avatar » (une seule image = une scène Photo).' : ''
   if (layout === 'photo') return scene.image || scene.newImage ? '' : 'Choisis une image, sinon la scène s’affichera comme « Avatar ».'
   for (const field of spec.fields) {
     if (field.required && !has(field.key)) {

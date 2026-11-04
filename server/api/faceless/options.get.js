@@ -14,6 +14,7 @@ import {
   FACELESS_PRESETS,
   FACELESS_TEMPLATES,
 } from '../../data/facelessThemes.js';
+import { FACELESS_SFX, FACELESS_SLIDESHOW_TRANSITIONS } from '../../data/facelessCatalog.js';
 import { FACELESS_DURATIONS } from '../../utils/facelessPlanGenerator.js';
 import { defaultFacelessStyle, MAX_ALTERNATES } from '../../utils/facelessStyle.js';
 import { listCloneVoices } from '../../utils/elevenLabsTts.js';
@@ -34,6 +35,9 @@ export default defineEventHandler(async (event) => {
     voices: FACELESS_VOICES,
     defaultVoiceId: DEFAULT_FACELESS_VOICE_ID,
     durations: FACELESS_DURATIONS,
+    // Defile d images : animations de passage et bruitages au choix.
+    slideshowTransitions: labelled(FACELESS_SLIDESHOW_TRANSITIONS),
+    sfx: labelled(FACELESS_SFX),
     maxAlternates: MAX_ALTERNATES,
     // Deux categories : les premiers modeles (cartes et autocollants reglables, template "classic")
     // et les modeles anime, ranges par famille (un moteur de mise en page par famille).

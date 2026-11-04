@@ -576,6 +576,18 @@ function buildRuntime(fontFamilies, extraLoads = []) {
         const from = +r.dataset.hlFrom, until = r.dataset.hlUntil != null ? +r.dataset.hlUntil : Infinity;
         r.style[r.dataset.hlProp || 'backgroundColor'] = hexMix(r.dataset.hlA, r.dataset.hlB, local >= from && local < until ? clamp((local - from) / 0.2) : 0);
       });
+      // Defile d images : l image affichee suit le temps ; le passage a la suivante est une petite animation (0,25 s).
+      el.querySelectorAll('img[data-cycle]').forEach((im) => {
+        const ids = im.dataset.cycle.split(','), ats = im.dataset.cycleAt.split(',').map(Number);
+        let k = 0;
+        ats.forEach((a, i) => { if (local >= a) k = i; });
+        const want = im.dataset.cycleBase + ids[k] + '.jpg';
+        if (im.getAttribute('src') !== want) im.setAttribute('src', want);
+        const p = k === 0 ? 1 : clamp((local - ats[k]) / 0.25), e = cubic(p), kind = im.dataset.cycleTr;
+        im.style.opacity = kind === 'fade' ? (0.15 + 0.85 * e).toFixed(3) : (kind === 'zoom' ? Math.min(1, p * 4).toFixed(3) : '1');
+        im.style.transform = kind === 'zoom' && p < 1 ? 'scale(' + (0.86 + 0.14 * e).toFixed(3) + ')' : 'none';
+        im.style.clipPath = kind === 'wipe' && p < 1 ? 'inset(0 ' + ((1 - e) * 100).toFixed(2) + '% 0 0)' : 'none';
+      });
       // Compteur d un chiffre cle (0,8 s).
       el.querySelectorAll('[data-count-to]').forEach((c) => {
         const q = cubic(clamp((local - +c.dataset.countAt) / (+c.dataset.countDur || 0.8))), dec = +c.dataset.countDec, from = +c.dataset.countFrom || 0;
@@ -747,6 +759,37 @@ function buildRuntime(fontFamilies, extraLoads = []) {
  * `options.illustrations` : { id: { kind, label, url } } illustrations du dossier
  * (servies sous FACELESS_ASSET_ORIGIN/illustration/<id>.jpg).
  */
+/**
+ * Pur : un defile d images (layout « slideshow ») est dessine par la mise en page PHOTO du modele, avec la premiere image ;
+ * la page change ensuite l image selon le temps (voir `data-cycle`). Une scene a 0 ou 1 image reste une scene photo.
+ */
+export function slideshowAsPhoto(scene) {
+  if (scene?.layout !== 'slideshow') return scene;
+  const images = Array.isArray(scene.images) ? scene.images : [];
+  const base = { ...scene, layout: 'photo', image: images[0]?.id || '', __orig: scene };
+  if (images.length < 2) return base;
+  return { ...base, slideshow: { ids: images.map((image) => image.id), at: images.map((image) => Number(Number(image.at || 0).toFixed(3))), transition: scene.transition || 'fade' } };
+}
+
+/**
+ * Pur : ajoute au HTML de la scene les attributs qui font changer l image (la premiere image du defile) et, caches hors
+ * de l ecran, les autres images : la page attend qu elles soient chargees avant de capturer, donc aucune image vide.
+ */
+export function injectSlideshow(html, scene) {
+  const show = scene?.slideshow;
+  if (!show) return html;
+  const base = FACELESS_ASSET_ORIGIN + '/illustration/';
+  const marker = 'src="' + base + encodeURIComponent(show.ids[0]) + '.jpg"';
+  const at = html.indexOf(marker);
+  const open = at < 0 ? -1 : html.lastIndexOf('<img', at);
+  if (open < 0) return html;
+  const attrs = ' data-cycle="' + show.ids.map(encodeURIComponent).join(',') + '" data-cycle-at="' + show.at.join(',')
+    + '" data-cycle-tr="' + show.transition + '" data-cycle-base="' + base + '"';
+  const preload = show.ids.slice(1).map((id) => '<img alt="" src="' + base + encodeURIComponent(id) + '.jpg">').join('');
+  return html.slice(0, open + 4) + attrs + html.slice(open + 4)
+    + '<div aria-hidden="true" style="position:absolute;left:-4000px;top:0;width:2px;height:2px;overflow:hidden">' + preload + '</div>';
+}
+
 export function buildFacelessHtml(timeline, options = {}) {
   seedCounter = 1;
   const style = options.style || normalizeFacelessStyle({});
@@ -763,14 +806,15 @@ export function buildFacelessHtml(timeline, options = {}) {
     style,
     illustrations: T.illustrations,
     illustrationUrl: (id) => `${FACELESS_ASSET_ORIGIN}/illustration/${encodeURIComponent(id)}.jpg`,
-    isLast: (scene) => scene === timeline.scenes[timeline.scenes.length - 1],
+    isLast: (scene) => (scene.__orig || scene) === timeline.scenes[timeline.scenes.length - 1],
     seed: nextSeed,
   };
   const bgFor = (scene) => (engine?.bg ? engine.bg(scene) : bgOf(scene));
-  const scenesHtml = timeline.scenes.map((scene) => {
-    if (engine) return `<section class="scene bg-${bgFor(scene)}"><div class="bg"></div>${engine.scene(scene, ctx)}</section>`;
+  const scenesHtml = timeline.scenes.map((original) => {
+    const scene = slideshowAsPhoto(original);
+    if (engine) return `<section class="scene bg-${bgFor(scene)}"><div class="bg"></div>${injectSlideshow(engine.scene(scene, ctx), scene)}</section>`;
     const layout = LAYOUTS[scene.layout] || LAYOUTS.avatar;
-    return `<section class="scene bg-${bgOf(scene)}"><div class="bg"></div>${decorLayer()}${layout(scene)}</section>`;
+    return `<section class="scene bg-${bgOf(scene)}"><div class="bg"></div>${decorLayer()}${injectSlideshow(layout(scene), scene)}</section>`;
   }).join('\n');
 
   const top = style.captions.position === 'top';
