@@ -20,7 +20,7 @@ const INNER_W = W - PAD * 2; // 792
 
 const C = {
   line: '#e2e5ec', ink: '#0f172a', gray: '#64748b', indigoSoft: '#eef2ff', red: '#d92d20', green: '#067647',
-  redSoft: '#fee4e2', redInk: '#b42318', greenSoft: '#d1fadf',
+  redSoft: '#fee4e2', redInk: '#b42318', greenSoft: '#d1fadf', blueSoft: '#dbeafe', blue: '#1d4ed8',
 };
 
 /** Teinte douce de l accent (mele a du blanc) : pastilles et fonds d icone suivent la couleur de la DA. */
@@ -41,7 +41,15 @@ const ICONS = {
   chat: '<path d="M4 5h16v11H9l-5 4z"/>',
   doc: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="9" y1="13" x2="15" y2="13"/>',
   cross: '<line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/>',
+  check: '<polyline points="5,13 10,18 19,7"/>',
+  info: '<circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="12" y1="7.5" x2="12" y2="7.6"/>',
 };
+
+/** Pur : type d une notification (champ `tabTone`) : 'good' (check vert), 'info' (pastille bleue) ou 'alert' (croix rouge, defaut). */
+export function toastKind(scene) {
+  return scene?.tabTone === 'good' || scene?.tabTone === 'info' ? scene.tabTone : 'alert';
+}
+const TOAST_LOOK = { alert: { cls: 'danger', icon: 'cross' }, good: { cls: 'ok', icon: 'check' }, info: { cls: 'info', icon: 'info' } };
 const ICON_CYCLE = ['trend', 'chat', 'doc'];
 
 function icon(name, size = 52) {
@@ -199,7 +207,7 @@ const LAYOUTS = {
     const id = `c${ctx.seed()}`;
     const inner = `${label(scene.title)}${heading(ctx, scene, scene.text || scene.title, { size: 110, maxH: 440 })}`;
     const toast = scene.tab
-      ? cardFx(ctx, { inner: `<div class="toast"><span class="ic danger">${icon('cross', 40)}</span><span class="toast-t">${esc(scene.tab)}</span></div>`, follow: id, gap: 56, w: 640, at: 0.7 * pace(scene), cls: 'small' })
+      ? cardFx(ctx, { inner: `<div class="toast"><span class="ic ${TOAST_LOOK[toastKind(scene)].cls}">${icon(TOAST_LOOK[toastKind(scene)].icon, 40)}</span><span class="toast-t">${esc(scene.tab)}</span></div>`, follow: id, gap: 56, w: 640, at: 0.7 * pace(scene), cls: 'small' })
       : '';
     return cardFx(ctx, { inner, id }) + toast + avatar(ctx, scene);
   },
@@ -373,6 +381,8 @@ body{background:${p.background};font-family:"${fontFamily}",${emojiFonts},sans-s
 .ic{display:inline-flex;align-items:center;justify-content:center;width:104px;height:104px;border-radius:26px;background:${softTint(a)};flex:0 0 auto}
 .ico{display:inline-flex;color:var(--accent)}
 .ic.danger{width:76px;height:76px;border-radius:20px;background:${C.redSoft};color:${C.red}}
+.ic.ok{width:76px;height:76px;border-radius:20px;background:${C.greenSoft};color:${C.green}}
+.ic.info{width:76px;height:76px;border-radius:20px;background:${C.blueSoft};color:${C.blue}}
 .toast{display:flex;align-items:center;gap:26px}
 .toast-t{font-size:44px;font-weight:600;letter-spacing:-.02em}
 .itxt{display:flex;flex-direction:column;gap:6px;min-width:0}

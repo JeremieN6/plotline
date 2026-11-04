@@ -133,6 +133,8 @@ export function sceneFieldsFor(layout, template = 'classic') {
     code: template === 'editeur' && (kind === 'hook' || kind === 'title') ? { label: 'Code affiché (une ligne par ligne, 32 caractères max)', max: 6 } : null,
     items,
     slideshow: kind === 'slideshow' ? { max: 5, min: 2 } : null,
+    // Type de la notification (champ `tabTone`) : seul le modele Dashboard en dessine une, sur un chapitre.
+    toast: template === 'dashboard' && kind === 'title',
     compare,
     series: template === 'dashboard' && kind === 'stat' ? { max: 8 } : null,
     emoji: template === 'classic' && ['hook', 'title', 'word', 'logo'].includes(kind),

@@ -165,6 +165,10 @@
           :scene-index="index"
           @imported="emit('imported', $event)"
         />
+        <UiField v-if="specOf(scene).toast" label="Type de notification" :for-id="`plan-tab-tone-${index}`" hint="Le petit encart sous la phrase (champ « Notification »).">
+          <UiSelect :id="`plan-tab-tone-${index}`" :model-value="scene.tabTone || ''" :options="TOAST_OPTIONS" @update:model-value="scene.tabTone = $event" />
+        </UiField>
+
         <div v-if="specOf(scene).slideshow" class="space-y-3">
           <StudioFacelessImagePicker
             multiple
@@ -327,6 +331,12 @@ function layoutOptions(scene) {
   const keys = Object.keys(LAYOUT_LABELS).filter((key) => key !== 'label' || scene.layout === 'label')
   return keys.map((value) => ({ value, label: LAYOUT_LABELS[value] }))
 }
+
+const TOAST_OPTIONS = [
+  { value: '', label: 'Alerte (croix rouge)' },
+  { value: 'good', label: 'Validé (check vert)' },
+  { value: 'info', label: 'Info (pastille bleue)' },
+]
 
 // Defile d'images.
 const transitions = computed(() => (props.transitionOptions.length ? props.transitionOptions : [{ value: 'fade', label: 'Fondu' }, { value: 'cut', label: 'Coupe franche' }, { value: 'zoom', label: 'Zoom' }, { value: 'wipe', label: 'Balayage' }]))
