@@ -95,7 +95,7 @@
           <UiField v-if="specOf(scene).jp" :label="specOf(scene).jp.label" :for-id="`plan-jp-${index}`" hint="Facultatif, rien n’est dessiné si c’est vide.">
             <UiInput :id="`plan-jp-${index}`" v-model="scene.jp" :maxlength="specOf(scene).jp.max" />
           </UiField>
-          <UiField v-if="specOf(scene).emoji" label="Emoji (autocollant)" :for-id="`plan-emoji-${index}`" hint="Facultatif.">
+          <UiField v-if="specOf(scene).emoji" :label="template === 'classic' ? 'Emoji (autocollant)' : 'Emoji de l’icône'" :for-id="`plan-emoji-${index}`" hint="Facultatif.">
             <UiInput :id="`plan-emoji-${index}`" v-model="scene.emoji" maxlength="8" />
           </UiField>
         </div>
@@ -109,15 +109,15 @@
             Éléments de la liste
             <span class="font-normal text-ui-ink-muted">({{ (scene.items || []).length }} sur {{ specOf(scene).items.max }}, 2 au minimum)</span>
           </p>
-          <div v-for="(item, itemIndex) in scene.items || []" :key="itemIndex" class="grid gap-2 rounded-ui-ctl border border-ui-line-soft bg-ui-subtle p-2 sm:grid-cols-[4rem_1fr_1fr_auto]">
-            <UiInput v-model="item.emoji" maxlength="8" placeholder="Emoji" :aria-label="`Emoji de l’élément ${itemIndex + 1}`" />
+          <div v-for="(item, itemIndex) in scene.items || []" :key="itemIndex" class="grid gap-2 rounded-ui-ctl border border-ui-line-soft bg-ui-subtle p-2" :class="specOf(scene).items.emoji ? 'sm:grid-cols-[4rem_1fr_1fr_auto]' : 'sm:grid-cols-[1fr_1fr_auto]'">
+            <UiInput v-if="specOf(scene).items.emoji" v-model="item.emoji" maxlength="8" placeholder="Emoji" :aria-label="`Emoji de l’élément ${itemIndex + 1}`" />
             <UiInput v-model="item.text" maxlength="40" placeholder="Texte de l’élément" :aria-label="`Texte de l’élément ${itemIndex + 1}`" />
             <UiInput v-model="item.at" maxlength="40" placeholder="Mot dit qui le déclenche" :aria-label="`Mot qui déclenche l’élément ${itemIndex + 1}`" />
             <UiButton variant="ghost" size="sm" @click="removeRow(scene.items, itemIndex)">Retirer</UiButton>
-            <p v-if="!cueIsSpoken(scene.say, item.at)" class="text-xs text-ui-danger-ink sm:col-span-4">
+            <p v-if="!cueIsSpoken(scene.say, item.at)" class="text-xs text-ui-danger-ink sm:col-span-full">
               Ce mot n’est pas dans ce qui est dit : l’élément apparaîtra au milieu de la phrase. Mets un mot de « Ce que dit la voix ».
             </p>
-            <div v-if="specOf(scene).items.subLabel || specOf(scene).items.tone" class="grid gap-2 sm:col-span-4 sm:grid-cols-2">
+            <div v-if="specOf(scene).items.subLabel || specOf(scene).items.tone" class="grid gap-2 sm:col-span-full sm:grid-cols-2">
               <UiInput v-if="specOf(scene).items.subLabel" v-model="item.sub" maxlength="40" :placeholder="specOf(scene).items.subLabel" :aria-label="`${specOf(scene).items.subLabel}, élément ${itemIndex + 1}`" />
               <UiSelect v-if="specOf(scene).items.tone" v-model="item.tone" :options="TONE_OPTIONS" :aria-label="`Jugement de l’élément ${itemIndex + 1}`" />
             </div>

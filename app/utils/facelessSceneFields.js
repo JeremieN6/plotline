@@ -82,6 +82,13 @@ const ITEM_SUB_LABELS = {
 }
 const TONE_TEMPLATES = ['herbier', 'journal']
 
+// Emoji d'une scene : autocollant du modele classique (accroche, chapitre, mot, logo) ; icone du logo pour Cahier, Dashboard et Fenetre.
+const LOGO_EMOJI_TEMPLATES = ['cahier', 'dashboard', 'fenetre']
+export function sceneEmoji(template, kind) {
+  if (template === 'classic') return ['hook', 'title', 'word', 'logo'].includes(kind)
+  return kind === 'logo' && LOGO_EMOJI_TEMPLATES.includes(template)
+}
+
 export function tabLabel(template, layout) {
   const entry = TAB_LABELS[template]
   if (!entry) return 'Libellé court'
@@ -121,6 +128,8 @@ export function sceneFieldsFor(layout, template = 'classic') {
         min: 2,
         subLabel: ITEM_SUB_LABELS[template] || '',
         tone: TONE_TEMPLATES.includes(template),
+        // L'emoji d'un element n'est dessine que par le modele classique (les autres ont leurs propres icones).
+        emoji: template === 'classic' && kind === 'list',
       }
     : null
   const compare = kind === 'stat' || (kind === 'hook' && template === 'dashboard') ? { max: 3 } : null
@@ -137,7 +146,7 @@ export function sceneFieldsFor(layout, template = 'classic') {
     toast: template === 'dashboard' && kind === 'title',
     compare,
     series: template === 'dashboard' && kind === 'stat' ? { max: 8 } : null,
-    emoji: template === 'classic' && ['hook', 'title', 'word', 'logo'].includes(kind),
+    emoji: sceneEmoji(template, kind),
   }
 }
 
