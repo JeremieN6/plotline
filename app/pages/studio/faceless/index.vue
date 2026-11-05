@@ -274,6 +274,30 @@
                 <p v-for="(line, index) in info.script" :key="index">{{ line }}</p>
               </div>
             </UiDisclosure>
+
+            <div v-if="info.plan" class="space-y-3">
+              <UiButton v-if="!editPlan" variant="secondary" :disabled="!info.canRetouchNow" @click="openPlanEdit">Modifier le plan directement</UiButton>
+              <p v-if="!editPlan" class="text-xs text-ui-ink-muted">
+                Retrouve les scènes exactes de cette version et change seulement ce que tu veux (un mot, un titre…), sans repasser par Claude.
+              </p>
+              <StudioFacelessPlanEditor
+                v-else
+                v-model="editPlan"
+                mode="edit"
+                :lock-spoken="Boolean(info.ownVoice)"
+                :template="info.template || 'classic'"
+                :clone="Boolean(info.cloneVoice)"
+                :audio-tags="options?.audioTags || []"
+                :transition-options="options?.slideshowTransitions || []"
+                :sfx-options="options?.sfx || []"
+                :profile-id="info.personaId || ''"
+                :illustrations="editIllustrations"
+                :generating="savingPlanEdit"
+                @generate="applyPlanEdit"
+                @discard="editPlan = null"
+              />
+            </div>
+
             <UiField
               label="Retoucher"
               for-id="faceless-retouch"
@@ -749,6 +773,44 @@ async function generate() {
     errorMessage.value = (error?.statusCode || error?.status) === 413
       ? `Enregistrement trop lourd pour être envoyé (maximum ${OWN_VOICE_MAX_MB} Mo). Exporte-le en mp3 ou en m4a, ou coupe-le en deux.`
       : (error?.data?.statusMessage || error?.statusMessage || 'Impossible de lancer la génération.')
+  }
+}
+
+// Modification directe du plan d une video deja faite : les scenes exactes de la version active, sans Claude.
+const editPlan = ref(null)
+const savingPlanEdit = ref(false)
+const editIllustrations = ref([])
+
+async function openPlanEdit() {
+  if (!info.value?.plan) return
+  editPlan.value = JSON.parse(JSON.stringify(info.value.plan))
+  // Images du dossier de la persona, pour les scenes photo / defile d images.
+  editIllustrations.value = []
+  if (info.value.personaId) {
+    try {
+      const result = await $fetch(`/api/faceless/style/${info.value.personaId}`)
+      editIllustrations.value = result?.illustrations || []
+    } catch {
+      editIllustrations.value = []
+    }
+  }
+}
+
+async function applyPlanEdit() {
+  if (!editPlan.value) return
+  savingPlanEdit.value = true
+  lastFailure.value = ''
+  try {
+    await $fetch(`/api/content/${contentId.value}/faceless-retouch`, {
+      method: 'POST',
+      body: { plan: editPlan.value },
+    })
+    editPlan.value = null
+    startPolling(contentId.value, 'retouch')
+  } catch (error) {
+    lastFailure.value = error?.data?.statusMessage || error?.statusMessage || 'Impossible de lancer la modification.'
+  } finally {
+    savingPlanEdit.value = false
   }
 }
 

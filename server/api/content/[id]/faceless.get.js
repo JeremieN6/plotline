@@ -44,6 +44,12 @@ export default defineEventHandler(async (event) => {
     idea: retouchable ? spec.idea || '' : '',
     // Texte dit, une entree par scene (balises de ton comprises), pour le relire avant de retoucher.
     script: retouchable ? spec.plan.scenes.map((scene) => String(scene?.say || '').trim()).filter(Boolean) : [],
+    // Plan exact de la version active, pour le modifier directement dans l editeur (sans passer par Claude).
+    plan: retouchable ? spec.plan : null,
+    template: retouchable ? String(spec.style?.template || 'classic') : 'classic',
+    // Ma propre voix : le texte dit est l enregistrement, il ne peut pas changer.
+    ownVoice: retouchable && spec.voiceSource === 'own',
+    cloneVoice: retouchable && spec.voice?.source === 'clone',
     personaId: retouchable ? spec.personaId || '' : '',
     retouches: retouchable && Array.isArray(spec.retouches) ? spec.retouches : [],
   };

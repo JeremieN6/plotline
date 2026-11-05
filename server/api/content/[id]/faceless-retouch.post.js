@@ -4,6 +4,7 @@ import { MAX_REMEMBERED_RULE, appendStyleRule, readyIllustrations, readyPackEntr
 import { loadPersonaStyle, updateProfileStyle } from '../../../utils/facelessStyleStore.js';
 
 const MAX_INSTRUCTION_LENGTH = 1000;
+const MAX_EDITED_PLAN_JSON = 120000;
 
 let prismaClient;
 
@@ -31,14 +32,19 @@ export default defineEventHandler(async (event) => {
   const user = await authModule.requireAuthUser(event);
   const body = await readBody(event);
 
+  // Soit une consigne en langage naturel (Claude retouche), soit un plan modifie a la main (aucun appel Claude).
+  const editedPlan = body?.plan && typeof body.plan === 'object' && !Array.isArray(body.plan) ? body.plan : null;
+  if (editedPlan && JSON.stringify(editedPlan).length > MAX_EDITED_PLAN_JSON) {
+    return sendError(event, createError({ statusCode: 400, statusMessage: 'plan trop volumineux' }));
+  }
   const instruction = String(body?.instruction || '').trim().slice(0, MAX_INSTRUCTION_LENGTH);
-  if (!instruction) {
+  if (!instruction && !editedPlan) {
     return sendError(event, createError({ statusCode: 400, statusMessage: 'consigne requise' }));
   }
 
   // "Retenir pour les prochaines videos" copie la consigne TELLE QUELLE dans les regles de la DA, injectees dans CHAQUE
   // prochain plan : une consigne longue ou propre a cette video (positions, phrases citees) y ferait du mal.
-  if (body?.rememberRule === true && instruction.length > MAX_REMEMBERED_RULE) {
+  if (!editedPlan && body?.rememberRule === true && instruction.length > MAX_REMEMBERED_RULE) {
     return sendError(event, createError({
       statusCode: 400,
       statusMessage: `Pour retenir une règle, écris-la en une phrase générale de ${MAX_REMEMBERED_RULE} caractères maximum (ex. « Mets toujours le titre numéroté sur la phrase qui énonce la leçon »). Décoche la case pour une retouche propre à cette vidéo.`,
@@ -62,7 +68,8 @@ export default defineEventHandler(async (event) => {
   }
 
   const loaded = spec.personaId ? await loadPersonaStyle(prisma, spec.personaId, user.id) : null;
-  const rememberRule = body?.rememberRule === true;
+  // Un plan modifie a la main n est jamais une regle a retenir pour les prochaines videos.
+  const rememberRule = !editedPlan && body?.rememberRule === true;
 
   // La regle retenue rejoint la DA de la persona (sans toucher a son pack d avatars).
   if (rememberRule && loaded) {
@@ -84,6 +91,7 @@ export default defineEventHandler(async (event) => {
     contentId: id,
     spec,
     instruction,
+    plan: editedPlan,
     persona: loaded?.persona || null,
     rememberRule,
     folderIllustrations: loaded ? readyIllustrations(loaded.style) : {},

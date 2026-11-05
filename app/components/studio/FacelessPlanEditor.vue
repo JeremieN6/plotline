@@ -1,10 +1,12 @@
 <template>
   <section class="space-y-4 rounded-ui-card border border-ui-line bg-ui-surface p-4 font-ui" aria-label="Plan à valider">
     <header>
-      <p class="font-ui-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-ui-accent">Plan à valider</p>
-      <h3 class="mt-1 text-lg font-semibold text-ui-ink">Relis, corrige, puis lance la vidéo</h3>
+      <p class="font-ui-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-ui-accent">{{ mode === 'edit' ? 'Plan de la vidéo' : 'Plan à valider' }}</p>
+      <h3 class="mt-1 text-lg font-semibold text-ui-ink">{{ mode === 'edit' ? 'Modifie les scènes, puis crée une nouvelle version' : 'Relis, corrige, puis lance la vidéo' }}</h3>
       <p class="mt-1 text-xs leading-5 text-ui-ink-muted">
-        Rien n’est encore dépensé en voix ni en montage. Pour chaque scène, choisis « Ce qui s’affiche » : les champs proposés dessous
+        {{ mode === 'edit'
+          ? (lockSpoken ? 'Ta voix est ton enregistrement : le texte dit est verrouillé, seule la mise en scène change.' : 'Ce sont les scènes exactes de la version actuelle. Si le texte dit ne change pas, la même voix est réutilisée (gratuit) ; sinon la voix est régénérée.')
+          : 'Rien n’est encore dépensé en voix ni en montage.' }} Pour chaque scène, choisis « Ce qui s’affiche » : les champs proposés dessous
         sont exactement ceux que cette mise en page lit. Tu peux aussi demander à Claude de réviser tout le plan. Ce que tu as écrit à la main est conservé.
       </p>
     </header>
@@ -45,13 +47,13 @@
             <span class="font-ui-mono text-xs font-medium text-ui-ink-muted">~{{ wordsOf(scene.say) }} mots · ~{{ secondsOf(scene.say) }} s</span>
           </p>
           <div class="flex items-center gap-1">
-            <button type="button" class="rounded-ui-ctl px-2 py-1 text-xs text-ui-ink-2 hover:bg-ui-subtle disabled:opacity-40" :disabled="index === 0" aria-label="Monter la scène" @click="move(index, -1)">↑</button>
-            <button type="button" class="rounded-ui-ctl px-2 py-1 text-xs text-ui-ink-2 hover:bg-ui-subtle disabled:opacity-40" :disabled="index === plan.scenes.length - 1" aria-label="Descendre la scène" @click="move(index, 1)">↓</button>
-            <button type="button" class="rounded-ui-ctl px-2 py-1 text-xs font-semibold text-ui-accent hover:bg-ui-accent-soft disabled:opacity-40" :disabled="previews[index]?.loading" @click="showPreview(index)">
+            <button type="button" class="rounded-ui-ctl px-2 py-1 text-xs text-ui-ink-2 hover:bg-ui-subtle disabled:opacity-40" :disabled="lockSpoken || index === 0" aria-label="Monter la scène" @click="move(index, -1)">↑</button>
+            <button type="button" class="rounded-ui-ctl px-2 py-1 text-xs text-ui-ink-2 hover:bg-ui-subtle disabled:opacity-40" :disabled="lockSpoken || index === plan.scenes.length - 1" aria-label="Descendre la scène" @click="move(index, 1)">↓</button>
+            <button v-if="mode !== 'edit'" type="button" class="rounded-ui-ctl px-2 py-1 text-xs font-semibold text-ui-accent hover:bg-ui-accent-soft disabled:opacity-40" :disabled="previews[index]?.loading" @click="showPreview(index)">
               {{ previews[index]?.loading ? 'Aperçu…' : 'Aperçu' }}
             </button>
-            <button type="button" class="rounded-ui-ctl px-2 py-1 text-xs text-ui-ink-2 hover:bg-ui-subtle" @click="addAfter(index)">+ Scène</button>
-            <button type="button" class="rounded-ui-ctl px-2 py-1 text-xs text-ui-danger-ink hover:bg-ui-danger-soft disabled:opacity-40" :disabled="plan.scenes.length <= 2" @click="remove(index)">Supprimer</button>
+            <button v-if="!lockSpoken" type="button" class="rounded-ui-ctl px-2 py-1 text-xs text-ui-ink-2 hover:bg-ui-subtle" @click="addAfter(index)">+ Scène</button>
+            <button type="button" class="rounded-ui-ctl px-2 py-1 text-xs text-ui-danger-ink hover:bg-ui-danger-soft disabled:opacity-40" :disabled="lockSpoken || plan.scenes.length <= 2" @click="remove(index)">Supprimer</button>
           </div>
         </div>
 
@@ -67,7 +69,7 @@
         </div>
 
         <UiField label="Ce que dit la voix" :for-id="`plan-say-${index}`" :hint="clone ? 'Avec les balises de ton entre crochets si tu en veux.' : ''">
-          <UiTextarea :id="`plan-say-${index}`" v-model="scene.say" :rows="2" :maxlength="400" @focus="focused = index" />
+          <UiTextarea :id="`plan-say-${index}`" v-model="scene.say" :rows="2" :maxlength="400" :readonly="lockSpoken" @focus="focused = index" />
         </UiField>
 
         <div class="grid gap-3 sm:grid-cols-2">
@@ -216,7 +218,7 @@
       </li>
     </ol>
 
-    <div class="space-y-2 rounded-ui-card border border-ui-line-soft bg-ui-subtle p-3">
+    <div v-if="mode !== 'edit'" class="space-y-2 rounded-ui-card border border-ui-line-soft bg-ui-subtle p-3">
       <UiField
         label="Demander à Claude de réviser le plan"
         for-id="plan-revise"
@@ -242,9 +244,9 @@
 
     <footer class="flex flex-wrap items-center gap-3 border-t border-ui-line-soft pt-3">
       <UiButton variant="primary" :loading="generating" :disabled="revising || totalWords === 0" @click="emit('generate')">
-        {{ generating ? 'Montage en cours…' : 'Lancer la vidéo avec ce plan' }}
+        {{ generating ? 'Montage en cours…' : (mode === 'edit' ? 'Créer la nouvelle version' : 'Lancer la vidéo avec ce plan') }}
       </UiButton>
-      <UiButton variant="ghost" size="sm" :disabled="generating" @click="emit('discard')">Abandonner ce plan</UiButton>
+      <UiButton variant="ghost" size="sm" :disabled="generating" @click="emit('discard')">{{ mode === 'edit' ? 'Fermer sans enregistrer' : 'Abandonner ce plan' }}</UiButton>
       <p class="text-xs text-ui-ink-muted">
         {{ plan.scenes.length }} scènes · ~{{ totalWords }} mots · ~{{ Math.round(totalWords / WORDS_PER_SECOND) }} s de voix
       </p>
@@ -272,6 +274,9 @@ const props = defineProps({
   transitionOptions: { type: Array, default: () => [] },
   sfxOptions: { type: Array, default: () => [] },
   clone: { type: Boolean, default: false },
+  // 'edit' : plan d une video DEJA faite (nouvelle version, pas de revision par Claude). lockSpoken : ma propre voix, texte dit fige.
+  mode: { type: String, default: 'create' },
+  lockSpoken: { type: Boolean, default: false },
   audioTags: { type: Array, default: () => [] },
   revising: { type: Boolean, default: false },
   generating: { type: Boolean, default: false },

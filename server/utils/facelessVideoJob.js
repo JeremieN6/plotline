@@ -233,7 +233,7 @@ export async function produceFacelessVideo({ idea, sourceText = '', direction = 
  * la voix est reutilisee si le texte dit n a pas bouge, sinon regeneree.
  * `rememberRule` : la consigne est aussi ajoutee aux regles de la DA.
  */
-export async function retouchFacelessVideo({ spec, instruction, persona, rememberRule = false, folderIllustrations = {}, folderPackEntries = {}, onStep = () => {} } = {}) {
+export async function retouchFacelessVideo({ spec, instruction, plan: editedPlan = null, persona, rememberRule = false, folderIllustrations = {}, folderPackEntries = {}, onStep = () => {} } = {}) {
   let { style, packEntries } = styleFromSpec(spec);
   // Poses du pack generees APRES la video : elles deviennent utilisables. Celles deja dans la video gardent leur image (rien ne change d un cadre a l autre).
   packEntries = mergePackEntries(packEntries, folderPackEntries);
@@ -244,7 +244,14 @@ export async function retouchFacelessVideo({ spec, instruction, persona, remembe
 
   onStep('plan');
   const ownVoiceRefusal = 'Avec ta propre voix, une retouche ne peut pas changer ce qui est dit : seule la mise en scène change. Re-enregistre ta voix pour modifier le texte.';
-  const retouched = await retouchFacelessPlan({
+  // Plan modifie A LA MAIN par le createur : on le nettoie comme au lancement d une video, Claude n est pas appele.
+  const retouched = editedPlan ? sanitizeFacelessPlan(editedPlan, {
+    captions: spec.captions !== false,
+    packIds: Object.keys(packEntries || {}),
+    illustrationIds: Object.keys(known),
+    maxNew: 0,
+    allowTags: spec?.voice?.source === 'clone',
+  }) : await retouchFacelessPlan({
     plan: spec.plan,
     instruction: ownVoice ? `${instruction}\n(Contrainte : la voix est celle enregistree par le createur. Ne modifie, ne deplace et ne supprime aucun mot de aucun "say" ; tu peux seulement les repartir entre scenes. Les nombres restent ecrits comme ils sont dits dans les "say" (ex. "Vingt-deux") ; les chiffres (22, 11 %) ne s affichent que dans les textes a l ecran. Les reperes "at" citent un mot EXACT du "say".)` : instruction,
     persona, targetSeconds: spec.targetSeconds, captions: spec.captions !== false, style, packEntries, illustrations: known,
@@ -366,9 +373,9 @@ export async function runFacelessVideoJobAndWait(args) {
 }
 
 /** Lance une retouche en tache de fond a partir du renderSpec de la version active. */
-export function runFacelessRetouchJob({ prisma, contentId, spec, instruction, persona, rememberRule = false, folderIllustrations = {}, folderPackEntries = {}, previousStatus }) {
+export function runFacelessRetouchJob({ prisma, contentId, spec, instruction, plan = null, persona, rememberRule = false, folderIllustrations = {}, folderPackEntries = {}, previousStatus }) {
   return inBackground(prisma, contentId, previousStatus, async () => {
-    const result = await retouchFacelessVideo({ spec, instruction, persona, rememberRule, folderIllustrations, folderPackEntries, onStep: logStep(contentId) });
+    const result = await retouchFacelessVideo({ spec, instruction, plan, persona, rememberRule, folderIllustrations, folderPackEntries, onStep: logStep(contentId) });
     const voiceUrl = result.newVoice
       ? await saveFacelessMedia(result.voice.audio, { folder: 'generated', extension: 'mp3', contentType: 'audio/mpeg' })
       : spec.voiceUrl;
@@ -383,7 +390,7 @@ export function runFacelessRetouchJob({ prisma, contentId, spec, instruction, pe
         captions: spec.captions,
         personaId: spec.personaId || null,
         // Historique des consignes : utile pour comprendre une version (et a Claude plus tard).
-        retouches: [...(Array.isArray(spec.retouches) ? spec.retouches : []), String(instruction).slice(0, 1000)].slice(-10),
+        retouches: [...(Array.isArray(spec.retouches) ? spec.retouches : []), plan ? 'Modification directe du plan' : String(instruction).slice(0, 1000)].slice(-10),
       },
     });
   });
