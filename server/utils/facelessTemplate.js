@@ -726,6 +726,26 @@ function buildRuntime(fontFamilies, extraLoads = []) {
         if (Number.isFinite(baseSpacing) && baseSpacing !== 0) el.style.letterSpacing = (baseSpacing * size / baseSize).toFixed(2) + 'px';
       }
     });
+    // Capture dans le cadre d ecran d ordinateur (Dashboard) : la fenetre prend la forme de l image, qui remplit tout l ecran
+    // avec une petite marge sur les cotes (rien n est rogne, pas de bandes vides).
+    document.querySelectorAll('[data-fit-shot]').forEach((wrap) => {
+      const img = wrap.querySelector('img.shot');
+      if (!img || !img.naturalWidth) return;
+      const S = 940 / 1080, M = +wrap.dataset.shotM || 28, maxScreen = +wrap.dataset.fitShot, bar = 92;
+      const want = (1080 - 2 * M) * (img.naturalHeight / img.naturalWidth) + 2 * M;
+      const boxH = Math.max(300 / S, Math.min(want, maxScreen / S));
+      const screenH = Math.round(boxH * S), height = bar + screenH;
+      wrap.style.height = height + 'px';
+      wrap.style.top = Math.max(330, Math.round(1000 - height / 2)) + 'px';
+      wrap.querySelector('.win').style.height = height + 'px';
+      wrap.querySelector('.wscreen').style.height = screenH + 'px';
+      wrap.querySelector('.wscale').style.top = '0px';
+      const holder = img.closest('.fx');
+      holder.style.top = M + 'px';
+      holder.style.height = (boxH - 2 * M) + 'px';
+      const cap = wrap.querySelector('.shot-cap');
+      if (cap && cap.closest('.fx')) cap.closest('.fx').style.top = (boxH - 190) + 'px';
+    });
     // Puis les elements "follow" se posent sous leur reference, une fois les tailles ajustees.
     document.querySelectorAll('[data-follow]').forEach((el) => {
       const ref = document.getElementById(el.dataset.follow);

@@ -311,19 +311,27 @@ export function screenFrameGeometry(kind) {
   return { boxTop: top, boxH, screenH, height, y: Math.max(330, Math.round(1000 - height / 2)) };
 }
 
-function screenWindow(ctx, inner, kind, dark) {
+/** Pur : adresse affichee dans la barre de la fenetre (champ `tab` de la scene, sinon l adresse par defaut). */
+export function windowAddress(scene) {
+  return String(scene?.tab || '').trim() || 'tableau-de-bord';
+}
+
+function screenWindow(ctx, inner, kind, dark, address = 'tableau-de-bord', shot = false) {
   const g = screenFrameGeometry(kind);
   const html = `<div class="win${dark ? ' dk' : ''}" style="height:${g.height}px">`
-    + '<div class="wbar"><span class="wdot r"></span><span class="wdot y"></span><span class="wdot g"></span><span class="waddr">tableau-de-bord</span></div>'
+    + `<div class="wbar"><span class="wdot r"></span><span class="wdot y"></span><span class="wdot g"></span><span class="waddr">${esc(address)}</span></div>`
     + `<div class="wscreen" style="height:${g.screenH}px"><div class="wscale" style="top:${-Math.round(g.boxTop * SCREEN_SCALE)}px">${inner}</div></div></div>`;
   return `<div class="wback${dark ? ' dk' : ''}"></div>`
-    + ctx.fx(html, { x: SCREEN_FRAME.x, y: g.y, w: SCREEN_FRAME.w, h: g.height, enter: 'window', fixedEnter: true, z: 2, boil: 0, data: { exit: 'shrink' } });
+    + ctx.fx(html, { x: SCREEN_FRAME.x, y: g.y, w: SCREEN_FRAME.w, h: g.height, enter: 'window', fixedEnter: true, z: 2, boil: 0, data: shot ? { exit: 'shrink', 'fit-shot': g.screenH, 'shot-m': SHOT_MARGIN } : { exit: 'shrink' } });
 }
+
+// Marge autour de l image dans l ecran (unites de la scene) : une capture n est jamais rognee ni collee aux bords.
+const SHOT_MARGIN = 28;
 
 /** Une seule image dans l ecran : l illustration du dossier remplit tout l ecran, la legende en pastille au bas. */
 function screenShot(scene, ctx) {
   const g = screenFrameGeometry('photo');
-  const img = ctx.fx(`<img class="shot" alt="" src="${ctx.illustrationUrl(scene.image)}">`, { x: 0, y: g.boxTop, w: 1080, h: g.boxH, enter: 'fade-in', fixedEnter: true, rot: 0, boil: 0, z: 1 });
+  const img = ctx.fx(`<img class="shot" alt="" src="${ctx.illustrationUrl(scene.image)}">`, { x: SHOT_MARGIN, y: g.boxTop + SHOT_MARGIN, w: 1080 - 2 * SHOT_MARGIN, h: g.boxH - 2 * SHOT_MARGIN, enter: 'fade-in', fixedEnter: true, rot: 0, boil: 0, z: 1 });
   const cap = scene.text
     ? ctx.fx(`<div class="shot-cap">${esc(noMarks(scene.text))}</div>`, { x: 60, y: g.boxTop + g.boxH - 190, w: 960, enter: 'card', fixedEnter: true, at: 0.4, rot: 0, boil: 0, z: 3 })
     : '';
@@ -337,7 +345,7 @@ export function dashboardScene(scene, ctx) {
   if (!ctx.style.screenFrame) return layout(scene, ctx);
   frontHtml = '';
   const shot = kind === 'photo' && ctx.illustrations[scene.image];
-  const html = screenWindow(ctx, shot ? screenShot(scene, ctx) : layout(scene, ctx), shot ? 'photo' : kind, scene.bg === 'dark');
+  const html = screenWindow(ctx, shot ? screenShot(scene, ctx) : layout(scene, ctx), shot ? 'photo' : kind, scene.bg === 'dark', windowAddress(scene), Boolean(shot));
   const front = frontHtml;
   frontHtml = '';
   return html + front;
@@ -416,7 +424,7 @@ body{background:${p.background};font-family:"${fontFamily}",${emojiFonts},sans-s
 .wscreen{position:relative;overflow:hidden;background:${p.background}}
 .wscale{position:absolute;left:0;width:1080px;height:1920px;transform:scale(${SCREEN_SCALE});transform-origin:0 0}
 .win.dk{background:#16213b;box-shadow:0 0 0 2px #2c3b5e,0 30px 70px rgba(0,0,0,.55)}.win.dk .wbar{background:#162036;border-color:#243049}.win.dk .waddr{background:#0f172a;border-color:#243049;color:#94a3b8}.win.dk .wscreen{background:#141f38}
-.shot{display:block;width:100%;height:100%;object-fit:cover}
+.shot{display:block;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 8px 22px rgba(15,23,42,.28))}
 .shot-cap{display:inline-block;background:#fff;border-radius:999px;padding:20px 44px;font-size:46px;font-weight:600;letter-spacing:-.02em;box-shadow:0 12px 34px rgba(15,23,42,.22)}
 #captions{position:absolute;left:70px;width:860px;top:190px;z-index:20;display:none;justify-content:center;white-space:nowrap}
 #captions .cap-in{display:inline-flex;align-items:center;gap:16px;background:#fff;border-radius:999px;padding:18px 44px;box-shadow:0 10px 30px rgba(15,23,42,.14)}
