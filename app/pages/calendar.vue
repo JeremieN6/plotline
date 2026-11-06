@@ -187,6 +187,10 @@
           <img v-else :src="current.imageUrl" class="h-56 w-full object-cover" alt="Aperçu du contenu">
         </div>
 
+        <p v-if="current.manualPlatforms" class="rounded-ui-ctl bg-ui-success-soft px-3 py-2 text-sm text-ui-success-ink">
+          Publié à la main sur {{ current.manualPlatforms }}, le {{ formatShortDate(current.scheduledAt) }}.
+        </p>
+
         <section>
           <h3 class="text-[13px] font-semibold text-ui-ink">Légende</h3>
           <p class="mt-1.5 whitespace-pre-line rounded-ui-ctl bg-ui-subtle p-3 text-sm leading-6 text-ui-ink">{{ current.captionText || 'Aucune légende.' }}</p>
@@ -325,6 +329,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { CONTENT_TYPES, contentStatusOf, contentTypeOf } from '../utils/contentTypes.js'
 import { formatShortDate } from '../utils/formatDate.js'
+import { formatPlatforms, readManualPublication } from '../utils/manualPlatforms.js'
 import {
   addDays, buildMonthWeeks, findTrailingGap, monthKey, monthTarget, parseMonthKey, parseTags, pickSchedulable, presetDays, splitCaption,
   spreadSlots, startOfDay, statusFromContent, summarizeMonth, timeLabel,
@@ -364,6 +369,8 @@ function toEntry(content) {
     captionText: split.text,
     hashtags: split.tags,
     imageUrl: content.imageUrl || '',
+    // Contenu poste a la main : les plateformes choisies (« TikTok et Instagram »), vide sinon.
+    manualPlatforms: formatPlatforms(readManualPublication(content.manualPublication)?.platforms),
     planId: '',
     itemId: '',
   }

@@ -259,6 +259,8 @@ model GeneratedContent {
   scheduledAt   DateTime?
   publishedAt   DateTime?
   twitterPublishedAt DateTime?
+  /// Publication faite a la main (hors de l outil): { at, platforms }. NULL = jamais marque.
+  manualPublication Json?
   createdAt     DateTime       @default(now())
 
   influencer    Profile        @relation(fields: [influencerId], references: [id])

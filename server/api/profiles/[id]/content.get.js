@@ -33,6 +33,7 @@ const CONTENT_SELECT = {
   scheduledAt: true,
   publishedAt: true,
   twitterPublishedAt: true,
+  manualPublication: true,
   createdAt: true,
   campaignId: true,
   carouselId: true,
@@ -59,6 +60,7 @@ const CONTENT_SELECT = {
 const OPTIONAL_SELECT_FIELDS = [
   { key: 'versions', match: ['contentversion'] },
   { key: 'twitterPublishedAt', match: ['twitterpublishedat'] },
+  { key: 'manualPublication', match: ['manualpublication'] },
   { key: 'carouselId', match: ['carouselid'] },
   { key: 'carouselPosition', match: ['carouselposition'] },
 ];

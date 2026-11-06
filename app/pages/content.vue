@@ -1,22 +1,22 @@
 <template>
   <div class="space-y-6">
-    <header class="flex flex-col gap-4 rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)] lg:flex-row lg:items-end lg:justify-between">
+    <header class="flex flex-col gap-4 rounded-[20px] border border-ui-line bg-ui-surface p-5 shadow-sm lg:flex-row lg:items-end lg:justify-between">
       <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#E8873A]">Contenu</p>
-        <h1 class="mt-2 text-3xl font-bold tracking-tight text-[#111111]">{{ selectedInfluencer?.name || 'Contenu' }}</h1>
-        <p class="mt-2 text-sm text-[#666666]">{{ selectedInfluencer ? 'Par défaut, la vue démarre sur tout puis se filtre par statut.' : `Aucune ${wording.ambassador} active pour le moment.` }}</p>
-        <div v-if="selectedInfluencer" class="mt-3 flex flex-wrap items-center gap-2 text-sm text-[#666666]">
+        <p class="text-xs font-semibold uppercase tracking-[0.22em] text-ui-accent">Contenu</p>
+        <h1 class="mt-2 text-3xl font-bold tracking-tight text-ui-ink">{{ selectedInfluencer?.name || 'Contenu' }}</h1>
+        <p class="mt-2 text-sm text-ui-ink-muted">{{ selectedInfluencer ? 'Par défaut, la vue démarre sur tout puis se filtre par statut.' : `Aucune ${wording.ambassador} active pour le moment.` }}</p>
+        <div v-if="selectedInfluencer" class="mt-3 flex flex-wrap items-center gap-2 text-sm text-ui-ink-muted">
           <span
             v-for="item in nicheChips"
             :key="`niche-${item}`"
-            class="rounded-full bg-[#FDE7D6] px-2.5 py-1 text-xs font-bold text-[#B45F1D]"
+            class="rounded-full bg-ui-accent-soft px-2.5 py-1 text-xs font-bold text-ui-accent-ink"
           >
             {{ item }}
           </span>
           <span
             v-for="item in styleChips"
             :key="`style-${item}`"
-            class="rounded-full border border-[#E5E3DF] bg-[#FAFAF8] px-2.5 py-1 text-xs font-semibold text-[#111111]"
+            class="rounded-full border border-ui-line bg-ui-bg px-2.5 py-1 text-xs font-semibold text-ui-ink"
           >
             {{ item }}
           </span>
@@ -27,89 +27,89 @@
         <NuxtLink
           v-if="selectedInfluencer"
           :to="generateHref"
-          class="rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white transition-all duration-150 hover:bg-[#d4762f]"
+          class="rounded-[12px] bg-ui-accent px-4 py-2.5 text-sm font-bold text-white transition-all duration-150 hover:bg-ui-accent-hover"
         >
           Générer
         </NuxtLink>
       </div>
     </header>
 
-    <div class="flex flex-wrap gap-2 rounded-[16px] border border-[#E5E3DF] bg-white p-2 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+    <div class="flex flex-wrap gap-2 rounded-[16px] border border-ui-line bg-ui-surface p-2 shadow-sm">
       <button
         v-for="tab in tabs"
         :key="tab.value"
         type="button"
         class="rounded-[12px] px-4 py-2.5 text-sm font-semibold transition-colors duration-150"
-        :class="activeTab === tab.value ? 'bg-[#111111] text-white' : 'text-[#666666] hover:bg-[#FAFAF8]'"
+        :class="activeTab === tab.value ? 'bg-ui-ink text-white' : 'text-ui-ink-muted hover:bg-ui-bg'"
         @click="activeTab = tab.value"
       >
         {{ tab.label }}
       </button>
     </div>
 
-    <div v-if="isBrand" class="flex flex-col gap-3 rounded-[16px] border border-[#E5E3DF] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.05)] sm:flex-row sm:items-center sm:justify-between">
+    <div v-if="isBrand" class="flex flex-col gap-3 rounded-[16px] border border-ui-line bg-ui-surface p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <p class="text-sm font-semibold text-[#111111]">Filtrer par campagne</p>
-        <p class="text-xs text-[#666666]">Affiche uniquement les contenus liés à une campagne précise.</p>
+        <p class="text-sm font-semibold text-ui-ink">Filtrer par campagne</p>
+        <p class="text-xs text-ui-ink-muted">Affiche uniquement les contenus liés à une campagne précise.</p>
       </div>
       <div class="flex items-center gap-2">
         <select
           v-model="selectedCampaignId"
-          class="min-w-[220px] rounded-[12px] border border-[#E5E3DF] bg-white px-3 py-2 text-sm text-[#111111] outline-none focus:border-[#E8873A]"
+          class="min-w-[220px] rounded-[12px] border border-ui-line bg-ui-surface px-3 py-2 text-sm text-ui-ink outline-none focus:border-ui-accent"
         >
           <option value="">Toutes les campagnes</option>
           <option v-for="campaign in campaigns" :key="campaign.id" :value="campaign.id">
             {{ campaign.name }}
           </option>
         </select>
-        <button type="button" class="rounded-[12px] border border-[#E5E3DF] bg-[#FAFAF8] px-3 py-2 text-xs font-bold text-[#111111]" @click="selectedCampaignId = ''">
+        <button type="button" class="rounded-[12px] border border-ui-line bg-ui-bg px-3 py-2 text-xs font-bold text-ui-ink" @click="selectedCampaignId = ''">
           Réinitialiser
         </button>
       </div>
     </div>
 
     <div v-if="loadingMeta || loadingContent" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <div v-for="n in 6" :key="n" class="overflow-hidden rounded-[20px] border border-[#E5E3DF] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-        <div class="aspect-[4/5] animate-pulse bg-[#F2EEE8]" />
+      <div v-for="n in 6" :key="n" class="overflow-hidden rounded-[20px] border border-ui-line bg-ui-surface shadow-sm">
+        <div class="aspect-[4/5] animate-pulse bg-ui-subtle" />
         <div class="space-y-2 p-4">
-          <div class="h-3 w-1/3 animate-pulse rounded bg-[#E5E3DF]" />
-          <div class="h-3 w-full animate-pulse rounded bg-[#E5E3DF]" />
-          <div class="h-3 w-4/5 animate-pulse rounded bg-[#E5E3DF]" />
+          <div class="h-3 w-1/3 animate-pulse rounded bg-ui-line" />
+          <div class="h-3 w-full animate-pulse rounded bg-ui-line" />
+          <div class="h-3 w-4/5 animate-pulse rounded bg-ui-line" />
         </div>
       </div>
     </div>
 
-    <div v-else-if="!selectedInfluencer" class="rounded-[20px] border border-dashed border-[#E5E3DF] bg-white px-6 py-16 text-center">
-      <p class="text-base font-semibold text-[#111111]">Aucune {{ wording.ambassador }} sélectionnée</p>
-      <p class="mt-2 text-sm text-[#666666]">Crée une {{ wording.ambassador }} ou sélectionne-en une depuis la sidebar.</p>
-      <NuxtLink to="/profiles/new" class="mt-5 inline-flex rounded-[12px] bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#d4762f]">
+    <div v-else-if="!selectedInfluencer" class="rounded-[20px] border border-dashed border-ui-line bg-ui-surface px-6 py-16 text-center">
+      <p class="text-base font-semibold text-ui-ink">Aucune {{ wording.ambassador }} sélectionnée</p>
+      <p class="mt-2 text-sm text-ui-ink-muted">Crée une {{ wording.ambassador }} ou sélectionne-en une depuis la sidebar.</p>
+      <NuxtLink to="/profiles/new" class="mt-5 inline-flex rounded-[12px] bg-ui-accent px-4 py-2.5 text-sm font-bold text-white hover:bg-ui-accent-hover">
         Nouvelle {{ wording.ambassador }}
       </NuxtLink>
     </div>
 
-    <div v-else-if="!displayedContents.length" class="rounded-[20px] border border-dashed border-[#E5E3DF] bg-white px-6 py-16 text-center">
-      <p class="text-base font-semibold text-[#111111]">{{ emptyStateLabel }}</p>
-      <p class="mt-2 text-sm text-[#666666]">Cette {{ wording.ambassador }} n’a pas encore de contenu dans cette catégorie.</p>
+    <div v-else-if="!displayedContents.length" class="rounded-[20px] border border-dashed border-ui-line bg-ui-surface px-6 py-16 text-center">
+      <p class="text-base font-semibold text-ui-ink">{{ emptyStateLabel }}</p>
+      <p class="mt-2 text-sm text-ui-ink-muted">Cette {{ wording.ambassador }} n’a pas encore de contenu dans cette catégorie.</p>
     </div>
 
     <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
       <article
         v-for="item in displayedContents"
         :key="item.id"
-        class="group overflow-hidden rounded-[20px] border border-[#E5E3DF] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)] transition-transform duration-150 hover:-translate-y-0.5"
-        :class="item.status === 'FAILED' ? 'border-red-200' : ''"
+        class="group overflow-hidden rounded-[20px] border border-ui-line bg-ui-surface shadow-sm transition-transform duration-150 hover:-translate-y-0.5"
+        :class="item.status === 'FAILED' ? 'border-ui-danger-line' : ''"
       >
-        <div class="relative aspect-[4/5] overflow-hidden bg-[#FAFAF8]">
+        <div class="relative aspect-[4/5] overflow-hidden bg-ui-bg">
           <template v-if="item.status === 'PROCESSING'">
-            <div class="absolute inset-0 animate-pulse bg-[#F2EEE8]" />
+            <div class="absolute inset-0 animate-pulse bg-ui-subtle" />
             <div class="absolute inset-0 flex items-center justify-center">
-              <span class="rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-[#111111] shadow-sm">Génération en cours... {{ item._progress }}%</span>
+              <span class="rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-ui-ink shadow-sm">Génération en cours... {{ item._progress }}%</span>
             </div>
           </template>
 
           <template v-else-if="item.status === 'FAILED'">
             <div class="flex h-full items-center justify-center p-5">
-              <p class="text-center text-sm font-medium text-red-600">{{ item.errorMessage || 'Échec de la génération' }}</p>
+              <p class="text-center text-sm font-medium text-ui-danger">{{ item.errorMessage || 'Échec de la génération' }}</p>
             </div>
           </template>
 
@@ -135,13 +135,13 @@
           </template>
 
           <template v-else-if="item._imageMissing">
-            <div class="flex h-full items-center justify-center p-5 text-center text-sm text-[#666666]">
+            <div class="flex h-full items-center justify-center p-5 text-center text-sm text-ui-ink-muted">
               Média indisponible sur ce serveur.
             </div>
           </template>
 
           <template v-else>
-            <div class="flex h-full items-center justify-center text-sm text-[#999999]">Pas d'image</div>
+            <div class="flex h-full items-center justify-center text-sm text-ui-ink-muted">Pas d'image</div>
           </template>
 
           <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/0 to-black/0 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
@@ -167,7 +167,7 @@
             <button
               v-if="canValidate(item)"
               type="button"
-              class="flex-1 rounded-[12px] bg-white px-3 py-2 text-xs font-bold text-[#111111] shadow-sm transition-colors duration-150 hover:bg-[#FAFAF8] disabled:opacity-60"
+              class="flex-1 rounded-[12px] bg-ui-surface px-3 py-2 text-xs font-bold text-ui-ink shadow-sm transition-colors duration-150 hover:bg-ui-bg disabled:opacity-60"
               :disabled="item._loading"
               @click="validate(item)"
             >
@@ -176,7 +176,7 @@
             <button
               v-if="canPublish(item)"
               type="button"
-              class="flex-1 rounded-[12px] bg-[#111111] px-3 py-2 text-xs font-bold text-white shadow-sm transition-colors duration-150 hover:bg-[#2a2a2a] disabled:opacity-60"
+              class="flex-1 rounded-[12px] bg-ui-ink px-3 py-2 text-xs font-bold text-white shadow-sm transition-colors duration-150 hover:bg-ui-ink-2 disabled:opacity-60"
               :disabled="item._loading"
               @click="publish(item)"
             >
@@ -185,11 +185,29 @@
             <button
               v-if="canPublishTwitter(item)"
               type="button"
-              class="flex-1 rounded-[12px] bg-[#0f1419] px-3 py-2 text-xs font-bold text-white shadow-sm transition-colors duration-150 hover:bg-[#1f2a33] disabled:opacity-60"
+              class="flex-1 rounded-[12px] bg-ui-ink px-3 py-2 text-xs font-bold text-white shadow-sm transition-colors duration-150 hover:bg-ui-ink-2 disabled:opacity-60"
               :disabled="item._loading"
               @click="publishTwitter(item)"
             >
               {{ isTwitterPublished(item) ? 'X publié' : '🐦 Publier sur X' }}
+            </button>
+            <button
+              v-if="canMarkPublished(item)"
+              type="button"
+              class="flex-1 rounded-[12px] border border-white/20 bg-white/15 px-3 py-2 text-xs font-bold text-white backdrop-blur transition-colors duration-150 hover:bg-white/25 disabled:opacity-60"
+              :disabled="item._loading"
+              @click="openManualPublish(item)"
+            >
+              Marquer comme publié
+            </button>
+            <button
+              v-if="canCancelManualPublish(item)"
+              type="button"
+              class="flex-1 rounded-[12px] border border-white/20 bg-white/15 px-3 py-2 text-xs font-bold text-white backdrop-blur transition-colors duration-150 hover:bg-white/25 disabled:opacity-60"
+              :disabled="item._loading"
+              @click="cancelManualPublish(item)"
+            >
+              Annuler la publication manuelle
             </button>
             <button
               type="button"
@@ -203,24 +221,24 @@
         </div>
 
         <div class="space-y-3 p-4">
-          <div class="flex items-center justify-between gap-2 text-xs text-[#666666]">
+          <div class="flex items-center justify-between gap-2 text-xs text-ui-ink-muted">
             <span class="inline-flex items-center gap-1.5">
               {{ timeAgo(item.createdAt) }}
               <span
                 v-if="item.generationModel"
-                class="rounded-full border border-[#EDE9E3] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[#A5A5A5]"
+                class="rounded-full border border-ui-line-soft px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-ui-ink-muted"
                 :title="`Modèle utilisé : ${item.generationModel}`"
               >
                 {{ shortModelLabel(item.generationModel) }}
               </span>
             </span>
-            <span v-if="item.campaign?.name" class="rounded-full bg-[#F4EFE8] px-2.5 py-1 text-[11px] font-bold text-[#B45F1D]">
+            <span v-if="item.campaign?.name" class="rounded-full bg-ui-subtle px-2.5 py-1 text-[11px] font-bold text-ui-accent-ink">
               {{ item.campaign.name }}
             </span>
             <button
               v-if="item.caption"
               type="button"
-              class="font-semibold text-[#E8873A] transition-colors duration-150 hover:text-[#d4762f]"
+              class="font-semibold text-ui-accent transition-colors duration-150 hover:text-ui-accent-hover"
               @click="copyCaption(item)"
             >
               {{ item._copied ? 'Copié !' : 'Copier la caption' }}
@@ -229,23 +247,30 @@
           <div v-if="item.status === 'PUBLISHED'" class="flex flex-wrap items-center gap-2 text-[11px] font-extrabold tracking-wide">
             <span
               v-if="isInstagramPublished(item)"
-              class="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 px-2 text-emerald-700"
+              class="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-ui-success/30 bg-ui-success-soft px-2 text-ui-success-ink"
               title="Publié sur Instagram"
             >
               IG
             </span>
             <span
               v-if="isTwitterPublished(item)"
-              class="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-sky-200 bg-sky-50 px-2 text-sky-700"
+              class="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-ui-info/30 bg-ui-info-soft px-2 text-ui-info-ink"
               title="Publié sur X"
             >
               X
             </span>
           </div>
-          <p v-if="item.caption" class="line-clamp-3 text-sm leading-6 text-[#111111]">{{ item.caption }}</p>
+          <p v-if="item.caption" class="line-clamp-3 text-sm leading-6 text-ui-ink">{{ item.caption }}</p>
         </div>
       </article>
     </div>
+
+    <ContentManualPublishDialog
+      :open="manualDialog.open"
+      :loading="manualDialog.loading"
+      @confirm="confirmManualPublish"
+      @cancel="manualDialog.open = false"
+    />
 
     <Teleport to="body">
       <div v-if="modalMedia" class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-black/80 p-4" @click.self="closeModal">
@@ -302,7 +327,7 @@
               :key="slide.id"
               type="button"
               class="h-2 rounded-full transition-all"
-              :class="index === slideIndex ? 'w-6 bg-[#E8873A]' : 'w-2 bg-white/40 hover:bg-white/70'"
+              :class="index === slideIndex ? 'w-6 bg-ui-accent' : 'w-2 bg-white/40 hover:bg-white/70'"
               :aria-label="`Slide ${index + 1}`"
               @click="goToSlide(index)"
             />
@@ -329,7 +354,7 @@
               :key="version.id"
               type="button"
               class="h-2 w-2 rounded-full transition-all"
-              :class="index === versionIndex ? 'w-5 bg-white' : 'bg-white/40 hover:bg-white/70'"
+              :class="index === versionIndex ? 'w-5 bg-ui-surface' : 'bg-white/40 hover:bg-white/70'"
               :aria-label="`Version ${modalVersions.length - index}`"
               @click="goToVersion(index)"
             />
@@ -344,14 +369,14 @@
 
           <span
             v-if="currentVersion?.isActive"
-            class="rounded-full bg-emerald-500/25 px-2.5 py-1 text-[11px] font-bold text-emerald-200"
+            class="rounded-full bg-ui-success/40 px-2.5 py-1 text-[11px] font-bold text-white"
           >
             Version actuelle
           </span>
           <button
             v-else
             type="button"
-            class="rounded-[10px] bg-[#E8873A] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#d4762f] disabled:opacity-60"
+            class="rounded-[10px] bg-ui-accent px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-ui-accent-hover disabled:opacity-60"
             :disabled="restoringVersion"
             @click="restoreVersion"
           >
@@ -365,9 +390,11 @@
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { formatShortDate } from '~/utils/formatDate'
+import { formatPlatforms, readManualPublication } from '~/utils/manualPlatforms'
 
 const activeInfluencerId = useActiveInfluencer()
-const { pushToast } = useUiFeedback()
+const { pushToast, requestConfirmation } = useUiFeedback()
 const { wording, accountType, formatLabel } = useWording()
 // Rendu serveur: un $fetch brut n envoie pas le cookie de session.
 const requestFetch = useRequestFetch()
@@ -594,11 +621,11 @@ function shortModelLabel(model) {
 }
 
 function statusClass(status) {
-  if (status === 'VALIDATED') return 'bg-[#E8873A]'
-  if (status === 'PUBLISHED') return 'bg-emerald-600'
-  if (status === 'FAILED') return 'bg-red-600'
-  if (status === 'PROCESSING') return 'bg-[#8B5CF6]'
-  return 'bg-[#111111]'
+  if (status === 'VALIDATED') return 'bg-ui-accent'
+  if (status === 'PUBLISHED') return 'bg-ui-success'
+  if (status === 'FAILED') return 'bg-ui-danger'
+  if (status === 'PROCESSING') return 'bg-ui-info'
+  return 'bg-ui-ink'
 }
 
 function canValidate(item) {
@@ -629,6 +656,72 @@ function canPublishTwitter(item) {
   if (activeTab.value === 'VALIDATED') return true
   if (item.status === 'VALIDATED') return true
   return item.status === 'PUBLISHED' && !isTwitterPublished(item)
+}
+
+// Contenu poste a la main (hors de l outil) : un contenu valide peut etre marque « publie » avec sa vraie date et sa plateforme.
+const manualDialog = reactive({ open: false, loading: false, item: null })
+
+function canMarkPublished(item) {
+  return item.status === 'VALIDATED'
+}
+
+function canCancelManualPublish(item) {
+  return item.status === 'PUBLISHED' && Boolean(readManualPublication(item.manualPublication))
+}
+
+function openManualPublish(item) {
+  manualDialog.item = item
+  manualDialog.open = true
+}
+
+async function confirmManualPublish(payload) {
+  const item = manualDialog.item
+  if (!item || manualDialog.loading) return
+  manualDialog.loading = true
+  try {
+    await $fetch(`/api/content/${item.id}/manual-publish`, { method: 'POST', body: payload })
+    manualDialog.open = false
+    pushToast({
+      title: 'Marqué comme publié',
+      message: `Publié sur ${formatPlatforms(payload.platforms)} le ${formatShortDate(payload.publishedAt)}. Il apparaît au calendrier à cette date.`,
+      tone: 'success',
+    })
+    await reloadContents()
+  } catch (err) {
+    pushToast({
+      title: 'Enregistrement impossible',
+      message: err?.data?.statusMessage || err?.statusMessage || 'La publication n’a pas pu être enregistrée.',
+      tone: 'error',
+      duration: 5000,
+    })
+  } finally {
+    manualDialog.loading = false
+  }
+}
+
+async function cancelManualPublish(item) {
+  const confirmed = await requestConfirmation({
+    title: 'Annuler la publication manuelle ?',
+    message: 'Le contenu redevient « Validé » et disparaît du calendrier. Ça ne supprime rien sur la plateforme où tu l’as posté.',
+    confirmLabel: 'Annuler la publication',
+    cancelLabel: 'Garder',
+  })
+  if (!confirmed) return
+  item._loading = true
+  try {
+    await $fetch(`/api/content/${item.id}/manual-publish`, { method: 'DELETE' })
+    pushToast({ title: 'Publication annulée', message: 'Le contenu est de nouveau « Validé ».', tone: 'success' })
+    await reloadContents()
+  } catch (err) {
+    pushToast({
+      title: 'Annulation impossible',
+      message: err?.data?.statusMessage || err?.statusMessage || 'L’annulation n’a pas pu être enregistrée.',
+      tone: 'error',
+      duration: 5000,
+    })
+  } finally {
+    item._loading = false
+  }
 }
 
 function isInstagramPublished(item) {
