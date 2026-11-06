@@ -48,6 +48,7 @@ function normalizeInfluencer(influencer) {
     identityProfile: String(influencer?.identityProfile || 'default'),
     instagramAccountId: influencer.instagramAccountId,
     tiktokEnabled: Boolean(influencer.tiktokEnabled),
+    twitterConnected: Boolean(influencer.twitterConnected),
     calendarStep: influencer.calendarStep,
     createdAt: influencer.createdAt,
   };
@@ -74,6 +75,7 @@ async function findInfluencersCompatible(prisma, userId) {
         identityProfile: true,
         instagramAccountId: true,
         tiktokEnabled: true,
+        twitterConnected: true,
         calendarStep: true,
         createdAt: true,
       },

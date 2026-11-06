@@ -1,24 +1,17 @@
 <template>
-  <div class="space-y-6">
-    <header class="flex flex-col gap-4 rounded-[20px] border border-ui-line bg-ui-surface p-5 shadow-sm lg:flex-row lg:items-end lg:justify-between">
+  <div class="space-y-6 font-ui" :class="selectedIds.size ? 'pb-24' : ''">
+    <header class="flex flex-col gap-4 rounded-ui-card border border-ui-line bg-ui-surface p-5 shadow-sm lg:flex-row lg:items-end lg:justify-between">
       <div>
-        <p class="text-xs font-semibold uppercase tracking-[0.22em] text-ui-accent">Contenu</p>
-        <h1 class="mt-2 text-3xl font-bold tracking-tight text-ui-ink">{{ selectedInfluencer?.name || 'Contenu' }}</h1>
-        <p class="mt-2 text-sm text-ui-ink-muted">{{ selectedInfluencer ? 'Par défaut, la vue démarre sur tout puis se filtre par statut.' : `Aucune ${wording.ambassador} active pour le moment.` }}</p>
-        <div v-if="selectedInfluencer" class="mt-3 flex flex-wrap items-center gap-2 text-sm text-ui-ink-muted">
+        <p class="text-xs font-semibold uppercase tracking-[0.08em] text-ui-accent">Contenu</p>
+        <h1 class="mt-2 text-2xl font-bold tracking-tight text-ui-ink">{{ selectedInfluencer?.name || 'Contenu' }}</h1>
+        <p v-if="!selectedInfluencer" class="mt-2 text-sm text-ui-ink-muted">Aucune {{ wording.ambassador }} active pour le moment.</p>
+        <div v-if="selectedInfluencer && headerChips.length" class="mt-3 flex flex-wrap items-center gap-2">
           <span
-            v-for="item in nicheChips"
-            :key="`niche-${item}`"
-            class="rounded-full bg-ui-accent-soft px-2.5 py-1 text-xs font-bold text-ui-accent-ink"
+            v-for="chip in headerChips"
+            :key="`chip-${chip}`"
+            class="rounded-full bg-ui-subtle px-2.5 py-1 text-xs font-semibold text-ui-ink-2"
           >
-            {{ item }}
-          </span>
-          <span
-            v-for="item in styleChips"
-            :key="`style-${item}`"
-            class="rounded-full border border-ui-line bg-ui-bg px-2.5 py-1 text-xs font-semibold text-ui-ink"
-          >
-            {{ item }}
+            {{ chip }}
           </span>
         </div>
       </div>
@@ -27,51 +20,39 @@
         <NuxtLink
           v-if="selectedInfluencer"
           :to="generateHref"
-          class="rounded-[12px] bg-ui-accent px-4 py-2.5 text-sm font-bold text-white transition-all duration-150 hover:bg-ui-accent-hover"
+          class="inline-flex h-11 items-center justify-center rounded-ui-ctl bg-ui-accent px-4 text-sm font-semibold text-white transition-colors hover:bg-ui-accent-hover focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ui-accent/20"
         >
           Générer
         </NuxtLink>
       </div>
     </header>
 
-    <div class="flex flex-wrap gap-2 rounded-[16px] border border-ui-line bg-ui-surface p-2 shadow-sm">
-      <button
-        v-for="tab in tabs"
-        :key="tab.value"
-        type="button"
-        class="rounded-[12px] px-4 py-2.5 text-sm font-semibold transition-colors duration-150"
-        :class="activeTab === tab.value ? 'bg-ui-ink text-white' : 'text-ui-ink-muted hover:bg-ui-bg'"
-        @click="activeTab = tab.value"
-      >
-        {{ tab.label }}
-      </button>
+    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <UiSegmented v-model="activeTab" :options="tabOptions" label="Statut" class="lg:min-w-[440px]" />
+      <div class="flex flex-wrap items-center gap-3">
+        <UiToggleChips v-model="typeFilter" :options="typeOptions" label="Type de contenu" />
+        <div class="w-40"><UiSelect v-model="sortOrder" :options="sortOptions" aria-label="Tri" /></div>
+        <UiSegmented v-model="density" :options="densityOptions" label="Affichage" class="w-44" />
+      </div>
     </div>
 
-    <div v-if="isBrand" class="flex flex-col gap-3 rounded-[16px] border border-ui-line bg-ui-surface p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+    <div v-if="isBrand" class="flex flex-col gap-3 rounded-ui-card border border-ui-line bg-ui-surface p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div>
         <p class="text-sm font-semibold text-ui-ink">Filtrer par campagne</p>
         <p class="text-xs text-ui-ink-muted">Affiche uniquement les contenus liés à une campagne précise.</p>
       </div>
       <div class="flex items-center gap-2">
-        <select
-          v-model="selectedCampaignId"
-          class="min-w-[220px] rounded-[12px] border border-ui-line bg-ui-surface px-3 py-2 text-sm text-ui-ink outline-none focus:border-ui-accent"
-        >
-          <option value="">Toutes les campagnes</option>
-          <option v-for="campaign in campaigns" :key="campaign.id" :value="campaign.id">
-            {{ campaign.name }}
-          </option>
-        </select>
-        <button type="button" class="rounded-[12px] border border-ui-line bg-ui-bg px-3 py-2 text-xs font-bold text-ui-ink" @click="selectedCampaignId = ''">
-          Réinitialiser
-        </button>
+        <div class="min-w-[220px]">
+          <UiSelect v-model="selectedCampaignId" :options="campaignOptions" aria-label="Campagne" />
+        </div>
+        <UiButton size="sm" @click="selectedCampaignId = ''">Réinitialiser</UiButton>
       </div>
     </div>
 
-    <div v-if="loadingMeta || loadingContent" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <div v-for="n in 6" :key="n" class="overflow-hidden rounded-[20px] border border-ui-line bg-ui-surface shadow-sm">
-        <div class="aspect-[4/5] animate-pulse bg-ui-subtle" />
-        <div class="space-y-2 p-4">
+    <div v-if="loadingMeta || loadingContent" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div v-for="n in 8" :key="n" class="overflow-hidden rounded-ui-card border border-ui-line bg-ui-surface shadow-sm">
+        <div class="aspect-[9/16] animate-pulse bg-ui-subtle" />
+        <div class="space-y-2 p-3">
           <div class="h-3 w-1/3 animate-pulse rounded bg-ui-line" />
           <div class="h-3 w-full animate-pulse rounded bg-ui-line" />
           <div class="h-3 w-4/5 animate-pulse rounded bg-ui-line" />
@@ -79,191 +60,99 @@
       </div>
     </div>
 
-    <div v-else-if="!selectedInfluencer" class="rounded-[20px] border border-dashed border-ui-line bg-ui-surface px-6 py-16 text-center">
-      <p class="text-base font-semibold text-ui-ink">Aucune {{ wording.ambassador }} sélectionnée</p>
-      <p class="mt-2 text-sm text-ui-ink-muted">Crée une {{ wording.ambassador }} ou sélectionne-en une depuis la sidebar.</p>
-      <NuxtLink to="/profiles/new" class="mt-5 inline-flex rounded-[12px] bg-ui-accent px-4 py-2.5 text-sm font-bold text-white hover:bg-ui-accent-hover">
-        Nouvelle {{ wording.ambassador }}
-      </NuxtLink>
-    </div>
+    <UiEmptyState
+      v-else-if="!selectedInfluencer"
+      :title="`Aucune ${wording.ambassador} sélectionnée`"
+      :text="`Crée une ${wording.ambassador} ou sélectionne-en une depuis la sidebar.`"
+    >
+      <template #action>
+        <NuxtLink to="/profiles/new" class="inline-flex h-11 items-center rounded-ui-ctl bg-ui-accent px-4 text-sm font-semibold text-white hover:bg-ui-accent-hover">
+          Nouvelle {{ wording.ambassador }}
+        </NuxtLink>
+      </template>
+    </UiEmptyState>
 
-    <div v-else-if="!displayedContents.length" class="rounded-[20px] border border-dashed border-ui-line bg-ui-surface px-6 py-16 text-center">
-      <p class="text-base font-semibold text-ui-ink">{{ emptyStateLabel }}</p>
-      <p class="mt-2 text-sm text-ui-ink-muted">Cette {{ wording.ambassador }} n’a pas encore de contenu dans cette catégorie.</p>
-    </div>
+    <UiEmptyState v-else-if="!visibleContents.length" :title="emptyStateLabel" :text="emptyStateText">
+      <template #action>
+        <NuxtLink :to="generateHref" class="inline-flex h-11 items-center rounded-ui-ctl bg-ui-accent px-4 text-sm font-semibold text-white hover:bg-ui-accent-hover">
+          Générer
+        </NuxtLink>
+      </template>
+    </UiEmptyState>
 
-    <div v-else class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <article
-        v-for="item in displayedContents"
+    <div v-else :class="density === 'list' ? 'space-y-2' : 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'">
+      <ContentCard
+        v-for="item in visibleContents"
         :key="item.id"
-        class="group overflow-hidden rounded-[20px] border border-ui-line bg-ui-surface shadow-sm transition-transform duration-150 hover:-translate-y-0.5"
-        :class="item.status === 'FAILED' ? 'border-ui-danger-line' : ''"
-      >
-        <div class="relative aspect-[4/5] overflow-hidden bg-ui-bg">
-          <template v-if="item.status === 'PROCESSING'">
-            <div class="absolute inset-0 animate-pulse bg-ui-subtle" />
-            <div class="absolute inset-0 flex items-center justify-center">
-              <span class="rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-ui-ink shadow-sm">Génération en cours... {{ item._progress }}%</span>
-            </div>
-          </template>
-
-          <template v-else-if="item.status === 'FAILED'">
-            <div class="flex h-full items-center justify-center p-5">
-              <p class="text-center text-sm font-medium text-ui-danger">{{ item.errorMessage || 'Échec de la génération' }}</p>
-            </div>
-          </template>
-
-          <template v-else-if="item.imageUrl && !item._imageMissing">
-            <button type="button" class="h-full w-full" @click="openModal(item)">
-              <video
-                v-if="isVideoMedia(item)"
-                :src="item.imageUrl"
-                class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                muted
-                playsinline
-                preload="metadata"
-                @error="markImageMissing(item)"
-              />
-              <img
-                v-else
-                :src="item.imageUrl"
-                :alt="`Contenu ${item.format}`"
-                class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                @error="markImageMissing(item)"
-              />
-            </button>
-          </template>
-
-          <template v-else-if="item._imageMissing">
-            <div class="flex h-full items-center justify-center p-5 text-center text-sm text-ui-ink-muted">
-              Média indisponible sur ce serveur.
-            </div>
-          </template>
-
-          <template v-else>
-            <div class="flex h-full items-center justify-center text-sm text-ui-ink-muted">Pas d'image</div>
-          </template>
-
-          <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/0 to-black/0 opacity-0 transition-opacity duration-150 group-hover:opacity-100" />
-          <div class="absolute left-3 right-3 top-3 flex items-start justify-between gap-2">
-            <span class="rounded-full px-2.5 py-1 text-[11px] font-bold text-white" :class="statusClass(item.status)">{{ statusLabel(item.status) }}</span>
-            <span
-              v-if="carouselSlidesOf(item).length > 1"
-              class="rounded-full border border-white/30 bg-black/45 px-2.5 py-1 text-[11px] font-bold text-white"
-            >
-              ▦ Carrousel · {{ carouselSlidesOf(item).length }}
-            </span>
-            <span v-else class="rounded-full border border-white/30 bg-black/35 px-2.5 py-1 text-[11px] font-bold text-white">{{ formatLabel(item.format) }}</span>
-          </div>
-
-          <div class="absolute inset-x-0 bottom-0 flex gap-2 p-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-            <NuxtLink
-              v-if="canModify(item)"
-              :to="modifyHref(item)"
-              class="flex-1 rounded-[12px] border border-white/20 bg-white/15 px-3 py-2 text-center text-xs font-bold text-white backdrop-blur transition-colors duration-150 hover:bg-white/25"
-            >
-              ✎ Modifier
-            </NuxtLink>
-            <button
-              v-if="canValidate(item)"
-              type="button"
-              class="flex-1 rounded-[12px] bg-ui-surface px-3 py-2 text-xs font-bold text-ui-ink shadow-sm transition-colors duration-150 hover:bg-ui-bg disabled:opacity-60"
-              :disabled="item._loading"
-              @click="validate(item)"
-            >
-              ✓ Valider
-            </button>
-            <button
-              v-if="canPublish(item)"
-              type="button"
-              class="flex-1 rounded-[12px] bg-ui-ink px-3 py-2 text-xs font-bold text-white shadow-sm transition-colors duration-150 hover:bg-ui-ink-2 disabled:opacity-60"
-              :disabled="item._loading"
-              @click="publish(item)"
-            >
-              {{ isInstagramPublished(item) ? 'Instagram publié' : 'Publier Insta' }}
-            </button>
-            <button
-              v-if="canPublishTwitter(item)"
-              type="button"
-              class="flex-1 rounded-[12px] bg-ui-ink px-3 py-2 text-xs font-bold text-white shadow-sm transition-colors duration-150 hover:bg-ui-ink-2 disabled:opacity-60"
-              :disabled="item._loading"
-              @click="publishTwitter(item)"
-            >
-              {{ isTwitterPublished(item) ? 'X publié' : '🐦 Publier sur X' }}
-            </button>
-            <button
-              v-if="canMarkPublished(item)"
-              type="button"
-              class="flex-1 rounded-[12px] border border-white/20 bg-white/15 px-3 py-2 text-xs font-bold text-white backdrop-blur transition-colors duration-150 hover:bg-white/25 disabled:opacity-60"
-              :disabled="item._loading"
-              @click="openManualPublish(item)"
-            >
-              Marquer comme publié
-            </button>
-            <button
-              v-if="canCancelManualPublish(item)"
-              type="button"
-              class="flex-1 rounded-[12px] border border-white/20 bg-white/15 px-3 py-2 text-xs font-bold text-white backdrop-blur transition-colors duration-150 hover:bg-white/25 disabled:opacity-60"
-              :disabled="item._loading"
-              @click="cancelManualPublish(item)"
-            >
-              Annuler la publication manuelle
-            </button>
-            <button
-              type="button"
-              class="rounded-[12px] border border-white/20 bg-white/15 px-3 py-2 text-xs font-bold text-white backdrop-blur transition-colors duration-150 hover:bg-white/25 disabled:opacity-60"
-              :disabled="item._loading"
-              @click="remove(item)"
-            >
-              ✗ Supprimer
-            </button>
-          </div>
-        </div>
-
-        <div class="space-y-3 p-4">
-          <div class="flex items-center justify-between gap-2 text-xs text-ui-ink-muted">
-            <span class="inline-flex items-center gap-1.5">
-              {{ timeAgo(item.createdAt) }}
-              <span
-                v-if="item.generationModel"
-                class="rounded-full border border-ui-line-soft px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-ui-ink-muted"
-                :title="`Modèle utilisé : ${item.generationModel}`"
-              >
-                {{ shortModelLabel(item.generationModel) }}
-              </span>
-            </span>
-            <span v-if="item.campaign?.name" class="rounded-full bg-ui-subtle px-2.5 py-1 text-[11px] font-bold text-ui-accent-ink">
-              {{ item.campaign.name }}
-            </span>
-            <button
-              v-if="item.caption"
-              type="button"
-              class="font-semibold text-ui-accent transition-colors duration-150 hover:text-ui-accent-hover"
-              @click="copyCaption(item)"
-            >
-              {{ item._copied ? 'Copié !' : 'Copier la caption' }}
-            </button>
-          </div>
-          <div v-if="item.status === 'PUBLISHED'" class="flex flex-wrap items-center gap-2 text-[11px] font-extrabold tracking-wide">
-            <span
-              v-if="isInstagramPublished(item)"
-              class="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-ui-success/30 bg-ui-success-soft px-2 text-ui-success-ink"
-              title="Publié sur Instagram"
-            >
-              IG
-            </span>
-            <span
-              v-if="isTwitterPublished(item)"
-              class="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-ui-info/30 bg-ui-info-soft px-2 text-ui-info-ink"
-              title="Publié sur X"
-            >
-              X
-            </span>
-          </div>
-          <p v-if="item.caption" class="line-clamp-3 text-sm leading-6 text-ui-ink">{{ item.caption }}</p>
-        </div>
-      </article>
+        :item="item"
+        :profile="selectedInfluencer"
+        :view="density"
+        :selected="selectedIds.has(item.id)"
+        :selection-active="selectedIds.size > 0"
+        :can-edit="canModify(item)"
+        :edit-href="modifyHref(item)"
+        :slide-count="carouselSlidesOf(item).length"
+        :progress="item._progress"
+        @open="openDetail"
+        @validate="validate"
+        @reject="reject"
+        @publish="askPublish"
+        @schedule="askSchedule"
+        @toggle-select="toggleSelect"
+        @menu="onCardMenu"
+      />
     </div>
+
+    <!-- Barre d'actions de la selection multiple. -->
+    <div
+      v-if="selectedIds.size"
+      class="fixed bottom-4 left-1/2 z-40 w-[calc(100%-2rem)] max-w-2xl -translate-x-1/2 rounded-ui-card border border-ui-line bg-ui-surface px-4 py-3 shadow-lg"
+      role="region"
+      aria-label="Actions sur la sélection"
+    >
+      <div class="flex flex-wrap items-center gap-2">
+        <p class="mr-auto text-sm font-semibold text-ui-ink" aria-live="polite">{{ selectedIds.size }} sélectionné{{ selectedIds.size > 1 ? 's' : '' }}</p>
+        <UiButton variant="primary" size="sm" :disabled="!selectedPendingCount" @click="validateSelected">
+          Valider{{ selectedPendingCount ? ` (${selectedPendingCount})` : '' }}
+        </UiButton>
+        <UiButton variant="danger" size="sm" @click="deleteSelected">Supprimer</UiButton>
+        <UiButton variant="ghost" size="sm" @click="selectedIds = new Set()">Annuler la sélection</UiButton>
+      </div>
+    </div>
+
+    <ContentDetailDrawer
+      :open="Boolean(detailItem)"
+      :item="detailItem"
+      :profile="selectedInfluencer"
+      :has-prev="detailIndex > 0"
+      :has-next="detailIndex >= 0 && detailIndex < visibleContents.length - 1"
+      @close="detailId = ''"
+      @navigate="navigateDetail"
+      @validate="validate"
+      @reject="reject"
+      @publish="askPublish"
+      @schedule="askSchedule"
+      @fullscreen="openFullscreen"
+    />
+
+    <ContentPublishDialog
+      :open="publishDialog.open"
+      :loading="publishDialog.loading"
+      :platform-label="publishDialog.platform === 'X' ? 'X' : 'Instagram'"
+      :caption="publishDialog.item?.caption || ''"
+      :error="publishDialog.error"
+      @confirm="confirmPublish"
+      @cancel="publishDialog.open = false"
+    />
+
+    <ContentScheduleDialog
+      :open="scheduleDialog.open"
+      :loading="scheduleDialog.loading"
+      :initial="scheduleDialog.item?.scheduledAt || ''"
+      :error="scheduleDialog.error"
+      @confirm="confirmSchedule"
+      @cancel="scheduleDialog.open = false"
+    />
 
     <ContentManualPublishDialog
       :open="manualDialog.open"
@@ -392,44 +281,56 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { formatShortDate } from '~/utils/formatDate'
 import { formatPlatforms, readManualPublication } from '~/utils/manualPlatforms'
+import { cardStateOf, countByTab, filterAndSort } from '~/utils/contentCards'
 
 const activeInfluencerId = useActiveInfluencer()
 const { pushToast, requestConfirmation } = useUiFeedback()
-const { wording, accountType, formatLabel } = useWording()
+const { wording, accountType } = useWording()
 // Rendu serveur: un $fetch brut n envoie pas le cookie de session.
 const requestFetch = useRequestFetch()
 const isContentCreator = computed(() => accountType.value === 'CONTENT_CREATOR')
 const isBrand = computed(() => accountType.value === 'BRAND')
 
-const tabs = [
-  { label: 'Tout', value: 'ALL' },
-  { label: 'En attente', value: 'PENDING' },
-  { label: 'Validé', value: 'VALIDATED' },
-  { label: 'Publié', value: 'PUBLISHED' },
+// ---- Filtres, tri, densite --------------------------------------------------------------------------------------
+const activeTab = ref('ALL')
+const typeFilter = ref([])
+const sortOrder = ref('recent')
+const density = ref('grid')
+const selectedCampaignId = ref('')
+
+const typeOptions = [
+  { value: 'feed', label: 'Feed' },
+  { value: 'reel', label: 'Reel' },
+  { value: 'story', label: 'Story' },
+]
+const sortOptions = [
+  { value: 'recent', label: 'Plus récent' },
+  { value: 'oldest', label: 'Plus ancien' },
+]
+const densityOptions = [
+  { value: 'grid', label: 'Grille' },
+  { value: 'list', label: 'Liste' },
 ]
 
-const activeTab = ref('ALL')
-const selectedCampaignId = ref('')
-const loadingContent = ref(false)
-const modalMedia = ref(null)
-const modalMediaIsVideo = ref(false)
-const modalContent = ref(null)
-const modalVersions = ref([])
-const versionIndex = ref(0)
-const restoringVersion = ref(false)
-const currentVersion = computed(() => modalVersions.value[versionIndex.value] || null)
-const hasSeveralVersions = computed(() => modalVersions.value.length > 1)
-const modalSlides = ref([])
-const slideIndex = ref(0)
-const hasSeveralSlides = computed(() => modalSlides.value.length > 1)
-
-// Le workflow Pinterest (/profiles/[id]/generate) est reserve au compte
-// influenceur. Les comptes marque et createur passent par leur studio.
-const generateHref = computed(() => {
-  if (isContentCreator.value) return '/studio'
-  if (isBrand.value) return '/brand-studio'
-  return selectedInfluencer.value ? `/profiles/${selectedInfluencer.value.id}/generate` : '/profiles'
+const DENSITY_KEY = 'plotline-content-density'
+onMounted(() => {
+  try {
+    const saved = window.localStorage.getItem(DENSITY_KEY)
+    if (saved === 'grid' || saved === 'list') density.value = saved
+  } catch {
+    // Stockage indisponible : on garde la grille.
+  }
 })
+watch(density, (value) => {
+  try {
+    window.localStorage.setItem(DENSITY_KEY, value)
+  } catch {
+    // ignore
+  }
+})
+
+// ---- Donnees ----------------------------------------------------------------------------------------------------
+const loadingContent = ref(false)
 const contentItems = ref([])
 const twitterConnecting = ref(false)
 const POLL_FAST_MS = 15_000
@@ -449,17 +350,24 @@ const { data: campaignsData } = await useFetch('/api/campaigns', {
 
 const influencers = computed(() => influencersData.value || [])
 const campaigns = computed(() => Array.isArray(campaignsData.value) ? campaignsData.value : [])
+const campaignOptions = computed(() => [{ value: '', label: 'Toutes les campagnes' }, ...campaigns.value.map((campaign) => ({ value: campaign.id, label: campaign.name }))])
 const selectedInfluencer = computed(() => {
   return influencers.value.find((item) => item.id === activeInfluencerId.value) || influencers.value[0] || null
 })
 
-const nicheChips = computed(() => splitNiches(selectedInfluencer.value?.niche))
-const styleChips = computed(() => splitNiches(selectedInfluencer.value?.style))
+const headerChips = computed(() => [...splitNiches(selectedInfluencer.value?.niche), ...splitNiches(selectedInfluencer.value?.style)])
 
-// Un carrousel occupe une seule carte: on affiche sa premiere slide comme
-// couverture et les autres restent accessibles en faisant defiler dans la
-// visionneuse. Les contenus simples sont laisses tels quels.
-const displayedContents = computed(() => {
+// Le Workflow Pinterest (/profiles/[id]/generate) est reserve au compte influenceur ; marque et createur ont leur studio.
+const generateHref = computed(() => {
+  if (isContentCreator.value) return '/studio'
+  if (isBrand.value) return '/brand-studio'
+  return selectedInfluencer.value ? `/profiles/${selectedInfluencer.value.id}/generate` : '/profiles'
+})
+
+// Un carrousel occupe une seule carte (sa premiere slide) ; les autres restent atteignables dans la visionneuse.
+// Les contenus supprimes en attente d annulation (8 s) sont masques tout de suite.
+const hiddenIds = ref(new Set())
+const cards = computed(() => {
   const shown = []
   const seenCarousels = new Set()
 
@@ -467,18 +375,16 @@ const displayedContents = computed(() => {
     const carouselId = String(item?.carouselId || '').trim()
 
     if (!carouselId) {
-      shown.push(item)
+      if (!hiddenIds.value.has(item.id)) shown.push(item)
       continue
     }
 
     if (seenCarousels.has(carouselId)) continue
     seenCarousels.add(carouselId)
 
-    const slides = contentItems.value
-      .filter((row) => String(row?.carouselId || '').trim() === carouselId)
-      .sort((a, b) => Number(a.carouselPosition || 0) - Number(b.carouselPosition || 0))
-
-    shown.push(slides[0] || item)
+    const slides = carouselSlidesOf(item)
+    const cover = slides[0] || item
+    if (!hiddenIds.value.has(cover.id)) shown.push(cover)
   }
 
   return shown
@@ -493,16 +399,30 @@ function carouselSlidesOf(item) {
     .sort((a, b) => Number(a.carouselPosition || 0) - Number(b.carouselPosition || 0))
 }
 
+const counts = computed(() => countByTab(cards.value))
+const tabOptions = computed(() => [
+  { value: 'ALL', label: `Tout ${counts.value.ALL}` },
+  { value: 'PENDING', label: `En attente ${counts.value.PENDING}` },
+  { value: 'VALIDATED', label: `Validé ${counts.value.VALIDATED}` },
+  { value: 'PUBLISHED', label: `Publié ${counts.value.PUBLISHED}` },
+])
+const visibleContents = computed(() => filterAndSort(cards.value, { tab: activeTab.value, types: typeFilter.value, sort: sortOrder.value }))
+
 const emptyStateLabel = computed(() => {
-  if (activeTab.value === 'PENDING') return 'Aucun contenu en attente pour l’instant.'
-  if (activeTab.value === 'VALIDATED') return 'Aucun contenu validé pour l’instant.'
-  if (activeTab.value === 'PUBLISHED') return 'Aucun contenu publié pour l’instant.'
-  return `Aucun contenu trouvé pour cette ${wording.value.ambassador}.`
+  if (typeFilter.value.length && cards.value.length) return 'Aucun contenu de ce type ici.'
+  if (activeTab.value === 'PENDING') return 'Rien en attente.'
+  if (activeTab.value === 'VALIDATED') return 'Aucun contenu validé.'
+  if (activeTab.value === 'PUBLISHED') return 'Aucun contenu publié.'
+  return `Aucun contenu pour cette ${wording.value.ambassador}.`
 })
+const emptyStateText = computed(() => (typeFilter.value.length && cards.value.length ? 'Décoche un type pour tout afficher.' : 'Génère de nouveaux contenus.'))
+
+// Une seule requete : tous les statuts, filtres et compteurs se calculent cote page.
+const ALL_STATUSES = 'PENDING,PROCESSING,VALIDATED,PUBLISHED,REJECTED,FAILED'
 
 watch(
-  [selectedInfluencer, activeTab, selectedCampaignId],
-  async ([influencer, tab]) => {
+  [selectedInfluencer, selectedCampaignId],
+  async ([influencer]) => {
     const requestId = activeRequestId.value + 1
     activeRequestId.value = requestId
 
@@ -513,9 +433,8 @@ watch(
 
     loadingContent.value = true
     try {
-      const statuses = getStatusesForTab(tab)
       const campaignQuery = selectedCampaignId.value ? `&campaignId=${encodeURIComponent(selectedCampaignId.value)}` : ''
-      const response = await requestFetch(`/api/profiles/${influencer.id}/content?statuses=${statuses}${campaignQuery}`)
+      const response = await requestFetch(`/api/profiles/${influencer.id}/content?statuses=${ALL_STATUSES}${campaignQuery}`)
       if (activeRequestId.value === requestId) {
         contentItems.value = (response.contents || []).map((item) => normalizeItem(item, activeJobsByContentId.value))
       }
@@ -542,12 +461,6 @@ onBeforeUnmount(() => {
     window.clearInterval(activeJobsTimer)
   }
 })
-
-function getStatusesForTab(tab) {
-  if (tab === 'ALL') return 'PENDING,PROCESSING,VALIDATED,PUBLISHED,REJECTED,FAILED'
-  if (tab === 'PENDING') return 'PENDING,PROCESSING'
-  return tab
-}
 
 async function pollActiveJobsProgress() {
   try {
@@ -587,51 +500,22 @@ function normalizeItem(item, progressMap = activeJobsByContentId.value) {
       ? Math.max(0, Math.min(100, Number(progressMap?.[item.id] ?? item._progress ?? 0)))
       : 100,
     _loading: false,
-    _copied: false,
-    _imageMissing: false,
   })
 }
 
-function isVideoMedia(item) {
-  const format = String(item?.format || '').trim().toUpperCase()
-  const imageUrl = String(item?.imageUrl || '').trim().toLowerCase()
-  return format === 'STORY' || format === 'REEL' || imageUrl.endsWith('.mp4')
+async function reloadContents() {
+  if (selectedInfluencer.value?.id) {
+    const campaignQuery = selectedCampaignId.value ? `&campaignId=${encodeURIComponent(selectedCampaignId.value)}` : ''
+    const response = await $fetch(`/api/profiles/${selectedInfluencer.value.id}/content?statuses=${ALL_STATUSES}${campaignQuery}`)
+    contentItems.value = (response.contents || []).map((item) => normalizeItem(item))
+  }
 }
 
-function markImageMissing(item) {
-  item._imageMissing = true
+function errorMessageOf(err, fallback) {
+  return err?.data?.statusMessage || err?.statusMessage || err?.data?.message || fallback
 }
 
-function statusLabel(status) {
-  if (status === 'VALIDATED') return 'Validé'
-  if (status === 'PUBLISHED') return 'Publié'
-  if (status === 'FAILED') return 'Erreur'
-  if (status === 'PROCESSING') return 'En cours'
-  return 'En attente'
-}
-
-function shortModelLabel(model) {
-  const normalized = String(model || '').trim().toLowerCase()
-  if (!normalized) return ''
-  if (normalized.startsWith('gemini')) return 'Gemini'
-  if (normalized.startsWith('veo')) return 'Veo'
-  if (normalized.startsWith('kling')) return 'Kling'
-  if (normalized.startsWith('seedance')) return 'Seedance'
-  return model
-}
-
-function statusClass(status) {
-  if (status === 'VALIDATED') return 'bg-ui-accent'
-  if (status === 'PUBLISHED') return 'bg-ui-success'
-  if (status === 'FAILED') return 'bg-ui-danger'
-  if (status === 'PROCESSING') return 'bg-ui-info'
-  return 'bg-ui-ink'
-}
-
-function canValidate(item) {
-  return item.status === 'PENDING' || item.status === 'PROCESSING' || activeTab.value === 'PENDING'
-}
-
+// ---- Modification ---------------------------------------------------------------------------------------------
 function canModify(item) {
   if (item.status !== 'PENDING') return false
   // La retouche d une video faceless est ouverte a tous les types de compte.
@@ -646,28 +530,285 @@ function modifyHref(item) {
   return `${studioPath}?edit=${item.id}`
 }
 
-function canPublish(item) {
-  if (activeTab.value === 'VALIDATED') return true
-  if (item.status === 'VALIDATED') return true
-  return item.status === 'PUBLISHED' && !isInstagramPublished(item)
+// ---- Actions simples --------------------------------------------------------------------------------------------
+async function runAction(item, request, { success, failure }) {
+  item._loading = true
+  try {
+    await request()
+    if (success) pushToast({ ...success, tone: 'success' })
+    await reloadContents()
+    return true
+  } catch (err) {
+    pushToast({ title: failure, message: errorMessageOf(err, 'L’action a échoué.'), tone: 'error', duration: 5000 })
+    return false
+  } finally {
+    item._loading = false
+  }
 }
 
-function canPublishTwitter(item) {
-  if (activeTab.value === 'VALIDATED') return true
-  if (item.status === 'VALIDATED') return true
-  return item.status === 'PUBLISHED' && !isTwitterPublished(item)
+function validate(item) {
+  return runAction(item, () => $fetch(`/api/content/${item.id}/validate`, { method: 'PATCH' }), { failure: 'Validation impossible' })
 }
 
-// Contenu poste a la main (hors de l outil) : un contenu valide peut etre marque « publie » avec sa vraie date et sa plateforme.
+function reject(item) {
+  return runAction(item, () => $fetch(`/api/content/${item.id}/reject`, { method: 'PATCH' }), {
+    success: { title: 'Contenu rejeté', message: 'Il reste dans « Tout ». « Remettre en attente » le récupère.' },
+    failure: 'Rejet impossible',
+  })
+}
+
+function unvalidate(item) {
+  return runAction(item, () => $fetch(`/api/content/${item.id}/unvalidate`, { method: 'PATCH' }), {
+    success: { title: 'Remis en attente', message: 'Tu peux de nouveau le modifier.' },
+    failure: 'Impossible de remettre en attente',
+  })
+}
+
+async function onCardMenu(key, item) {
+  if (key === 'markPublished') return openManualPublish(item)
+  if (key === 'unvalidate') return unvalidate(item)
+  if (key === 'cancelManual') return cancelManualPublish(item)
+  if (key === 'delete') return softDelete(item)
+}
+
+// ---- Suppression douce : le contenu disparait, 8 s pour annuler, puis suppression reelle ------------------------
+const UNDO_MS = 8000
+
+function softDelete(item) {
+  const targets = carouselSlidesOf(item).length > 1 ? carouselSlidesOf(item) : [item]
+  const ids = targets.map((row) => row.id)
+  hiddenIds.value = new Set([...hiddenIds.value, ...ids])
+  if (detailId.value && ids.includes(detailId.value)) detailId.value = ''
+  const next = new Set(selectedIds.value)
+  ids.forEach((id) => next.delete(id))
+  selectedIds.value = next
+
+  let undone = false
+  const timer = window.setTimeout(async () => {
+    if (undone) return
+    try {
+      for (const id of ids) await $fetch(`/api/content/${id}`, { method: 'DELETE' })
+    } catch (err) {
+      pushToast({ title: 'Suppression impossible', message: errorMessageOf(err, 'Le contenu n’a pas pu être supprimé.'), tone: 'error', duration: 5000 })
+    } finally {
+      hiddenIds.value = new Set([...hiddenIds.value].filter((id) => !ids.includes(id)))
+      await reloadContents()
+    }
+  }, UNDO_MS)
+
+  pushToast({
+    title: 'Contenu supprimé',
+    message: ids.length > 1 ? `Le carrousel (${ids.length} slides) sera supprimé.` : '',
+    tone: 'success',
+    duration: UNDO_MS,
+    actionLabel: 'Annuler',
+    actionCallback: () => {
+      undone = true
+      window.clearTimeout(timer)
+      hiddenIds.value = new Set([...hiddenIds.value].filter((id) => !ids.includes(id)))
+    },
+  })
+}
+
+// ---- Selection multiple -----------------------------------------------------------------------------------------
+const selectedIds = ref(new Set())
+const selectedItems = computed(() => cards.value.filter((item) => selectedIds.value.has(item.id)))
+const selectedPendingCount = computed(() => selectedItems.value.filter((item) => cardStateOf(item) === 'pending').length)
+
+function toggleSelect(item) {
+  const next = new Set(selectedIds.value)
+  if (next.has(item.id)) next.delete(item.id)
+  else next.add(item.id)
+  selectedIds.value = next
+}
+
+async function validateSelected() {
+  const targets = selectedItems.value.filter((item) => cardStateOf(item) === 'pending')
+  let done = 0
+  for (const item of targets) {
+    try {
+      await $fetch(`/api/content/${item.id}/validate`, { method: 'PATCH' })
+      done += 1
+    } catch {
+      // Les echecs sont comptes ci-dessous.
+    }
+  }
+  selectedIds.value = new Set()
+  await reloadContents()
+  pushToast({
+    title: done === targets.length ? 'Contenus validés' : 'Validation partielle',
+    message: `${done} sur ${targets.length} validé${done > 1 ? 's' : ''}.`,
+    tone: done === targets.length ? 'success' : 'error',
+    duration: 4000,
+  })
+}
+
+function deleteSelected() {
+  // Une suppression douce par contenu : la derniere annulation visible ne couvre que la derniere, d ou une seule
+  // annulation pour toute la selection.
+  const targets = [...selectedItems.value]
+  if (!targets.length) return
+  const ids = targets.flatMap((item) => (carouselSlidesOf(item).length > 1 ? carouselSlidesOf(item) : [item]).map((row) => row.id))
+  hiddenIds.value = new Set([...hiddenIds.value, ...ids])
+  selectedIds.value = new Set()
+  if (detailId.value && ids.includes(detailId.value)) detailId.value = ''
+
+  let undone = false
+  const timer = window.setTimeout(async () => {
+    if (undone) return
+    let failed = 0
+    for (const id of ids) {
+      try {
+        await $fetch(`/api/content/${id}`, { method: 'DELETE' })
+      } catch {
+        failed += 1
+      }
+    }
+    if (failed) pushToast({ title: 'Suppression partielle', message: `${failed} contenu${failed > 1 ? 's' : ''} n’a pas pu être supprimé.`, tone: 'error', duration: 5000 })
+    hiddenIds.value = new Set([...hiddenIds.value].filter((id) => !ids.includes(id)))
+    await reloadContents()
+  }, UNDO_MS)
+
+  pushToast({
+    title: `${targets.length} contenu${targets.length > 1 ? 's' : ''} supprimé${targets.length > 1 ? 's' : ''}`,
+    tone: 'success',
+    duration: UNDO_MS,
+    actionLabel: 'Annuler',
+    actionCallback: () => {
+      undone = true
+      window.clearTimeout(timer)
+      hiddenIds.value = new Set([...hiddenIds.value].filter((id) => !ids.includes(id)))
+    },
+  })
+}
+
+// ---- Panneau de detail ------------------------------------------------------------------------------------------
+const detailId = ref('')
+const detailItem = computed(() => visibleContents.value.find((item) => item.id === detailId.value) || null)
+const detailIndex = computed(() => visibleContents.value.findIndex((item) => item.id === detailId.value))
+
+function openDetail(item) {
+  detailId.value = item.id
+}
+
+function navigateDetail(step) {
+  const target = visibleContents.value[detailIndex.value + step]
+  if (target) detailId.value = target.id
+}
+
+function openFullscreen(item) {
+  detailId.value = ''
+  openModal(item)
+}
+
+// ---- Publication (confirmation obligatoire) ----------------------------------------------------------------------
+const publishDialog = reactive({ open: false, loading: false, item: null, platform: 'INSTAGRAM', error: '' })
+
+function askPublish(item, platform) {
+  publishDialog.item = item
+  publishDialog.platform = platform === 'X' ? 'X' : 'INSTAGRAM'
+  publishDialog.error = ''
+  publishDialog.open = true
+}
+
+async function confirmPublish() {
+  const item = publishDialog.item
+  if (!item || publishDialog.loading) return
+  publishDialog.loading = true
+  publishDialog.error = ''
+  const isX = publishDialog.platform === 'X'
+  try {
+    await $fetch(`/api/content/${item.id}/${isX ? 'publish-twitter' : 'publish'}`, { method: 'POST' })
+    publishDialog.open = false
+    pushToast({
+      title: isX ? 'Publié sur X' : 'Publié sur Instagram',
+      message: 'Le contenu a été publié.',
+      tone: 'success',
+    })
+    await reloadContents()
+  } catch (err) {
+    const statusCode = Number(err?.statusCode || err?.response?.status || err?.data?.statusCode || 0)
+    const message = errorMessageOf(err, 'La publication a échoué.')
+    if (isX && (statusCode === 401 || message.includes('Session expirée'))) {
+      publishDialog.error = 'Ta session X a expiré : reconnecte le compte, puis réessaie.'
+      pushToast({
+        title: 'Session X expirée',
+        message: 'Reconnecte ton compte X.',
+        tone: 'error',
+        duration: 8000,
+        actionLabel: 'Reconnecter',
+        actionCallback: () => connectTwitter(),
+      })
+    } else {
+      publishDialog.error = message
+    }
+  } finally {
+    publishDialog.loading = false
+  }
+}
+
+async function connectTwitter() {
+  const influencerId = selectedInfluencer.value?.id
+  if (!influencerId || twitterConnecting.value) {
+    return
+  }
+
+  twitterConnecting.value = true
+  try {
+    const response = await $fetch(`/api/profiles/${influencerId}/twitter-connect`, { method: 'POST' })
+    const username = String(response?.username || '').trim()
+
+    pushToast({
+      title: 'Twitter connecté',
+      message: username
+        ? `Compte @${username} prêt pour la publication.`
+        : 'Compte connecté, publication prête.',
+      tone: 'success',
+    })
+  } catch (err) {
+    pushToast({
+      title: 'Connexion Twitter impossible',
+      message: errorMessageOf(err, 'La connexion n’a pas pu être finalisée.'),
+      tone: 'error',
+      duration: 6000,
+    })
+  } finally {
+    twitterConnecting.value = false
+  }
+}
+
+// ---- Planification ----------------------------------------------------------------------------------------------
+const scheduleDialog = reactive({ open: false, loading: false, item: null, error: '' })
+
+function askSchedule(item) {
+  scheduleDialog.item = item
+  scheduleDialog.error = ''
+  scheduleDialog.open = true
+}
+
+async function confirmSchedule(iso) {
+  const item = scheduleDialog.item
+  if (!item || scheduleDialog.loading) return
+  scheduleDialog.loading = true
+  scheduleDialog.error = ''
+  try {
+    await $fetch(`/api/content/${item.id}/schedule`, { method: 'PATCH', body: { scheduledAt: iso } })
+    scheduleDialog.open = false
+    pushToast({
+      title: 'Publication planifiée',
+      message: `Prévue le ${formatShortDate(iso)}. Elle apparaît au calendrier.`,
+      tone: 'success',
+    })
+    await reloadContents()
+  } catch (err) {
+    scheduleDialog.error = errorMessageOf(err, 'La planification a échoué.')
+  } finally {
+    scheduleDialog.loading = false
+  }
+}
+
+// ---- Contenu poste a la main (hors de l outil) ------------------------------------------------------------------
 const manualDialog = reactive({ open: false, loading: false, item: null })
-
-function canMarkPublished(item) {
-  return item.status === 'VALIDATED'
-}
-
-function canCancelManualPublish(item) {
-  return item.status === 'PUBLISHED' && Boolean(readManualPublication(item.manualPublication))
-}
 
 function openManualPublish(item) {
   manualDialog.item = item
@@ -690,7 +831,7 @@ async function confirmManualPublish(payload) {
   } catch (err) {
     pushToast({
       title: 'Enregistrement impossible',
-      message: err?.data?.statusMessage || err?.statusMessage || 'La publication n’a pas pu être enregistrée.',
+      message: errorMessageOf(err, 'La publication n’a pas pu être enregistrée.'),
       tone: 'error',
       duration: 5000,
     })
@@ -707,34 +848,43 @@ async function cancelManualPublish(item) {
     cancelLabel: 'Garder',
   })
   if (!confirmed) return
-  item._loading = true
-  try {
-    await $fetch(`/api/content/${item.id}/manual-publish`, { method: 'DELETE' })
-    pushToast({ title: 'Publication annulée', message: 'Le contenu est de nouveau « Validé ».', tone: 'success' })
-    await reloadContents()
-  } catch (err) {
-    pushToast({
-      title: 'Annulation impossible',
-      message: err?.data?.statusMessage || err?.statusMessage || 'L’annulation n’a pas pu être enregistrée.',
-      tone: 'error',
-      duration: 5000,
-    })
-  } finally {
-    item._loading = false
-  }
+  await runAction(item, () => $fetch(`/api/content/${item.id}/manual-publish`, { method: 'DELETE' }), {
+    success: { title: 'Publication annulée', message: 'Le contenu est de nouveau « Validé ».' },
+    failure: 'Annulation impossible',
+  })
 }
 
-function isInstagramPublished(item) {
-  return Boolean(item?.publishedAt)
+// ---- Visionneuse plein ecran (versions, slides) -----------------------------------------------------------------
+const modalMedia = ref(null)
+const modalMediaIsVideo = ref(false)
+const modalContent = ref(null)
+const modalVersions = ref([])
+const versionIndex = ref(0)
+const restoringVersion = ref(false)
+const currentVersion = computed(() => modalVersions.value[versionIndex.value] || null)
+const hasSeveralVersions = computed(() => modalVersions.value.length > 1)
+const modalSlides = ref([])
+const slideIndex = ref(0)
+const hasSeveralSlides = computed(() => modalSlides.value.length > 1)
+
+function isVideoMedia(item) {
+  const format = String(item?.format || '').trim().toUpperCase()
+  const imageUrl = String(item?.imageUrl || '').trim().toLowerCase()
+  return format === 'STORY' || format === 'REEL' || imageUrl.endsWith('.mp4')
 }
 
-function isTwitterPublished(item) {
-  return Boolean(item?.twitterPublishedAt)
+function shortModelLabel(model) {
+  const normalized = String(model || '').trim().toLowerCase()
+  if (!normalized) return ''
+  if (normalized.startsWith('gemini')) return 'Gemini'
+  if (normalized.startsWith('veo')) return 'Veo'
+  if (normalized.startsWith('kling')) return 'Kling'
+  if (normalized.startsWith('seedance')) return 'Seedance'
+  return model
 }
 
 async function openModal(item) {
-  // Un carrousel s ouvre sur sa premiere slide, les autres restent atteignables
-  // par les fleches. Un contenu simple n a qu une seule "slide": lui-meme.
+  // Un carrousel s ouvre sur sa premiere slide, les autres restent atteignables par les fleches.
   const slides = carouselSlidesOf(item)
   modalSlides.value = slides
   slideIndex.value = Math.max(0, slides.findIndex((slide) => slide.id === item?.id))
@@ -764,7 +914,7 @@ async function showContentInModal(item) {
       applyVersionToModal(versionIndex.value)
     }
   } catch {
-    // Historique indisponible: la modale reste utilisable en simple apercu.
+    // Historique indisponible: la visionneuse reste utilisable en simple apercu.
   }
 }
 
@@ -828,155 +978,12 @@ async function restoreVersion() {
   } catch (err) {
     pushToast({
       title: 'Restauration impossible',
-      message: err?.data?.statusMessage || err?.message || 'La version n a pas pu être restaurée.',
+      message: errorMessageOf(err, 'La version n’a pas pu être restaurée.'),
       tone: 'error',
       duration: 4500,
     })
   } finally {
     restoringVersion.value = false
-  }
-}
-
-function timeAgo(dateValue) {
-  const diff = Date.now() - new Date(dateValue).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'À l’instant'
-  if (mins < 60) return `Il y a ${mins} min`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `Il y a ${hours} h`
-  return `Il y a ${Math.floor(hours / 24)} j`
-}
-
-async function copyCaption(item) {
-  try {
-    await navigator.clipboard.writeText(item.caption)
-    item._copied = true
-    setTimeout(() => {
-      item._copied = false
-    }, 2000)
-  } catch {
-    // ignore clipboard errors
-  }
-}
-
-async function validate(item) {
-  item._loading = true
-  try {
-    await $fetch(`/api/content/${item.id}/validate`, { method: 'PATCH' })
-    await reloadContents()
-  } finally {
-    item._loading = false
-  }
-}
-
-async function remove(item) {
-  item._loading = true
-  try {
-    await $fetch(`/api/content/${item.id}`, { method: 'DELETE' })
-    await reloadContents()
-  } finally {
-    item._loading = false
-  }
-}
-
-async function publish(item) {
-  item._loading = true
-  try {
-    await $fetch(`/api/content/${item.id}/publish`, { method: 'POST' })
-    pushToast({
-      title: 'Publication Instagram lancée',
-      message: 'Le contenu a été publié sur Instagram.',
-      tone: 'success',
-    })
-    await reloadContents()
-  } finally {
-    item._loading = false
-  }
-}
-
-function extractHttpErrorDetails(err) {
-  const statusCode = Number(err?.statusCode || err?.response?.status || err?.data?.statusCode || 0)
-  const statusMessage = String(err?.statusMessage || err?.data?.statusMessage || err?.data?.message || err?.message || '')
-  return { statusCode, statusMessage }
-}
-
-async function connectTwitter() {
-  const influencerId = selectedInfluencer.value?.id
-  if (!influencerId || twitterConnecting.value) {
-    return
-  }
-
-  twitterConnecting.value = true
-  try {
-    const response = await $fetch(`/api/profiles/${influencerId}/twitter-connect`, { method: 'POST' })
-    const username = String(response?.username || '').trim()
-
-    pushToast({
-      title: 'Twitter connecté',
-      message: username
-        ? `Compte @${username} prêt pour la publication.`
-        : 'Compte connecté, publication prête.',
-      tone: 'success',
-    })
-  } catch (err) {
-    const { statusMessage } = extractHttpErrorDetails(err)
-    pushToast({
-      title: 'Connexion Twitter impossible',
-      message: statusMessage || 'La connexion n a pas pu être finalisée.',
-      tone: 'error',
-      duration: 6000,
-    })
-  } finally {
-    twitterConnecting.value = false
-  }
-}
-
-async function publishTwitter(item) {
-  item._loading = true
-  try {
-    await $fetch(`/api/content/${item.id}/publish-twitter`, { method: 'POST' })
-
-    pushToast({
-      title: 'Publication X réussie',
-      message: 'Le contenu a été publié sur X.',
-      tone: 'success',
-    })
-
-    await reloadContents()
-  } catch (err) {
-    const { statusCode, statusMessage } = extractHttpErrorDetails(err)
-
-    if (statusCode === 401 || statusMessage.includes('Session expirée')) {
-      pushToast({
-        title: 'Session expirée',
-        message: 'Session expirée — reconnectez votre compte',
-        tone: 'error',
-        duration: 8000,
-        actionLabel: 'Reconnecter',
-        actionCallback: () => {
-          connectTwitter()
-        },
-      })
-      return
-    }
-
-    pushToast({
-      title: 'Publication X impossible',
-      message: statusMessage || 'La publication a échoué.',
-      tone: 'error',
-      duration: 6000,
-    })
-  } finally {
-    item._loading = false
-  }
-}
-
-async function reloadContents() {
-  if (selectedInfluencer.value?.id) {
-    const statuses = getStatusesForTab(activeTab.value)
-    const campaignQuery = selectedCampaignId.value ? `&campaignId=${encodeURIComponent(selectedCampaignId.value)}` : ''
-    const response = await $fetch(`/api/profiles/${selectedInfluencer.value.id}/content?statuses=${statuses}${campaignQuery}`)
-    contentItems.value = (response.contents || []).map((item) => normalizeItem(item))
   }
 }
 </script>

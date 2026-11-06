@@ -7,7 +7,7 @@
       role="radio"
       :aria-checked="option.value === modelValue ? 'true' : 'false'"
       :disabled="disabled"
-      class="h-9 flex-1 rounded-[8px] px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ui-accent/20 disabled:cursor-not-allowed"
+      class="h-9 flex-1 whitespace-nowrap rounded-[8px] px-2 text-sm transition-colors sm:px-3 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ui-accent/20 disabled:cursor-not-allowed"
       :class="option.value === modelValue ? 'bg-ui-surface font-semibold text-ui-ink shadow-sm' : 'text-ui-ink-muted hover:text-ui-ink'"
       @click="emit('update:modelValue', option.value)"
     >

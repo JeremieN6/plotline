@@ -78,6 +78,7 @@ Focus : `focus-visible:ring-[3px] ring-accent/20 border-accent` sur tous les con
 | `UiSwitch` | `v-model: boolean`, `label`, `disabled` | `role="switch"`, `aria-checked`, tout le bouton (≥ 44 px) est la cible. |
 | `UiDisclosure` | `title`, `hint`, `open` | Dépliant fermé par défaut ; en-tête bouton, `aria-expanded`, chevron qui pivote. |
 | `UiDatePopover` | `v-model` (ISO), `label`, `disabled` | Badge-bouton qui ouvre un sélecteur date + heure ; Échap et clic extérieur ferment. Format affiché : `app/utils/formatDate.js`. |
+| `UiMenu` | `items` ({key,label,danger?,disabled?,hint?,to?,separator?}), `label`, `align`, `trigger-class`, slot `trigger`, événement `select` | Menu d'actions (« ⋯ » par défaut). Flèches, Début, Fin, Échap, clic extérieur ; le focus revient au déclencheur. Entrées ≥ 44 px, `danger` en rouge séparé par un filet. Une entrée `to` est un lien. `trigger-class` + slot `trigger` servent à la flèche d'un bouton scindé (« Publier ▾ »). |
 | `UiSectionNav` | `items: {key,label,status}[]`, `v-model:active` | États : ready, active, running, error, empty |
 
 ## Types, statuts et dates (calendrier, plan éditorial)
