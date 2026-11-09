@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  actionsFor, cardStateOf, isScheduleOverdue, joinHashtags, scheduledBadgeLabel, splitHashtags, countByTab, defaultPublishTarget, filterAndSort, formatDuration, isPublishedOn, posterTime, publishTargets, captionHook, tabOf, typeKeyOf,
+  actionsFor, autoPublishBlockReason, cardStateOf, isPublicationFailure, isScheduleOverdue, joinHashtags, scheduledBadgeLabel, splitHashtags, countByTab, defaultPublishTarget, filterAndSort, formatDuration, isPublishedOn, posterTime, publishTargets, captionHook, tabOf, typeKeyOf,
 } from '../app/utils/contentCards.js';
 
 const item = (status, extra = {}) => ({ id: status + Math.random(), status, format: 'FEED', createdAt: '2026-11-01T10:00:00Z', caption: 'Texte', ...extra });
@@ -102,6 +102,23 @@ test('pastille « Programmé » : contenu valide avec une date a venir seulement
   assert.equal(isScheduleOverdue(item('VALIDATED', { scheduledAt: '2026-11-06T09:00:00Z' }), now), true);
   assert.equal(isScheduleOverdue(item('VALIDATED', { scheduledAt: future }), now), false);
   assert.equal(isScheduleOverdue(item('PENDING', { scheduledAt: '2026-11-06T09:00:00Z' }), now), false);
+});
+
+test('publication automatique ratee : en erreur + media + date planifiee seulement', () => {
+  const media = 'https://x/v.mp4';
+  const date = '2026-11-09T15:00:00Z';
+  assert.equal(isPublicationFailure(item('FAILED', { imageUrl: media, scheduledAt: date })), true);
+  assert.equal(isPublicationFailure(item('FAILED', { imageUrl: media })), false); // echec de generation : pas de date
+  assert.equal(isPublicationFailure(item('FAILED', { scheduledAt: date })), false); // pas de media
+  assert.equal(isPublicationFailure(item('VALIDATED', { imageUrl: media, scheduledAt: date })), false);
+  assert.equal(isPublicationFailure(item('PUBLISHED', { imageUrl: media, scheduledAt: date })), false);
+});
+
+test('planifier : raison de blocage quand la publication automatique echouerait forcement', () => {
+  assert.equal(autoPublishBlockReason(item('VALIDATED', { platform: 'INSTAGRAM' }), { instagramAccountId: 'ig1' }), '');
+  assert.match(autoPublishBlockReason(item('VALIDATED', { platform: 'INSTAGRAM' }), { instagramAccountId: '' }), /Instagram n’est pas connecté/);
+  assert.match(autoPublishBlockReason(item('VALIDATED', { platform: 'INSTAGRAM' }), null), /Instagram n’est pas connecté/);
+  assert.match(autoPublishBlockReason(item('VALIDATED', { platform: 'TIKTOK' }), { instagramAccountId: 'ig1' }), /TikTok/);
 });
 
 test('hashtags de fin separes de la legende, et recomposes', () => {

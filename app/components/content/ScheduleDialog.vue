@@ -24,11 +24,17 @@
           </UiField>
         </div>
 
+        <UiAlert v-if="blockReason" class="mt-4" title="La publication automatique échouerait">
+          {{ blockReason }}
+          <template v-if="settingsHref" #action>
+            <NuxtLink :to="settingsHref" class="inline-flex min-h-[44px] items-center text-sm font-semibold underline">Ouvrir les paramètres du profil</NuxtLink>
+          </template>
+        </UiAlert>
         <UiAlert v-if="problem || error" class="mt-4">{{ problem || error }}</UiAlert>
 
         <div class="mt-6 flex flex-wrap justify-end gap-2">
           <UiButton :disabled="loading" @click="emit('cancel')">Annuler</UiButton>
-          <UiButton variant="primary" :loading="loading" :disabled="!date" @click="confirm">Planifier</UiButton>
+          <UiButton variant="primary" :loading="loading" :disabled="!date || Boolean(blockReason)" @click="confirm">Planifier</UiButton>
         </div>
       </div>
     </div>
@@ -45,6 +51,9 @@ const props = defineProps({
   loading: { type: Boolean, default: false },
   initial: { type: String, default: '' }, // ISO de la date deja planifiee, sinon demain 09:00
   error: { type: String, default: '' },
+  // Raison pour laquelle la publication automatique echouerait forcement (Instagram non connecte...) : Planifier est bloque.
+  blockReason: { type: String, default: '' },
+  settingsHref: { type: String, default: '' },
 })
 const emit = defineEmits(['confirm', 'cancel'])
 

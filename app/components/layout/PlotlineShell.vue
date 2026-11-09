@@ -143,8 +143,20 @@
                 :aria-current="item.to === activeNavTo ? 'page' : undefined"
                 @click="mobileMenuOpen = false"
               >
-                <Icon :name="item.icon" class="h-[18px] w-[18px] shrink-0" :class="item.to === activeNavTo ? 'text-ui-accent' : ''" />
+                <span class="relative inline-flex shrink-0">
+                  <Icon :name="item.icon" class="h-[18px] w-[18px]" :class="item.to === activeNavTo ? 'text-ui-accent' : ''" />
+                  <span v-if="item.alertCount" class="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-ui-danger ring-2 ring-ui-surface" aria-hidden="true" />
+                </span>
                 <span :class="labelClass" class="flex-1 truncate">{{ item.label }}</span>
+                <span
+                  v-if="item.alertCount"
+                  :class="labelClass"
+                  class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-ui-danger px-1.5 text-[11px] font-semibold text-white"
+                  :title="`${item.alertCount} publication${item.alertCount > 1 ? 's' : ''} automatique${item.alertCount > 1 ? 's' : ''} en erreur`"
+                >
+                  {{ item.alertCount }}
+                </span>
+                <span v-if="item.alertCount" class="sr-only">{{ item.alertCount }} publication{{ item.alertCount > 1 ? 's' : '' }} en erreur</span>
               </NuxtLink>
             </template>
           </nav>
@@ -232,6 +244,17 @@ const { data: influencersData } = await useFetch('/api/profiles', {
   key: 'plotline-shell-influencers',
 })
 
+// Pastille du menu « Contenu » : publications automatiques ratees. Un seul comptage a l ouverture puis a chaque
+// changement de page (jamais de rafraichissement en boucle : la base ne doit pas etre reveillee pour rien).
+const { data: failuresData, refresh: refreshFailures } = useFetch('/api/content/publication-failures', {
+  key: 'plotline-shell-publication-failures',
+  server: false,
+  lazy: true,
+  default: () => ({ count: 0 }),
+})
+const publicationFailureCount = computed(() => Number(failuresData.value?.count || 0))
+watch(() => route.path, () => { refreshFailures() })
+
 const influencers = computed(() => influencersData.value || [])
 const activeInfluencer = computed(() => {
   return influencers.value.find((item) => item.id === activeInfluencerId.value) || influencers.value[0] || null
@@ -306,7 +329,7 @@ const baseNavigation = computed(() => {
       homeItem,
       { label: 'Studio', to: '/studio', icon: 'lucide:wand-sparkles' },
       libraryItem,
-      { label: 'Mes créations', to: '/content', icon: 'lucide:layout-grid' },
+      { label: 'Mes créations', to: '/content', icon: 'lucide:layout-grid', alertCount: publicationFailureCount.value },
       profilesItem,
       calendarItem,
       analyticsItem,
@@ -331,7 +354,7 @@ const baseNavigation = computed(() => {
     { label: 'Générer', to: activeInfluencer.value ? `/profiles/${activeInfluencer.value.id}/generate` : '/profiles', icon: 'lucide:sparkles', disabled: !activeInfluencer.value },
     { label: 'Studio', to: '/studio', icon: 'lucide:wand-sparkles' },
     libraryItem,
-    { label: 'Contenu', to: '/content', icon: 'lucide:layout-grid' },
+    { label: 'Contenu', to: '/content', icon: 'lucide:layout-grid', alertCount: publicationFailureCount.value },
     profilesItem,
     calendarItem,
     analyticsItem,

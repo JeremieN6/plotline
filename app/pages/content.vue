@@ -27,6 +27,14 @@
       </div>
     </header>
 
+    <ContentPublicationFailures
+      :items="failures"
+      @manual="manualFromFailure"
+      @reschedule="rescheduleFromFailure"
+      @keep="recoverFailed"
+      @remove="softDelete"
+    />
+
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <UiSegmented v-model="activeTab" :options="tabOptions" label="Statut" class="lg:min-w-[440px]" />
       <div class="flex flex-wrap items-center gap-3">
@@ -150,6 +158,8 @@
       :loading="scheduleDialog.loading"
       :initial="scheduleDialog.item?.scheduledAt || ''"
       :error="scheduleDialog.error"
+      :block-reason="scheduleBlockReason"
+      :settings-href="selectedInfluencer ? `/profiles/${selectedInfluencer.id}/edit` : ''"
       @confirm="confirmSchedule"
       @cancel="scheduleDialog.open = false"
     />
@@ -281,7 +291,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { formatShortDate } from '~/utils/formatDate'
 import { formatPlatforms, readManualPublication } from '~/utils/manualPlatforms'
-import { cardStateOf, countByTab, filterAndSort } from '~/utils/contentCards'
+import { autoPublishBlockReason, cardStateOf, countByTab, filterAndSort, isPublicationFailure } from '~/utils/contentCards'
 
 const activeInfluencerId = useActiveInfluencer()
 const { pushToast, requestConfirmation } = useUiFeedback()
@@ -508,6 +518,8 @@ async function reloadContents() {
     const campaignQuery = selectedCampaignId.value ? `&campaignId=${encodeURIComponent(selectedCampaignId.value)}` : ''
     const response = await $fetch(`/api/profiles/${selectedInfluencer.value.id}/content?statuses=${ALL_STATUSES}${campaignQuery}`)
     contentItems.value = (response.contents || []).map((item) => normalizeItem(item))
+    // La pastille du menu (publications ratees) suit les actions de cette page sans attendre un changement de page.
+    refreshNuxtData('plotline-shell-publication-failures')
   }
 }
 
@@ -577,6 +589,30 @@ function recoverFailed(item) {
     failure: 'Impossible de remettre en « Validé »',
   })
 }
+
+// ---- Publications automatiques ratees (bandeau) ---------------------------------------------------------------
+const failures = computed(() => (loadingContent.value ? [] : cards.value.filter(isPublicationFailure)))
+
+// « Marquer comme publie » et « Planifier » ne marchent que sur un contenu valide : on le remet d abord en « Valide »
+// (ce qui efface aussi la date et le message d erreur), puis on ouvre la fenetre voulue.
+async function recoverThen(item, next) {
+  if (item._loading) return
+  item._loading = true
+  let fresh = null
+  try {
+    await $fetch(`/api/content/${item.id}/recover`, { method: 'PATCH' })
+    await reloadContents()
+    fresh = contentItems.value.find((row) => row.id === item.id) || null
+  } catch (err) {
+    pushToast({ title: 'Action impossible', message: errorMessageOf(err, 'Le contenu n’a pas pu être remis en « Validé ».'), tone: 'error', duration: 5000 })
+  } finally {
+    item._loading = false
+  }
+  if (fresh) next(fresh)
+}
+
+const manualFromFailure = (item) => recoverThen(item, openManualPublish)
+const rescheduleFromFailure = (item) => recoverThen(item, askSchedule)
 
 async function onCardMenu(key, item) {
   if (key === 'recover') return recoverFailed(item)
@@ -795,6 +831,8 @@ async function connectTwitter() {
 
 // ---- Planification ----------------------------------------------------------------------------------------------
 const scheduleDialog = reactive({ open: false, loading: false, item: null, error: '' })
+// Planifier est bloque quand la publication automatique echouerait forcement (Instagram non connecte, contenu TikTok).
+const scheduleBlockReason = computed(() => (scheduleDialog.item ? autoPublishBlockReason(scheduleDialog.item, selectedInfluencer.value) : ''))
 
 function askSchedule(item) {
   scheduleDialog.item = item

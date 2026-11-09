@@ -136,6 +136,28 @@ export function isPublishedOn(item, platformId) {
 }
 
 /**
+ * Publication AUTOMATIQUE ratee : contenu en erreur qui a encore son media ET sa date planifiee (le planificateur la
+ * restaure quand il abandonne). Un echec de generation n a pas de date planifiee : il n est pas concerne.
+ */
+export function isPublicationFailure(item) {
+  return cardStateOf(item) === 'failed' && Boolean(String(item?.imageUrl || '').trim()) && Boolean(item?.scheduledAt)
+}
+
+/**
+ * Raison pour laquelle planifier ce contenu ferait forcement echouer la publication automatique (chaine vide si rien
+ * ne s y oppose). Le planificateur ne publie que sur Instagram et seulement si le compte du profil est renseigne.
+ */
+export function autoPublishBlockReason(item, profile) {
+  if (String(item?.platform || '').toUpperCase() === 'TIKTOK') {
+    return 'Ce contenu est destiné à TikTok : l’outil ne publie pas sur TikTok. Poste-le toi-même, puis utilise « Marquer comme publié ».'
+  }
+  if (!profile?.instagramAccountId) {
+    return 'Instagram n’est pas connecté pour ce profil : la publication automatique échouerait à l’heure prévue. Connecte Instagram dans les paramètres du profil, ou poste le contenu toi-même puis utilise « Marquer comme publié ».'
+  }
+  return ''
+}
+
+/**
  * Actions d une carte selon son etat. `primary` / `secondary` = boutons du pied de carte ; `menu` = entrees du menu ⋯
  * (dans l ordre d affichage). `edit` n est montre que si le compte peut modifier ce contenu (decide par ContentCard).
  * Il n y a pas de « Regenerer » : la regeneration passe par « Modifier » (contenu en attente), d ou « Remettre en attente » pour un contenu valide.
