@@ -57,7 +57,7 @@
 import { computed, onBeforeUnmount, ref, useId, watch } from 'vue'
 import { formatPlatforms, readManualPublication } from '~/utils/manualPlatforms'
 import { formatShortDate } from '~/utils/formatDate'
-import { actionsFor, cardStateOf, defaultPublishTarget, isPublishedOn, joinHashtags, captionHook, splitHashtags } from '~/utils/contentCards'
+import { actionsFor, cardStateOf, defaultPublishTarget, isPublishedOn, joinHashtags, captionHook, scheduledBadgeLabel, splitHashtags } from '~/utils/contentCards'
 
 // Panneau de detail d un contenu : lecteur, legende modifiable (sauvegarde automatique), hashtags, historique,
 // memes actions que la carte, navigation precedent / suivant. La plein ecran (versions, slides) reste la visionneuse.
@@ -98,7 +98,11 @@ const BADGES = {
   failed: { status: 'error', label: 'Erreur' },
   rejected: { status: 'empty', label: 'Rejeté' },
 }
-const badge = computed(() => BADGES[state.value] || BADGES.pending)
+const badge = computed(() => {
+  const scheduled = props.item ? scheduledBadgeLabel(props.item) : ''
+  if (scheduled) return { status: 'running', label: scheduled }
+  return BADGES[state.value] || BADGES.pending
+})
 const title = computed(() => captionHook(props.item?.caption).hook.slice(0, 60) || 'Contenu')
 const description = computed(() => (props.item ? formatShortDate(props.item.createdAt) : ''))
 const saveLabel = computed(() => ({

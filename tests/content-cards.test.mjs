@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  actionsFor, cardStateOf, joinHashtags, splitHashtags, countByTab, defaultPublishTarget, filterAndSort, formatDuration, isPublishedOn, posterTime, publishTargets, captionHook, tabOf, typeKeyOf,
+  actionsFor, cardStateOf, isScheduleOverdue, joinHashtags, scheduledBadgeLabel, splitHashtags, countByTab, defaultPublishTarget, filterAndSort, formatDuration, isPublishedOn, posterTime, publishTargets, captionHook, tabOf, typeKeyOf,
 } from '../app/utils/contentCards.js';
 
 const item = (status, extra = {}) => ({ id: status + Math.random(), status, format: 'FEED', createdAt: '2026-11-01T10:00:00Z', caption: 'Texte', ...extra });
@@ -70,16 +70,38 @@ test('plateformes : Instagram puis X, TikTok jamais propose', () => {
 test('actions par statut (brief : un seul principal, Supprimer seulement dans le menu)', () => {
   assert.deepEqual(actionsFor(item('PENDING')), { primary: 'validate', secondary: 'reject', menu: ['edit', 'copy', 'delete'] });
   assert.deepEqual(actionsFor(item('VALIDATED')), { primary: 'publish', secondary: 'schedule', menu: ['markPublished', 'unvalidate', 'copy', 'delete'] });
+  assert.deepEqual(actionsFor(item('VALIDATED', { scheduledAt: '2026-11-09T09:00:00Z' })).menu, ['cancelSchedule', 'markPublished', 'unvalidate', 'copy', 'delete']);
+  assert.ok(!actionsFor(item('PENDING', { scheduledAt: '2026-11-09T09:00:00Z' })).menu.includes('cancelSchedule'));
+  assert.ok(!actionsFor(item('PUBLISHED', { scheduledAt: '2026-11-09T09:00:00Z' })).menu.includes('cancelSchedule'));
   assert.deepEqual(actionsFor(item('PUBLISHED')), { primary: null, secondary: 'detail', menu: ['copy', 'delete'] });
   assert.deepEqual(actionsFor(item('PUBLISHED', { manualPublication: { at: 'x', platforms: ['TIKTOK'] } })).menu, ['cancelManual', 'copy', 'delete']);
   assert.deepEqual(actionsFor(item('PROCESSING')), { primary: null, secondary: null, menu: [] });
   assert.deepEqual(actionsFor(item('FAILED')).menu, ['delete']);
+  // echec de publication (le media existe) : « Remettre en Valide » ; echec de generation (pas de media) : rien a recuperer
+  assert.equal(actionsFor(item('FAILED', { imageUrl: 'https://x/v.mp4' })).secondary, 'recover');
+  assert.equal(actionsFor(item('FAILED')).secondary, null);
+  assert.equal(actionsFor(item('FAILED', { imageUrl: '   ' })).secondary, null);
   assert.deepEqual(actionsFor(item('PENDING', { caption: '' })).menu, ['edit', 'delete']);
   for (const status of ['PENDING', 'VALIDATED', 'PUBLISHED', 'PROCESSING', 'FAILED']) {
     const { primary, secondary } = actionsFor(item(status));
     assert.notEqual(primary, 'delete');
     assert.notEqual(secondary, 'delete');
   }
+});
+
+test('pastille « Programmé » : contenu valide avec une date a venir seulement', () => {
+  const now = new Date('2026-11-07T08:00:00Z').getTime();
+  const future = '2026-11-08T09:00:00Z';
+  const label = scheduledBadgeLabel(item('VALIDATED', { scheduledAt: future }), now);
+  assert.match(label, /^Programmé \d{1,2} \S+, \d{2}:\d{2}$/);
+  assert.equal(scheduledBadgeLabel(item('VALIDATED'), now), '');
+  assert.equal(scheduledBadgeLabel(item('VALIDATED', { scheduledAt: '2026-11-06T09:00:00Z' }), now), '');
+  assert.equal(scheduledBadgeLabel(item('PENDING', { scheduledAt: future }), now), '');
+  assert.equal(scheduledBadgeLabel(item('PUBLISHED', { scheduledAt: future }), now), '');
+  assert.equal(scheduledBadgeLabel(item('VALIDATED', { scheduledAt: 'nimporte quoi' }), now), '');
+  assert.equal(isScheduleOverdue(item('VALIDATED', { scheduledAt: '2026-11-06T09:00:00Z' }), now), true);
+  assert.equal(isScheduleOverdue(item('VALIDATED', { scheduledAt: future }), now), false);
+  assert.equal(isScheduleOverdue(item('PENDING', { scheduledAt: '2026-11-06T09:00:00Z' }), now), false);
 });
 
 test('hashtags de fin separes de la legende, et recomposes', () => {

@@ -106,6 +106,7 @@
           </div>
           <UiButton v-if="actions.secondary === 'schedule'" size="sm" :disabled="item._loading" @click="emit('schedule', item)">Planifier</UiButton>
           <UiButton v-if="actions.secondary === 'detail'" size="sm" @click="emit('open', item)">Détail</UiButton>
+          <UiButton v-if="actions.secondary === 'recover'" size="sm" :loading="item._loading" @click="emit('menu', 'recover', item)">Remettre en « Validé »</UiButton>
         </template>
       </div>
     </div>
@@ -148,6 +149,7 @@
         </UiButton>
         <UiButton v-if="actions.secondary === 'schedule'" size="sm" class="hidden sm:inline-flex" :disabled="item._loading" @click="emit('schedule', item)">Planifier</UiButton>
         <UiButton v-if="actions.secondary === 'detail'" size="sm" @click="emit('open', item)">Détail</UiButton>
+        <UiButton v-if="actions.secondary === 'recover'" size="sm" :loading="item._loading" @click="emit('menu', 'recover', item)">Remettre en « Validé »</UiButton>
       </template>
       <UiMenu v-if="menuItems.length" :items="menuItems" @select="onMenu" />
     </div>
@@ -158,7 +160,7 @@
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { formatShortDate } from '~/utils/formatDate'
 import { formatPlatforms, readManualPublication } from '~/utils/manualPlatforms'
-import { actionsFor, cardStateOf, defaultPublishTarget, isPublishedOn, publishTargets, captionHook } from '~/utils/contentCards'
+import { actionsFor, cardStateOf, defaultPublishTarget, isPublishedOn, isScheduleOverdue, publishTargets, captionHook, scheduledBadgeLabel } from '~/utils/contentCards'
 
 // Carte d un contenu (grille ou liste). Elle n execute aucune action : elle emet, la page agit.
 const props = defineProps({
@@ -178,7 +180,8 @@ const emit = defineEmits(['open', 'validate', 'reject', 'publish', 'schedule', '
 const state = computed(() => cardStateOf(props.item))
 const generating = computed(() => state.value === 'generating')
 const failed = computed(() => state.value === 'failed')
-const hasMedia = computed(() => Boolean(String(props.item.imageUrl || '').trim()) && !generating.value && !failed.value)
+// Un contenu en erreur garde son media s il en a un (publication ratee : la video existe toujours et doit rester visible).
+const hasMedia = computed(() => Boolean(String(props.item.imageUrl || '').trim()) && !generating.value)
 const isVideo = computed(() => {
   const format = String(props.item.format || '').toUpperCase()
   const url = String(props.item.imageUrl || '').toLowerCase().split('?')[0]
@@ -197,7 +200,12 @@ const BADGES = {
   failed: { status: 'error', label: 'Erreur' },
   rejected: { status: 'empty', label: 'Rejeté' },
 }
-const badge = computed(() => BADGES[state.value] || BADGES.pending)
+// Un contenu valide dont la publication est planifiee affiche « Programmé le ... » a la place de « Validé ».
+const badge = computed(() => {
+  const scheduled = scheduledBadgeLabel(props.item)
+  if (scheduled) return { status: 'running', label: scheduled }
+  return BADGES[state.value] || BADGES.pending
+})
 
 const actions = computed(() => actionsFor(props.item))
 const caption = computed(() => captionHook(props.item.caption))
@@ -228,7 +236,8 @@ const metaLine = computed(() => [timeAgo(props.item.createdAt), modelLabel(props
 // Plateformes deja publiees (ligne discrete sous la legende, comme l ancien « IG / X »).
 const platformsLine = computed(() => {
   if (state.value !== 'published') {
-    return props.item.scheduledAt && state.value === 'validated' ? `Planifié ${formatShortDate(props.item.scheduledAt)}` : ''
+    // Date a venir : deja dans la pastille. Date passee sans publication : on le dit.
+    return isScheduleOverdue(props.item) ? `Date de publication dépassée (${formatShortDate(props.item.scheduledAt)})` : ''
   }
   const manual = readManualPublication(props.item.manualPublication)
   const names = []
@@ -257,6 +266,7 @@ const publishItems = computed(() => {
 })
 
 const MENU_LABELS = {
+  cancelSchedule: 'Annuler la programmation',
   markPublished: 'Marquer comme publié',
   unvalidate: 'Remettre en attente',
   cancelManual: 'Annuler la publication manuelle',

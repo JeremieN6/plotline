@@ -564,7 +564,23 @@ function unvalidate(item) {
   })
 }
 
+function cancelSchedule(item) {
+  return runAction(item, () => $fetch(`/api/content/${item.id}/schedule`, { method: 'DELETE' }), {
+    success: { title: 'Programmation annulée', message: 'Le contenu reste validé, sans date de publication.' },
+    failure: 'Impossible d’annuler la programmation',
+  })
+}
+
+function recoverFailed(item) {
+  return runAction(item, () => $fetch(`/api/content/${item.id}/recover`, { method: 'PATCH' }), {
+    success: { title: 'Remis en « Validé »', message: 'La date de publication a été retirée : tu peux le publier ou le reprogrammer.' },
+    failure: 'Impossible de remettre en « Validé »',
+  })
+}
+
 async function onCardMenu(key, item) {
+  if (key === 'recover') return recoverFailed(item)
+  if (key === 'cancelSchedule') return cancelSchedule(item)
   if (key === 'markPublished') return openManualPublish(item)
   if (key === 'unvalidate') return unvalidate(item)
   if (key === 'cancelManual') return cancelManualPublish(item)

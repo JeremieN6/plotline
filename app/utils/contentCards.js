@@ -80,6 +80,30 @@ export function posterTime(duration) {
   return Math.min(value * 0.25, Math.max(value - 0.1, 0))
 }
 
+/**
+ * Pastille « Programmé 7 nov., 09:00 » d un contenu VALIDE dont la publication automatique est planifiee dans le
+ * futur. Vide sinon : un contenu en attente garde sa date mais ne partira pas (le planificateur ne publie que les
+ * contenus valides), une date passee est signalee autrement (voir `isScheduleOverdue`).
+ */
+export function scheduledBadgeLabel(item, now = Date.now()) {
+  if (cardStateOf(item) !== 'validated' || !item?.scheduledAt) return ''
+  const date = new Date(item.scheduledAt)
+  if (Number.isNaN(date.getTime()) || date.getTime() <= now) return ''
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+      .formatToParts(date)
+      .map((part) => [part.type, part.value]),
+  )
+  return `Programmé ${parts.day} ${parts.month}, ${parts.hour}:${parts.minute}`
+}
+
+/** Contenu valide dont la date planifiee est deja passee sans publication : a republier ou replanifier. */
+export function isScheduleOverdue(item, now = Date.now()) {
+  if (cardStateOf(item) !== 'validated' || !item?.scheduledAt) return false
+  const time = new Date(item.scheduledAt).getTime()
+  return Number.isFinite(time) && time <= now
+}
+
 /** 0:12, 1:05. Vide si la duree est inconnue. */
 export function formatDuration(duration) {
   const value = Number(duration)
@@ -122,13 +146,19 @@ export function actionsFor(item) {
   const copy = hasCaption ? ['copy'] : []
 
   if (state === 'generating') return { primary: null, secondary: null, menu: [] }
-  if (state === 'failed') return { primary: null, secondary: null, menu: ['delete'] }
+  if (state === 'failed') {
+    // Echec de PUBLICATION (le media existe) : on peut remettre le contenu en « Valide ». Echec de generation : rien a recuperer.
+    const hasMedia = Boolean(String(item?.imageUrl || '').trim())
+    return { primary: null, secondary: hasMedia ? 'recover' : null, menu: ['delete'] }
+  }
   if (state === 'rejected') return { primary: null, secondary: null, menu: ['unvalidate', 'delete'] }
   if (state === 'pending') {
     return { primary: 'validate', secondary: 'reject', menu: ['edit', ...copy, 'delete'] }
   }
   if (state === 'validated') {
-    return { primary: 'publish', secondary: 'schedule', menu: ['markPublished', 'unvalidate', ...copy, 'delete'] }
+    // « Annuler la programmation » : seulement s il y a une date (a venir ou depassee) ; le contenu reste valide.
+    const scheduled = item?.scheduledAt ? ['cancelSchedule'] : []
+    return { primary: 'publish', secondary: 'schedule', menu: [...scheduled, 'markPublished', 'unvalidate', ...copy, 'delete'] }
   }
   // Publie : plus d action de publication ; une publication manuelle peut etre annulee.
   const manual = Boolean(item?.manualPublication)
