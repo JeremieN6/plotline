@@ -326,6 +326,7 @@ export default defineEventHandler(async (event) => {
         name: true,
         faceRefPath: true,
         calendarStep: true,
+        profileType: true,
       },
     });
 
@@ -333,7 +334,13 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 404, statusMessage: 'Profil introuvable' }));
     }
 
-    const requestedAmbassadorId = String(ambassadorId || '').trim();
+    // Workflow Pinterest : la scene vient de Pinterest, le visage DOIT venir de la fiche du persona.
+    // La page « Generer » n envoyait pas d ambassadorId : la generation partait sans fiche de reference
+    // et le personnage ne ressemblait plus au persona. Un persona qui a une fiche l utilise donc d office.
+    const ownerIsFaceRefPersona = String(ownerProfile.profileType || '').toUpperCase() === 'PERSONA'
+      && Boolean(String(ownerProfile.faceRefPath || '').trim());
+    const requestedAmbassadorId = String(ambassadorId || '').trim()
+      || (isPinterestWorkflow && ownerIsFaceRefPersona ? ownerProfile.id : '');
     let influencer = ownerProfile;
     let withFaceRef = false;
 
