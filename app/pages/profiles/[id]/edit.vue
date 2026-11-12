@@ -1,537 +1,346 @@
 <template>
-  <div class="space-y-6">
-    <header class="rounded-[20px] border border-[#E5E3DF] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08)]">
-      <p class="text-xs font-semibold uppercase tracking-[0.22em] text-[#E8873A]">Paramètres</p>
-      <p v-if="influencer" class="mt-2 text-base font-bold text-[#111111]">
-        {{ influencer.name }} <span class="text-[#999999]">•</span> {{ profileTypeLabelDisplay }}
+  <div class="space-y-6 font-ui">
+    <header class="rounded-ui-card border border-ui-line bg-ui-surface p-5">
+      <p class="text-xs font-semibold uppercase tracking-[0.08em] text-ui-accent">Paramètres</p>
+      <h1 class="mt-1 text-2xl font-bold tracking-tight text-ui-ink">Modifier le profil</h1>
+      <p v-if="influencer" class="mt-2 text-sm font-semibold text-ui-ink">
+        {{ influencer.name }} <span class="text-ui-ink-muted">•</span> {{ profileTypeLabelDisplay }}
       </p>
-      <div v-if="linkedBrandLabel" class="mt-3 inline-flex items-center gap-2 rounded-full border border-[#E5E3DF] bg-[#FAFAF8] px-3 py-1.5 text-xs font-semibold text-[#666666]">
-        <span class="h-2 w-2 rounded-full bg-[#E8873A]"></span>
+      <p v-if="linkedBrandLabel" class="mt-2 inline-flex items-center gap-2 rounded-full border border-ui-line bg-ui-subtle px-3 py-1.5 text-xs font-semibold text-ui-ink-2">
+        <span class="h-2 w-2 rounded-full bg-ui-accent" aria-hidden="true"></span>
         {{ linkedBrandLabel }}
-      </div>
-      <h1 class="mt-1 text-3xl font-bold tracking-tight text-[#111111]">Modifier le profil</h1>
-      <p class="mt-2 text-sm text-[#666666]">{{ settingsDescription }}</p>
+      </p>
+      <p class="mt-2 text-sm text-ui-ink-2">{{ settingsDescription }}</p>
     </header>
 
-      <div v-if="pending" class="space-y-3">
-        <div class="h-5 w-40 animate-pulse rounded bg-gray-200"></div>
-        <div class="h-12 animate-pulse rounded-xl bg-gray-100"></div>
-        <div class="h-12 animate-pulse rounded-xl bg-gray-100"></div>
-        <div class="h-12 animate-pulse rounded-xl bg-gray-100"></div>
-      </div>
+    <UiSkeleton v-if="pending" :lines="4" />
 
-      <div v-else-if="fetchError || !influencer" class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-        Impossible de charger cette influenceuse.
-      </div>
+    <UiAlert v-else-if="fetchError || !influencer" title="Impossible de charger ce profil">
+      Le profil n’a pas pu être lu. Recharge la page ; s’il reste introuvable, il a peut-être été supprimé.
+    </UiAlert>
 
-      <div v-else class="space-y-6">
-        <div class="grid gap-4 md:grid-cols-2">
-          <div class="md:col-span-2">
-            <label class="mb-1.5 block text-sm font-semibold text-gray-800">Nom</label>
-            <input v-model="form.name" class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none" placeholder="ex : Luna" />
-          </div>
+    <div v-else class="space-y-6">
+      <UiCard>
+        <template #title>Informations</template>
+        <div class="grid gap-4">
+          <UiField label="Nom" for-id="profile-name">
+            <UiInput id="profile-name" v-model="form.name" placeholder="ex : Luna" />
+          </UiField>
+          <UiField label="Niches" hint="Entrée pour ajouter une niche. Elles sont affichées comme des tags dans la liste.">
+            <UiTagInput v-model="nicheTags" placeholder="ex : lifestyle, fitness, travel" />
+          </UiField>
+          <UiField label="Style" hint="Entrée pour ajouter un style. Ils sont affichés comme des tags dans la liste.">
+            <UiTagInput v-model="styleTags" placeholder="ex : parisian chic" />
+          </UiField>
+        </div>
+      </UiCard>
 
-          <div class="md:col-span-2">
-            <label class="mb-1.5 block text-sm font-semibold text-gray-800">Niches</label>
-            <input v-model="form.niche" class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none" placeholder="ex : lifestyle, fitness, travel" />
-            <p class="mt-2 text-xs text-gray-500">Sépare les niches par des virgules. Elles seront affichées comme des tags dans la liste.</p>
+      <UiCard v-if="isAmbassadorProfile">
+        <template #title>Face ref</template>
+        <template #actions>
+          <UiBadge :status="currentFaceRefPath ? 'ready' : 'empty'" :label="currentFaceRefPath ? 'Fichier présent' : 'Aucun fichier'" />
+        </template>
 
-            <div v-if="nicheItems.length" class="mt-3 flex flex-wrap gap-2">
-              <span
-                v-for="item in nicheItems"
-                :key="item"
-                class="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-bold text-[#E8873A]"
-              >
-                {{ item }}
-              </span>
-            </div>
-          </div>
+        <p class="text-sm text-ui-ink-2">Dépose une photo classique de ce à quoi tu veux que ton {{ profileTypeLabel }} ressemble. Le pipeline génère automatiquement la fiche de cohérence visuelle (3 panneaux) à partir de cette photo.</p>
 
-          <div class="md:col-span-2">
-            <label class="mb-1.5 block text-sm font-semibold text-gray-800">Style</label>
-            <input v-model="form.style" class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none" placeholder="ex : parisian chic" />
-            <p class="mt-2 text-xs text-gray-500">Sépare les styles par des virgules. Ils seront affichés comme des tags dans la liste.</p>
+        <p v-if="currentFaceRefName" class="mt-3 text-sm text-ui-ink">
+          Fichier actuel : <strong>{{ currentFaceRefName }}</strong>
+        </p>
 
-            <div v-if="styleItems.length" class="mt-3 flex flex-wrap gap-2">
-              <span
-                v-for="item in styleItems"
-                :key="item"
-                class="rounded-full border border-[#E5E3DF] bg-[#FAFAF8] px-2.5 py-1 text-xs font-semibold text-[#111111]"
-              >
-                {{ item }}
-              </span>
-            </div>
-          </div>
+        <div v-if="currentFaceRefUrl && !sourcePreviewUrl && !generatedImageDataUrl" class="mt-4 overflow-hidden rounded-ui-card border border-ui-line">
+          <img
+            v-if="!currentFaceRefMissing"
+            :src="currentFaceRefUrl"
+            alt="Face ref actuelle"
+            class="block max-h-72 w-full object-cover"
+            @error="onCurrentFaceRefError"
+          />
+          <UiAlert v-else tone="info">
+            Cette image de référence n’est pas disponible sur ce poste. Dépose une nouvelle photo source pour régénérer.
+          </UiAlert>
         </div>
 
-        <div v-if="isAmbassadorProfile" class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h2 class="text-base font-bold text-gray-900">Face ref</h2>
-              <p class="mt-1 text-sm text-gray-500">Dépose une photo classique de ce à quoi tu veux que ton {{ profileTypeLabel }} ressemble. Le pipeline génère automatiquement la fiche de cohérence visuelle (3 panneaux) à partir de cette photo.</p>
-            </div>
-            <span class="rounded-full border border-[#E5E3DF] bg-white px-3 py-1 text-xs font-bold text-gray-600">
-              {{ currentFaceRefPath ? 'Fichier présent' : 'Aucun fichier' }}
-            </span>
-          </div>
-
-          <p v-if="currentFaceRefName" class="mt-3 text-sm text-gray-700">
-            Fichier actuel : <strong>{{ currentFaceRefName }}</strong>
-          </p>
-
-          <div v-if="currentFaceRefUrl && !sourcePreviewUrl && !generatedImageDataUrl" class="mt-4 overflow-hidden rounded-xl border border-[#E5E3DF]">
-            <img
-              v-if="!currentFaceRefMissing"
-              :src="currentFaceRefUrl"
-              alt="Face ref actuelle"
-              class="block max-h-72 w-full object-cover"
-              @error="onCurrentFaceRefError"
+        <template v-if="!generatedImageDataUrl">
+          <div
+            class="mt-4 rounded-ui-card border-2 border-dashed p-6 text-center transition-colors"
+            :class="isDragging ? 'border-ui-accent bg-ui-accent-soft' : fileError ? 'border-ui-danger bg-ui-danger-soft' : 'border-ui-line-input bg-ui-surface'"
+            @dragenter.prevent="isDragging = true"
+            @dragover.prevent="isDragging = true"
+            @dragleave.prevent="isDragging = false"
+            @drop.prevent="onDrop"
+          >
+            <input
+              ref="fileInputRef"
+              type="file"
+              accept="image/jpeg,image/png,.jpg,.jpeg,.png"
+              class="hidden"
+              @change="onFileSelect"
             />
-            <div v-else class="p-4 text-sm text-amber-700 bg-amber-50">
-              Cette image de reference n'est pas disponible sur ce poste. Dépose une nouvelle photo source pour régénérer.
-            </div>
+            <p class="font-semibold text-ui-ink">Dépose une photo source ici (visage dégagé, cadrage buste minimum)</p>
+            <p class="mb-3 mt-2 text-sm text-ui-ink-muted">ou sélectionne un nouveau fichier</p>
+            <UiButton variant="secondary" @click="openFilePicker">Choisir un fichier</UiButton>
           </div>
 
-          <template v-if="!generatedImageDataUrl">
-            <div
-              class="mt-4 rounded-xl border-2 border-dashed p-6 text-center transition-colors"
-              :class="isDragging ? 'border-[#E8873A] bg-orange-50' : fileError ? 'border-red-400 bg-red-50' : 'border-[#E5E3DF] bg-white'"
-              @dragenter.prevent="isDragging = true"
-              @dragover.prevent="isDragging = true"
-              @dragleave.prevent="isDragging = false"
-              @drop.prevent="onDrop"
-            >
-              <input
-                ref="fileInputRef"
-                type="file"
-                accept="image/jpeg,image/png,.jpg,.jpeg,.png"
-                class="hidden"
-                @change="onFileSelect"
-              />
-              <p class="font-bold text-gray-800">Dépose une photo source ici (visage dégagé, cadrage buste minimum)</p>
-              <p class="mb-3 mt-2 text-sm text-gray-500">ou sélectionne un nouveau fichier</p>
-              <button type="button" class="rounded-lg border border-[#E5E3DF] bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-50" @click="openFilePicker">
-                Choisir un fichier
-              </button>
-            </div>
+          <div v-if="sourcePreviewUrl" class="mt-4 overflow-hidden rounded-ui-card border border-ui-line">
+            <img :src="sourcePreviewUrl" alt="Photo source" class="block max-h-72 w-full object-cover" />
+          </div>
 
-            <div v-if="sourcePreviewUrl" class="mt-4 overflow-hidden rounded-xl border border-[#E5E3DF]">
-              <img :src="sourcePreviewUrl" alt="Photo source" class="block max-h-72 w-full object-cover" />
-            </div>
+          <UiAlert v-if="fileError" class="mt-3" title="Fichier refusé">{{ fileError }}</UiAlert>
+          <UiAlert v-if="generateError" class="mt-3" title="La génération a échoué">{{ generateError }}</UiAlert>
 
-            <p v-if="fileError" class="mt-3 text-sm text-red-600">{{ fileError }}</p>
-            <p v-if="generateError" class="mt-3 text-sm text-red-600">{{ generateError }}</p>
-
-            <button
-              v-if="sourceImageBase64"
-              type="button"
-              class="mt-4 w-full rounded-lg bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#d4762f] disabled:cursor-not-allowed disabled:opacity-60"
-              :disabled="generatingRef"
-              @click="generateFaceReference('default')"
-            >
+          <div v-if="sourceImageBase64" class="mt-4 space-y-2">
+            <UiButton variant="dark" class="w-full" :loading="generatingRef" :disabled="generatingRef" @click="generateFaceReference('default')">
               {{ generatingRef ? 'Génération en cours... (~30s)' : 'Générer la nouvelle fiche référence' }}
-            </button>
-
-            <button
-              v-if="sourceImageBase64"
-              type="button"
-              class="mt-2 w-full rounded-lg border border-[#E5E3DF] bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-              :disabled="generatingRef"
-              @click="generateFaceReference('contact_sheet_9')"
-            >
+            </UiButton>
+            <UiButton class="w-full" :disabled="generatingRef" @click="generateFaceReference('contact_sheet_9')">
               Essayer une autre méthode (fiche 9 vues)
-            </button>
-
-            <button
-              v-if="sourceImageBase64"
-              type="button"
-              class="mt-2 w-full rounded-lg border border-[#E5E3DF] bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-              :disabled="generatingRef"
-              @click="generateFaceReference('close_up_4')"
-            >
+            </UiButton>
+            <UiButton class="w-full" :disabled="generatingRef" @click="generateFaceReference('close_up_4')">
               Essayer une autre méthode (4 vues en gros plan)
-            </button>
+            </UiButton>
+          </div>
 
-            <div v-if="isAdmin" class="mt-4 rounded-xl border border-dashed border-[#E5E3DF] bg-white p-4">
-              <div class="flex flex-wrap items-center gap-2">
-                <p class="text-sm font-bold text-gray-800">Importer directement une fiche 3 vues</p>
-                <span class="rounded-full bg-[#111111] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Admin</span>
-              </div>
-              <p class="mt-1 text-xs text-gray-500">
-                Remplace la face ref actuelle par ta propre fiche, sans passer par la génération. Format conseillé : 3 vues du visage (face, 3/4, profil) sur fond blanc — c'est le format qui a le mieux tenu l'identité faciale.
-              </p>
-              <input
-                ref="adminSheetInputRef"
-                type="file"
-                accept="image/jpeg,image/png,.jpg,.jpeg,.png"
-                class="hidden"
-                @change="onAdminSheetSelect"
-              />
-              <button
-                type="button"
-                class="mt-3 rounded-lg border border-[#E5E3DF] bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-                :disabled="uploadingAdminSheet"
-                @click="openAdminSheetPicker"
-              >
-                {{ uploadingAdminSheet ? 'Import en cours...' : 'Importer ma fiche' }}
-              </button>
-              <p v-if="adminSheetError" class="mt-2 text-sm text-red-600">{{ adminSheetError }}</p>
+          <div v-if="isAdmin" class="mt-4 rounded-ui-card border border-dashed border-ui-line-input bg-ui-surface p-4">
+            <div class="flex flex-wrap items-center gap-2">
+              <p class="text-[15px] font-semibold text-ui-ink">Importer directement une fiche 3 vues</p>
+              <span class="rounded-full bg-ui-ink px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">Admin</span>
             </div>
-
-            <div class="mt-4 rounded-ui-card border border-dashed border-ui-line-input bg-ui-surface p-4 font-ui">
-              <div class="flex flex-wrap items-center justify-between gap-3">
-                <div class="min-w-0">
-                  <p class="text-[15px] font-semibold text-ui-ink">Reprendre une fiche déjà générée</p>
-                  <p class="mt-0.5 text-xs text-ui-ink-muted">Gratuit : choisis parmi les fiches conservées dans ta bibliothèque, sans relancer de génération.</p>
-                </div>
-                <UiButton variant="secondary" size="sm" :loading="galleryLoading" @click="toggleGallery">
-                  {{ galleryOpen ? 'Masquer' : 'Choisir une fiche' }}
-                </UiButton>
-              </div>
-
-              <UiAlert v-if="galleryError" class="mt-3" title="Les fiches n’ont pas pu être chargées">
-                {{ galleryError }}
-                <template #action><UiButton variant="secondary" size="sm" @click="loadGallery">Réessayer</UiButton></template>
-              </UiAlert>
-
-              <template v-else-if="galleryOpen && !galleryLoading">
-                <p v-if="!gallerySheets.length" class="mt-3 text-sm text-ui-ink-muted">
-                  Aucune fiche conservée pour l’instant. Celles que tu génères sont ajoutées automatiquement dans
-                  <NuxtLink to="/library/fiches" class="font-semibold text-ui-accent hover:underline">Bibliothèque › Fiches générées</NuxtLink>.
-                </p>
-                <ul v-else class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  <li v-for="sheet in gallerySheets" :key="sheet.id" class="overflow-hidden rounded-ui-card border border-ui-line bg-ui-surface">
-                    <img :src="sheet.imageUrl" :alt="`Fiche du ${formatSheetDate(sheet.createdAt)}`" class="aspect-[3/4] w-full bg-ui-subtle object-cover" loading="lazy" />
-                    <div class="space-y-2 p-3">
-                      <p class="text-xs text-ui-ink-muted">
-                        <span class="font-semibold text-ui-ink">{{ sheet.profileId === id ? 'Cette persona' : (sheet.profileName || 'Sans persona') }}</span>
-                        · {{ formatSheetDate(sheet.createdAt) }}
-                      </p>
-                      <UiButton
-                        variant="secondary"
-                        size="sm"
-                        class="w-full"
-                        :loading="applyingGalleryId === sheet.id"
-                        :disabled="Boolean(applyingGalleryId)"
-                        @click="applyGallerySheet(sheet)"
-                      >
-                        Utiliser
-                      </UiButton>
-                    </div>
-                  </li>
-                </ul>
-              </template>
-            </div>
-          </template>
-
-          <template v-else>
-            <p class="mt-4 text-sm text-gray-700">Nouvelle fiche référence générée. Valide-la pour remplacer la face ref actuelle, ou régénère à partir de la même photo.</p>
-            <div class="mt-3 overflow-hidden rounded-xl border border-[#E5E3DF]">
-              <img :src="generatedImageDataUrl" alt="Nouvelle fiche référence" class="block max-h-96 w-full object-cover" />
-            </div>
-            <p v-if="applyError" class="mt-3 text-sm text-red-600">{{ applyError }}</p>
-            <div class="mt-4 flex flex-wrap gap-3">
-              <button
-                type="button"
-                class="rounded-lg border border-[#E5E3DF] bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
-                :disabled="generatingRef || applyingFaceRef"
-                @click="regenerateFaceReference"
-              >
-                🔄 Regénérer
-              </button>
-              <button
-                type="button"
-                class="rounded-lg bg-[#111111] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-60"
-                :disabled="applyingFaceRef"
-                @click="applyGeneratedFaceRef"
-              >
-                {{ applyingFaceRef ? 'Application...' : '✓ Valider et remplacer' }}
-              </button>
-            </div>
-          </template>
-        </div>
-
-        <div v-if="isAmbassadorProfile" class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
-          <div>
-            <h2 class="text-base font-bold text-gray-900">Marques représentées</h2>
-            <p class="mt-1 text-sm text-gray-500">
-              {{ isMaleProfile ? 'Un même' : 'Une même' }} {{ profileTypeLabel }} peut représenter plusieurs marques. Coche celles pour lesquelles {{ isMaleProfile ? 'il' : 'elle' }} peut générer du contenu.
+            <p class="mt-1 text-xs text-ui-ink-muted">
+              Remplace la face ref actuelle par ta propre fiche, sans passer par la génération. Format conseillé : 3 vues du visage (face, 3/4, profil) sur fond blanc, c’est le format qui a le mieux tenu l’identité faciale.
             </p>
+            <input
+              ref="adminSheetInputRef"
+              type="file"
+              accept="image/jpeg,image/png,.jpg,.jpeg,.png"
+              class="hidden"
+              @change="onAdminSheetSelect"
+            />
+            <UiButton class="mt-3" :loading="uploadingAdminSheet" :disabled="uploadingAdminSheet" @click="openAdminSheetPicker">
+              {{ uploadingAdminSheet ? 'Import en cours...' : 'Importer ma fiche' }}
+            </UiButton>
+            <UiAlert v-if="adminSheetError" class="mt-3" title="Import impossible">{{ adminSheetError }}</UiAlert>
           </div>
 
-          <div v-if="!brandOptions.length" class="mt-4 rounded-xl border border-dashed border-[#E5D8C9] bg-white px-3 py-3 text-sm text-[#7B5A3F]">
-            Aucune marque n'existe encore sur ce compte.
-          </div>
+          <div class="mt-4 rounded-ui-card border border-dashed border-ui-line-input bg-ui-surface p-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-[15px] font-semibold text-ui-ink">Reprendre une fiche déjà générée</p>
+                <p class="mt-0.5 text-xs text-ui-ink-muted">Gratuit : choisis parmi les fiches conservées dans ta bibliothèque, sans relancer de génération.</p>
+              </div>
+              <UiButton variant="secondary" size="sm" :loading="galleryLoading" @click="toggleGallery">
+                {{ galleryOpen ? 'Masquer' : 'Choisir une fiche' }}
+              </UiButton>
+            </div>
 
-          <div v-else class="mt-4 grid gap-2 sm:grid-cols-2">
-            <label
-              v-for="brand in brandOptions"
-              :key="brand.id"
-              class="flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2.5 transition-colors"
-              :class="selectedBrandIds.includes(brand.id) ? 'border-[#E8873A] bg-orange-50' : 'border-[#E5E3DF] bg-white hover:bg-gray-50'"
-            >
-              <input
-                type="checkbox"
-                :value="brand.id"
-                :checked="selectedBrandIds.includes(brand.id)"
-                class="h-4 w-4 accent-[#E8873A]"
-                @change="toggleBrand(brand.id)"
-              >
-              <span class="text-sm font-semibold text-gray-900">{{ brand.name }}</span>
-            </label>
-          </div>
+            <UiAlert v-if="galleryError" class="mt-3" title="Les fiches n’ont pas pu être chargées">
+              {{ galleryError }}
+              <template #action><UiButton variant="secondary" size="sm" @click="loadGallery">Réessayer</UiButton></template>
+            </UiAlert>
 
-          <div v-if="brandOptions.length" class="mt-3 flex items-center gap-3">
-            <button
-              type="button"
-              class="rounded-[10px] bg-[#E8873A] px-3.5 py-2 text-sm font-bold text-white transition-colors hover:bg-[#D97A2F] disabled:opacity-60"
-              :disabled="savingBrands"
-              @click="saveBrandLinks"
-            >
-              {{ savingBrands ? 'Enregistrement...' : 'Enregistrer les marques' }}
-            </button>
-            <p v-if="brandLinksMessage" class="text-xs text-[#7B5A3F]">{{ brandLinksMessage }}</p>
+            <template v-else-if="galleryOpen && !galleryLoading">
+              <p v-if="!gallerySheets.length" class="mt-3 text-sm text-ui-ink-muted">
+                Aucune fiche conservée pour l’instant. Celles que tu génères sont ajoutées automatiquement dans
+                <NuxtLink to="/library/fiches" class="font-semibold text-ui-accent hover:underline">Bibliothèque › Fiches générées</NuxtLink>.
+              </p>
+              <ul v-else class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                <li v-for="sheet in gallerySheets" :key="sheet.id" class="overflow-hidden rounded-ui-card border border-ui-line bg-ui-surface">
+                  <img :src="sheet.imageUrl" :alt="`Fiche du ${formatSheetDate(sheet.createdAt)}`" class="aspect-[3/4] w-full bg-ui-subtle object-cover" loading="lazy" />
+                  <div class="space-y-2 p-3">
+                    <p class="text-xs text-ui-ink-muted">
+                      <span class="font-semibold text-ui-ink">{{ sheet.profileId === id ? 'Cette persona' : (sheet.profileName || 'Sans persona') }}</span>
+                      · {{ formatSheetDate(sheet.createdAt) }}
+                    </p>
+                    <UiButton
+                      variant="secondary"
+                      size="sm"
+                      class="w-full"
+                      :loading="applyingGalleryId === sheet.id"
+                      :disabled="Boolean(applyingGalleryId)"
+                      @click="applyGallerySheet(sheet)"
+                    >
+                      Utiliser
+                    </UiButton>
+                  </div>
+                </li>
+              </ul>
+            </template>
           </div>
-        </div>
+        </template>
 
-        <div v-if="isAmbassadorProfile" class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
-          <div>
-            <h2 class="text-base font-bold text-gray-900">Genre et silhouette</h2>
-            <p class="mt-1 text-sm text-gray-500">Définit le gabarit de base qui sera utilisé par ton persona. Tu peux également le laisser par défaut.</p>
+        <template v-else>
+          <p class="mt-4 text-sm text-ui-ink">Nouvelle fiche référence générée. Valide-la pour remplacer la face ref actuelle, ou régénère à partir de la même photo.</p>
+          <div class="mt-3 overflow-hidden rounded-ui-card border border-ui-line">
+            <img :src="generatedImageDataUrl" alt="Nouvelle fiche référence" class="block max-h-96 w-full object-cover" />
           </div>
-
-          <div class="mt-4 flex gap-2">
-            <button
-              type="button"
-              class="rounded-xl border px-3 py-2 text-sm font-semibold transition-colors"
-              :class="form.gender === 'FEMALE' ? 'border-[#E8873A] bg-orange-50 text-gray-900' : 'border-[#E5E3DF] bg-white text-gray-600 hover:bg-gray-50'"
-              @click="setGender('FEMALE')"
-            >
-              Femme
-            </button>
-            <button
-              type="button"
-              class="rounded-xl border px-3 py-2 text-sm font-semibold transition-colors"
-              :class="form.gender === 'MALE' ? 'border-[#E8873A] bg-orange-50 text-gray-900' : 'border-[#E5E3DF] bg-white text-gray-600 hover:bg-gray-50'"
-              @click="setGender('MALE')"
-            >
-              Homme
-            </button>
+          <UiAlert v-if="applyError" class="mt-3" title="Le remplacement a échoué">{{ applyError }}</UiAlert>
+          <div class="mt-4 flex flex-wrap gap-3">
+            <UiButton :disabled="generatingRef || applyingFaceRef" @click="regenerateFaceReference">Régénérer</UiButton>
+            <UiButton variant="dark" :loading="applyingFaceRef" :disabled="applyingFaceRef" @click="applyGeneratedFaceRef">
+              {{ applyingFaceRef ? 'Application...' : 'Valider et remplacer' }}
+            </UiButton>
           </div>
+        </template>
+      </UiCard>
 
+      <UiCard v-if="isAmbassadorProfile">
+        <template #title>Marques représentées</template>
+        <p class="text-sm text-ui-ink-2">
+          {{ isMaleProfile ? 'Un même' : 'Une même' }} {{ profileTypeLabel }} peut représenter plusieurs marques. Sélectionne celles pour lesquelles {{ isMaleProfile ? 'il' : 'elle' }} peut générer du contenu.
+        </p>
+
+        <UiEmptyState v-if="!brandOptions.length" class="mt-4" title="Aucune marque pour l’instant" text="Aucune marque n’existe encore sur ce compte." />
+
+        <template v-else>
           <div class="mt-4">
-            <select
-              v-model="form.silhouette"
-              class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none"
-            >
-              <option v-for="option in silhouetteOptions" :key="option.value" :value="option.value">
-                {{ option.label }}{{ option.isDefault ? ' (par défaut)' : '' }}
-              </option>
-            </select>
-            <p class="mt-1.5 text-xs text-gray-600">{{ selectedSilhouetteDescription }}</p>
+            <UiToggleChips v-model="selectedBrandIds" label="Marques représentées" :options="brandChipOptions" @update:model-value="brandLinksMessage = ''" />
           </div>
+          <div class="mt-4 flex flex-wrap items-center gap-3">
+            <UiButton :loading="savingBrands" :disabled="savingBrands" @click="saveBrandLinks">
+              {{ savingBrands ? 'Enregistrement...' : 'Enregistrer les marques' }}
+            </UiButton>
+            <p v-if="brandLinksMessage" class="text-xs text-ui-ink-muted" role="status">{{ brandLinksMessage }}</p>
+          </div>
+        </template>
+      </UiCard>
+
+      <UiCard v-if="isAmbassadorProfile">
+        <template #title>Genre et silhouette</template>
+        <p class="text-sm text-ui-ink-2">Définit le gabarit de base qui sera utilisé par ton persona. Tu peux également le laisser par défaut.</p>
+
+        <div class="mt-4 grid gap-4">
+          <UiField label="Genre">
+            <UiSegmented v-model="genderModel" label="Genre" :options="[{ value: 'FEMALE', label: 'Femme' }, { value: 'MALE', label: 'Homme' }]" />
+          </UiField>
+          <UiField label="Silhouette" for-id="profile-silhouette" :hint="selectedSilhouetteDescription">
+            <UiSelect id="profile-silhouette" v-model="form.silhouette" :options="silhouetteSelectOptions" />
+          </UiField>
         </div>
+      </UiCard>
 
-        <div v-if="isAmbassadorProfile" class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
-          <div>
-            <h2 class="text-base font-bold text-gray-900">Identité</h2>
-            <p class="mt-1 text-sm text-gray-500">Ces informations, demandées à la création, servent aussi à décrire la persona dans les widgets Studio.</p>
-          </div>
+      <UiCard v-if="isAmbassadorProfile">
+        <template #title>Identité</template>
+        <p class="text-sm text-ui-ink-2">Ces informations, demandées à la création, servent aussi à décrire la persona dans les widgets Studio.</p>
 
-          <div class="mt-4 grid gap-4 sm:grid-cols-2">
-            <div>
-              <label class="mb-1.5 block text-sm font-semibold text-gray-800">Couleur des yeux</label>
-              <input v-model="form.eyeColor" class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none" placeholder="ex : Bleus" />
-            </div>
-            <div>
-              <label class="mb-1.5 block text-sm font-semibold text-gray-800">Origine ethnique</label>
-              <input v-model="form.ethnicity" class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none" placeholder="ex : origine mediterraneenne" />
-            </div>
-            <div class="sm:col-span-2">
-              <label class="mb-1.5 block text-sm font-semibold text-gray-800">Particularités</label>
-              <input v-model="form.particularities" class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none" placeholder="ex : taches de rousseur, grain de beaute" />
-            </div>
-          </div>
+        <div class="mt-4 grid gap-4 sm:grid-cols-2">
+          <UiField label="Couleur des yeux" for-id="profile-eyes">
+            <UiInput id="profile-eyes" v-model="form.eyeColor" placeholder="ex : Bleus" />
+          </UiField>
+          <UiField label="Origine ethnique" for-id="profile-ethnicity">
+            <UiInput id="profile-ethnicity" v-model="form.ethnicity" placeholder="ex : origine méditerranéenne" />
+          </UiField>
+          <UiField class="sm:col-span-2" label="Particularités" for-id="profile-particularities">
+            <UiInput id="profile-particularities" v-model="form.particularities" placeholder="ex : taches de rousseur, grain de beauté" />
+          </UiField>
         </div>
+      </UiCard>
 
-        <div class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
-          <div>
-            <h2 class="text-base font-bold text-gray-900">Cadence de publication</h2>
-            <p class="mt-1 text-sm text-gray-500">Détermine le rythme utilisé par le planificateur éditorial quand tu prépares un plan.</p>
-          </div>
+      <UiCard>
+        <template #title>Cadence de publication</template>
+        <p class="text-sm text-ui-ink-2">Détermine le rythme utilisé par le planificateur éditorial quand tu prépares un plan.</p>
 
-          <div class="mt-4 grid gap-4 sm:grid-cols-3">
-            <div>
-              <label class="mb-1.5 block text-sm font-semibold text-gray-800">Posts par semaine</label>
-              <input
-                v-model.number="form.postsPerWeek"
-                type="number"
-                min="1"
-                max="21"
-                class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none"
-              />
+        <div class="mt-4 grid gap-4 sm:grid-cols-3">
+          <UiField label="Posts par semaine" for-id="profile-ppw">
+            <UiInput id="profile-ppw" v-model="postsPerWeekModel" type="number" min="1" max="21" />
+          </UiField>
+          <UiField label="Heure de publication" for-id="profile-hour">
+            <UiSelect id="profile-hour" v-model="publishHourModel" :options="hourOptions" />
+          </UiField>
+          <UiField label="Rotation des formats" hint="FEED = image, STORY = clip Pinterest, REEL = vidéo faceless pour l’instant.">
+            <UiToggleChips v-model="formatRotationModel" label="Rotation des formats" :options="formatOptions" />
+          </UiField>
+        </div>
+      </UiCard>
+
+      <UiCard>
+        <template #title>Plans précédents</template>
+        <p class="text-sm text-ui-ink-2">Retrouve les plans déjà préparés pour ce profil.</p>
+
+        <UiSkeleton v-if="plansPending" class="mt-4" :lines="2" />
+        <UiEmptyState v-else-if="!previousPlans.length" class="mt-4" title="Aucun plan pour l’instant" text="Les plans que tu prépares depuis le calendrier apparaissent ici." />
+        <ul v-else class="mt-4 space-y-2">
+          <li
+            v-for="planItem in previousPlans"
+            :key="planItem.id"
+            class="flex flex-wrap items-center justify-between gap-3 rounded-ui-ctl border border-ui-line bg-ui-surface px-3 py-2.5"
+          >
+            <div class="flex items-center gap-2.5">
+              <UiBadge :status="planBadgeStatus(planItem.status)" :label="planStatusLabel(planItem.status)" />
+              <span class="text-sm text-ui-ink-2">
+                {{ planItem._count?.items || 0 }} idée{{ (planItem._count?.items || 0) > 1 ? 's' : '' }} · {{ formatPlanDate(planItem.createdAt) }}
+              </span>
             </div>
-            <div>
-              <label class="mb-1.5 block text-sm font-semibold text-gray-800">Heure de publication</label>
-              <select
-                v-model.number="form.publishHour"
-                class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none"
+            <div class="flex items-center gap-1">
+              <NuxtLink :to="`/plans/${planItem.id}`" class="inline-flex min-h-[44px] items-center px-2 text-sm font-semibold text-ui-accent hover:text-ui-accent-hover">Ouvrir</NuxtLink>
+              <UiButton
+                v-if="planItem.status === 'DRAFT'"
+                variant="ghost"
+                size="sm"
+                :disabled="discardingPlanIds.includes(planItem.id)"
+                @click="discardPreviousPlan(planItem)"
               >
-                <option v-for="hour in 24" :key="hour - 1" :value="hour - 1">{{ String(hour - 1).padStart(2, '0') }}h</option>
-              </select>
+                {{ discardingPlanIds.includes(planItem.id) ? 'Abandon...' : 'Jeter' }}
+              </UiButton>
             </div>
-            <div>
-              <label class="mb-1.5 block text-sm font-semibold text-gray-800">Rotation des formats</label>
-              <input
-                v-model="form.formatRotation"
-                type="text"
-                class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none"
-                placeholder="FEED,STORY,REEL"
-              />
-              <p class="mt-1.5 text-xs text-gray-500">Séparés par des virgules, parmi FEED (image), STORY (clip Pinterest), REEL (vidéo faceless pour l'instant).</p>
-            </div>
-          </div>
+          </li>
+        </ul>
+      </UiCard>
+
+      <UiCard>
+        <template #title>Instagram</template>
+        <template #actions>
+          <UiButton size="sm" :loading="savingInstagram" :disabled="savingInstagram" @click="saveInstagramCredentials">
+            {{ savingInstagram ? 'Sauvegarde...' : 'Sauvegarder Instagram' }}
+          </UiButton>
+        </template>
+        <p class="text-sm text-ui-ink-2">Configure ici le compte et le token utilisés pour publier le contenu.</p>
+
+        <div class="mt-4 grid gap-4">
+          <UiField label="Instagram account ID" for-id="profile-ig-id">
+            <UiInput id="profile-ig-id" v-model="instagramForm.instagramAccountId" placeholder="17841400000000000" />
+          </UiField>
+          <UiField label="Instagram access token" for-id="profile-ig-token">
+            <UiTextarea id="profile-ig-token" v-model="instagramForm.instagramAccessToken" :rows="4" placeholder="EAAG..." />
+          </UiField>
         </div>
 
-        <div class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
-          <div>
-            <h2 class="text-base font-bold text-gray-900">Plans précédents</h2>
-            <p class="mt-1 text-sm text-gray-500">Retrouve les plans déjà préparés pour ce profil.</p>
-          </div>
-
-          <div v-if="plansPending" class="mt-4 text-sm text-gray-500">Chargement...</div>
-          <div v-else-if="!previousPlans.length" class="mt-4 text-sm text-gray-500">Aucun plan préparé pour l'instant.</div>
-          <div v-else class="mt-4 space-y-2">
-            <div
-              v-for="planItem in previousPlans"
-              :key="planItem.id"
-              class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E5E3DF] bg-white px-3 py-2.5"
-            >
-              <div class="flex items-center gap-2.5">
-                <span
-                  class="rounded-full px-2.5 py-1 text-xs font-bold"
-                  :class="planStatusClass(planItem.status)"
-                >
-                  {{ planStatusLabel(planItem.status) }}
-                </span>
-                <span class="text-sm text-gray-700">
-                  {{ planItem._count?.items || 0 }} idée{{ (planItem._count?.items || 0) > 1 ? 's' : '' }} · {{ formatPlanDate(planItem.createdAt) }}
-                </span>
-              </div>
-              <div class="flex items-center gap-2">
-                <NuxtLink :to="`/plans/${planItem.id}`" class="text-xs font-bold text-[#B45F1D] underline underline-offset-2">
-                  Ouvrir
-                </NuxtLink>
-                <button
-                  v-if="planItem.status === 'DRAFT'"
-                  type="button"
-                  class="text-xs font-bold text-[#666666] underline underline-offset-2 hover:text-[#111111]"
-                  :disabled="discardingPlanIds.includes(planItem.id)"
-                  @click="discardPreviousPlan(planItem)"
-                >
-                  {{ discardingPlanIds.includes(planItem.id) ? 'Abandon...' : 'Jeter' }}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="rounded-2xl border border-[#E5E3DF] bg-[#FCFCFB] p-4">
+        <div class="mt-6 border-t border-ui-line-soft pt-6">
           <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 class="text-base font-bold text-gray-900">Instagram</h2>
-              <p class="mt-1 text-sm text-gray-500">Configure ici le compte et le token utilisés pour publier le contenu.</p>
+              <h3 class="text-[15px] font-semibold text-ui-ink">Twitter / X</h3>
+              <p class="mt-1 text-sm text-ui-ink-2">Connecte le compte X utilisé pour publier le contenu.</p>
             </div>
-            <button
-              type="button"
-              class="rounded-lg bg-[#111111] px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-60"
-              :disabled="savingInstagram"
-              @click="saveInstagramCredentials"
+            <UiButton
+              :variant="twitterConnected ? 'secondary' : 'dark'"
+              :loading="twitterConnecting"
+              :disabled="twitterConnecting || twitterStatusLoading"
+              @click="connectTwitter"
             >
-              {{ savingInstagram ? 'Sauvegarde...' : 'Sauvegarder Instagram' }}
-            </button>
-          </div>
-
-          <div class="mt-4 grid gap-4">
-            <div>
-              <label class="mb-1.5 block text-sm font-semibold text-gray-800">Instagram account ID</label>
-              <input
-                v-model="instagramForm.instagramAccountId"
-                type="text"
-                class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none"
-                placeholder="17841400000000000"
-              />
-            </div>
-
-            <div>
-              <label class="mb-1.5 block text-sm font-semibold text-gray-800">Instagram access token</label>
-              <textarea
-                v-model="instagramForm.instagramAccessToken"
-                rows="4"
-                class="w-full rounded-xl border border-[#E5E3DF] px-3 py-3 text-sm focus:border-[#E8873A] focus:outline-none"
-                placeholder="EAAG..."
-              ></textarea>
-            </div>
-          </div>
-
-          <div class="mt-6 border-t border-[#E5E3DF] pt-6">
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h3 class="text-sm font-bold text-gray-900">Twitter / X</h3>
-                <p class="mt-1 text-sm text-gray-500">Connecte le compte X utilisé pour publier le contenu.</p>
-              </div>
-              <button
-                type="button"
-                class="rounded-lg px-4 py-2 text-sm font-bold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-                :class="twitterConnected ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[#111111] hover:bg-[#2a2a2a]'"
-                :disabled="twitterConnecting || twitterStatusLoading"
-                @click="connectTwitter"
-              >
-                {{ twitterButtonLabel }}
-              </button>
-            </div>
+              {{ twitterButtonLabel }}
+            </UiButton>
           </div>
         </div>
+      </UiCard>
 
-        <p v-if="submitError" class="text-sm text-red-600">{{ submitError }}</p>
+      <UiAlert v-if="submitError" title="Enregistrement impossible">{{ submitError }}</UiAlert>
 
-        <div class="flex flex-wrap justify-end gap-3">
-          <button
-            type="button"
-            class="rounded-lg border border-[#E5E3DF] bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50"
-            @click="router.push('/content')"
-          >
-            Annuler
-          </button>
-          <button
-            type="button"
-            class="rounded-lg bg-[#E8873A] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#d4762f] disabled:cursor-not-allowed disabled:opacity-60"
-            :disabled="saving || !canSubmit"
-            @click="submit"
-          >
-            <span v-if="saving">Enregistrement...</span>
-            <span v-else>Enregistrer</span>
-          </button>
-        </div>
-
-        <div class="rounded-2xl border border-red-200 bg-red-50/60 p-4">
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 class="text-base font-bold text-red-700">Zone de danger</h2>
-              <p class="mt-1 text-sm text-red-600">Supprime définitivement ce profil {{ profileTypeLabel }} ainsi que tous ses contenus générés.</p>
-            </div>
-            <button
-              type="button"
-              class="shrink-0 rounded-lg border border-red-300 bg-white px-4 py-2.5 text-sm font-bold text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-              :disabled="deleting"
-              @click="deleteProfile"
-            >
-              {{ deleting ? 'Suppression...' : `Supprimer ce profil ${profileTypeLabel}` }}
-            </button>
-          </div>
-          <p v-if="deleteError" class="mt-3 text-sm text-red-600">{{ deleteError }}</p>
-        </div>
+      <div class="flex flex-wrap justify-end gap-3">
+        <UiButton @click="router.push('/content')">Annuler</UiButton>
+        <UiButton variant="primary" :loading="saving" :disabled="saving || !canSubmit" @click="submit">
+          {{ saving ? 'Enregistrement...' : 'Enregistrer' }}
+        </UiButton>
       </div>
+
+      <UiCard>
+        <template #title><span class="text-ui-danger-ink">Zone de danger</span></template>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p class="text-sm text-ui-ink-2">Supprime définitivement ce profil {{ profileTypeLabel }} ainsi que tous ses contenus générés.</p>
+          <UiButton variant="danger" class="shrink-0" :loading="deleting" :disabled="deleting" @click="deleteProfile">
+            {{ deleting ? 'Suppression...' : `Supprimer ce profil ${profileTypeLabel}` }}
+          </UiButton>
+        </div>
+        <UiAlert v-if="deleteError" class="mt-3" title="Suppression impossible">{{ deleteError }}</UiAlert>
+      </UiCard>
+    </div>
   </div>
 </template>
 
@@ -670,14 +479,6 @@ watch(
   { immediate: true },
 )
 
-function toggleBrand(brandId) {
-  const current = selectedBrandIds.value
-  selectedBrandIds.value = current.includes(brandId)
-    ? current.filter((value) => value !== brandId)
-    : [...current, brandId]
-  brandLinksMessage.value = ''
-}
-
 async function saveBrandLinks() {
   savingBrands.value = true
   brandLinksMessage.value = ''
@@ -713,10 +514,10 @@ function planStatusLabel(status) {
   return 'Brouillon'
 }
 
-function planStatusClass(status) {
-  if (status === 'APPROVED') return 'bg-[#E7F3EC] text-[#2F7A4F]'
-  if (status === 'DISCARDED') return 'bg-[#F5F2ED] text-[#999999]'
-  return 'bg-[#FDF0E4] text-[#B45F1D]'
+function planBadgeStatus(status) {
+  if (status === 'APPROVED') return 'ready'
+  if (status === 'DISCARDED') return 'empty'
+  return 'review'
 }
 
 function formatPlanDate(value) {
@@ -744,6 +545,41 @@ async function discardPreviousPlan(planItem) {
 
 const nicheItems = computed(() => splitNiches(form.niche))
 const styleItems = computed(() => splitNiches(form.style))
+
+// Les niches et les styles restent des chaines separees par des virgules dans le formulaire (et pour l API) ;
+// les champs a tags les lisent et les ecrivent sous forme de liste.
+const nicheTags = computed({
+  get: () => nicheItems.value,
+  set: (list) => { form.niche = list.join(', ') },
+})
+const styleTags = computed({
+  get: () => styleItems.value,
+  set: (list) => { form.style = list.join(', ') },
+})
+const genderModel = computed({
+  get: () => form.gender,
+  set: (value) => setGender(value),
+})
+const silhouetteSelectOptions = computed(() => silhouetteOptions.value.map((option) => ({
+  value: option.value,
+  label: `${option.label}${option.isDefault ? ' (par défaut)' : ''}`,
+})))
+const postsPerWeekModel = computed({
+  get: () => form.postsPerWeek,
+  set: (value) => { form.postsPerWeek = Number(value) },
+})
+const hourOptions = Array.from({ length: 24 }, (_, hour) => ({ value: hour, label: `${String(hour).padStart(2, '0')}h` }))
+const publishHourModel = computed({
+  get: () => form.publishHour,
+  set: (value) => { form.publishHour = Number(value) },
+})
+const FORMAT_CHOICES = ['FEED', 'STORY', 'REEL']
+const formatOptions = FORMAT_CHOICES.map((value) => ({ value, label: value }))
+const formatRotationModel = computed({
+  get: () => String(form.formatRotation || '').split(',').map((part) => part.trim().toUpperCase()).filter((part) => FORMAT_CHOICES.includes(part)),
+  set: (list) => { form.formatRotation = FORMAT_CHOICES.filter((choice) => list.includes(choice)).join(',') },
+})
+const brandChipOptions = computed(() => brandOptions.value.map((brand) => ({ value: brand.id, label: brand.name })))
 const isAmbassadorProfile = computed(() => {
   return Boolean(String(influencer.value?.faceRefPath || currentFaceRefPath.value || '').trim())
 })
@@ -787,11 +623,11 @@ const twitterButtonLabel = computed(() => {
 
   if (twitterConnected.value) {
     return twitterUsername.value
-      ? `✓ Twitter connecté @${twitterUsername.value}`
-      : '✓ Twitter connecté'
+      ? `Twitter connecté @${twitterUsername.value}`
+      : 'Twitter connecté'
   }
 
-  return '🐦 Connecter Twitter'
+  return 'Connecter Twitter'
 })
 
 watch(
