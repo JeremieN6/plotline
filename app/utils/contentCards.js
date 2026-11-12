@@ -92,12 +92,27 @@ export function scheduledBadgeLabel(item, now = Date.now()) {
   const auto = item.autoPublish === true
   // Publication automatique : seulement tant que la date est a venir. Sans publication automatique, la date n est qu un repere.
   if (auto && date.getTime() <= now) return ''
+  // Repere deja passe : l outil ne sait pas si le contenu a ete poste, il le demande (voir `needsConfirmation`).
+  if (!auto && date.getTime() <= now) {
+    const day = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' }).format(date)
+    return `À confirmer · prévu ${day}`
+  }
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
       .formatToParts(date)
       .map((part) => [part.type, part.value]),
   )
   return `${auto ? 'Programmé' : 'Prévu'} ${parts.day} ${parts.month}, ${parts.hour}:${parts.minute}`
+}
+
+/**
+ * Contenu valide dont la date prevue est passee, SANS publication automatique : rien ne dit s il a ete poste.
+ * L ecran demande de confirmer (« Oui, c est publie » / « Pas encore ») au lieu de supposer.
+ */
+export function needsConfirmation(item, now = Date.now()) {
+  if (cardStateOf(item) !== 'validated' || !item?.scheduledAt || item.autoPublish === true) return false
+  const time = new Date(item.scheduledAt).getTime()
+  return Number.isFinite(time) && time <= now
 }
 
 /** Contenu valide dont la date planifiee est deja passee sans publication : a republier ou replanifier. */

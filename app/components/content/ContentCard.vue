@@ -160,7 +160,7 @@
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { formatShortDate } from '~/utils/formatDate'
 import { formatPlatforms, readManualPublication } from '~/utils/manualPlatforms'
-import { actionsFor, cardStateOf, defaultPublishTarget, isPublishedOn, isScheduleOverdue, publishTargets, captionHook, scheduledBadgeLabel } from '~/utils/contentCards'
+import { actionsFor, cardStateOf, defaultPublishTarget, isPublishedOn, isScheduleOverdue, needsConfirmation, publishTargets, captionHook, scheduledBadgeLabel } from '~/utils/contentCards'
 
 // Carte d un contenu (grille ou liste). Elle n execute aucune action : elle emet, la page agit.
 const props = defineProps({
@@ -203,7 +203,7 @@ const BADGES = {
 // Un contenu valide dont la publication est planifiee affiche « Programmé le ... » a la place de « Validé ».
 const badge = computed(() => {
   const scheduled = scheduledBadgeLabel(props.item)
-  if (scheduled) return { status: 'running', label: scheduled }
+  if (scheduled) return { status: needsConfirmation(props.item) ? 'pending' : 'running', label: scheduled }
   return BADGES[state.value] || BADGES.pending
 })
 

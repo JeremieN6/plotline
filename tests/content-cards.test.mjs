@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  actionsFor, autoPublishBlockReason, manualPublishDefaults, plannedPlatformsOf, cardStateOf, isPublicationFailure, isScheduleOverdue, joinHashtags, scheduledBadgeLabel, splitHashtags, countByTab, defaultPublishTarget, filterAndSort, formatDuration, isPublishedOn, posterTime, publishTargets, captionHook, tabOf, typeKeyOf,
+  actionsFor, autoPublishBlockReason, manualPublishDefaults, needsConfirmation, plannedPlatformsOf, cardStateOf, isPublicationFailure, isScheduleOverdue, joinHashtags, scheduledBadgeLabel, splitHashtags, countByTab, defaultPublishTarget, filterAndSort, formatDuration, isPublishedOn, posterTime, publishTargets, captionHook, tabOf, typeKeyOf,
 } from '../app/utils/contentCards.js';
 
 const item = (status, extra = {}) => ({ id: status + Math.random(), status, format: 'FEED', createdAt: '2026-11-01T10:00:00Z', caption: 'Texte', ...extra });
@@ -105,14 +105,25 @@ test('pastille « Programmé » : publication automatique activee et date a veni
   assert.equal(isScheduleOverdue(item('PENDING', { scheduledAt: past, autoPublish: true }), now), false);
 });
 
-test('sans publication automatique : « Prevu », meme date passee, jamais « en retard »', () => {
+test('sans publication automatique : « Prevu » a venir, « A confirmer » une fois la date passee', () => {
   const now = new Date('2026-11-07T08:00:00Z').getTime();
   const future = '2026-11-08T09:00:00Z';
   const past = '2026-11-06T09:00:00Z';
   assert.match(scheduledBadgeLabel(item('VALIDATED', { scheduledAt: future }), now), /^Prévu \d{1,2} \S+, \d{2}:\d{2}$/);
-  assert.match(scheduledBadgeLabel(item('VALIDATED', { scheduledAt: past, autoPublish: false }), now), /^Prévu /);
+  assert.match(scheduledBadgeLabel(item('VALIDATED', { scheduledAt: past, autoPublish: false }), now), /^À confirmer · prévu \d{1,2} \S+$/);
   assert.equal(isScheduleOverdue(item('VALIDATED', { scheduledAt: past, autoPublish: false }), now), false);
   assert.equal(isScheduleOverdue(item('VALIDATED', { scheduledAt: past }), now), false);
+});
+
+test('a confirmer : valide, sans publication automatique, date prevue passee', () => {
+  const now = new Date('2026-11-07T08:00:00Z').getTime();
+  const past = '2026-11-06T09:00:00Z';
+  assert.equal(needsConfirmation(item('VALIDATED', { scheduledAt: past }), now), true);
+  assert.equal(needsConfirmation(item('VALIDATED', { scheduledAt: past, autoPublish: true }), now), false);
+  assert.equal(needsConfirmation(item('VALIDATED', { scheduledAt: '2026-11-08T09:00:00Z' }), now), false);
+  assert.equal(needsConfirmation(item('VALIDATED'), now), false);
+  assert.equal(needsConfirmation(item('PUBLISHED', { scheduledAt: past }), now), false);
+  assert.equal(needsConfirmation(item('PENDING', { scheduledAt: past }), now), false);
 });
 
 test('publication automatique ratee : en erreur + media + date planifiee seulement', () => {

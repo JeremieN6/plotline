@@ -35,6 +35,8 @@
       @remove="softDelete"
     />
 
+    <ContentConfirmPublished :items="toConfirm" @confirm="openManualPublish" @reschedule="askSchedule" />
+
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <UiSegmented v-model="activeTab" :options="tabOptions" label="Statut" class="lg:min-w-[440px]" />
       <div class="flex flex-wrap items-center gap-3">
@@ -295,7 +297,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { formatShortDate } from '~/utils/formatDate'
 import { formatPlatforms, readManualPublication } from '~/utils/manualPlatforms'
-import { autoPublishBlockReason, manualPublishDefaults, plannedPlatformsOf, cardStateOf, countByTab, filterAndSort, isPublicationFailure } from '~/utils/contentCards'
+import { autoPublishBlockReason, needsConfirmation, manualPublishDefaults, plannedPlatformsOf, cardStateOf, countByTab, filterAndSort, isPublicationFailure } from '~/utils/contentCards'
 
 const activeInfluencerId = useActiveInfluencer()
 const { pushToast, requestConfirmation } = useUiFeedback()
@@ -596,6 +598,8 @@ function recoverFailed(item) {
 
 // ---- Publications automatiques ratees (bandeau) ---------------------------------------------------------------
 const failures = computed(() => (loadingContent.value ? [] : cards.value.filter(isPublicationFailure)))
+// Contenus prevus (sans publication automatique) dont la date est passee : on demande s ils ont ete postes.
+const toConfirm = computed(() => (loadingContent.value ? [] : cards.value.filter((item) => needsConfirmation(item))))
 
 // « Marquer comme publie » et « Planifier » ne marchent que sur un contenu valide : on le remet d abord en « Valide »
 // (ce qui efface aussi la date et le message d erreur), puis on ouvre la fenetre voulue.
