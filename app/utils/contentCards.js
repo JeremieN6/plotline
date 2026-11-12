@@ -165,6 +165,18 @@ export function plannedPlatformsOf(item) {
   return []
 }
 
+/**
+ * Valeurs de depart de « Marquer comme publie » pour un contenu deja planifie : la date prevue (si elle n est pas dans
+ * le futur : on ne peut pas enregistrer une publication qui n a pas eu lieu) et les reseaux choisis a la planification.
+ * Sans planification : maintenant et aucun reseau (comme avant).
+ */
+export function manualPublishDefaults(item, now = Date.now()) {
+  const planned = item?.scheduledAt ? new Date(item.scheduledAt) : null
+  const usable = planned && !Number.isNaN(planned.getTime()) && planned.getTime() <= now
+  const chosen = Array.isArray(item?.plannedPlatforms) ? item.plannedPlatforms.filter((value) => PLANNABLE.includes(value)) : []
+  return { at: usable ? planned.toISOString() : '', platforms: chosen }
+}
+
 export function autoPublishBlockReason(item, profile) {
   // La publication automatique ne vise qu Instagram : il faut un compte Instagram renseigne sur le profil.
   if (!profile?.instagramAccountId) {

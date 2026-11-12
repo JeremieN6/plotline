@@ -169,6 +169,8 @@
     <ContentManualPublishDialog
       :open="manualDialog.open"
       :loading="manualDialog.loading"
+      :initial-at="manualDefaults.at"
+      :initial-platforms="manualDefaults.platforms"
       @confirm="confirmManualPublish"
       @cancel="manualDialog.open = false"
     />
@@ -293,7 +295,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { formatShortDate } from '~/utils/formatDate'
 import { formatPlatforms, readManualPublication } from '~/utils/manualPlatforms'
-import { autoPublishBlockReason, plannedPlatformsOf, cardStateOf, countByTab, filterAndSort, isPublicationFailure } from '~/utils/contentCards'
+import { autoPublishBlockReason, manualPublishDefaults, plannedPlatformsOf, cardStateOf, countByTab, filterAndSort, isPublicationFailure } from '~/utils/contentCards'
 
 const activeInfluencerId = useActiveInfluencer()
 const { pushToast, requestConfirmation } = useUiFeedback()
@@ -865,6 +867,7 @@ async function confirmSchedule(iso, auto, platforms) {
 
 // ---- Contenu poste a la main (hors de l outil) ------------------------------------------------------------------
 const manualDialog = reactive({ open: false, loading: false, item: null })
+const manualDefaults = computed(() => manualPublishDefaults(manualDialog.item))
 
 function openManualPublish(item) {
   manualDialog.item = item

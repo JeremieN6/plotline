@@ -50,6 +50,9 @@ import { MANUAL_PLATFORMS } from '~/utils/manualPlatforms'
 const props = defineProps({
   open: { type: Boolean, default: false },
   loading: { type: Boolean, default: false },
+  // Contenu deja planifie : date prevue (ISO, deja passee) et reseaux choisis a la planification. Sinon : maintenant, aucun reseau.
+  initialAt: { type: String, default: '' },
+  initialPlatforms: { type: Array, default: () => [] },
 })
 const emit = defineEmits(['confirm', 'cancel'])
 
@@ -61,13 +64,13 @@ const problem = ref('')
 
 const today = computed(() => toLocalDateTimeFields(new Date().toISOString()).date)
 
-// A chaque ouverture : maintenant, aucune plateforme choisie.
+// A chaque ouverture : la date prevue et les reseaux choisis si le contenu etait planifie, sinon maintenant et aucune plateforme.
 watch(() => props.open, (value) => {
   if (!value) return
-  const fields = toLocalDateTimeFields(new Date().toISOString())
+  const fields = toLocalDateTimeFields(props.initialAt || new Date().toISOString())
   date.value = fields.date
   time.value = fields.time
-  platforms.value = []
+  platforms.value = [...props.initialPlatforms]
   problem.value = ''
 })
 

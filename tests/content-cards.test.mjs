@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  actionsFor, autoPublishBlockReason, plannedPlatformsOf, cardStateOf, isPublicationFailure, isScheduleOverdue, joinHashtags, scheduledBadgeLabel, splitHashtags, countByTab, defaultPublishTarget, filterAndSort, formatDuration, isPublishedOn, posterTime, publishTargets, captionHook, tabOf, typeKeyOf,
+  actionsFor, autoPublishBlockReason, manualPublishDefaults, plannedPlatformsOf, cardStateOf, isPublicationFailure, isScheduleOverdue, joinHashtags, scheduledBadgeLabel, splitHashtags, countByTab, defaultPublishTarget, filterAndSort, formatDuration, isPublishedOn, posterTime, publishTargets, captionHook, tabOf, typeKeyOf,
 } from '../app/utils/contentCards.js';
 
 const item = (status, extra = {}) => ({ id: status + Math.random(), status, format: 'FEED', createdAt: '2026-11-01T10:00:00Z', caption: 'Texte', ...extra });
@@ -151,4 +151,15 @@ test('reseaux prevus : choix a la planification, sinon deduits de la plateforme 
   assert.deepEqual(plannedPlatformsOf({ platform: 'both' }), ['INSTAGRAM']);
   assert.deepEqual(plannedPlatformsOf({ platform: 'TIKTOK' }), ['TIKTOK']);
   assert.deepEqual(plannedPlatformsOf({ plannedPlatforms: [] }), []);
+});
+
+test('marquer comme publie : valeurs de depart tirees de la planification', () => {
+  const now = new Date('2026-11-13T12:00:00Z').getTime();
+  const past = '2026-11-13T09:00:00Z';
+  assert.deepEqual(manualPublishDefaults({ scheduledAt: past, plannedPlatforms: ['X', 'INSTAGRAM', 'NIMPORTE'] }, now), { at: new Date(past).toISOString(), platforms: ['X', 'INSTAGRAM'] });
+  // Date prevue dans le futur : on ne peut pas enregistrer une publication qui n a pas eu lieu -> maintenant.
+  assert.equal(manualPublishDefaults({ scheduledAt: '2026-11-14T09:00:00Z', plannedPlatforms: ['TIKTOK'] }, now).at, '');
+  assert.deepEqual(manualPublishDefaults({ scheduledAt: '2026-11-14T09:00:00Z', plannedPlatforms: ['TIKTOK'] }, now).platforms, ['TIKTOK']);
+  // Jamais planifie : comme avant (maintenant, aucun reseau), meme si la plateforme d origine est Instagram.
+  assert.deepEqual(manualPublishDefaults({ platform: 'INSTAGRAM' }, now), { at: '', platforms: [] });
 });
