@@ -88,18 +88,22 @@ export function posterTime(duration) {
 export function scheduledBadgeLabel(item, now = Date.now()) {
   if (cardStateOf(item) !== 'validated' || !item?.scheduledAt) return ''
   const date = new Date(item.scheduledAt)
-  if (Number.isNaN(date.getTime()) || date.getTime() <= now) return ''
+  if (Number.isNaN(date.getTime())) return ''
+  const auto = item.autoPublish === true
+  // Publication automatique : seulement tant que la date est a venir. Sans publication automatique, la date n est qu un repere.
+  if (auto && date.getTime() <= now) return ''
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
       .formatToParts(date)
       .map((part) => [part.type, part.value]),
   )
-  return `Programmé ${parts.day} ${parts.month}, ${parts.hour}:${parts.minute}`
+  return `${auto ? 'Programmé' : 'Prévu'} ${parts.day} ${parts.month}, ${parts.hour}:${parts.minute}`
 }
 
 /** Contenu valide dont la date planifiee est deja passee sans publication : a republier ou replanifier. */
 export function isScheduleOverdue(item, now = Date.now()) {
-  if (cardStateOf(item) !== 'validated' || !item?.scheduledAt) return false
+  // Sans publication automatique, une date passee n est qu un repere : rien n a « rate ».
+  if (cardStateOf(item) !== 'validated' || !item?.scheduledAt || item.autoPublish !== true) return false
   const time = new Date(item.scheduledAt).getTime()
   return Number.isFinite(time) && time <= now
 }
@@ -147,6 +151,15 @@ export function isPublicationFailure(item) {
  * Raison pour laquelle planifier ce contenu ferait forcement echouer la publication automatique (chaine vide si rien
  * ne s y oppose). Le planificateur ne publie que sur Instagram et seulement si le compte du profil est renseigne.
  */
+/**
+ * Reseau sur lequel la publication automatique publierait ce contenu (miroir de `resolvePublishTarget`, scheduledPublisher.js) :
+ * « Instagram » pour une plateforme INSTAGRAM ou BOTH, vide sinon (TikTok et autres ne sont pas publies automatiquement).
+ */
+export function autoPublishNetwork(item) {
+  const platform = String(item?.platform || '').trim().toUpperCase()
+  return platform === 'INSTAGRAM' || platform === 'BOTH' ? 'Instagram' : ''
+}
+
 export function autoPublishBlockReason(item, profile) {
   if (String(item?.platform || '').toUpperCase() === 'TIKTOK') {
     return 'Ce contenu est destiné à TikTok : l’outil ne publie pas sur TikTok. Poste-le toi-même, puis utilise « Marquer comme publié ».'

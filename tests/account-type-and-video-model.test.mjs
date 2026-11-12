@@ -527,6 +527,7 @@ function makeScheduledContent(overrides = {}) {
     imageUrl: 'https://blob/image.jpg',
     publishedAt: null,
     errorMessage: null,
+    autoPublish: true,
     scheduledAt: new Date('2026-08-10T09:00:00Z'),
     influencer: { instagramAccountId: 'ig-1', instagramAccessToken: 'token' },
     ...overrides,
@@ -541,6 +542,7 @@ test('planification: seules les publications echues et validees sont prises', as
     makeScheduledContent({ id: 'pas-valide', status: 'PENDING' }),
     makeScheduledContent({ id: 'deja-publie', publishedAt: new Date('2026-08-10T08:00:00Z') }),
     makeScheduledContent({ id: 'non-planifie', scheduledAt: null }),
+    makeScheduledContent({ id: 'repere-seulement', autoPublish: false }),
   ]);
 
   const due = await findDuePublications(prisma, now);

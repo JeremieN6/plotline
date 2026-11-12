@@ -31,6 +31,7 @@ const CONTENT_SELECT = {
   format: true,
   status: true,
   scheduledAt: true,
+  autoPublish: true,
   publishedAt: true,
   twitterPublishedAt: true,
   manualPublication: true,

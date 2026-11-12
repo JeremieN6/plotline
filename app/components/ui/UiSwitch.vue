@@ -17,7 +17,7 @@
         :class="modelValue ? 'translate-x-5' : 'translate-x-0'"
       />
     </span>
-    <span><slot>{{ label }}</slot></span>
+    <span class="text-left"><slot>{{ label }}</slot></span>
   </button>
 </template>
 

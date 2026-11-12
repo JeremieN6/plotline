@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  actionsFor, autoPublishBlockReason, cardStateOf, isPublicationFailure, isScheduleOverdue, joinHashtags, scheduledBadgeLabel, splitHashtags, countByTab, defaultPublishTarget, filterAndSort, formatDuration, isPublishedOn, posterTime, publishTargets, captionHook, tabOf, typeKeyOf,
+  actionsFor, autoPublishBlockReason, autoPublishNetwork, cardStateOf, isPublicationFailure, isScheduleOverdue, joinHashtags, scheduledBadgeLabel, splitHashtags, countByTab, defaultPublishTarget, filterAndSort, formatDuration, isPublishedOn, posterTime, publishTargets, captionHook, tabOf, typeKeyOf,
 } from '../app/utils/contentCards.js';
 
 const item = (status, extra = {}) => ({ id: status + Math.random(), status, format: 'FEED', createdAt: '2026-11-01T10:00:00Z', caption: 'Texte', ...extra });
@@ -89,19 +89,30 @@ test('actions par statut (brief : un seul principal, Supprimer seulement dans le
   }
 });
 
-test('pastille « Programmé » : contenu valide avec une date a venir seulement', () => {
+test('pastille « Programmé » : publication automatique activee et date a venir seulement', () => {
   const now = new Date('2026-11-07T08:00:00Z').getTime();
   const future = '2026-11-08T09:00:00Z';
-  const label = scheduledBadgeLabel(item('VALIDATED', { scheduledAt: future }), now);
+  const past = '2026-11-06T09:00:00Z';
+  const label = scheduledBadgeLabel(item('VALIDATED', { scheduledAt: future, autoPublish: true }), now);
   assert.match(label, /^Programmé \d{1,2} \S+, \d{2}:\d{2}$/);
-  assert.equal(scheduledBadgeLabel(item('VALIDATED'), now), '');
-  assert.equal(scheduledBadgeLabel(item('VALIDATED', { scheduledAt: '2026-11-06T09:00:00Z' }), now), '');
-  assert.equal(scheduledBadgeLabel(item('PENDING', { scheduledAt: future }), now), '');
-  assert.equal(scheduledBadgeLabel(item('PUBLISHED', { scheduledAt: future }), now), '');
-  assert.equal(scheduledBadgeLabel(item('VALIDATED', { scheduledAt: 'nimporte quoi' }), now), '');
-  assert.equal(isScheduleOverdue(item('VALIDATED', { scheduledAt: '2026-11-06T09:00:00Z' }), now), true);
-  assert.equal(isScheduleOverdue(item('VALIDATED', { scheduledAt: future }), now), false);
-  assert.equal(isScheduleOverdue(item('PENDING', { scheduledAt: '2026-11-06T09:00:00Z' }), now), false);
+  assert.equal(scheduledBadgeLabel(item('VALIDATED', { autoPublish: true }), now), '');
+  assert.equal(scheduledBadgeLabel(item('VALIDATED', { scheduledAt: past, autoPublish: true }), now), '');
+  assert.equal(scheduledBadgeLabel(item('PENDING', { scheduledAt: future, autoPublish: true }), now), '');
+  assert.equal(scheduledBadgeLabel(item('PUBLISHED', { scheduledAt: future, autoPublish: true }), now), '');
+  assert.equal(scheduledBadgeLabel(item('VALIDATED', { scheduledAt: 'nimporte quoi', autoPublish: true }), now), '');
+  assert.equal(isScheduleOverdue(item('VALIDATED', { scheduledAt: past, autoPublish: true }), now), true);
+  assert.equal(isScheduleOverdue(item('VALIDATED', { scheduledAt: future, autoPublish: true }), now), false);
+  assert.equal(isScheduleOverdue(item('PENDING', { scheduledAt: past, autoPublish: true }), now), false);
+});
+
+test('sans publication automatique : « Prevu », meme date passee, jamais « en retard »', () => {
+  const now = new Date('2026-11-07T08:00:00Z').getTime();
+  const future = '2026-11-08T09:00:00Z';
+  const past = '2026-11-06T09:00:00Z';
+  assert.match(scheduledBadgeLabel(item('VALIDATED', { scheduledAt: future }), now), /^Prévu \d{1,2} \S+, \d{2}:\d{2}$/);
+  assert.match(scheduledBadgeLabel(item('VALIDATED', { scheduledAt: past, autoPublish: false }), now), /^Prévu /);
+  assert.equal(isScheduleOverdue(item('VALIDATED', { scheduledAt: past, autoPublish: false }), now), false);
+  assert.equal(isScheduleOverdue(item('VALIDATED', { scheduledAt: past }), now), false);
 });
 
 test('publication automatique ratee : en erreur + media + date planifiee seulement', () => {
@@ -132,4 +143,11 @@ test('hashtags de fin separes de la legende, et recomposes', () => {
   const original = 'Texte long.\nDeux lignes.\n\n#alpha #beta';
   const { body, tags } = splitHashtags(original);
   assert.equal(joinHashtags(body, tags), original);
+});
+
+test('reseau de publication automatique : Instagram seulement, miroir du planificateur', () => {
+  assert.equal(autoPublishNetwork({ platform: 'INSTAGRAM' }), 'Instagram');
+  assert.equal(autoPublishNetwork({ platform: 'both' }), 'Instagram');
+  assert.equal(autoPublishNetwork({ platform: 'TIKTOK' }), '');
+  assert.equal(autoPublishNetwork({}), '');
 });

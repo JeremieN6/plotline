@@ -81,6 +81,8 @@ export async function findDuePublications(prisma, now = new Date()) {
     where: {
       status: 'VALIDATED',
       publishedAt: null,
+      // Opt-in : une date sans publication automatique n est qu un repere de calendrier.
+      autoPublish: true,
       scheduledAt: { not: null, lte: now },
     },
     orderBy: { scheduledAt: 'asc' },
@@ -101,6 +103,7 @@ async function claimScheduledContent(prisma, content) {
       id: content.id,
       status: 'VALIDATED',
       publishedAt: null,
+      autoPublish: true,
       scheduledAt: { not: null },
     },
     data: { scheduledAt: null },

@@ -157,8 +157,10 @@
       :open="scheduleDialog.open"
       :loading="scheduleDialog.loading"
       :initial="scheduleDialog.item?.scheduledAt || ''"
+      :initial-auto="scheduleDialog.item?.autoPublish === true"
       :error="scheduleDialog.error"
       :block-reason="scheduleBlockReason"
+      :network="scheduleDialog.item ? autoPublishNetwork(scheduleDialog.item) : ''"
       :settings-href="selectedInfluencer ? `/profiles/${selectedInfluencer.id}/edit` : ''"
       @confirm="confirmSchedule"
       @cancel="scheduleDialog.open = false"
@@ -291,7 +293,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { formatShortDate } from '~/utils/formatDate'
 import { formatPlatforms, readManualPublication } from '~/utils/manualPlatforms'
-import { autoPublishBlockReason, cardStateOf, countByTab, filterAndSort, isPublicationFailure } from '~/utils/contentCards'
+import { autoPublishBlockReason, autoPublishNetwork, cardStateOf, countByTab, filterAndSort, isPublicationFailure } from '~/utils/contentCards'
 
 const activeInfluencerId = useActiveInfluencer()
 const { pushToast, requestConfirmation } = useUiFeedback()
@@ -840,17 +842,17 @@ function askSchedule(item) {
   scheduleDialog.open = true
 }
 
-async function confirmSchedule(iso) {
+async function confirmSchedule(iso, auto) {
   const item = scheduleDialog.item
   if (!item || scheduleDialog.loading) return
   scheduleDialog.loading = true
   scheduleDialog.error = ''
   try {
-    await $fetch(`/api/content/${item.id}/schedule`, { method: 'PATCH', body: { scheduledAt: iso } })
+    await $fetch(`/api/content/${item.id}/schedule`, { method: 'PATCH', body: { scheduledAt: iso, autoPublish: auto === true } })
     scheduleDialog.open = false
     pushToast({
-      title: 'Publication planifiée',
-      message: `Prévue le ${formatShortDate(iso)}. Elle apparaît au calendrier.`,
+      title: auto ? 'Publication planifiée' : 'Contenu placé au calendrier',
+      message: auto ? `Prévue le ${formatShortDate(iso)}. Elle apparaît au calendrier.` : `Prévu le ${formatShortDate(iso)}. Rien ne sera publié automatiquement.`,
       tone: 'success',
     })
     await reloadContents()

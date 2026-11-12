@@ -31,6 +31,10 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'scheduledAt invalide' }));
     }
 
+    // Publication automatique : seulement si demandee explicitement (true). Absent = on ne change pas le reglage actuel
+    // (reprogrammer depuis le calendrier ne doit pas l activer ni le couper).
+    const autoPublish = typeof body?.autoPublish === 'boolean' ? body.autoPublish : undefined;
+
     const prisma = await getPrisma();
 
     // Depuis que la date planifiee declenche une publication reelle, cette route
@@ -59,10 +63,12 @@ export default defineEventHandler(async (event) => {
       where: { id },
       data: {
         scheduledAt: parsedDate,
+        ...(autoPublish === undefined ? {} : { autoPublish }),
       },
       select: {
         id: true,
         scheduledAt: true,
+        autoPublish: true,
         status: true,
       },
     });

@@ -191,6 +191,10 @@
           Publié à la main sur {{ current.manualPlatforms }}, le {{ formatShortDate(current.scheduledAt) }}.
         </p>
 
+        <p v-if="current.status === 'approved' && !current.planId" class="text-xs text-ui-ink-muted">
+          {{ current.autoPublish ? 'Publication automatique activée.' : 'Publication automatique désactivée : la date sert de repère.' }}
+        </p>
+
         <section>
           <h3 class="text-[13px] font-semibold text-ui-ink">Légende</h3>
           <p class="mt-1.5 whitespace-pre-line rounded-ui-ctl bg-ui-subtle p-3 text-sm leading-6 text-ui-ink">{{ current.captionText || 'Aucune légende.' }}</p>
@@ -276,6 +280,13 @@
             </label>
           </li>
         </ul>
+        <div>
+          <UiSwitch v-model="pickAuto" label="Publier automatiquement à ces dates" />
+          <p class="mt-1 text-xs text-ui-ink-muted">
+            {{ pickAuto ? 'À chaque date, l’outil publie le contenu tout seul. Seuls les contenus Instagram sont publiés automatiquement, avec le compte connecté au profil.' : 'Désactivé : les contenus sont placés au calendrier, rien n’est publié tout seul.' }}
+          </p>
+        </div>
+
         <UiAlert v-if="pickError" title="Planification impossible">{{ pickError }}</UiAlert>
       </div>
 
@@ -366,6 +377,7 @@ function toEntry(content) {
     format: content.format,
     status: statusFromContent(content.status),
     scheduledAt: content.scheduledAt,
+    autoPublish: content.autoPublish === true,
     captionText: split.text,
     hashtags: split.tags,
     imageUrl: content.imageUrl || '',
@@ -548,6 +560,7 @@ function onCellClick(cell) {
 // --- Ajouter des contenus déjà créés ---
 const pickDate = ref(null)
 const pickTime = ref('09:00')
+const pickAuto = ref(false)
 const pickedIds = ref([])
 const pickError = ref('')
 const scheduling = ref(false)
@@ -577,8 +590,8 @@ async function scheduleSelected() {
   if (!pickedIds.value.length) return
   pickError.value = ''
   const slots = pickSlots.value
-  if (slots.length !== pickedIds.value.length || slots[0].getTime() <= Date.now()) {
-    pickError.value = 'Choisis une heure à venir : un créneau déjà passé serait publié aussitôt.'
+  if (slots.length !== pickedIds.value.length || (pickAuto.value && slots[0].getTime() <= Date.now())) {
+    pickError.value = 'Choisis une heure à venir : avec la publication automatique, un créneau déjà passé serait publié aussitôt.'
     return
   }
   scheduling.value = true
@@ -587,7 +600,7 @@ async function scheduleSelected() {
     for (let index = 0; index < pickedIds.value.length; index += 1) {
       const id = pickedIds.value[index]
       const iso = slots[index].toISOString()
-      await $fetch(`/api/content/${id}/schedule`, { method: 'PATCH', body: { scheduledAt: iso } })
+      await $fetch(`/api/content/${id}/schedule`, { method: 'PATCH', body: { scheduledAt: iso, autoPublish: pickAuto.value } })
       done.push({ id, iso })
     }
   } catch (err) {
@@ -598,10 +611,10 @@ async function scheduleSelected() {
   if (!done.length) return
   const doneIds = new Set(done.map((item) => item.id))
   const planned = readyContents.value.filter((content) => doneIds.has(content.id))
-  entries.value = [...entries.value, ...planned.map((content) => ({ ...content, status: 'approved', scheduledAt: done.find((item) => item.id === content.id).iso }))]
+  entries.value = [...entries.value, ...planned.map((content) => ({ ...content, status: 'approved', scheduledAt: done.find((item) => item.id === content.id).iso, autoPublish: pickAuto.value }))]
   readyContents.value = readyContents.value.filter((content) => !doneIds.has(content.id))
   pickedIds.value = pickedIds.value.filter((id) => !doneIds.has(id))
-  pushToast({ title: done.length > 1 ? `${done.length} contenus planifiés` : 'Contenu planifié', message: 'Ils seront publiés automatiquement.', tone: 'success' })
+  pushToast({ title: done.length > 1 ? `${done.length} contenus planifiés` : 'Contenu planifié', message: pickAuto.value ? 'Ils seront publiés automatiquement.' : 'Rien ne sera publié automatiquement : les dates servent de repère.', tone: 'success' })
   if (!pickError.value) drawerOpen.value = false
 }
 

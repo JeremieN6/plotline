@@ -257,6 +257,8 @@ model GeneratedContent {
   format        ContentFormat
   status        ContentStatus   @default(PENDING)
   scheduledAt   DateTime?
+  // Publication automatique a la date planifiee : opt-in (false = la date n est qu un repere de calendrier).
+  autoPublish   Boolean   @default(false)
   publishedAt   DateTime?
   twitterPublishedAt DateTime?
   /// Publication faite a la main (hors de l outil): { at, platforms }. NULL = jamais marque.
