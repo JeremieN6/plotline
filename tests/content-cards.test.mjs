@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  actionsFor, autoPublishBlockReason, autoPublishNetwork, cardStateOf, isPublicationFailure, isScheduleOverdue, joinHashtags, scheduledBadgeLabel, splitHashtags, countByTab, defaultPublishTarget, filterAndSort, formatDuration, isPublishedOn, posterTime, publishTargets, captionHook, tabOf, typeKeyOf,
+  actionsFor, autoPublishBlockReason, plannedPlatformsOf, cardStateOf, isPublicationFailure, isScheduleOverdue, joinHashtags, scheduledBadgeLabel, splitHashtags, countByTab, defaultPublishTarget, filterAndSort, formatDuration, isPublishedOn, posterTime, publishTargets, captionHook, tabOf, typeKeyOf,
 } from '../app/utils/contentCards.js';
 
 const item = (status, extra = {}) => ({ id: status + Math.random(), status, format: 'FEED', createdAt: '2026-11-01T10:00:00Z', caption: 'Texte', ...extra });
@@ -129,7 +129,7 @@ test('planifier : raison de blocage quand la publication automatique echouerait 
   assert.equal(autoPublishBlockReason(item('VALIDATED', { platform: 'INSTAGRAM' }), { instagramAccountId: 'ig1' }), '');
   assert.match(autoPublishBlockReason(item('VALIDATED', { platform: 'INSTAGRAM' }), { instagramAccountId: '' }), /Instagram n’est pas connecté/);
   assert.match(autoPublishBlockReason(item('VALIDATED', { platform: 'INSTAGRAM' }), null), /Instagram n’est pas connecté/);
-  assert.match(autoPublishBlockReason(item('VALIDATED', { platform: 'TIKTOK' }), { instagramAccountId: 'ig1' }), /TikTok/);
+  assert.equal(autoPublishBlockReason(item('VALIDATED', { platform: 'TIKTOK' }), { instagramAccountId: 'ig1' }), '');
 });
 
 test('hashtags de fin separes de la legende, et recomposes', () => {
@@ -145,9 +145,10 @@ test('hashtags de fin separes de la legende, et recomposes', () => {
   assert.equal(joinHashtags(body, tags), original);
 });
 
-test('reseau de publication automatique : Instagram seulement, miroir du planificateur', () => {
-  assert.equal(autoPublishNetwork({ platform: 'INSTAGRAM' }), 'Instagram');
-  assert.equal(autoPublishNetwork({ platform: 'both' }), 'Instagram');
-  assert.equal(autoPublishNetwork({ platform: 'TIKTOK' }), '');
-  assert.equal(autoPublishNetwork({}), '');
+test('reseaux prevus : choix a la planification, sinon deduits de la plateforme d origine', () => {
+  assert.deepEqual(plannedPlatformsOf({ plannedPlatforms: ['X', 'INSTAGRAM', 'NIMPORTE'], platform: 'TIKTOK' }), ['X', 'INSTAGRAM']);
+  assert.deepEqual(plannedPlatformsOf({ platform: 'INSTAGRAM' }), ['INSTAGRAM']);
+  assert.deepEqual(plannedPlatformsOf({ platform: 'both' }), ['INSTAGRAM']);
+  assert.deepEqual(plannedPlatformsOf({ platform: 'TIKTOK' }), ['TIKTOK']);
+  assert.deepEqual(plannedPlatformsOf({ plannedPlatforms: [] }), []);
 });

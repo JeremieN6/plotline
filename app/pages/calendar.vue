@@ -192,7 +192,7 @@
         </p>
 
         <p v-if="current.status === 'approved' && !current.planId" class="text-xs text-ui-ink-muted">
-          {{ current.autoPublish ? 'Publication automatique activée.' : 'Publication automatique désactivée : la date sert de repère.' }}
+          <template v-if="plannedLabel(current)">Réseaux prévus : {{ plannedLabel(current) }}. </template>{{ current.autoPublish ? 'Publication automatique activée (Instagram).' : 'Publication automatique désactivée : la date sert de repère.' }}
         </p>
 
         <section>
@@ -281,9 +281,15 @@
           </li>
         </ul>
         <div>
-          <UiSwitch v-model="pickAuto" label="Publier automatiquement à ces dates" />
+          <p class="text-[13px] font-semibold text-ui-ink">Réseaux</p>
+          <div class="mt-2"><UiToggleChips v-model="pickPlatforms" label="Réseaux" :options="MANUAL_PLATFORMS" /></div>
+          <p class="mt-1 text-xs text-ui-ink-muted">Aucune vérification de connexion : ce choix sert de repère dans le calendrier.</p>
+        </div>
+
+        <div>
+          <UiSwitch v-model="pickAuto" label="Publier automatiquement à ces dates" :disabled="!pickPlatforms.includes('INSTAGRAM')" />
           <p class="mt-1 text-xs text-ui-ink-muted">
-            {{ pickAuto ? 'À chaque date, l’outil publie le contenu tout seul. Seuls les contenus Instagram sont publiés automatiquement, avec le compte connecté au profil.' : 'Désactivé : les contenus sont placés au calendrier, rien n’est publié tout seul.' }}
+            {{ !pickPlatforms.includes('INSTAGRAM') ? 'La publication automatique n’existe que pour Instagram pour l’instant : coche Instagram pour l’activer.' : pickAuto ? 'À chaque date, l’outil publie le contenu sur Instagram, avec le compte connecté au profil. Les autres réseaux cochés restent un repère.' : 'Désactivé : les contenus sont placés au calendrier, rien n’est publié tout seul.' }}
           </p>
         </div>
 
@@ -340,7 +346,8 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { CONTENT_TYPES, contentStatusOf, contentTypeOf } from '../utils/contentTypes.js'
 import { formatShortDate } from '../utils/formatDate.js'
-import { formatPlatforms, readManualPublication } from '../utils/manualPlatforms.js'
+import { MANUAL_PLATFORMS, formatPlatforms, readManualPublication } from '../utils/manualPlatforms.js'
+import { plannedPlatformsOf } from '../utils/contentCards.js'
 import {
   addDays, buildMonthWeeks, findTrailingGap, monthKey, monthTarget, parseMonthKey, parseTags, pickSchedulable, presetDays, splitCaption,
   spreadSlots, startOfDay, statusFromContent, summarizeMonth, timeLabel,
@@ -378,6 +385,8 @@ function toEntry(content) {
     status: statusFromContent(content.status),
     scheduledAt: content.scheduledAt,
     autoPublish: content.autoPublish === true,
+    plannedPlatforms: Array.isArray(content.plannedPlatforms) ? content.plannedPlatforms : [],
+    platform: content.platform,
     captionText: split.text,
     hashtags: split.tags,
     imageUrl: content.imageUrl || '',
@@ -561,6 +570,9 @@ function onCellClick(cell) {
 const pickDate = ref(null)
 const pickTime = ref('09:00')
 const pickAuto = ref(false)
+const pickPlatforms = ref(['INSTAGRAM'])
+const plannedLabel = (entry) => formatPlatforms(plannedPlatformsOf(entry))
+watch(pickPlatforms, (list) => { if (!list.includes('INSTAGRAM')) pickAuto.value = false })
 const pickedIds = ref([])
 const pickError = ref('')
 const scheduling = ref(false)
@@ -578,6 +590,7 @@ function openPick() {
   const isToday = startOfDay(now).getTime() === pickDate.value.getTime()
   pickTime.value = isToday ? `${String(Math.min(now.getHours() + 1, 21)).padStart(2, '0')}:00` : '09:00'
   pickError.value = ''
+  pickPlatforms.value = ['INSTAGRAM']
   pickAuto.value = Boolean(selectedInfluencer.value?.autoPublish)
   drawerMode.value = 'pick'
 }
@@ -601,7 +614,7 @@ async function scheduleSelected() {
     for (let index = 0; index < pickedIds.value.length; index += 1) {
       const id = pickedIds.value[index]
       const iso = slots[index].toISOString()
-      await $fetch(`/api/content/${id}/schedule`, { method: 'PATCH', body: { scheduledAt: iso, autoPublish: pickAuto.value } })
+      await $fetch(`/api/content/${id}/schedule`, { method: 'PATCH', body: { scheduledAt: iso, autoPublish: pickAuto.value, platforms: pickPlatforms.value } })
       done.push({ id, iso })
     }
   } catch (err) {
@@ -612,7 +625,7 @@ async function scheduleSelected() {
   if (!done.length) return
   const doneIds = new Set(done.map((item) => item.id))
   const planned = readyContents.value.filter((content) => doneIds.has(content.id))
-  entries.value = [...entries.value, ...planned.map((content) => ({ ...content, status: 'approved', scheduledAt: done.find((item) => item.id === content.id).iso, autoPublish: pickAuto.value }))]
+  entries.value = [...entries.value, ...planned.map((content) => ({ ...content, status: 'approved', scheduledAt: done.find((item) => item.id === content.id).iso, autoPublish: pickAuto.value, plannedPlatforms: [...pickPlatforms.value] }))]
   readyContents.value = readyContents.value.filter((content) => !doneIds.has(content.id))
   pickedIds.value = pickedIds.value.filter((id) => !doneIds.has(id))
   pushToast({ title: done.length > 1 ? `${done.length} contenus planifiés` : 'Contenu planifié', message: pickAuto.value ? 'Ils seront publiés automatiquement.' : 'Rien ne sera publié automatiquement : les dates servent de repère.', tone: 'success' })

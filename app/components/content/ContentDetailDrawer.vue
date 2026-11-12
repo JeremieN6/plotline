@@ -57,7 +57,7 @@
 import { computed, onBeforeUnmount, ref, useId, watch } from 'vue'
 import { formatPlatforms, readManualPublication } from '~/utils/manualPlatforms'
 import { formatShortDate } from '~/utils/formatDate'
-import { actionsFor, cardStateOf, defaultPublishTarget, isPublishedOn, joinHashtags, captionHook, scheduledBadgeLabel, splitHashtags } from '~/utils/contentCards'
+import { actionsFor, plannedPlatformsOf, cardStateOf, defaultPublishTarget, isPublishedOn, joinHashtags, captionHook, scheduledBadgeLabel, splitHashtags } from '~/utils/contentCards'
 
 // Panneau de detail d un contenu : lecteur, legende modifiable (sauvegarde automatique), hashtags, historique,
 // memes actions que la carte, navigation precedent / suivant. La plein ecran (versions, slides) reste la visionneuse.
@@ -116,7 +116,10 @@ const history = computed(() => {
   if (!item) return []
   const lines = [`Généré le ${formatShortDate(item.createdAt)}`]
   if (sourceArticle.value) lines.push(`Article d’origine : ${sourceArticle.value}`)
-  if (state.value === 'validated' && item.scheduledAt) lines.push(`Planifié le ${formatShortDate(item.scheduledAt)}`)
+  if (state.value === 'validated' && item.scheduledAt) {
+    const networks = formatPlatforms(plannedPlatformsOf(item))
+    lines.push(`Planifié le ${formatShortDate(item.scheduledAt)}${networks ? ` sur ${networks}` : ''}`)
+  }
   const manual = readManualPublication(item.manualPublication)
   if (manual) lines.push(`Publié à la main sur ${formatPlatforms(manual.platforms)} le ${formatShortDate(manual.at)}`)
   if (isPublishedOn(item, 'INSTAGRAM') && !manual?.platforms.includes('INSTAGRAM')) lines.push(`Publié sur Instagram le ${formatShortDate(item.publishedAt)}`)

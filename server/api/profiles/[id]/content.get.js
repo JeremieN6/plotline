@@ -32,6 +32,7 @@ const CONTENT_SELECT = {
   status: true,
   scheduledAt: true,
   autoPublish: true,
+  plannedPlatforms: true,
   publishedAt: true,
   twitterPublishedAt: true,
   manualPublication: true,

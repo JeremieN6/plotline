@@ -152,20 +152,23 @@ export function isPublicationFailure(item) {
  * ne s y oppose). Le planificateur ne publie que sur Instagram et seulement si le compte du profil est renseigne.
  */
 /**
- * Reseau sur lequel la publication automatique publierait ce contenu (miroir de `resolvePublishTarget`, scheduledPublisher.js) :
- * « Instagram » pour une plateforme INSTAGRAM ou BOTH, vide sinon (TikTok et autres ne sont pas publies automatiquement).
+ * Reseaux prevus pour un contenu : ceux choisis a la planification (`plannedPlatforms`), sinon deduits de sa plateforme
+ * d origine (Instagram ou les deux -> Instagram ; TikTok -> TikTok). Aucune verification de connexion.
  */
-export function autoPublishNetwork(item) {
+const PLANNABLE = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'X', 'FACEBOOK', 'LINKEDIN']
+export function plannedPlatformsOf(item) {
+  const chosen = (Array.isArray(item?.plannedPlatforms) ? item.plannedPlatforms : []).filter((value) => PLANNABLE.includes(value))
+  if (chosen.length) return chosen
   const platform = String(item?.platform || '').trim().toUpperCase()
-  return platform === 'INSTAGRAM' || platform === 'BOTH' ? 'Instagram' : ''
+  if (platform === 'INSTAGRAM' || platform === 'BOTH') return ['INSTAGRAM']
+  if (platform === 'TIKTOK') return ['TIKTOK']
+  return []
 }
 
 export function autoPublishBlockReason(item, profile) {
-  if (String(item?.platform || '').toUpperCase() === 'TIKTOK') {
-    return 'Ce contenu est destiné à TikTok : l’outil ne publie pas sur TikTok. Poste-le toi-même, puis utilise « Marquer comme publié ».'
-  }
+  // La publication automatique ne vise qu Instagram : il faut un compte Instagram renseigne sur le profil.
   if (!profile?.instagramAccountId) {
-    return 'Instagram n’est pas connecté pour ce profil : la publication automatique échouerait à l’heure prévue. Connecte Instagram dans les paramètres du profil, ou poste le contenu toi-même puis utilise « Marquer comme publié ».'
+    return 'Instagram n’est pas connecté pour ce profil : la publication automatique échouerait à l’heure prévue. Connecte Instagram dans les paramètres du profil, ou laisse la publication automatique désactivée et poste le contenu toi-même.'
   }
   return ''
 }

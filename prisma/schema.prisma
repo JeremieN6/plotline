@@ -261,6 +261,8 @@ model GeneratedContent {
   scheduledAt   DateTime?
   // Publication automatique a la date planifiee : opt-in (false = la date n est qu un repere de calendrier).
   autoPublish   Boolean   @default(false)
+  /// Reseaux choisis a la planification (liste JSON, aucune verification) ; seul INSTAGRAM est publie automatiquement.
+  plannedPlatforms Json?
   publishedAt   DateTime?
   twitterPublishedAt DateTime?
   /// Publication faite a la main (hors de l outil): { at, platforms }. NULL = jamais marque.

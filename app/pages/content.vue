@@ -160,7 +160,7 @@
       :initial-auto="scheduleDialog.item?.scheduledAt ? scheduleDialog.item.autoPublish === true : Boolean(selectedInfluencer?.autoPublish)"
       :error="scheduleDialog.error"
       :block-reason="scheduleBlockReason"
-      :network="scheduleDialog.item ? autoPublishNetwork(scheduleDialog.item) : ''"
+      :initial-platforms="scheduleDialog.item ? plannedPlatformsOf(scheduleDialog.item) : []"
       :settings-href="selectedInfluencer ? `/profiles/${selectedInfluencer.id}/edit` : ''"
       @confirm="confirmSchedule"
       @cancel="scheduleDialog.open = false"
@@ -293,7 +293,7 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { formatShortDate } from '~/utils/formatDate'
 import { formatPlatforms, readManualPublication } from '~/utils/manualPlatforms'
-import { autoPublishBlockReason, autoPublishNetwork, cardStateOf, countByTab, filterAndSort, isPublicationFailure } from '~/utils/contentCards'
+import { autoPublishBlockReason, plannedPlatformsOf, cardStateOf, countByTab, filterAndSort, isPublicationFailure } from '~/utils/contentCards'
 
 const activeInfluencerId = useActiveInfluencer()
 const { pushToast, requestConfirmation } = useUiFeedback()
@@ -842,13 +842,13 @@ function askSchedule(item) {
   scheduleDialog.open = true
 }
 
-async function confirmSchedule(iso, auto) {
+async function confirmSchedule(iso, auto, platforms) {
   const item = scheduleDialog.item
   if (!item || scheduleDialog.loading) return
   scheduleDialog.loading = true
   scheduleDialog.error = ''
   try {
-    await $fetch(`/api/content/${item.id}/schedule`, { method: 'PATCH', body: { scheduledAt: iso, autoPublish: auto === true } })
+    await $fetch(`/api/content/${item.id}/schedule`, { method: 'PATCH', body: { scheduledAt: iso, autoPublish: auto === true, platforms } })
     scheduleDialog.open = false
     pushToast({
       title: auto ? 'Publication planifiée' : 'Contenu placé au calendrier',

@@ -1,3 +1,5 @@
+import { canAutoPublish, normalizePlannedPlatforms } from '../../../utils/plannedPlatforms.js';
+
 let prismaClient;
 
 async function getPrisma() {
@@ -33,7 +35,12 @@ export default defineEventHandler(async (event) => {
 
     // Publication automatique : seulement si demandee explicitement (true). Absent = on ne change pas le reglage actuel
     // (reprogrammer depuis le calendrier ne doit pas l activer ni le couper).
-    const autoPublish = typeof body?.autoPublish === 'boolean' ? body.autoPublish : undefined;
+    let autoPublish = typeof body?.autoPublish === 'boolean' ? body.autoPublish : undefined;
+
+    // Reseaux choisis (repere, sans verification). Absent = on ne change rien. Sans Instagram, pas de publication automatique :
+    // le planificateur ne sait publier que sur Instagram.
+    const plannedPlatforms = normalizePlannedPlatforms(body?.platforms);
+    if (plannedPlatforms && !canAutoPublish(plannedPlatforms)) autoPublish = false;
 
     const prisma = await getPrisma();
 
@@ -64,11 +71,15 @@ export default defineEventHandler(async (event) => {
       data: {
         scheduledAt: parsedDate,
         ...(autoPublish === undefined ? {} : { autoPublish }),
+        ...(plannedPlatforms ? { plannedPlatforms } : {}),
+        // Le planificateur lit `platform` : un contenu destine a TikTok a l origine, planifie sur Instagram avec publication automatique, doit etre publie sur Instagram.
+        ...(autoPublish === true && plannedPlatforms && canAutoPublish(plannedPlatforms) ? { platform: 'INSTAGRAM' } : {}),
       },
       select: {
         id: true,
         scheduledAt: true,
         autoPublish: true,
+        plannedPlatforms: true,
         status: true,
       },
     });

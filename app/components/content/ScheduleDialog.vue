@@ -25,10 +25,16 @@
         </div>
 
         <div class="mt-4">
-          <UiSwitch v-model="auto" label="Publier automatiquement à cette date" />
-          <p class="mt-1 text-xs text-ui-ink-muted">
-            {{ auto ? autoHint : 'Désactivé : rien n’est publié tout seul, la date sert de repère.' }}
-          </p>
+          <p class="text-[13px] font-semibold text-ui-ink">Réseaux</p>
+          <div class="mt-2">
+            <UiToggleChips v-model="platforms" label="Réseaux" :options="MANUAL_PLATFORMS" />
+          </div>
+          <p class="mt-1 text-xs text-ui-ink-muted">Aucune vérification de connexion : ce choix sert de repère dans le calendrier.</p>
+        </div>
+
+        <div class="mt-4">
+          <UiSwitch v-model="auto" label="Publier automatiquement à cette date" :disabled="!hasInstagram" />
+          <p class="mt-1 text-xs text-ui-ink-muted">{{ autoHint }}</p>
         </div>
 
         <UiAlert v-if="auto && blockReason" class="mt-4" title="La publication automatique échouerait">
@@ -51,6 +57,7 @@
 <script setup>
 import { computed, ref, useId, watch } from 'vue'
 import { fromLocalDateTimeFields, toLocalDateTimeFields } from '~/utils/formatDate'
+import { MANUAL_PLATFORMS } from '~/utils/manualPlatforms'
 
 // Date (et heure) d un contenu valide au calendrier, avec publication automatique en option (PATCH /api/content/:id/schedule).
 const props = defineProps({
@@ -61,8 +68,7 @@ const props = defineProps({
   error: { type: String, default: '' },
   // Raison pour laquelle la publication automatique echouerait forcement (Instagram non connecte...) : Planifier est bloque.
   blockReason: { type: String, default: '' },
-  // Reseau sur lequel la publication automatique publierait ce contenu (vide = aucun reseau possible).
-  network: { type: String, default: '' },
+  initialPlatforms: { type: Array, default: () => [] }, // reseaux deja choisis, sinon deduits de la plateforme d origine
   settingsHref: { type: String, default: '' },
 })
 const emit = defineEmits(['confirm', 'cancel'])
@@ -72,9 +78,16 @@ const date = ref('')
 const time = ref('')
 const problem = ref('')
 const auto = ref(false)
-const autoHint = computed(() => (props.network
-  ? `À l’heure prévue, l’outil publie le contenu validé sur ${props.network}, avec le compte connecté à ce profil.`
-  : 'Aucun réseau ne peut être publié automatiquement pour ce contenu.'))
+const platforms = ref([])
+const hasInstagram = computed(() => platforms.value.includes('INSTAGRAM'))
+// Le planificateur ne publie tout seul que sur Instagram : sans Instagram, l interrupteur est coupe.
+watch(hasInstagram, (value) => { if (!value) auto.value = false })
+const autoHint = computed(() => {
+  if (!hasInstagram.value) return 'La publication automatique n’existe que pour Instagram pour l’instant : coche Instagram pour l’activer. Les autres réseaux restent un repère de calendrier.'
+  return auto.value
+    ? 'À l’heure prévue, l’outil publie le contenu validé sur Instagram, avec le compte connecté à ce profil. Les autres réseaux cochés restent un repère.'
+    : 'Désactivé : rien n’est publié tout seul, la date sert de repère.'
+})
 const today = computed(() => toLocalDateTimeFields(new Date().toISOString()).date)
 
 watch(() => props.open, (value) => {
@@ -85,7 +98,8 @@ watch(() => props.open, (value) => {
   const fields = toLocalDateTimeFields(base.toISOString())
   date.value = fields.date
   time.value = props.initial && new Date(props.initial).getTime() > Date.now() ? fields.time : '09:00'
-  auto.value = props.initialAuto
+  platforms.value = [...props.initialPlatforms]
+  auto.value = props.initialAuto && platforms.value.includes('INSTAGRAM')
   problem.value = ''
 })
 
@@ -100,6 +114,6 @@ function confirm() {
     return
   }
   problem.value = ''
-  emit('confirm', iso, auto.value)
+  emit('confirm', iso, auto.value, [...platforms.value])
 }
 </script>
