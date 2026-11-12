@@ -90,3 +90,10 @@ test('plan sauvegarde : la DA choisie pour la video (option) est gardee', async 
   const bad = JSON.stringify({ profileId: 'p1', savedAt: now, styleSlot: 7, plan: starterPlan() });
   assert.equal(parseSavedPlan(bad, { profileId: 'p1', now })?.styleSlot, 0);
 });
+
+test('la limite de scenes du plan est la meme cote page et cote serveur', async () => {
+  const { MAX_SCENES } = await import('../server/utils/facelessPlanGenerator.js');
+  const { MAX_PLAN_SCENES } = await import('../app/utils/facelessStarterPlan.js');
+  assert.equal(MAX_PLAN_SCENES, MAX_SCENES);
+  assert.equal(MAX_SCENES, 24);
+});

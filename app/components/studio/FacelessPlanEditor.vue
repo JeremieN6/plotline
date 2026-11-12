@@ -39,6 +39,13 @@
       </p>
     </div>
 
+    <UiAlert v-if="plan.scenes.length >= MAX_PLAN_SCENES" :tone="plan.scenes.length > MAX_PLAN_SCENES ? 'error' : 'info'" :title="plan.scenes.length > MAX_PLAN_SCENES ? `Ce plan dépasse ${MAX_PLAN_SCENES} scènes` : `Limite de ${MAX_PLAN_SCENES} scènes atteinte`">
+      <template v-if="plan.scenes.length > MAX_PLAN_SCENES">
+        Une vidéo ne peut pas dépasser {{ MAX_PLAN_SCENES }} scènes : les scènes en trop, à la fin (souvent l’appel à l’action), seraient supprimées. Supprime ou fusionne {{ plan.scenes.length - MAX_PLAN_SCENES }} scène(s) avant de continuer.
+      </template>
+      <template v-else>Tu ne peux plus ajouter de scène. Pour en ajouter une, fusionne deux scènes existantes.</template>
+    </UiAlert>
+
     <ol class="space-y-3">
       <li v-for="(scene, index) in plan.scenes" :key="index" class="space-y-3 rounded-ui-card border border-ui-line p-3">
         <div class="flex flex-wrap items-center justify-between gap-2">
@@ -52,7 +59,7 @@
             <button v-if="mode !== 'edit'" type="button" class="rounded-ui-ctl px-2 py-1 text-xs font-semibold text-ui-accent hover:bg-ui-accent-soft disabled:opacity-40" :disabled="previews[index]?.loading" @click="showPreview(index)">
               {{ previews[index]?.loading ? 'Aperçu…' : 'Aperçu' }}
             </button>
-            <button v-if="!lockSpoken" type="button" class="rounded-ui-ctl px-2 py-1 text-xs text-ui-ink-2 hover:bg-ui-subtle" @click="addAfter(index)">+ Scène</button>
+            <button v-if="!lockSpoken" type="button" class="rounded-ui-ctl px-2 py-1 text-xs text-ui-ink-2 hover:bg-ui-subtle disabled:opacity-40" :disabled="plan.scenes.length >= MAX_PLAN_SCENES" :title="plan.scenes.length >= MAX_PLAN_SCENES ? `Limite de ${MAX_PLAN_SCENES} scènes atteinte` : ''" @click="addAfter(index)">+ Scène</button>
             <button type="button" class="rounded-ui-ctl px-2 py-1 text-xs text-ui-danger-ink hover:bg-ui-danger-soft disabled:opacity-40" :disabled="lockSpoken || plan.scenes.length <= 2" @click="remove(index)">Supprimer</button>
           </div>
         </div>
@@ -259,7 +266,7 @@
 // de voix ou de rendu. Le createur a le dernier mot : chaque scene est editable, et le plan peut etre
 // revise en langage naturel. Les autres champs (elements de liste, poses d avatar, bruitages) sont gardes tels quels.
 import { LAYOUT_LABELS, sceneFieldsFor, incompleteReason, cueIsSpoken } from '~/utils/facelessSceneFields'
-import { blankScene } from '~/utils/facelessStarterPlan'
+import { blankScene, MAX_PLAN_SCENES } from '~/utils/facelessStarterPlan'
 
 const props = defineProps({
   modelValue: { type: Object, required: true },

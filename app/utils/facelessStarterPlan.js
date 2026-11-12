@@ -1,6 +1,9 @@
 // Plan faceless « à écrire soi-même » : une trame de départ standard et la sauvegarde du plan en cours dans le navigateur.
 // Rien ici n'appelle Claude : ouvrir la trame ou restaurer un plan ne coûte rien.
 
+/** Nombre maximal de scenes d un plan (meme valeur que MAX_SCENES cote serveur : un test les compare). Au-dela, le serveur COUPE la fin. */
+export const MAX_PLAN_SCENES = 24;
+
 const DEFAULT_AVATAR = () => ({ mode: 'head', pose: 'idle', beats: [{ at: 0, expr: 'neutral', flip: false }] })
 
 /** Une scène vide (mêmes champs que celles écrites par Claude). */
