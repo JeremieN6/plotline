@@ -48,6 +48,10 @@
             </p>
           </UiField>
 
+          <UiField label="Article d’origine (facultatif)" for-id="faceless-article" hint="Juste un repère pour retrouver l’article plus tard (visible dans le détail du contenu). Ne change rien à la vidéo.">
+            <UiInput id="faceless-article" v-model="sourceArticle" maxlength="200" placeholder="Titre ou adresse de l’article" />
+          </UiField>
+
           <UiField label="Quelle voix ?">
             <UiSegmented v-model="voiceMode" label="Quelle voix ?" :options="voiceModes" />
           </UiField>
@@ -378,6 +382,7 @@ const DEFAULT_TIPS = [
 const idea = ref('')
 const SOURCE_MAX = 12000
 const sourceText = ref('')
+const sourceArticle = ref('')
 const voiceMode = ref('synth')
 // Voix clonee (proprietaire du compte seulement) : voix, expressivite, directives du createur, plan a valider.
 const cloneVoiceId = ref('')
@@ -619,6 +624,7 @@ async function makeOutline() {
 function commonBody() {
   return {
     idea: idea.value,
+    sourceArticle: sourceArticle.value.trim() || undefined,
     sourceText: sourceText.value.trim() || undefined,
     direction: direction.value.trim() || undefined,
     profileId: profileId.value || undefined,
@@ -750,6 +756,7 @@ async function generate() {
       const form = new FormData()
       form.append('audio', audioFile.value)
       form.append('idea', idea.value)
+      if (sourceArticle.value.trim()) form.append('sourceArticle', sourceArticle.value.trim())
       if (profileId.value) form.append('profileId', profileId.value)
       if (profileId.value && Number(styleSlot.value) > 0) form.append('styleSlot', String(styleSlot.value))
       form.append('captions', String(captions.value))

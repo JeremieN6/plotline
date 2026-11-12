@@ -115,6 +115,7 @@ const history = computed(() => {
   const item = props.item
   if (!item) return []
   const lines = [`Généré le ${formatShortDate(item.createdAt)}`]
+  if (sourceArticle.value) lines.push(`Article d’origine : ${sourceArticle.value}`)
   if (state.value === 'validated' && item.scheduledAt) lines.push(`Planifié le ${formatShortDate(item.scheduledAt)}`)
   const manual = readManualPublication(item.manualPublication)
   if (manual) lines.push(`Publié à la main sur ${formatPlatforms(manual.platforms)} le ${formatShortDate(manual.at)}`)
@@ -130,6 +131,20 @@ const calendarHref = computed(() => {
   return `/calendar?month=${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
 })
 
+// Article d origine d une video faceless (repere facultatif) : lu a l ouverture, uniquement pour ce type de contenu.
+const sourceArticle = ref('')
+async function loadSourceArticle() {
+  sourceArticle.value = ''
+  const item = props.item
+  if (!import.meta.client || !item?.id || item.generationModel !== 'faceless') return
+  try {
+    const info = await $fetch(`/api/content/${item.id}/faceless`)
+    if (props.item?.id === item.id) sourceArticle.value = String(info?.sourceArticle || '')
+  } catch {
+    // repere facultatif : sans consequence
+  }
+}
+
 let pendingItem = null
 
 function load() {
@@ -140,6 +155,7 @@ function load() {
   saveState.value = 'idle'
   dirty = false
   pendingItem = null
+  loadSourceArticle()
 }
 
 // Changer de contenu avec une frappe en attente : on enregistre d abord l ancien (rien n est perdu), puis on charge.

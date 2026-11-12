@@ -42,6 +42,7 @@ export default defineEventHandler(async (event) => {
     retouchable,
     canRetouchNow: retouchable && content.status === 'PENDING',
     idea: retouchable ? spec.idea || '' : '',
+    sourceArticle: retouchable ? String(spec.sourceArticle || '') : '',
     // Texte dit, une entree par scene (balises de ton comprises), pour le relire avant de retoucher.
     script: retouchable ? spec.plan.scenes.map((scene) => String(scene?.say || '').trim()).filter(Boolean) : [],
     // Plan exact de la version active, pour le modifier directement dans l editeur (sans passer par Claude).

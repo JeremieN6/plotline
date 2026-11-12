@@ -340,7 +340,7 @@ export function inBackground(prisma, contentId, previousStatus, task) {
 
 export const logStep = (contentId) => (step) => console.log(`[faceless] contentId=${contentId} etape=${step}`);
 
-function facelessVideoTask({ prisma, contentId, idea, sourceText = '', direction = '', plan = null, persona, targetSeconds, captions, voiceId, voiceMode = 'synth', stability, style, userId, illustrations = {}, maxNew = 0, caption }) {
+function facelessVideoTask({ prisma, contentId, idea, sourceArticle = '', sourceText = '', direction = '', plan = null, persona, targetSeconds, captions, voiceId, voiceMode = 'synth', stability, style, userId, illustrations = {}, maxNew = 0, caption }) {
   return async () => {
     const generateNewIllustrations = maxNew > 0 && persona && userId ? makeIllustrationGenerator({ prisma, userId, persona, style }) : null;
     const result = await produceFacelessVideo({
@@ -353,7 +353,7 @@ function facelessVideoTask({ prisma, contentId, idea, sourceText = '', direction
       caption,
       // Le texte source (un article entier) n est pas conserve dans le rendu : seule l idee l est.
       // `voice` : de quoi regenerer la meme voix (modele, voix clonee, stabilite) quand une retouche change le texte ou le ton.
-      base: { idea: idea || String(sourceText || '').slice(0, 300), voiceId: voiceId || result.style.voiceId, voice: result.voiceSettings, targetSeconds, captions, personaId: persona?.id || null },
+      base: { idea: idea || String(sourceText || '').slice(0, 300), voiceId: voiceId || result.style.voiceId, voice: result.voiceSettings, targetSeconds, captions, personaId: persona?.id || null, ...(sourceArticle ? { sourceArticle } : {}) },
     });
   };
 }
@@ -389,6 +389,7 @@ export function runFacelessRetouchJob({ prisma, contentId, spec, instruction, pl
         targetSeconds: spec.targetSeconds,
         captions: spec.captions,
         personaId: spec.personaId || null,
+        ...(spec.sourceArticle ? { sourceArticle: spec.sourceArticle } : {}),
         // Historique des consignes : utile pour comprendre une version (et a Claude plus tard).
         retouches: [...(Array.isArray(spec.retouches) ? spec.retouches : []), plan ? 'Modification directe du plan' : String(instruction).slice(0, 1000)].slice(-10),
       },

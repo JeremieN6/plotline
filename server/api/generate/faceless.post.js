@@ -1,3 +1,4 @@
+import { normalizeSourceArticle } from '../../utils/sourceArticle.js';
 import { createGeneratedContentRecord } from './video.post.js';
 import { getOrCreateDefaultProfile } from '../../utils/defaultProfile.js';
 import { runFacelessVideoJob } from '../../utils/facelessVideoJob.js';
@@ -38,6 +39,7 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event);
 
   const idea = String(body?.idea || '').trim().slice(0, MAX_IDEA_LENGTH);
+  const sourceArticle = normalizeSourceArticle(body?.sourceArticle);
   const profileId = String(body?.profileId || '').trim();
   const targetSeconds = normalizeFacelessDuration(body?.durationSeconds);
 
@@ -123,6 +125,7 @@ export default defineEventHandler(async (event) => {
     prisma,
     contentId: generatedContent.id,
     idea,
+    sourceArticle,
     sourceText,
     direction,
     plan,

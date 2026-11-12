@@ -1,3 +1,4 @@
+import { normalizeSourceArticle } from '../../utils/sourceArticle.js';
 import { createGeneratedContentRecord } from './video.post.js';
 import { getOrCreateDefaultProfile } from '../../utils/defaultProfile.js';
 import { runOwnVoiceJob, detectAudioType } from '../../utils/facelessOwnVoice.js';
@@ -51,6 +52,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const idea = field('idea').slice(0, 2000);
+  const sourceArticle = normalizeSourceArticle(field('sourceArticle'));
   const profileId = field('profileId');
 
   let persona = null;
@@ -92,6 +94,7 @@ export default defineEventHandler(async (event) => {
     contentId: generatedContent.id,
     audio: file.data,
     idea,
+    sourceArticle,
     persona,
     captions,
     style,

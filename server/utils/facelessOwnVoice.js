@@ -187,7 +187,7 @@ export async function produceOwnVoiceVideo({ audio, idea = '', persona, captions
 }
 
 /** Lance le montage "ma voix" en tache de fond ; la requete HTTP repond tout de suite. */
-export function runOwnVoiceJob({ prisma, contentId, audio, idea, persona, captions, style, illustrations = {}, maxNew = 0, userId, previousStatus }) {
+export function runOwnVoiceJob({ prisma, contentId, audio, idea, sourceArticle = '', persona, captions, style, illustrations = {}, maxNew = 0, userId, previousStatus }) {
   return inBackground(prisma, contentId, previousStatus, async () => {
     const generateNewIllustrations = maxNew > 0 && persona && userId ? makeIllustrationGenerator({ prisma, userId, persona, style }) : null;
     const result = await produceOwnVoiceVideo({ audio, idea, persona, captions, style, illustrations, maxNew, generateNewIllustrations, userId, onStep: logStep(contentId) });
@@ -197,7 +197,7 @@ export function runOwnVoiceJob({ prisma, contentId, audio, idea, persona, captio
       ...result,
       voiceUrl,
       base: {
-        idea, voiceId: 'own', voiceSource: 'own', targetSeconds: Math.round(result.duration), captions, personaId: persona?.id || null,
+        idea, voiceId: 'own', voiceSource: 'own', targetSeconds: Math.round(result.duration), captions, personaId: persona?.id || null, ...(sourceArticle ? { sourceArticle } : {}),
         voiceReport: { transcriptCached: result.report.transcriptCached, wordsHeard: result.report.wordsHeard, wordsKept: result.report.wordsKept, cuts: result.report.cuts, directives: result.report.directives },
       },
     });

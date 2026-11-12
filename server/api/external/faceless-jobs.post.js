@@ -1,3 +1,4 @@
+import { sourceArticleFromSlug } from '../../utils/sourceArticle.js';
 import { createGeneratedContentRecord } from '../generate/video.post.js';
 import { runFacelessVideoJob } from '../../utils/facelessVideoJob.js';
 import { parseExternalFacelessBody } from '../../utils/facelessExternal.js';
@@ -84,6 +85,7 @@ export default defineEventHandler(async (event) => {
     prisma,
     contentId: generatedContent.id,
     idea,
+    sourceArticle: sourceArticleFromSlug(slug),
     sourceText,
     persona,
     targetSeconds,
