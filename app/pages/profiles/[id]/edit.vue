@@ -249,6 +249,14 @@
             <UiToggleChips v-model="formatRotationModel" label="Rotation des formats" :options="formatOptions" />
           </UiField>
         </div>
+
+        <div class="mt-5 border-t border-ui-line-soft pt-5">
+          <UiSwitch v-model="form.autoPublish" label="Publication automatique des contenus" />
+          <p class="mt-1 text-xs text-ui-ink-muted">
+            Valeur de départ de l’interrupteur « Publier automatiquement » quand tu planifies un contenu de ce profil, et réglage des contenus créés par un plan.
+            Désactivé : la date planifiée n’est qu’un repère de calendrier, rien n’est publié tout seul. Tu peux le changer contenu par contenu.
+          </p>
+        </div>
       </UiCard>
 
       <UiCard>
@@ -412,6 +420,7 @@ const initialFormState = ref({
   postsPerWeek: 3,
   formatRotation: 'FEED,STORY,REEL',
   publishHour: 18,
+  autoPublish: false,
 })
 
 const silhouetteOptions = computed(() => getSilhouetteOptions(form.gender))
@@ -439,6 +448,7 @@ const form = reactive({
   postsPerWeek: 3,
   formatRotation: 'FEED,STORY,REEL',
   publishHour: 18,
+  autoPublish: false,
 })
 
 const instagramForm = reactive({
@@ -650,6 +660,7 @@ watch(
     form.postsPerWeek = Number.isFinite(Number(value.postsPerWeek)) ? Number(value.postsPerWeek) : 3
     form.formatRotation = value.formatRotation || 'FEED,STORY,REEL'
     form.publishHour = Number.isFinite(Number(value.publishHour)) ? Number(value.publishHour) : 18
+    form.autoPublish = value.autoPublish === true
     instagramForm.instagramAccountId = value.instagramAccountId || ''
     instagramForm.instagramAccessToken = value.instagramAccessToken || ''
     initialFormState.value = {
@@ -662,6 +673,7 @@ watch(
       postsPerWeek: form.postsPerWeek,
       formatRotation: form.formatRotation,
       publishHour: form.publishHour,
+      autoPublish: form.autoPublish,
     }
     currentFaceRefPath.value = value.faceRefPath || ''
     currentFaceRefUrl.value = value.faceRefUrl || (currentFaceRefFilename.value ? `/api/media/face-refs/${encodeURIComponent(currentFaceRefFilename.value)}` : '')
@@ -1087,6 +1099,10 @@ async function submit() {
 
     if (form.publishHour !== initialFormState.value.publishHour) {
       patchBody.publishHour = form.publishHour
+    }
+
+    if (form.autoPublish !== initialFormState.value.autoPublish) {
+      patchBody.autoPublish = form.autoPublish
     }
 
     await $fetch(`/api/profiles/${id.value}`, {

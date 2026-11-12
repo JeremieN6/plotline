@@ -110,6 +110,7 @@ async function updateInfluencerCompatible(prisma, id, data) {
         postsPerWeek: true,
         formatRotation: true,
         publishHour: true,
+        autoPublish: true,
       },
     });
   } catch (err) {
@@ -236,6 +237,10 @@ export default defineEventHandler(async (event) => {
         return sendError(event, createError({ statusCode: 400, statusMessage: 'publishHour invalide' }));
       }
       payload.publishHour = normalizePublishHour(body.publishHour);
+    }
+
+    if (typeof body?.autoPublish === 'boolean') {
+      payload.autoPublish = body.autoPublish;
     }
 
     if (!payload.name || !payload.niche || !payload.style) {

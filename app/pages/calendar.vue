@@ -578,6 +578,7 @@ function openPick() {
   const isToday = startOfDay(now).getTime() === pickDate.value.getTime()
   pickTime.value = isToday ? `${String(Math.min(now.getHours() + 1, 21)).padStart(2, '0')}:00` : '09:00'
   pickError.value = ''
+  pickAuto.value = Boolean(selectedInfluencer.value?.autoPublish)
   drawerMode.value = 'pick'
 }
 function togglePick(id) {

@@ -157,7 +157,7 @@
       :open="scheduleDialog.open"
       :loading="scheduleDialog.loading"
       :initial="scheduleDialog.item?.scheduledAt || ''"
-      :initial-auto="scheduleDialog.item?.autoPublish === true"
+      :initial-auto="scheduleDialog.item?.scheduledAt ? scheduleDialog.item.autoPublish === true : Boolean(selectedInfluencer?.autoPublish)"
       :error="scheduleDialog.error"
       :block-reason="scheduleBlockReason"
       :network="scheduleDialog.item ? autoPublishNetwork(scheduleDialog.item) : ''"

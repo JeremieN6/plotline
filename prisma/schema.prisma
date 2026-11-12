@@ -198,6 +198,8 @@ model Profile {
   postsPerWeek         Int                @default(3)
   formatRotation       String             @default("FEED,STORY,REEL")
   publishHour          Int                @default(18)
+  /// Publication automatique a la date planifiee : valeur de depart des contenus de ce profil (false = repere de calendrier seulement).
+  autoPublish          Boolean            @default(false)
   /// Personnalite structuree (identite, histoire, voix, ligne editoriale, bios).
   /// Forme et validation : server/utils/personality.js. NULL = pas encore generee.
   personality          Json?

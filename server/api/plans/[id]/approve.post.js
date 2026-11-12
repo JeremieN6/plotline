@@ -319,6 +319,7 @@ export default defineEventHandler(async (event) => {
             // Necessaires a buildPersonaDescription(), utilise par le format
             // CUSTOM_PROMPT_STUDIO (widget PORTRAIT_STUDIO).
             gender: true,
+            autoPublish: true,
             eyeColor: true,
             ethnicity: true,
             particularities: true,
@@ -384,6 +385,8 @@ export default defineEventHandler(async (event) => {
           format: item.format,
           status: 'PROCESSING',
           scheduledAt: item.scheduledAt,
+          // Publication automatique : reglage du profil (false par defaut = la date n est qu un repere).
+          autoPublish: Boolean(profile.autoPublish),
         },
         select: { id: true },
       });

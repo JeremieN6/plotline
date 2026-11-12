@@ -50,6 +50,7 @@ function normalizeInfluencer(influencer) {
     postsPerWeek: Number.isFinite(Number(influencer?.postsPerWeek)) ? Number(influencer.postsPerWeek) : DEFAULT_POSTS_PER_WEEK,
     formatRotation: String(influencer?.formatRotation || DEFAULT_FORMAT_ROTATION.join(',')),
     publishHour: Number.isFinite(Number(influencer?.publishHour)) ? Number(influencer.publishHour) : DEFAULT_PUBLISH_HOUR,
+    autoPublish: Boolean(influencer?.autoPublish),
     createdAt: influencer.createdAt,
     brandId: influencer.brandId || null,
     brandName: String(influencer?.brand?.name || influencer?.brandName || '').trim(),
@@ -84,6 +85,7 @@ async function findInfluencerCompatible(prisma, id) {
         postsPerWeek: true,
         formatRotation: true,
         publishHour: true,
+        autoPublish: true,
         createdAt: true,
         brand: {
           select: {
