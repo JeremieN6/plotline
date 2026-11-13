@@ -17,6 +17,7 @@
       </div>
 
       <div class="flex flex-wrap gap-2">
+        <UiButton @click="importDialogOpen = true">Importer</UiButton>
         <NuxtLink
           v-if="selectedInfluencer"
           :to="generateHref"
@@ -166,6 +167,14 @@
       :settings-href="selectedInfluencer ? `/profiles/${selectedInfluencer.id}/edit` : ''"
       @confirm="confirmSchedule"
       @cancel="scheduleDialog.open = false"
+    />
+
+    <ContentImportDialog
+      :open="importDialogOpen"
+      :profile-id="selectedInfluencer?.id || ''"
+      :profile-name="selectedInfluencer?.name || ''"
+      @close="importDialogOpen = false"
+      @imported="onImported"
     />
 
     <ContentManualPublishDialog
@@ -867,6 +876,14 @@ async function confirmSchedule(iso, auto, platforms) {
   } finally {
     scheduleDialog.loading = false
   }
+}
+
+// ---- Import de contenus produits ailleurs -----------------------------------------------------------------------
+const importDialogOpen = ref(false)
+
+async function onImported(count) {
+  pushToast({ title: count > 1 ? `${count} contenus importés` : 'Contenu importé', message: 'Ils sont dans l’onglet « Validé ».', tone: 'success' })
+  await reloadContents()
 }
 
 // ---- Contenu poste a la main (hors de l outil) ------------------------------------------------------------------
