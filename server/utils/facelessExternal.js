@@ -26,9 +26,15 @@ export function parseExternalFacelessBody(body) {
     return { error: `durationSeconds invalide (${FACELESS_DURATIONS.join(', ')})` };
   }
 
+  // DA du profil a utiliser : 0 = principale (defaut), 1 et 2 = options. Une valeur hors liste est refusee plutot qu ignoree.
+  const rawSlot = body?.styleSlot;
+  const hasSlot = rawSlot !== undefined && rawSlot !== null && rawSlot !== '';
+  if (hasSlot && ![0, 1, 2].includes(Number(rawSlot))) return { error: 'styleSlot invalide (0, 1 ou 2)' };
+
   return {
     value: {
       profileId,
+      styleSlot: hasSlot ? Number(rawSlot) : 0,
       sourceText,
       idea,
       targetSeconds: normalizeFacelessDuration(rawDuration),

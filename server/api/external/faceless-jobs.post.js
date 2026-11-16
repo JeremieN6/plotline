@@ -4,7 +4,7 @@ import { runFacelessVideoJob } from '../../utils/facelessVideoJob.js';
 import { parseExternalFacelessBody } from '../../utils/facelessExternal.js';
 import { resolveElevenLabsApiKey } from '../../utils/elevenLabsTts.js';
 import { loadPersonaStyle } from '../../utils/facelessStyleStore.js';
-import { readyIllustrations } from '../../utils/facelessStyle.js';
+import { pickStyleSlot, readyIllustrations } from '../../utils/facelessStyle.js';
 import { resolveOwnerCloneVoice } from '../../utils/facelessVoiceChoice.js';
 
 let prismaClient;
@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
   if (parsed.error) {
     return sendError(event, createError({ statusCode: 400, statusMessage: parsed.error }));
   }
-  const { profileId, sourceText, idea, targetSeconds, slug, sourceProject } = parsed.value;
+  const { profileId, styleSlot, sourceText, idea, targetSeconds, slug, sourceProject } = parsed.value;
 
   // Refus AVANT toute creation de contenu : sans voix de synthese, la video ne peut pas se faire.
   if (!resolveElevenLabsApiKey()) {
@@ -61,7 +61,9 @@ export default defineEventHandler(async (event) => {
   if (!loaded) {
     return sendError(event, createError({ statusCode: 404, statusMessage: 'Profil introuvable' }));
   }
-  const { persona, style } = loaded;
+  const { persona } = loaded;
+  // DA demandee (0 = principale) : le pack d avatars et les illustrations restent ceux de la principale.
+  const style = pickStyleSlot(loaded.style, styleSlot);
 
   // Voix clonee designee par la DA du profil (sinon l unique voix clonee du compte) ; repli sur la voix
   // de la DA si le compte n est pas proprietaire, si la voix n existe pas ou si le choix est ambigu.
@@ -79,7 +81,7 @@ export default defineEventHandler(async (event) => {
     prompt: idea || sourceText.slice(0, 200),
   });
 
-  console.log(`[external/faceless-jobs] contentId=${generatedContent.id} profileId=${profile.id} sourceProject=${sourceProject || 'inconnu'} slug=${slug || 'aucun'} duree=${targetSeconds}s voix=${cloneVoice ? 'clonee' : 'synthese'}`);
+  console.log(`[external/faceless-jobs] contentId=${generatedContent.id} profileId=${profile.id} sourceProject=${sourceProject || 'inconnu'} slug=${slug || 'aucun'} da=${styleSlot} duree=${targetSeconds}s voix=${cloneVoice ? 'clonee' : 'synthese'}`);
 
   return runFacelessVideoJob({
     prisma,

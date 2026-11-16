@@ -35,3 +35,12 @@ test('appel externe faceless : duree limitee aux valeurs connues', () => {
   assert.match(parseExternalFacelessBody({ profileId: 'p1', sourceText: 'ok', durationSeconds: 37 }).error, /durationSeconds invalide/);
   assert.equal(parseExternalFacelessBody({ profileId: 'p1', sourceText: 'ok', durationSeconds: '' }).value.targetSeconds, 30);
 });
+
+test('styleSlot : principale par defaut, options 1 et 2 acceptees, reste refuse', () => {
+  const base = { profileId: 'p1', sourceText: 'Un article.' };
+  assert.equal(parseExternalFacelessBody(base).value.styleSlot, 0);
+  assert.equal(parseExternalFacelessBody({ ...base, styleSlot: 2 }).value.styleSlot, 2);
+  assert.equal(parseExternalFacelessBody({ ...base, styleSlot: '1' }).value.styleSlot, 1);
+  assert.match(parseExternalFacelessBody({ ...base, styleSlot: 3 }).error, /styleSlot/);
+  assert.match(parseExternalFacelessBody({ ...base, styleSlot: 'abc' }).error, /styleSlot/);
+});
