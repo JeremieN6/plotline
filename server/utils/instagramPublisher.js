@@ -38,9 +38,41 @@ function publishError(message, code) {
   return error;
 }
 
+/**
+ * Traduit une erreur de l API Graph en erreur metier lisible. `$fetch` ne laisse
+ * que "400 Bad Request" dans `message`: la vraie raison est dans `data.error`.
+ * Jeton invalide ou expire (code 190, 102) et rejet 4xx (media refuse, droits
+ * manquants) sont definitifs; limite de debit, 5xx et reseau meritent un retry.
+ */
+export function describeGraphError(error) {
+  const graph = error?.data?.error || error?.response?._data?.error;
+  const httpStatus = Number(error?.statusCode || error?.response?.status || 0);
+  if (!graph && !httpStatus) return error;
+
+  const graphCode = Number(graph?.code || 0);
+  const detail = String(graph?.error_user_msg || graph?.message || error?.message || '').trim();
+
+  if (graphCode === 190 || graphCode === 102) {
+    return publishError(`Jeton Instagram expire ou invalide: reconnectez le compte Instagram (${detail})`, 'TOKEN_EXPIRED');
+  }
+  const rateLimited = [4, 17, 32, 613].includes(graphCode) || httpStatus === 429;
+  if (!rateLimited && httpStatus >= 400 && httpStatus < 500) {
+    return publishError(`Instagram a refuse la publication: ${detail}`, 'GRAPH_REJECTED');
+  }
+  return publishError(`Instagram indisponible ou limite atteinte: ${detail}`, 'GRAPH_TEMPORARY');
+}
+
+async function graphFetch(url, options) {
+  try {
+    return await $fetch(url, options);
+  } catch (error) {
+    throw describeGraphError(error);
+  }
+}
+
 async function waitForContainerReady({ instagramAccountId, containerId, accessToken }) {
   for (let attempt = 1; attempt <= CONTAINER_POLL_ATTEMPTS; attempt += 1) {
-    const containerStatus = await $fetch(`${GRAPH_API_BASE}/${instagramAccountId}/${containerId}`, {
+    const containerStatus = await graphFetch(`${GRAPH_API_BASE}/${instagramAccountId}/${containerId}`, {
       method: 'GET',
       query: {
         fields: 'status_code',
@@ -96,7 +128,7 @@ export async function publishContentToInstagram({ prisma, content, baseUrl }) {
         access_token: instagramAccessToken,
       };
 
-  const createResponse = await $fetch(`${GRAPH_API_BASE}/${instagramAccountId}/media`, {
+  const createResponse = await graphFetch(`${GRAPH_API_BASE}/${instagramAccountId}/media`, {
     method: 'POST',
     body: new URLSearchParams(createPayload),
     headers: {
@@ -117,7 +149,7 @@ export async function publishContentToInstagram({ prisma, content, baseUrl }) {
     });
   }
 
-  const publishResponse = await $fetch(`${GRAPH_API_BASE}/${instagramAccountId}/media_publish`, {
+  const publishResponse = await graphFetch(`${GRAPH_API_BASE}/${instagramAccountId}/media_publish`, {
     method: 'POST',
     body: new URLSearchParams({
       creation_id: creationId,

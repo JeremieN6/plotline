@@ -72,5 +72,5 @@ export default defineNitroPlugin(() => {
   const firstTick = setTimeout(tick, 60_000);
   firstTick.unref?.();
 
-  console.log('[scheduler] Publicateur planifie actif (verification chaque minute)');
+  console.log('[scheduler] Publicateur planifie actif (verification toutes les 10 minutes)');
 });

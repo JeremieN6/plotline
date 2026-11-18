@@ -65,6 +65,8 @@ export function isRetryableFailure(error) {
     'MISSING_MEDIA',
     'CONTAINER_ERROR',
     'CONTAINER_CREATION_FAILED',
+    'TOKEN_EXPIRED',
+    'GRAPH_REJECTED',
   ]);
 
   return !permanentCodes.has(String(error?.code || ''));

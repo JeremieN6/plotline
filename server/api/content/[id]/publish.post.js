@@ -20,6 +20,8 @@ async function getPrisma() {
 const ERROR_STATUS_BY_CODE = {
   MISSING_CREDENTIALS: 400,
   MISSING_MEDIA: 400,
+  TOKEN_EXPIRED: 400,
+  GRAPH_REJECTED: 400,
 };
 
 export default defineEventHandler(async (event) => {
@@ -48,6 +50,7 @@ export default defineEventHandler(async (event) => {
         imageUrl: true,
         caption: true,
         status: true,
+        publishedAt: true,
         format: true,
         influencer: {
           select: {
@@ -62,7 +65,12 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 404, statusMessage: 'Contenu introuvable' }));
     }
 
-    if (content.status !== 'VALIDATED') {
+    if (content.publishedAt) {
+      return sendError(event, createError({ statusCode: 409, statusMessage: 'Ce contenu est deja publie sur Instagram' }));
+    }
+
+    // Un contenu deja publie sur X (statut PUBLISHED, publishedAt vide) peut encore partir sur Instagram.
+    if (content.status !== 'VALIDATED' && content.status !== 'PUBLISHED') {
       return sendError(event, createError({ statusCode: 403, statusMessage: 'Le contenu doit être validé avant publication' }));
     }
 

@@ -38,6 +38,7 @@ export default defineEventHandler(async (event) => {
         imageUrl: true,
         caption: true,
         status: true,
+        twitterPublishedAt: true,
       },
     });
 
@@ -45,7 +46,12 @@ export default defineEventHandler(async (event) => {
       return sendError(event, createError({ statusCode: 404, statusMessage: 'Contenu introuvable' }));
     }
 
-    if (content.status !== 'VALIDATED') {
+    if (content.twitterPublishedAt) {
+      return sendError(event, createError({ statusCode: 409, statusMessage: 'Ce contenu est deja publie sur X' }));
+    }
+
+    // Un contenu deja publie sur Instagram (statut PUBLISHED) peut encore partir sur X.
+    if (content.status !== 'VALIDATED' && content.status !== 'PUBLISHED') {
       return sendError(event, createError({ statusCode: 403, statusMessage: 'Le contenu doit etre valide avant publication' }));
     }
 
