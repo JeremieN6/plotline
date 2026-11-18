@@ -102,7 +102,6 @@
     ],
     "location":[
       "baddie selfie in bedroom",
-      "shopping baddie aesthetic",
       "baddie aesthetic cafe",
       "baddie aesthetic rooftop",
       "baddie aesthetic hotel room",
@@ -112,13 +111,22 @@
       "baddie aesthetic terrace",
       "baddie supermarket aesthetic"
     ],
-    "jobs": [
+    "cosplay": [
       "nurse aesthetic baddie",
       "police aesthetic baddie",
       "military aesthetic baddie",
       "airline aesthetic baddie",
-      "cosplay aesthetic baddie",
-      "baddie podcast aesthetic"
+      "cosplay aesthetic baddie"
+    ],
+    "situation": [
+      "baddie podcast aesthetic",
+      "baddie working on laptop aesthetic",
+      "baddie reading aesthetic",
+      "baddie gym workout aesthetic",
+      "shopping mood aesthetic",
+      "baddie walking aesthetic",
+      "baddie driving aesthetic",
+      "baddie on phone aesthetic"
     ]
   },
 
