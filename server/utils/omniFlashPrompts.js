@@ -1,4 +1,4 @@
-import { ART_DIRECTIONS } from '../data/artDirections.js';
+import { speechPaceForScene } from './artDirections.js';
 
 /**
  * Prompts de parole d Omni Flash, sans appel reseau. Le modele "joue" le texte
@@ -17,9 +17,7 @@ const DEFAULT_SPEECH_PACE = 'at a calm natural pace that fills about 10 seconds'
  * tete de la scene, voir artDirections.js), sinon le rythme par defaut.
  */
 export function resolveSpeechPace(scenePrompt) {
-  const scene = String(scenePrompt || '');
-  const direction = ART_DIRECTIONS.find((item) => item.speechPace && scene.includes(item.scenePrompt));
-  return direction ? direction.speechPace : DEFAULT_SPEECH_PACE;
+  return speechPaceForScene(scenePrompt) || DEFAULT_SPEECH_PACE;
 }
 
 function speechRules(scenePrompt) {

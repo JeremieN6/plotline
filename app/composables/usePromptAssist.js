@@ -35,5 +35,13 @@ export function usePromptAssist() {
     })
   }
 
-  return { assistFreePrompt, assistWidgetFields, assistCarouselSlides }
+  // « Changer quelque chose » d'une direction artistique a reglages : une phrase -> des options valides.
+  async function assistArtDirection({ artDirectionId, request, currentParams }) {
+    return await $fetch('/api/widgets/art-direction-assist', {
+      method: 'POST',
+      body: { artDirectionId, request, currentParams },
+    })
+  }
+
+  return { assistFreePrompt, assistWidgetFields, assistCarouselSlides, assistArtDirection }
 }

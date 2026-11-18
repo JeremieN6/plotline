@@ -270,7 +270,7 @@ export const PROMPT_PATTERNS = [
   },
   {
     id: 'PODCAST_PARLE',
-    nom: 'Video podcast, intervenant au micro',
+    nom: 'Video podcast, plan fixe (un intervenant)',
     type: 'VIDEO',
     widgetId: 'SCENARIO_BLOG',
     tier: null,
@@ -283,18 +283,45 @@ export const PROMPT_PATTERNS = [
     // plans (et les plans de coupe eventuels) est demandee a Claude via
     // assistHintOverrides, comme pour UGC_AVIS_PARLE.
     template:
-      '{{scenePrompt}} Professional video podcast set: a condenser microphone on a boom arm in front of the speaker without covering the mouth, acoustic panels, warm practical lights, shallow depth of field, two-camera podcast framing. Calm conversational delivery, accurate lip sync, natural pauses and small hand gestures. Maintain the same set, outfit, lighting and audio throughout.',
+      '{{scenePrompt}} Professional video podcast set: a condenser microphone on a boom arm in front of the speaker without covering the mouth, acoustic panels, warm practical lights, shallow depth of field. Fixed locked-off tripod camera with one single unchanging wide-medium vertical framing from start to end, the seated speaker visible from head to knees with the boom microphone and part of the set in frame: no zoom, no push-in, no dolly, no pan, no camera movement and no cut. Calm conversational delivery, accurate lip sync, natural pauses and small hand gestures. Maintain the same set, outfit, lighting and audio throughout.',
     negativePrompt:
-      'subtitles, captions, on-screen text, watermarks, logos, microphone covering the mouth, face drift, wardrobe changes, robotic voice, camera shake, harsh studio lighting, warped hands',
+      'zoom, push-in, dolly, camera movement, changing framing, cut to close-up, subtitles, captions, on-screen text, watermarks, logos, microphone covering the mouth, face drift, wardrobe changes, robotic voice, camera shake, harsh studio lighting, warped hands',
     assistHintOverrides: {
       scenePrompt:
-        'Decrit en anglais UNE video verticale 9:16 de 10 secondes, un seul intervenant assis devant un micro sur bras articule dans un studio de podcast (fond au choix : panneaux acoustiques, canape, fauteuil, bibliotheque), decor et tenue gardes identiques du debut a la fin. Structure : plan moyen qui montre le studio, le micro et l intervenant au debut, puis un tres gros plan serre sur le visage (yeux au centre) a la fin. Si l idee evoque des objets, lieux ou actions concrets, tu peux ajouter UN plan de coupe (B-roll) de 2 secondes pendant que la voix continue, puis revenir a l intervenant : decris-le precisement. Aucun dialogue ni texte a l ecran dans cette description, pas de description du visage.',
+        'Decrit en anglais UNE video verticale 9:16 de 10 secondes, un seul intervenant assis devant un micro sur bras articule dans un studio de podcast (fond au choix : panneaux acoustiques, canape, fauteuil, bibliotheque), decor et tenue gardes identiques du debut a la fin. Cadrage : UN SEUL plan fixe, camera immobile sur trepied, meme cadrage du debut a la fin (plan moyen large vertical : l intervenant assis dans son fauteuil, de la tete aux genoux ou aux pieds, avec le micro sur bras et un bout du decor bien visibles), aucun zoom, aucun travelling, aucun mouvement de camera, aucun changement de plan. N ecris jamais de plan large qui se resserre ni de gros plan final. Aucun dialogue ni texte a l ecran dans cette description, pas de description du visage.',
       scriptText:
         'Texte parle en francais, 22 a 24 mots, UNE seule idee, ton pose d intervenant de podcast qui parle a une seule personne, avec des pauses naturelles. Une seule phrase ou deux courtes, pas de guillemets, pas de didascalie, aucune statistique inventee.',
     },
     statut: 'experimental',
-    limites: 'Jamais essaye en generation reelle. Passe par Video Scenario (seul widget avec Omni Flash). Les plans de coupe (B-roll) dans le meme clip sont une hypothese : on ignore si Omni Flash garde la voix et la synchro labiale quand il change de plan. Avec identite verrouillee, flux 2 tours (derive d identite et bouche qui se ferme apres ~1,5 s, voir notes du 2026-10-06). Le procede d origine (#20) part d une image de studio Pinterest avec la persona incrustee : non reproduit ici.',
+    limites: 'Premier essai reel (2026-11-18) : la camera avancait du plan large au gros plan (structure demandee + push-in de la DA Cinema sombre), corrige en cadrage fixe. Passe par Video Scenario (seul widget avec Omni Flash). Les plans de coupe (B-roll) dans le meme clip sont une hypothese : on ignore si Omni Flash garde la voix et la synchro labiale quand il change de plan. Avec identite verrouillee, flux 2 tours (derive d identite et bouche qui se ferme apres ~1,5 s, voir notes du 2026-10-06). Le procede d origine (#20) part d une image de studio Pinterest avec la persona incrustee : non reproduit ici.',
     source: 'tmp/autres/PROMPTS.md #20 (idee du studio et du micro) + tmp/autres/PROMPTS-INBOX.md #39 (plan moyen puis tres gros plan, 20 a 30 mots par scene)',
+  },
+  {
+    id: 'PODCAST_MULTIPLAN',
+    nom: 'Video podcast produite (changements de plan, plusieurs intervenants possibles)',
+    type: 'VIDEO',
+    widgetId: 'SCENARIO_BLOG',
+    tier: null,
+    accountTypeRestriction: null,
+    selectable: true,
+    automatable: false,
+    tags: ['video', 'podcast', 'parle', 'explicatif', 'multi-plans', 'b-roll'],
+    // Variante « production » de PODCAST_PARLE : la mise en scene est plus
+    // scriptee (explicatif, plusieurs intervenants), donc les changements de plan
+    // sont voulus. Le plan fixe, lui, reste dans PODCAST_PARLE.
+    template:
+      '{{scenePrompt}} Professionally produced video podcast, multi-camera editing: clean cuts between a wide establishing shot of the set, medium shots of the speaker and tighter close-ups, with a boom-arm condenser microphone in front of each speaker without covering the mouth, acoustic panels, warm practical lights, shallow depth of field. Each shot stays steady (no handheld shake). Calm conversational delivery, accurate lip sync, natural pauses and small hand gestures. Maintain the same set, outfits, lighting and audio throughout.',
+    negativePrompt:
+      'subtitles, captions, on-screen text, watermarks, logos, microphone covering the mouth, face drift, wardrobe changes, robotic voice, camera shake, harsh studio lighting, warped hands',
+    assistHintOverrides: {
+      scenePrompt:
+        'Decrit en anglais UNE video verticale 9:16 de 10 secondes, filmee comme une production de podcast scriptee et explicative : un ou deux intervenants assis devant des micros sur bras articule dans un studio (panneaux acoustiques, canape, fauteuils, bibliotheque), decor et tenues gardes identiques du debut a la fin. Les changements de plan sont voulus : un plan large qui montre le studio, puis un plan moyen sur l intervenant qui parle (ou sur l interlocuteur qui ecoute, s il y en a deux), puis si besoin un gros plan, chaque plan restant stable et sans mouvement de camera. Si l idee evoque des objets, lieux ou actions concrets, tu peux ajouter UN plan de coupe (B-roll) de 2 secondes pendant que la voix continue, puis revenir a l intervenant : decris-le precisement. Aucun dialogue ni texte a l ecran dans cette description, pas de description du visage.',
+      scriptText:
+        'Texte parle en francais, 22 a 24 mots, UNE seule idee, ton pose d intervenant de podcast qui explique quelque chose a une seule personne, avec des pauses naturelles. Une seule phrase ou deux courtes, pas de guillemets, pas de didascalie, aucune statistique inventee.',
+    },
+    statut: 'experimental',
+    limites: 'Jamais essaye en generation reelle. Les changements de plan dans un meme clip sont une hypothese (voix et synchro labiale gardees ?). Plusieurs intervenants : un seul visage de persona peut etre verrouille ; l interlocuteur est invente par le modele. Le plan de coupe (B-roll) dans le prompt est different de l option « Plans de coupe » de Video Scenario, qui pose des images par-dessus la video (voix intacte). Avec identite verrouillee, flux 2 tours (derive d identite, voir notes du 2026-10-06).',
+    source: 'derive de PODCAST_PARLE (2026-11-18) : demande de l utilisateur de garder les changements de plan pour une production plus scriptee ou a plusieurs intervenants',
   },
 ];
 

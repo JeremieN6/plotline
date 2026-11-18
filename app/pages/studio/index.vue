@@ -397,6 +397,46 @@
                   <option v-for="item in artDirectionsList" :key="item.id" :value="item.id">{{ item.label }}</option>
                 </select>
                 <p v-if="selectedArtDirection" class="mt-1.5 text-xs text-ui-ink-2">{{ selectedArtDirection.description }} Ajoutée en tête de la scène au moment de générer.</p>
+
+                <div v-if="selectedArtDirection?.parameters" class="mt-3 rounded-ui-ctl border border-ui-line bg-ui-subtle p-3">
+                  <p class="text-xs font-semibold text-ui-ink">Réglages actuels</p>
+                  <p class="mt-1 text-xs leading-relaxed text-ui-ink-2">{{ artDirectionSummary }}</p>
+
+                  <div class="mt-3">
+                    <label for="da-change-request" class="text-xs font-semibold text-ui-ink">Changer quelque chose ? (facultatif)</label>
+                    <div class="mt-1 flex flex-wrap items-center gap-2">
+                      <input
+                        id="da-change-request"
+                        v-model="artChangeRequest"
+                        type="text"
+                        maxlength="400"
+                        placeholder="Ex. lumière plus sombre, il regarde la caméra"
+                        class="min-w-0 flex-1 rounded-ui-ctl border border-ui-line bg-ui-surface px-2.5 py-2 text-sm text-ui-ink outline-none focus-visible:border-ui-accent focus-visible:ring-[3px] focus-visible:ring-ui-accent/20"
+                        @keydown.enter.prevent="applyArtChangeRequest"
+                      />
+                      <UiButton variant="secondary" size="sm" :loading="artChangeLoading" :disabled="!artChangeRequest.trim()" @click="applyArtChangeRequest">
+                        {{ artChangeLoading ? 'Réglage…' : 'Appliquer' }}
+                      </UiButton>
+                    </div>
+                    <p v-if="artChangeMessage" class="mt-1.5 text-xs text-ui-ink-2" aria-live="polite">{{ artChangeMessage }}</p>
+                    <p v-if="artChangeError" class="mt-1.5 text-xs text-ui-danger">{{ artChangeError }}</p>
+                  </div>
+
+                  <UiDisclosure title="Régler à la main" class="mt-2">
+                    <div class="grid gap-3 sm:grid-cols-2">
+                      <div v-for="parameter in selectedArtDirection.parameters" :key="parameter.key">
+                        <label :for="`da-param-${parameter.key}`" class="text-xs font-semibold text-ui-ink">{{ parameter.label }}</label>
+                        <select
+                          :id="`da-param-${parameter.key}`"
+                          v-model="artDirectionParams[parameter.key]"
+                          class="mt-1 w-full rounded-ui-ctl border border-ui-line bg-ui-surface px-2.5 py-2 text-sm text-ui-ink outline-none focus-visible:border-ui-accent focus-visible:ring-[3px] focus-visible:ring-ui-accent/20"
+                        >
+                          <option v-for="option in parameter.options" :key="option.id" :value="option.id">{{ option.label }}</option>
+                        </select>
+                      </div>
+                    </div>
+                  </UiDisclosure>
+                </div>
               </div>
 
               <div>
@@ -906,7 +946,7 @@ const selectedProfileHasFaceRef = computed(() => Boolean(String(selectedProfileF
 // template. La generation reutilise ensuite les memes endpoints que le prompt
 // libre (/api/generate/image, /api/generate/video).
 const { widgets: widgetsList, patterns: patternsList, artDirections: artDirectionsList, artDirectionWidgetIds, loadError: widgetsLoadError, loadWidgets, resolveWidget } = useWidgets()
-const { assistFreePrompt, assistWidgetFields, assistCarouselSlides } = usePromptAssist()
+const { assistFreePrompt, assistWidgetFields, assistCarouselSlides, assistArtDirection } = usePromptAssist()
 const selectedWidgetId = ref('')
 const selectedPatternId = ref('')
 const widgetGenerationType = ref('IMAGE')
@@ -924,6 +964,67 @@ const libraryAssetIds = ref([])
 // scene cote serveur au moment de resoudre le widget.
 const selectedArtDirectionId = ref('')
 const selectedArtDirection = computed(() => artDirectionsList.value.find((item) => item.id === selectedArtDirectionId.value) || null)
+
+// DA a parametres (ex. Studio de podcast) : par defaut la DA fournit tout ; une
+// phrase libre (Claude choisit les options) ou les menus du repli permettent de
+// changer un detail. Aucune donnee enregistree : tout vit le temps de la page.
+const artDirectionParams = ref({})
+const artChangeRequest = ref('')
+const artChangeLoading = ref(false)
+const artChangeMessage = ref('')
+const artChangeError = ref('')
+
+function defaultArtParams(direction) {
+  const values = {}
+  for (const parameter of direction?.parameters || []) values[parameter.key] = parameter.default
+  return values
+}
+
+// Resume lisible des reglages en cours : « Decor : ... · Lumiere : ... ».
+const artDirectionSummary = computed(() => {
+  const direction = selectedArtDirection.value
+  if (!direction?.parameters) return ''
+  return direction.parameters
+    .map((parameter) => {
+      const option = parameter.options.find((item) => item.id === artDirectionParams.value[parameter.key])
+      return `${parameter.label} : ${option?.label || '-'}`
+    })
+    .join(' · ')
+})
+
+async function applyArtChangeRequest() {
+  const direction = selectedArtDirection.value
+  const request = artChangeRequest.value.trim()
+  if (!direction?.parameters || !request || artChangeLoading.value) return
+  artChangeLoading.value = true
+  artChangeError.value = ''
+  artChangeMessage.value = ''
+  try {
+    const result = await assistArtDirection({
+      artDirectionId: direction.id,
+      request,
+      currentParams: artDirectionParams.value,
+    })
+    artDirectionParams.value = { ...defaultArtParams(direction), ...result.params }
+    const changedText = (result.changed || []).map((item) => `${item.label} : ${item.value}`).join(' · ')
+    artChangeMessage.value = changedText
+      ? `Changé : ${changedText}.${result.note ? ` ${result.note}` : ''}`
+      : (result.note || 'Rien à changer pour cette demande.')
+    artChangeRequest.value = ''
+  } catch (err) {
+    artChangeError.value = err?.data?.statusMessage || err?.statusMessage || 'Réglage impossible pour le moment.'
+  } finally {
+    artChangeLoading.value = false
+  }
+}
+
+// Changer de DA remet ses valeurs par defaut.
+watch(selectedArtDirectionId, () => {
+  artDirectionParams.value = defaultArtParams(selectedArtDirection.value)
+  artChangeRequest.value = ''
+  artChangeMessage.value = ''
+  artChangeError.value = ''
+})
 
 // Assistant Claude widgets (generique, tous les widgets) : idee libre ->
 // valeurs pour tous les champs texte du widget selectionne (deja des
@@ -1319,6 +1420,7 @@ async function submitWidget() {
     widgetId: widget.id,
     patternId: selectedPatternId.value,
     artDirectionId: artDirectionWidgetIds.value.includes(widget.id) ? selectedArtDirectionId.value : undefined,
+    artDirectionParams: selectedArtDirection.value?.parameters ? artDirectionParams.value : undefined,
     profileId: widget.requiresPersona ? widgetProfileId.value : undefined,
     inputs: widgetInputs.value,
   })

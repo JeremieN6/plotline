@@ -1203,7 +1203,27 @@ test('PODCAST_PARLE: selectionnable par tous les comptes sur Video Scenario, jam
   assert.ok(finalPrompt.startsWith('SCENE_TEXT '));
   assert.ok(finalPrompt.includes('boom arm'));
   assert.ok(finalPrompt.includes('accurate lip sync'));
-  assert.match(finalPrompt, /Avoid: subtitles/);
+  assert.match(finalPrompt, /Avoid: zoom, push-in/);
+  assert.ok(finalPrompt.includes('no zoom, no push-in'));
   assert.ok(widget.variables.find((v) => v.key === 'scriptText').assistHint.includes('22 a 24 mots'));
-  assert.ok(widget.variables.find((v) => v.key === 'scenePrompt').assistHint.includes('plan de coupe'));
+  // Camera fixe : le podcast ne demande plus ni zoom ni gros plan final.
+  assert.ok(widget.variables.find((v) => v.key === 'scenePrompt').assistHint.includes('aucun zoom'));
+});
+
+test('PODCAST_MULTIPLAN: variante produite, changements de plan voulus, jamais automatique, sans interdit de zoom', () => {
+  for (const accountType of ['INFLUENCER_CREATOR', 'CONTENT_CREATOR', 'BRAND']) {
+    const ids = listSelectablePatterns({ widgetId: 'SCENARIO_BLOG', accountType }).map((pattern) => pattern.id);
+    assert.ok(ids.includes('PODCAST_MULTIPLAN'), accountType);
+  }
+  assert.equal(getAutomatablePatternForWidget('SCENARIO_BLOG')?.id, 'SCENARIO_CONVERSATIONNEL');
+
+  const pattern = resolvePatternForAccount({ patternId: 'PODCAST_MULTIPLAN', widgetId: 'SCENARIO_BLOG', accountType: 'BRAND' });
+  const widget = buildEffectiveWidget(getWidgetById('SCENARIO_BLOG'), pattern);
+  const { finalPrompt } = resolveWidgetPrompt(widget, { inputs: { scenePrompt: 'SCENE_TEXT', scriptText: 'SCRIPT' } });
+
+  assert.ok(finalPrompt.includes('clean cuts'));
+  assert.ok(!/Avoid:.*zoom/.test(finalPrompt));
+  const hint = widget.variables.find((v) => v.key === 'scenePrompt').assistHint;
+  assert.ok(hint.includes('changements de plan sont voulus'));
+  assert.ok(hint.includes('plan de coupe'));
 });

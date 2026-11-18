@@ -35,10 +35,17 @@ export function useWidgets() {
     }
   }
 
-  async function resolveWidget({ widgetId, patternId, artDirectionId, profileId, inputs }) {
+  async function resolveWidget({ widgetId, patternId, artDirectionId, artDirectionParams, profileId, inputs }) {
     return await $fetch('/api/widgets/resolve', {
       method: 'POST',
-      body: { widgetId, patternId: patternId || undefined, artDirectionId: artDirectionId || undefined, profileId, inputs },
+      body: {
+        widgetId,
+        patternId: patternId || undefined,
+        artDirectionId: artDirectionId || undefined,
+        artDirectionParams: artDirectionId ? artDirectionParams : undefined,
+        profileId,
+        inputs,
+      },
     })
   }
 

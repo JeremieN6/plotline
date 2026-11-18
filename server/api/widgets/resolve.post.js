@@ -90,7 +90,7 @@ export default defineEventHandler(async (event) => {
       if (!ART_DIRECTION_WIDGET_IDS.includes(widget.id)) {
         return sendError(event, createError({ statusCode: 400, statusMessage: 'Ce widget n accepte pas de direction artistique' }));
       }
-      finalPrompt = applyArtDirection(finalPrompt, artDirectionId);
+      finalPrompt = applyArtDirection(finalPrompt, artDirectionId, body?.artDirectionParams);
     }
 
     return {
