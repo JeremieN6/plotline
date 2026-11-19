@@ -26,6 +26,7 @@ export default defineEventHandler(async (event) => {
       captions: context.captions,
       packIds: Object.keys(context.packEntries),
       illustrationIds: Object.keys(context.illustrations),
+      illustrations: context.illustrations,
       maxNew: context.maxNew,
       allowTags: clone,
     });

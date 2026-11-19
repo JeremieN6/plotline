@@ -75,7 +75,8 @@
           </div>
         </div>
 
-        <UiField label="Ce que dit la voix" :for-id="`plan-say-${index}`" :hint="clone ? 'Avec les balises de ton entre crochets si tu en veux.' : ''">
+        <UiField label="Ce que dit la voix" :for-id="`plan-say-${index}`" :hint="(clone ? 'Avec les balises de ton entre crochets si tu en veux.
+' : '') + 'Pour montrer un logo du dossier quand un mot est dit : écris [logo : Nom] juste après ce mot (pas lu à voix haute).'">
           <UiTextarea :id="`plan-say-${index}`" v-model="scene.say" :rows="2" :maxlength="400" :readonly="lockSpoken" @focus="focused = index" />
         </UiField>
 

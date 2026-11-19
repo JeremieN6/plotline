@@ -15,6 +15,7 @@ import { findCatalogEntry } from '../data/facelessAvatarCatalog.js';
 import { ILLUSTRATION_KINDS, MAX_ILLUSTRATION_PROMPT, MAX_NEW_PER_VIDEO } from '../data/facelessIllustrations.js';
 import { countSpokenTokens } from './facelessTimeline.js';
 import { AUDIO_TAGS, normalizeAudioTags, stripAudioTags } from './audioTags.js';
+import { hasImageMarkers, resolveImageMarkers } from './facelessMarkers.js';
 import { TEXT_STYLE_PROMPT_LINES, stripDashPunctuation } from './textStyleRules.js';
 import { FACELESS_LAYOUTS, FACELESS_POSES, FACELESS_SFX, FACELESS_SLIDESHOW_TRANSITIONS, LOGO_STACK_MAX_IMAGES, SLIDESHOW_MAX_IMAGES } from '../data/facelessCatalog.js';
 import { FACELESS_SFX_PALETTES } from '../data/facelessSfxPalettes.js';
@@ -107,6 +108,7 @@ function illustrationPromptLines(illustrations, maxNew) {
   } else {
     lines.push('- aucune');
   }
+  lines.push('Logo ou image du dossier montre PENDANT une scene : si le createur demande d afficher un logo (ou une image de la liste) quand un mot est dit, ecris dans le "say" de la scene, JUSTE APRES ces mots, un marqueur [logo : Nom] (Nom = le libelle de la liste ci-dessus, tel quel, jamais un id). Le marqueur n est ni lu ni affiche : la scene montre alors ce logo ; plusieurs marqueurs dans la meme scene = logos qui s ajoutent un a un (6 au plus). Si le logo demande n est pas dans la liste, ecris quand meme le marqueur : le createur sera prevenu. N utilise ce marqueur que sur demande du createur ou pour une marque qu il cite et dont le logo est dans la liste.');
   lines.push('Mise en page "photo" : une image dans un cadre, pour illustrer concretement ce qui est dit (un lieu, un objet, une situation), jamais pour decorer. Au plus une scene "photo" sur trois.');
   if (ids.length >= 2) {
     lines.push('Mise en page "slideshow" : 2 a 5 images de la liste qui se suivent dans le meme cadre, pour parcourir les etapes d une demo ou d une interface. Au plus UNE scene "slideshow" par video. "images" : [{ "id": id EXACT d une illustration, "at": un mot EXACT du texte dit de la scene qui declenche cette image (vide pour la premiere) }], dans l ordre ou elles apparaissent. Laisse "transition" et "imageSound" vides.');
@@ -270,7 +272,21 @@ function sanitizeAvatar(avatar, layout, packIds = []) {
 }
 
 /** Pur : nettoie une scene ; renvoie null si elle n a rien a dire. */
-export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illustrationIds = [], newBudget = { left: 0 }, allowTags = false } = {}) {
+export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illustrationIds = [], newBudget = { left: 0 }, allowTags = false, illustrations = null, notices = null } = {}) {
+  // Marqueurs [logo : Nom] du texte dit : retires de la voix, convertis en images du dossier de la persona
+  // (seulement quand on connait ce dossier). Un nom introuvable est signale (`notices`), jamais ignore en silence.
+  if (illustrations && typeof raw?.say === 'string' && hasImageMarkers(raw.say)) {
+    const found = resolveImageMarkers(raw.say, illustrations, { max: LOGO_STACK_MAX_IMAGES });
+    if (Array.isArray(notices)) notices.push(...found.notices);
+    raw = { ...raw, say: found.say };
+    if (found.images.length === 1) {
+      raw = { ...raw, layout: 'photo', image: found.images[0].id, newImage: null, frame: '' };
+    } else if (found.images.length > 1) {
+      raw = { ...raw, layout: 'slideshow', display: 'stack', images: found.images, transition: '', imageSound: '' };
+    }
+  }
+  if (illustrations && !illustrationIds.length) illustrationIds = Object.keys(illustrations);
+
   // Les balises de ton ne servent qu a la voix clonee : ailleurs elles seraient LUES a voix haute, on les retire.
   const spoken = allowTags ? normalizeAudioTags(stripDashPunctuation(raw?.say)) : stripAudioTags(stripDashPunctuation(raw?.say));
   const say = allowTags ? normalizeAudioTags(clip(spoken, 400)) : clip(spoken, 320);
@@ -389,13 +405,14 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
 }
 
 /** Pur : plan complet nettoye. Leve une erreur si moins de 2 scenes exploitables. */
-export function sanitizeFacelessPlan(raw, { captions = true, packIds = [], illustrationIds = [], maxNew = 0, maxScenes = MAX_SCENES, maxChars = MAX_SPOKEN_CHARS, allowTags = false } = {}) {
+export function sanitizeFacelessPlan(raw, { captions = true, packIds = [], illustrationIds = [], maxNew = 0, maxScenes = MAX_SCENES, maxChars = MAX_SPOKEN_CHARS, allowTags = false, illustrations = null } = {}) {
   const scenes = [];
+  const notices = [];
   const newBudget = { left: Math.max(0, Math.min(Number(maxNew) || 0, MAX_NEW_PER_VIDEO)) };
   let spokenChars = 0;
 
   for (const candidate of (Array.isArray(raw?.scenes) ? raw.scenes : []).slice(0, maxScenes)) {
-    const scene = sanitizeFacelessScene(candidate, { captions, packIds, illustrationIds, newBudget, allowTags });
+    const scene = sanitizeFacelessScene(candidate, { captions, packIds, illustrationIds, newBudget, allowTags, illustrations, notices });
     if (!scene) continue;
     if (spokenChars + stripAudioTags(scene.say).length > maxChars) break;
     // Une scene sans aucun mot (ponctuation seule) casserait la repartition des mots.
@@ -414,6 +431,8 @@ export function sanitizeFacelessPlan(raw, { captions = true, packIds = [], illus
       .filter((tag) => tag.length > 1),
     theme: 'papercraft-pastel',
     scenes,
+    // Avertissements a montrer au createur (ex. un logo demande qui n est pas dans le dossier) ; absent s il n y en a pas.
+    ...(notices.length ? { notices: [...new Set(notices)] } : {}),
   };
 }
 
@@ -453,7 +472,7 @@ export function parseFacelessPlanResponse(rawText) {
   return JSON.parse(text.slice(start, end + 1));
 }
 
-async function askClaudeForPlan({ system, userContent, captions, packIds, illustrationIds, maxNew, allowTags = false, apiKey, createMessage }) {
+async function askClaudeForPlan({ system, userContent, captions, packIds, illustrationIds, illustrations = null, maxNew, allowTags = false, apiKey, createMessage }) {
   const key = String(apiKey || process.env.ANTHROPIC_API_KEY || '').trim();
   if (!createMessage && !key) throw new Error('ANTHROPIC_API_KEY non configuree');
 
@@ -466,7 +485,7 @@ async function askClaudeForPlan({ system, userContent, captions, packIds, illust
   const response = await (createMessage ? createMessage(request) : new Anthropic({ apiKey: key }).messages.create(request));
   const text = (response?.content || []).filter((b) => b?.type === 'text').map((b) => b.text).join('\n');
 
-  return sanitizeFacelessPlan(parseFacelessPlanResponse(text), { captions, packIds, illustrationIds, maxNew, allowTags });
+  return sanitizeFacelessPlan(parseFacelessPlanResponse(text), { captions, packIds, illustrationIds, maxNew, allowTags, illustrations });
 }
 
 /** Appel Claude. `createMessage` est injectable (tests). */
@@ -478,6 +497,7 @@ export async function generateFacelessPlan({ idea, sourceText = '', direction = 
     captions,
     packIds: Object.keys(packEntries || {}),
     illustrationIds: Object.keys(illustrations || {}),
+    illustrations: illustrations || {},
     maxNew,
     apiKey,
     createMessage,
@@ -571,6 +591,7 @@ export async function retouchFacelessPlan({ plan, instruction, persona, targetSe
     captions,
     packIds: Object.keys(packEntries || {}),
     illustrationIds: Object.keys(illustrations || {}),
+    illustrations: illustrations || {},
     maxNew: 0,
     apiKey,
     createMessage,

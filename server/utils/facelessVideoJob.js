@@ -210,8 +210,10 @@ export async function produceFacelessVideo({ idea, sourceText = '', direction = 
 
   onStep('plan');
   let plan = givenPlan
-    ? sanitizeFacelessPlan(givenPlan, { captions, packIds, illustrationIds: Object.keys(illustrations), maxNew, allowTags: clone })
+    ? sanitizeFacelessPlan(givenPlan, { captions, packIds, illustrationIds: Object.keys(illustrations), illustrations, maxNew, allowTags: clone })
     : await generateFacelessPlan({ idea, sourceText, direction, persona, targetSeconds, captions, style: da, packEntries, illustrations, maxNew, toneTags: clone });
+
+  if (givenPlan && plan.notices?.length) throw new Error(plan.notices.join(' '));
 
   // Nouvelles images demandees par Claude (autorisees et plafonnees en amont) : generees AVANT la voix,
   // pour ne rien depenser de plus si une etape echoue.
@@ -249,6 +251,7 @@ export async function retouchFacelessVideo({ spec, instruction, plan: editedPlan
     captions: spec.captions !== false,
     packIds: Object.keys(packEntries || {}),
     illustrationIds: Object.keys(known),
+    illustrations: known,
     maxNew: 0,
     allowTags: spec?.voice?.source === 'clone',
   }) : await retouchFacelessPlan({
@@ -263,6 +266,8 @@ export async function retouchFacelessVideo({ spec, instruction, plan: editedPlan
   });
 
   // Ma voix : le texte dit est fige, on remet la forme exacte des mots d origine (meme nombre de mots seulement).
+  // Un logo demande par un marqueur [logo : Nom] et absent du dossier : on arrete AVANT toute depense (voix).
+  if (editedPlan && retouched.notices?.length) throw new Error(retouched.notices.join(' '));
   const plan = ownVoice ? restoreSpokenText(retouched, spec.plan) : retouched;
   const newVoice = spokenTextChanged(spec.plan, plan);
   if (newVoice && ownVoice) throw new Error(ownVoiceRefusal);

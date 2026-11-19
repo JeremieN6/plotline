@@ -232,6 +232,9 @@
           />
           <UiAlert v-if="errorMessage" title="La génération n’a pas pu démarrer">{{ errorMessage }}</UiAlert>
           <UiAlert v-if="planError" title="Le plan n’a pas pu être préparé">{{ planError }}</UiAlert>
+          <UiAlert v-if="plan?.notices?.length" title="Une image demandée est introuvable">
+            <p v-for="notice in plan.notices" :key="notice">{{ notice }}</p>
+          </UiAlert>
 
           <UiAlert v-if="plan && planRestoredAt" tone="info" title="Plan retrouvé">
             Ce plan était enregistré dans ce navigateur ({{ planRestoredLabel }}), avec la DA « {{ selectedStyle?.name || 'principale' }} ». Rien n'a été redemandé à Claude. « Abandonner ce plan » pour repartir de zéro.

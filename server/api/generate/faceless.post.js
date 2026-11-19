@@ -88,11 +88,16 @@ export default defineEventHandler(async (event) => {
         captions,
         packIds: Object.keys(readyPackEntries(style)),
         illustrationIds: persona ? Object.keys(readyIllustrations(style)) : [],
+        illustrations: persona ? readyIllustrations(style) : {},
         maxNew: Math.max(0, Math.min(MAX_NEW_PER_VIDEO, Math.floor(Number(body?.illustrations?.maxNew) || 0))),
         allowTags: voiceMode === 'clone',
       });
     } catch {
       return sendError(event, createError({ statusCode: 400, statusMessage: 'Plan invalide (2 scènes au moins, avec du texte dit)' }));
+    }
+    // Un logo demande par un marqueur [logo : Nom] qui n est pas dans le dossier : on le dit AVANT de depenser quoi que ce soit.
+    if (plan.notices?.length) {
+      return sendError(event, createError({ statusCode: 400, statusMessage: plan.notices.join(' ') }));
     }
   }
 

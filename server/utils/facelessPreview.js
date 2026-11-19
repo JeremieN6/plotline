@@ -119,6 +119,7 @@ export function buildScenePreview(rawScene, { style, packEntries = {}, illustrat
     captions: style.captions.enabled,
     packIds: Object.keys(packEntries),
     illustrationIds: Object.keys(illustrations),
+    illustrations,
     allowTags: true,
   });
   const plan = { theme: style.preset, scenes: [{ ...scene, sfx: [] }] };
