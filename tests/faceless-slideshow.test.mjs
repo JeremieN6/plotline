@@ -118,7 +118,8 @@ test('images utilisees : celles du defile sont chargees et figees avec la video'
 });
 
 test('editeur : champs du defile, avertissement sous 2 images', () => {
-  assert.deepEqual(sceneFieldsFor('slideshow', 'dashboard').slideshow, { max: 5, min: 2 });
+  assert.deepEqual(sceneFieldsFor('slideshow', 'dashboard').slideshow, { max: 5, maxStack: 6, min: 2, stack: true });
+  assert.equal(sceneFieldsFor('slideshow', 'journal').slideshow.stack, false);
   assert.equal(sceneFieldsFor('photo', 'dashboard').slideshow, null);
   assert.match(incompleteReason({ layout: 'slideshow', images: [{ id: 'a' }] }), /au moins 2 images/);
   assert.equal(incompleteReason({ layout: 'slideshow', images: [{ id: 'a' }, { id: 'b' }] }), '');

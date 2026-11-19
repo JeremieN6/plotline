@@ -5,6 +5,7 @@ import { FENETRE_CAPTION_TOP, fenetreCss, fenetreScene } from './facelessTemplat
 import { CAHIER_CAPTION_TOP, cahierCss, cahierScene } from './facelessTemplateCahier.js';
 import { EDITEUR_CAPTION_TOP, editeurCss, editeurScene } from './facelessTemplateEditeur.js';
 import { BRUTAL_CAPTION_TOP, brutalBg, brutalCss, brutalScene } from './facelessTemplateBrutal.js';
+import { logoGridHtml } from './facelessLogoGrid.js';
 import { DASHBOARD_CAPTION_TOP, dashboardBg, dashboardCss, dashboardScene } from './facelessTemplateDashboard.js';
 import { HERBIER_CAPTION_TOP, herbierCss, herbierScene } from './facelessTemplateHerbier.js';
 import { HANKO_CAPTION_TOP, hankoCss, hankoScene } from './facelessTemplateHanko.js';
@@ -23,7 +24,9 @@ const ENGINES = {
   herbier: { scene: herbierScene, css: herbierCss, captionTop: HERBIER_CAPTION_TOP, capWrap: true },
   hanko: { scene: hankoScene, css: hankoCss, captionTop: HANKO_CAPTION_TOP, capWrap: true },
   journal: { scene: journalScene, css: journalCss, captionTop: JOURNAL_CAPTION_TOP, capWrap: false },
-  dashboard: { scene: dashboardScene, css: dashboardCss, captionTop: DASHBOARD_CAPTION_TOP, capWrap: true, bg: dashboardBg },
+  // "logoStack" : le modele sait afficher des logos qui s ajoutent un a un (defile en mode « stack », voir facelessLogoGrid.js) ;
+  // pour l ajouter a un autre modele : poser ce drapeau et appeler ctx.logoGrid dans sa mise en page photo (comme Dashboard).
+  dashboard: { scene: dashboardScene, css: dashboardCss, captionTop: DASHBOARD_CAPTION_TOP, capWrap: true, bg: dashboardBg, logoStack: true },
   brutal: { scene: brutalScene, css: brutalCss, captionTop: BRUTAL_CAPTION_TOP, capWrap: true, bg: brutalBg },
 };
 
@@ -428,12 +431,25 @@ export function centerShift({ top, bottom }, band) {
   return Math.abs(dy) < 24 ? 0 : dy;
 }
 
+/**
+ * Pur : une image est traitee comme un logo (petite, centree) si elle est marquee « logo » OU si elle est presque carree
+ * (largeur / hauteur entre 0,8 et 1,25) et de petite taille (1 000 px au plus de chaque cote) : une capture de site, plus
+ * large ou plus haute, garde la fenetre a sa forme.
+ */
+export function isLogoShape(width, height, marked) {
+  if (marked) return true;
+  if (!(width > 0) || !(height > 0)) return false;
+  const ratio = width / height;
+  return ratio >= 0.8 && ratio <= 1.25 && width <= 1000 && height <= 1000;
+}
+
 // Execute dans la page. Aucune animation CSS : tout depend de t.
 function buildRuntime(fontFamilies, extraLoads = []) {
   return `
 (() => {
   ${contentBand.toString()}
   ${centerShift.toString()}
+  ${isLogoShape.toString()}
   const data = JSON.parse(document.getElementById('timeline').textContent);
   const scenes = [...document.querySelectorAll('.scene')];
   const caps = document.getElementById('captions');
@@ -732,7 +748,10 @@ function buildRuntime(fontFamilies, extraLoads = []) {
       const img = wrap.querySelector('img.shot');
       if (!img || !img.naturalWidth) return;
       const S = 940 / 1080, M = +wrap.dataset.shotM || 28, maxScreen = +wrap.dataset.fitShot, bar = 92;
-      const want = (1080 - 2 * M) * (img.naturalHeight / img.naturalWidth) + 2 * M;
+      // Un logo (marque « logo », ou image presque carree et petite) ne remplit pas l ecran : fenetre de taille normale,
+      // logo petit et centre (un tiers de la largeur environ), la pastille de legende reste dessous.
+      const logo = isLogoShape(img.naturalWidth, img.naturalHeight, wrap.dataset.shotLogo === '1');
+      const want = logo ? 680 / S : (1080 - 2 * M) * (img.naturalHeight / img.naturalWidth) + 2 * M;
       const boxH = Math.max(300 / S, Math.min(want, maxScreen / S));
       const screenH = Math.round(boxH * S), height = bar + screenH;
       wrap.style.height = height + 'px';
@@ -741,8 +760,16 @@ function buildRuntime(fontFamilies, extraLoads = []) {
       wrap.querySelector('.wscreen').style.height = screenH + 'px';
       wrap.querySelector('.wscale').style.top = '0px';
       const holder = img.closest('.fx');
-      holder.style.top = M + 'px';
-      holder.style.height = (boxH - 2 * M) + 'px';
+      if (logo) {
+        const side = Math.min(380, boxH - 2 * M - 180);
+        holder.style.width = side + 'px';
+        holder.style.height = side + 'px';
+        holder.style.left = Math.round((1080 - side) / 2) + 'px';
+        holder.style.top = Math.round((boxH - 150 - side) / 2) + 'px';
+      } else {
+        holder.style.top = M + 'px';
+        holder.style.height = (boxH - 2 * M) + 'px';
+      }
       const cap = wrap.querySelector('.shot-cap');
       if (cap && cap.closest('.fx')) cap.closest('.fx').style.top = (boxH - 190) + 'px';
     });
@@ -795,6 +822,17 @@ export function slideshowAsPhoto(scene) {
  * Pur : ajoute au HTML de la scene les attributs qui font changer l image (la premiere image du defile) et, caches hors
  * de l ecran, les autres images : la page attend qu elles soient chargees avant de capturer, donc aucune image vide.
  */
+/**
+ * Pur : un defile en mode « stack » (logos qui s'ajoutent) est dessine par la mise en page PHOTO du modele, avec le drapeau
+ * `stack` et la liste des images ; la page ne change alors AUCUNE image (pas de `slideshow`). Une scene a moins de 2 images
+ * reste une scene photo.
+ */
+export function slideshowAsStack(scene) {
+  const images = Array.isArray(scene?.images) ? scene.images : [];
+  const base = { ...scene, layout: 'photo', image: images[0]?.id || '', __orig: scene };
+  return images.length < 2 ? base : { ...base, stack: true };
+}
+
 export function injectSlideshow(html, scene) {
   const show = scene?.slideshow;
   if (!show) return html;
@@ -826,12 +864,15 @@ export function buildFacelessHtml(timeline, options = {}) {
     style,
     illustrations: T.illustrations,
     illustrationUrl: (id) => `${FACELESS_ASSET_ORIGIN}/illustration/${encodeURIComponent(id)}.jpg`,
+    // Grille de logos qui s ajoutent au fil de la voix : la zone et l habillage (.logo-tile) sont ceux du modele.
+    logoGrid: (images, box, opts = {}) => logoGridHtml(images, box, { fx, url: (id) => `${FACELESS_ASSET_ORIGIN}/illustration/${encodeURIComponent(id)}.jpg`, ...opts }),
     isLast: (scene) => (scene.__orig || scene) === timeline.scenes[timeline.scenes.length - 1],
     seed: nextSeed,
   };
   const bgFor = (scene) => (engine?.bg ? engine.bg(scene) : bgOf(scene));
   const scenesHtml = timeline.scenes.map((original) => {
-    const scene = slideshowAsPhoto(original);
+    const asStack = original.layout === 'slideshow' && original.display === 'stack' && engine?.logoStack;
+    const scene = asStack ? slideshowAsStack(original) : slideshowAsPhoto(original);
     if (engine) return `<section class="scene bg-${bgFor(scene)}"><div class="bg"></div>${injectSlideshow(engine.scene(scene, ctx), scene)}</section>`;
     const layout = LAYOUTS[scene.layout] || LAYOUTS.avatar;
     return `<section class="scene bg-${bgOf(scene)}"><div class="bg"></div>${decorLayer()}${injectSlideshow(layout(scene), scene)}</section>`;

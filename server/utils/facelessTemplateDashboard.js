@@ -8,6 +8,7 @@
  * Rouge et vert ne servent qu au sens (baisse / hausse) et sont toujours doubles d un mot ou d une fleche.
  */
 
+import { logoRows, logoTileCss } from './facelessLogoGrid.js';
 import { esc, parseCountable, revealTimes, revealUnits, spokenAt } from './facelessTemplateFenetre.js';
 import { pace } from './facelessTemplateEditeur.js';
 
@@ -300,6 +301,10 @@ export const SCREEN_SCALE = SCREEN_FRAME.w / 1080;
 export const FRAME_BOX = {
   hook: [380, 1440], title: [380, 1220], list: [380, 1340], word: [560, 1180], stat: [380, 1450],
   avatar: [480, 1120], photo: [380, 1500], logo: [640, 1020],
+  // Logos qui s ajoutent un a un (defile en mode « stack ») : fenetre assez haute pour 3 + 3 logos.
+  stack: [440, 1340],
+  // ... et sur une seule rangee (2 ou 3 logos).
+  stackRow: [600, 1200],
 };
 
 /** Pur : geometrie de la fenetre d une mise en page : hauteur d ecran, hauteur totale, haut de la fenetre. */
@@ -316,17 +321,22 @@ export function windowAddress(scene) {
   return String(scene?.tab || '').trim() || 'tableau-de-bord';
 }
 
-function screenWindow(ctx, inner, kind, dark, address = 'tableau-de-bord', shot = false) {
+function screenWindow(ctx, inner, kind, dark, address = 'tableau-de-bord', shot = false, logo = false) {
   const g = screenFrameGeometry(kind);
   const html = `<div class="win${dark ? ' dk' : ''}" style="height:${g.height}px">`
     + `<div class="wbar"><span class="wdot r"></span><span class="wdot y"></span><span class="wdot g"></span><span class="waddr">${esc(address)}</span></div>`
     + `<div class="wscreen" style="height:${g.screenH}px"><div class="wscale" style="top:${-Math.round(g.boxTop * SCREEN_SCALE)}px">${inner}</div></div></div>`;
   return `<div class="wback${dark ? ' dk' : ''}"></div>`
-    + ctx.fx(html, { x: SCREEN_FRAME.x, y: g.y, w: SCREEN_FRAME.w, h: g.height, enter: 'window', fixedEnter: true, z: 2, boil: 0, data: shot ? { exit: 'shrink', 'fit-shot': g.screenH, 'shot-m': SHOT_MARGIN } : { exit: 'shrink' } });
+    + ctx.fx(html, { x: SCREEN_FRAME.x, y: g.y, w: SCREEN_FRAME.w, h: g.height, enter: 'window', fixedEnter: true, z: 2, boil: 0, data: shot ? { exit: 'shrink', 'fit-shot': g.screenH, 'shot-m': SHOT_MARGIN, ...(logo ? { 'shot-logo': 1 } : {}) } : { exit: 'shrink' } });
 }
 
 // Marge autour de l image dans l ecran (unites de la scene) : une capture n est jamais rognee ni collee aux bords.
 const SHOT_MARGIN = 28;
+
+/** Pur : l illustration est marquee « Logo de marque » (affichee petite et centree dans une fenetre de taille normale). */
+export function shotIsLogo(entry) {
+  return entry?.kind === 'logo';
+}
 
 /** Une seule image dans l ecran : l illustration du dossier remplit tout l ecran, la legende en pastille au bas. */
 function screenShot(scene, ctx) {
@@ -338,14 +348,37 @@ function screenShot(scene, ctx) {
   return img + cap;
 }
 
+/**
+ * Logos qui s'ajoutent un a un au fil de la voix (defile en mode « stack »). `box` = zone des logos en unites de la scene ;
+ * une legende facultative (`scene.text`) se pose en pastille sous la grille.
+ */
+function logoStack(scene, ctx, box) {
+  const caption = scene.text ? 130 : 0;
+  const grid = ctx.logoGrid(scene.images, { x: box.x, y: box.y, w: box.w, h: box.h - caption }, { enter: 'card' });
+  const cap = scene.text
+    ? ctx.fx(`<div class="shot-cap">${esc(noMarks(scene.text))}</div>`, { x: 60, y: box.y + box.h - 100, w: 960, enter: 'card', fixedEnter: true, at: 0.4, rot: 0, boil: 0, z: 3 })
+    : '';
+  return grid + cap;
+}
+
 /** HTML d une scene pour le modele Dashboard. */
 export function dashboardScene(scene, ctx) {
+  if (scene.stack && Array.isArray(scene.images)) {
+    if (!ctx.style.screenFrame) return logoStack(scene, ctx, { x: 40, y: 560, w: 1000, h: 800 });
+    frontHtml = '';
+    // Une seule rangee (2 ou 3 logos) : fenetre plus basse, sinon elle resterait presque vide.
+    const frame = logoRows(scene.images.length).length === 1 ? 'stackRow' : 'stack';
+    const g = screenFrameGeometry(frame);
+    const html = screenWindow(ctx, logoStack(scene, ctx, { x: 40, y: g.boxTop + 40, w: 1000, h: g.boxH - 80 }), frame, scene.bg === 'dark', windowAddress(scene));
+    frontHtml = '';
+    return html;
+  }
   const kind = LAYOUTS[scene.layout] ? scene.layout : 'avatar';
   const layout = LAYOUTS[kind];
   if (!ctx.style.screenFrame) return layout(scene, ctx);
   frontHtml = '';
   const shot = kind === 'photo' && ctx.illustrations[scene.image];
-  const html = screenWindow(ctx, shot ? screenShot(scene, ctx) : layout(scene, ctx), shot ? 'photo' : kind, scene.bg === 'dark', windowAddress(scene), Boolean(shot));
+  const html = screenWindow(ctx, shot ? screenShot(scene, ctx) : layout(scene, ctx), shot ? 'photo' : kind, scene.bg === 'dark', windowAddress(scene), Boolean(shot), shotIsLogo(shot));
   const front = frontHtml;
   frontHtml = '';
   return html + front;
@@ -426,6 +459,7 @@ body{background:${p.background};font-family:"${fontFamily}",${emojiFonts},sans-s
 .win.dk{background:#16213b;box-shadow:0 0 0 2px #2c3b5e,0 30px 70px rgba(0,0,0,.55)}.win.dk .wbar{background:#162036;border-color:#243049}.win.dk .waddr{background:#0f172a;border-color:#243049;color:#94a3b8}.win.dk .wscreen{background:#141f38}
 .shot{display:block;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 8px 22px rgba(15,23,42,.28))}
 .shot-cap{display:inline-block;background:#fff;border-radius:999px;padding:20px 44px;font-size:46px;font-weight:600;letter-spacing:-.02em;box-shadow:0 12px 34px rgba(15,23,42,.22)}
+${logoTileCss({ background: '#fff', radius: 44, shadow: '0 12px 34px rgba(15,23,42,.18)' })}
 #captions{position:absolute;left:70px;width:860px;top:190px;z-index:20;display:none;justify-content:center;white-space:nowrap}
 #captions .cap-in{display:inline-flex;align-items:center;gap:16px;background:#fff;border-radius:999px;padding:18px 44px;box-shadow:0 10px 30px rgba(15,23,42,.14)}
 #captions .cap-in::before{content:"";width:18px;height:18px;border-radius:50%;background:var(--accent);flex:0 0 auto}

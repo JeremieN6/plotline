@@ -179,10 +179,18 @@
         </UiField>
 
         <div v-if="specOf(scene).slideshow" class="space-y-3">
+          <UiField
+            v-if="specOf(scene).slideshow.stack"
+            label="Affichage des images"
+            :for-id="`plan-display-${index}`"
+            hint="« Les images s’ajoutent » : chaque logo apparaît au mot que tu dis et reste, rangés proprement (2 à 6)."
+          >
+            <UiSelect :id="`plan-display-${index}`" :model-value="scene.display || 'replace'" :options="displays" @update:model-value="setDisplay(scene, $event)" />
+          </UiField>
           <StudioFacelessImagePicker
             multiple
             :values="(scene.images || []).map((image) => image.id)"
-            :max="specOf(scene).slideshow.max"
+            :max="stackOn(scene) ? specOf(scene).slideshow.maxStack : specOf(scene).slideshow.max"
             :profile-id="profileId"
             :illustrations="illustrations"
             :scene-index="index"
@@ -210,13 +218,14 @@
             </li>
           </ol>
           <p class="text-xs leading-5 text-ui-ink-muted">
-            Sans mot déclencheur, les images se partagent la scène à parts égales. Avec des mots, chaque image reste jusqu’au mot suivant.
+            <template v-if="stackOn(scene)">Sans mot déclencheur, les images apparaissent à intervalles réguliers. Chaque logo reste affiché jusqu’à la fin de la scène.</template>
+            <template v-else>Sans mot déclencheur, les images se partagent la scène à parts égales. Avec des mots, chaque image reste jusqu’au mot suivant.</template>
           </p>
           <div class="grid gap-3 sm:grid-cols-2">
-            <UiField label="Animation du passage d’une image à l’autre" :for-id="`plan-transition-${index}`">
+            <UiField v-if="!stackOn(scene)" label="Animation du passage d’une image à l’autre" :for-id="`plan-transition-${index}`">
               <UiSelect :id="`plan-transition-${index}`" :model-value="scene.transition || 'fade'" :options="transitions" @update:model-value="scene.transition = $event" />
             </UiField>
-            <UiField label="Bruitage à chaque changement" :for-id="`plan-image-sound-${index}`" hint="Automatique : le son d’interface du modèle visuel.">
+            <UiField :label="stackOn(scene) ? 'Bruitage à chaque logo' : 'Bruitage à chaque changement'" :for-id="`plan-image-sound-${index}`" hint="Automatique : le son d’interface du modèle visuel.">
               <UiSelect :id="`plan-image-sound-${index}`" :model-value="scene.imageSound || ''" :options="soundOptions" @update:model-value="scene.imageSound = $event" />
             </UiField>
           </div>
@@ -279,6 +288,8 @@ const props = defineProps({
   illustrations: { type: Array, default: () => [] },
   // Defile d'images : animations de passage et bruitages proposes par le serveur.
   transitionOptions: { type: Array, default: () => [] },
+  // Defile d'images : modes d'affichage (une image a la fois / images qui s'ajoutent), servis par le serveur.
+  displayOptions: { type: Array, default: () => [] },
   sfxOptions: { type: Array, default: () => [] },
   clone: { type: Boolean, default: false },
   // 'edit' : plan d une video DEJA faite (nouvelle version, pas de revision par Claude). lockSpoken : ma propre voix, texte dit fige.
@@ -352,6 +363,15 @@ const TOAST_OPTIONS = [
 
 // Defile d'images.
 const transitions = computed(() => (props.transitionOptions.length ? props.transitionOptions : [{ value: 'fade', label: 'Fondu' }, { value: 'cut', label: 'Coupe franche' }, { value: 'zoom', label: 'Zoom' }, { value: 'wipe', label: 'Balayage' }]))
+const displays = computed(() => (props.displayOptions.length ? props.displayOptions : [{ value: 'replace', label: 'Une image à la fois (la suivante remplace la précédente)' }, { value: 'stack', label: 'Les images s’ajoutent côte à côte (logos)' }]))
+// Mode « les images s'ajoutent » : seulement si le modele visuel de la DA sait l'afficher.
+const stackOn = (scene) => scene.display === 'stack' && Boolean(specOf(scene).slideshow?.stack)
+function setDisplay(scene, value) {
+  scene.display = value === 'stack' ? 'stack' : 'replace'
+  const max = scene.display === 'stack' ? 6 : 5
+  if ((scene.images || []).length > max) scene.images = scene.images.slice(0, max)
+  previews.value = {}
+}
 const soundOptions = computed(() => [{ value: '', label: 'Automatique' }, { value: 'none', label: 'Aucun bruitage' }, ...props.sfxOptions])
 const illustrationUrl = (id) => props.illustrations.find((item) => item.id === id)?.url || ''
 function setSlideshowImages(scene, ids) {

@@ -141,7 +141,9 @@ export function sceneFieldsFor(layout, template = 'classic') {
     jp: template === 'hanko' && (kind === 'hook' || kind === 'word') ? { label: 'Caractères japonais (1 à 4)', max: 4 } : null,
     code: template === 'editeur' && (kind === 'hook' || kind === 'title') ? { label: 'Code affiché (une ligne par ligne, 32 caractères max)', max: 6 } : null,
     items,
-    slideshow: kind === 'slideshow' ? { max: 5, min: 2 } : null,
+    // `stack` : le modele sait afficher des logos qui s ajoutent un a un (mode « Les images s ajoutent », jusqu a 6) ; les autres
+    // modeles dessinent toujours une image a la fois.
+    slideshow: kind === 'slideshow' ? { max: 5, maxStack: 6, min: 2, stack: LOGO_STACK_TEMPLATES.includes(template) } : null,
     // Type de la notification (champ `tabTone`) : seul le modele Dashboard en dessine une, sur un chapitre.
     toast: template === 'dashboard' && kind === 'title',
     compare,
@@ -149,6 +151,9 @@ export function sceneFieldsFor(layout, template = 'classic') {
     emoji: sceneEmoji(template, kind),
   }
 }
+
+/** Modeles qui savent afficher des logos qui s ajoutent un a un (miroir de `logoStack` dans le registre ENGINES). */
+export const LOGO_STACK_TEMPLATES = ['dashboard']
 
 /** Pur : texte d avertissement si la scene va retomber sur « avatar » au rendu (comme le fait le serveur). */
 export function incompleteReason(scene, template = 'classic') {

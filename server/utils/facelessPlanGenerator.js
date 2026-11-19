@@ -16,7 +16,7 @@ import { ILLUSTRATION_KINDS, MAX_ILLUSTRATION_PROMPT, MAX_NEW_PER_VIDEO } from '
 import { countSpokenTokens } from './facelessTimeline.js';
 import { AUDIO_TAGS, normalizeAudioTags, stripAudioTags } from './audioTags.js';
 import { TEXT_STYLE_PROMPT_LINES, stripDashPunctuation } from './textStyleRules.js';
-import { FACELESS_LAYOUTS, FACELESS_POSES, FACELESS_SFX, FACELESS_SLIDESHOW_TRANSITIONS, SLIDESHOW_MAX_IMAGES } from '../data/facelessCatalog.js';
+import { FACELESS_LAYOUTS, FACELESS_POSES, FACELESS_SFX, FACELESS_SLIDESHOW_TRANSITIONS, LOGO_STACK_MAX_IMAGES, SLIDESHOW_MAX_IMAGES } from '../data/facelessCatalog.js';
 import { FACELESS_SFX_PALETTES } from '../data/facelessSfxPalettes.js';
 import { sfxPaletteKey, sfxPaletteNames } from './facelessSfxPlan.js';
 
@@ -329,7 +329,7 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
     if (!scene.image && newBudget.left > 0 && raw?.newImage && typeof raw.newImage === 'object') {
       const prompt = clip(raw.newImage.prompt, MAX_ILLUSTRATION_PROMPT);
       if (prompt.length >= 8) {
-        scene.newImage = { kind: Object.hasOwn(ILLUSTRATION_KINDS, raw.newImage.kind) ? raw.newImage.kind : 'photo', prompt };
+        scene.newImage = { kind: Object.hasOwn(ILLUSTRATION_KINDS, raw.newImage.kind) && raw.newImage.kind !== 'logo' ? raw.newImage.kind : 'photo', prompt };
         newBudget.left -= 1;
       }
     }
@@ -340,10 +340,12 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
   // Une seule image valide : c est une scene photo ; aucune : la scene retombe sur "avatar" (voir plus bas).
   if (layout === 'slideshow') {
     const seen = new Set();
+    // Affichage : une image a la fois (defaut) ou images qui s ajoutent (logos, jusqu a 6).
+    scene.display = raw?.display === 'stack' ? 'stack' : 'replace';
     scene.images = (Array.isArray(raw?.images) ? raw.images : []).slice(0, 12)
       .map((entry) => ({ id: String(entry?.id ?? entry?.image ?? ''), at: sanitizeCue(entry?.at) }))
       .filter((entry) => illustrationIds.includes(entry.id) && !seen.has(entry.id) && seen.add(entry.id))
-      .slice(0, SLIDESHOW_MAX_IMAGES);
+      .slice(0, scene.display === 'stack' ? LOGO_STACK_MAX_IMAGES : SLIDESHOW_MAX_IMAGES);
     scene.transition = Object.hasOwn(FACELESS_SLIDESHOW_TRANSITIONS, raw?.transition) ? raw.transition : 'fade';
     scene.imageSound = raw?.imageSound === 'none' ? 'none' : (Object.hasOwn(FACELESS_SFX, raw?.imageSound) ? raw.imageSound : '');
     scene.frame = ['polaroid', 'plain'].includes(raw?.frame) ? raw.frame : '';
@@ -355,6 +357,7 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
       delete scene.images;
       delete scene.transition;
       delete scene.imageSound;
+      delete scene.display;
     }
   }
 
@@ -374,6 +377,7 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
     delete scene.images;
     delete scene.transition;
     delete scene.imageSound;
+    delete scene.display;
     delete scene.frame;
     delete scene.compare;
     delete scene.series;
@@ -491,7 +495,7 @@ export function planForEditing(plan) {
     caption: plan?.caption || '',
     hashtags: plan?.hashtags || [],
     scenes: (plan?.scenes || []).map((scene) => Object.fromEntries(
-      ['say', 'layout', 'text', 'title', 'number', 'word', 'tab', 'tabTone', 'jp', 'code', 'emoji', 'items', 'compare', 'series', 'image', 'images', 'transition', 'imageSound', 'frame', 'bg', 'avatar', 'sfx']
+      ['say', 'layout', 'text', 'title', 'number', 'word', 'tab', 'tabTone', 'jp', 'code', 'emoji', 'items', 'compare', 'series', 'image', 'images', 'display', 'transition', 'imageSound', 'frame', 'bg', 'avatar', 'sfx']
         .filter((key) => key === 'say' || key === 'layout' || key === 'avatar' || compact(scene[key]))
         .map((key) => [key, scene[key]]),
     )),

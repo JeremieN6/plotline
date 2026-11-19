@@ -76,3 +76,9 @@ export const FACELESS_POSES = ['idle', 'wave', 'point'];
 // Defile d images : animation du passage d une image a la suivante, et nombre maximal d images.
 export const FACELESS_SLIDESHOW_TRANSITIONS = { fade: 'Fondu', cut: 'Coupe franche', zoom: 'Zoom', wipe: 'Balayage' };
 export const SLIDESHOW_MAX_IMAGES = 5;
+
+// Defile d images, mode d affichage : une image a la fois (la suivante REMPLACE la precedente, par defaut) ou images qui
+// S'AJOUTENT cote a cote au fil de la voix (logos de marques). Le second n est dessine que par les modeles qui le
+// declarent (`logoStack` dans le registre ENGINES de facelessTemplate.js) ; les autres retombent sur « une a la fois ».
+export const FACELESS_SLIDESHOW_DISPLAYS = { replace: 'Une image à la fois (la suivante remplace la précédente)', stack: 'Les images s’ajoutent côte à côte (logos)' };
+export const LOGO_STACK_MAX_IMAGES = 6;

@@ -88,6 +88,7 @@ const KIND_OPTIONS = [
   { value: 'mockup', label: 'Capture ou maquette d’écran' },
   { value: 'photo', label: 'Photo' },
   { value: 'illustration', label: 'Illustration' },
+  { value: 'logo', label: 'Logo de marque' },
 ]
 
 const inputId = `plan-image-${useId()}`

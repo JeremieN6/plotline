@@ -5,7 +5,7 @@ import { addIllustration } from '../../../../utils/facelessStyle.js';
 import { updateProfileStyle } from '../../../../utils/facelessStyleStore.js';
 import { generateImageFromGeminiWithSafetyFallback } from '../../../../utils/geminiImageGeneration.js';
 import { IMAGE_COST_USD } from '../../../../data/facelessAvatarCatalog.js';
-import { ILLUSTRATION_KINDS, MAX_ILLUSTRATIONS, MAX_ILLUSTRATION_PROMPT } from '../../../../data/facelessIllustrations.js';
+import { GENERATABLE_KINDS, ILLUSTRATION_KINDS, MAX_ILLUSTRATIONS, MAX_ILLUSTRATION_PROMPT } from '../../../../data/facelessIllustrations.js';
 
 const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
@@ -30,6 +30,9 @@ export default defineEventHandler(async (event) => {
   const mode = body?.mode === 'upload' ? 'upload' : 'generate';
   const kind = Object.hasOwn(ILLUSTRATION_KINDS, body?.kind) ? body.kind : 'photo';
   const label = String(body?.label || '').trim().slice(0, 80);
+  if (mode === 'generate' && !GENERATABLE_KINDS.includes(kind)) {
+    return sendError(event, createError({ statusCode: 400, statusMessage: 'Un logo ne se génère pas : importe le fichier du logo (gratuit).' }));
+  }
   const deps = {
     generate: generateImageFromGeminiWithSafetyFallback,
     save: (buffer, type) => saveFacelessMedia(buffer, { folder: facelessAssetFolder(persona.id, 'illustrations'), ...type }),

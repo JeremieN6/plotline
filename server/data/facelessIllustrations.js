@@ -8,7 +8,12 @@ export const ILLUSTRATION_KINDS = {
   photo: 'Photo réaliste',
   illustration: 'Illustration dans la DA',
   mockup: 'Maquette d\'écran',
+  // Logo de marque : toujours IMPORTE (jamais genere : un logo invente serait faux) ; affiche petit et centre.
+  logo: 'Logo de marque',
 };
+
+/** Types qu on peut faire generer (un logo ne se genere pas, il s importe). */
+export const GENERATABLE_KINDS = ['photo', 'illustration', 'mockup'];
 
 export const MAX_ILLUSTRATIONS = 60;
 // Au plus 3 nouvelles images generees automatiquement pour UNE video.
