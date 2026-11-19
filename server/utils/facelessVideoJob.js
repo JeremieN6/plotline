@@ -8,6 +8,7 @@ import { ELEVENLABS_V3_MODEL, synthesizeWithTimestamps } from './elevenLabsTts.j
 import { applyNewImages, collectNewImageRequests, generateFacelessPlan, restoreSpokenText, retouchFacelessPlan, sanitizeFacelessPlan, spokenTextChanged } from './facelessPlanGenerator.js';
 import { facelessAssetFolder, generateIllustration } from './facelessIllustration.js';
 import { loadPackAssets, readFacelessMedia, saveFacelessMedia } from './facelessMedia.js';
+import { libraryEntryFor } from './facelessLogoLibrary.js';
 import { enqueueRender, mixFacelessAudio, renderFacelessVideo } from './facelessRenderer.js';
 import { finalizeSfx, sfxPaletteKey } from './facelessSfxPlan.js';
 import { engineSfx } from './facelessSfxEvents.js';
@@ -79,8 +80,10 @@ async function readVoice(voiceUrl) {
 export function pickIllustrations(plan, available) {
   const used = {};
   for (const scene of plan?.scenes || []) {
-    if (scene?.image && available[scene.image]) used[scene.image] = available[scene.image];
-    for (const entry of scene?.images || []) if (entry?.id && available[entry.id]) used[entry.id] = available[entry.id];
+    // Un logo de la bibliotheque de l outil (lib-<slug>) n est pas dans le dossier : son entree vient du catalogue.
+    const find = (id) => available[id] || libraryEntryFor(id);
+    if (scene?.image && find(scene.image)) used[scene.image] = find(scene.image);
+    for (const entry of scene?.images || []) if (entry?.id && find(entry.id)) used[entry.id] = find(entry.id);
   }
   return used;
 }

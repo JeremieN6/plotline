@@ -453,3 +453,8 @@ En ajoutant l avatar « aucun », j ai fait ramener « pack » a « aucun » qua
 
 - **Erreur** : pour marquer un logo dans le cadre d'ecran du Dashboard, j'ai ecrit `shotIsLogo(shot)` dans `screenWindow`, mais `shot` y est un BOOLEEN (`Boolean(shot)` passe par l'appelant), alors que dans l'appelant c'est l'entree d'illustration. Le type « Logo de marque » etait donc ignore sans erreur ; seule la detection par forme marchait. Trouve parce que deux rendus de controle (image large marquee logo et capture normale) avaient exactement la meme taille de fichier.
 - **Regle** : pour tester un nouveau cas, comparer les resultats avec le cas de reference (ici, taille et aspect identiques = rien n'a change) ; et ne jamais reutiliser le nom d'une variable pour une valeur d'un autre type dans une fonction voisine : passer un parametre dedie (`logo`).
+
+## 2026-11-19 : un fichier .vue modifie par script, pousse sans build (deploiement casse)
+
+- **Erreur** : j'ai ajoute une aide dans `FacelessPlanEditor.vue` avec un script Python en heredoc ; le `\n` d'une chaine JavaScript est devenu un VRAI retour a la ligne (le shell avale les antislashs), ce qui a coupe la chaine. Les tests (qui ne chargent pas les .vue) passaient, j'ai pousse sans `npm run build` : le deploiement a echoue sur le VPS (« Unterminated string constant »), l'ancienne version est restee en ligne grace a la restauration automatique.
+- **Regle** : apres toute modification d'un fichier `.vue` (surtout faite par script), lancer `npm run build` AVANT de pousser ; ne jamais ecrire un antislash dans un script en heredoc (utiliser l'outil Edit, ou `String.fromCharCode(10)` dans le code genere). Un test unitaire ne prouve pas qu'un composant compile.

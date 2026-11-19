@@ -8,6 +8,8 @@
  * adresse ni un fichier venu du texte). Tout est pur.
  */
 
+import { libraryLogoIdFor } from './facelessLogoLibrary.js';
+
 const MARKER = /\[\s*(?:logo|image)\s*:\s*([^\]\n]{1,60}?)\s*\]/gi;
 
 /** Pur : le texte contient-il au moins un marqueur d image ? */
@@ -82,7 +84,7 @@ export function findIllustrationByName(name, illustrations) {
 }
 
 /**
- * Pur : transforme les marqueurs d un texte dit en images de scene.
+ * Pur : transforme les marqueurs d un texte dit en images de scene (dossier de la persona, puis bibliotheque de logos).
  * 1 image : scene « photo » ; 2 images ou plus : images qui s ajoutent (la premiere des le debut de
  * la scene, les suivantes au mot dit). Un nom introuvable est signale dans `notices`, jamais ignore.
  * @returns {{ say: string, images: { id: string, at: string }[], notices: string[] }}
@@ -93,9 +95,10 @@ export function resolveImageMarkers(text, illustrations, { max = 6 } = {}) {
   const notices = [];
 
   for (const marker of markers) {
-    const id = findIllustrationByName(marker.name, illustrations);
+    // Le dossier de la persona d abord (ses propres images), puis la bibliotheque de logos de l outil.
+    const id = findIllustrationByName(marker.name, illustrations) || libraryLogoIdFor(marker.name);
     if (!id) {
-      notices.push(`Logo « ${marker.name} » introuvable dans le dossier de la persona : importe-le (type « Logo de marque ») puis écris à nouveau [logo : ${marker.name}].`);
+      notices.push(`Logo « ${marker.name} » introuvable (ni dans le dossier de la persona, ni dans la bibliothèque de logos) : importe-le dans le dossier (type « Logo de marque »), puis écris à nouveau [logo : ${marker.name}].`);
     } else if (!images.some((image) => image.id === id)) {
       images.push({ id, at: marker.cue });
     }

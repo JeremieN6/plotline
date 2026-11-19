@@ -36,15 +36,15 @@ test('un nom se retrouve par libelle, sans accent ni casse, et un logo passe ava
   assert.equal(findIllustrationByName('claude', FOLDER), 'ill-claude');
   assert.equal(findIllustrationByName('CURSOR', FOLDER), 'ill-cursor');
   assert.equal(findIllustrationByName('capture du tableau', FOLDER), 'ill-capture');
-  assert.equal(findIllustrationByName('Windsurf', FOLDER), '');
+  assert.equal(findIllustrationByName('Zorglub', FOLDER), '');
   assert.equal(findIllustrationByName('c', FOLDER), '');
 });
 
 test('resolveImageMarkers : un logo introuvable est signale, jamais ignore en silence', () => {
-  const found = resolveImageMarkers('Claude [logo : Claude] et Windsurf [logo : Windsurf]', FOLDER);
+  const found = resolveImageMarkers('Claude [logo : Claude] et Zorglub [logo : Zorglub]', FOLDER);
   assert.deepEqual(found.images.map((image) => image.id), ['ill-claude']);
   assert.equal(found.notices.length, 1);
-  assert.match(found.notices[0], /Windsurf/);
+  assert.match(found.notices[0], /Zorglub/);
 });
 
 test('une scene avec UN marqueur devient une scene photo avec ce logo, voix sans le marqueur', () => {
@@ -75,10 +75,10 @@ test('sans dossier connu, le marqueur est seulement retire de la voix (comportem
 });
 
 test('le plan porte les avertissements, et rien s il n y en a pas', () => {
-  const base = { scenes: [{ say: 'Un premier texte.', layout: 'avatar' }, { say: 'Et Windsurf [logo : Windsurf] aussi.', layout: 'avatar' }] };
+  const base = { scenes: [{ say: 'Un premier texte.', layout: 'avatar' }, { say: 'Et Zorglub [logo : Zorglub] aussi.', layout: 'avatar' }] };
   const withNotice = sanitizeFacelessPlan(base, { illustrations: FOLDER });
   assert.equal(withNotice.notices.length, 1);
-  assert.match(withNotice.notices[0], /Windsurf/);
+  assert.match(withNotice.notices[0], /Zorglub/);
   const clean = sanitizeFacelessPlan({ scenes: [{ say: 'Un texte.', layout: 'avatar' }, { say: 'Un autre.', layout: 'avatar' }] }, { illustrations: FOLDER });
   assert.equal('notices' in clean, false);
 });

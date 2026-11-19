@@ -19,6 +19,7 @@ import { FACELESS_DURATIONS } from '../../utils/facelessPlanGenerator.js';
 import { defaultFacelessStyle, MAX_ALTERNATES } from '../../utils/facelessStyle.js';
 import { listCloneVoices } from '../../utils/elevenLabsTts.js';
 import { AUDIO_TAGS } from '../../utils/audioTags.js';
+import { listLibraryLogos } from '../../utils/facelessLogoLibrary.js';
 
 const labelled = (obj) => Object.entries(obj).map(([value, label]) => ({ value, label }));
 
@@ -31,6 +32,8 @@ export default defineEventHandler(async (event) => {
 
   return {
     cloneVoices,
+    // Logos de la bibliotheque embarquee : l editeur propose de les inserer dans le texte dit.
+    libraryLogos: listLibraryLogos().map(({ title }) => ({ value: title, label: title })),
     audioTags: Object.entries(AUDIO_TAGS).map(([tag, description]) => ({ tag, description })),
     voices: FACELESS_VOICES,
     defaultVoiceId: DEFAULT_FACELESS_VOICE_ID,

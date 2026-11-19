@@ -16,6 +16,7 @@ import { ILLUSTRATION_KINDS, MAX_ILLUSTRATION_PROMPT, MAX_NEW_PER_VIDEO } from '
 import { countSpokenTokens } from './facelessTimeline.js';
 import { AUDIO_TAGS, normalizeAudioTags, stripAudioTags } from './audioTags.js';
 import { hasImageMarkers, resolveImageMarkers } from './facelessMarkers.js';
+import { isLibraryLogoId } from './facelessLogoLibrary.js';
 import { TEXT_STYLE_PROMPT_LINES, stripDashPunctuation } from './textStyleRules.js';
 import { FACELESS_LAYOUTS, FACELESS_POSES, FACELESS_SFX, FACELESS_SLIDESHOW_TRANSITIONS, LOGO_STACK_MAX_IMAGES, SLIDESHOW_MAX_IMAGES } from '../data/facelessCatalog.js';
 import { FACELESS_SFX_PALETTES } from '../data/facelessSfxPalettes.js';
@@ -340,7 +341,7 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
 
   // Mise en page photo : une illustration du dossier, ou (si autorise, dans la limite du budget) une nouvelle image a generer.
   if (layout === 'photo') {
-    scene.image = illustrationIds.includes(raw?.image) ? raw.image : '';
+    scene.image = (illustrationIds.includes(raw?.image) || isLibraryLogoId(raw?.image)) ? raw.image : '';
     scene.newImage = null;
     if (!scene.image && newBudget.left > 0 && raw?.newImage && typeof raw.newImage === 'object') {
       const prompt = clip(raw.newImage.prompt, MAX_ILLUSTRATION_PROMPT);
@@ -360,7 +361,7 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
     scene.display = raw?.display === 'stack' ? 'stack' : 'replace';
     scene.images = (Array.isArray(raw?.images) ? raw.images : []).slice(0, 12)
       .map((entry) => ({ id: String(entry?.id ?? entry?.image ?? ''), at: sanitizeCue(entry?.at) }))
-      .filter((entry) => illustrationIds.includes(entry.id) && !seen.has(entry.id) && seen.add(entry.id))
+      .filter((entry) => (illustrationIds.includes(entry.id) || isLibraryLogoId(entry.id)) && !seen.has(entry.id) && seen.add(entry.id))
       .slice(0, scene.display === 'stack' ? LOGO_STACK_MAX_IMAGES : SLIDESHOW_MAX_IMAGES);
     scene.transition = Object.hasOwn(FACELESS_SLIDESHOW_TRANSITIONS, raw?.transition) ? raw.transition : 'fade';
     scene.imageSound = raw?.imageSound === 'none' ? 'none' : (Object.hasOwn(FACELESS_SFX, raw?.imageSound) ? raw.imageSound : '');

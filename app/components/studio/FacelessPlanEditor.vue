@@ -77,6 +77,9 @@
 
         <UiField label="Ce que dit la voix" :for-id="`plan-say-${index}`" :hint="(clone ? 'Avec les balises de ton entre crochets si tu en veux. ' : '') + 'Pour montrer un logo du dossier quand un mot est dit : écris [logo : Nom] juste après ce mot (pas lu à voix haute).'">
           <UiTextarea :id="`plan-say-${index}`" v-model="scene.say" :rows="2" :maxlength="400" :readonly="lockSpoken" @focus="focused = index" />
+          <div v-if="!lockSpoken && logoChoices.length > 1" class="mt-2 max-w-xs">
+            <UiSelect :id="`plan-logo-${index}`" :model-value="''" :options="logoChoices" aria-label="Insérer un logo dans le texte dit" @update:model-value="(name) => insertLogo(scene, name)" />
+          </div>
         </UiField>
 
         <div class="grid gap-3 sm:grid-cols-2">
@@ -290,6 +293,7 @@ const props = defineProps({
   transitionOptions: { type: Array, default: () => [] },
   // Defile d'images : modes d'affichage (une image a la fois / images qui s'ajoutent), servis par le serveur.
   displayOptions: { type: Array, default: () => [] },
+  logoOptions: { type: Array, default: () => [] },
   sfxOptions: { type: Array, default: () => [] },
   clone: { type: Boolean, default: false },
   // 'edit' : plan d une video DEJA faite (nouvelle version, pas de revision par Claude). lockSpoken : ma propre voix, texte dit fige.
@@ -363,6 +367,12 @@ const TOAST_OPTIONS = [
 
 // Defile d'images.
 const transitions = computed(() => (props.transitionOptions.length ? props.transitionOptions : [{ value: 'fade', label: 'Fondu' }, { value: 'cut', label: 'Coupe franche' }, { value: 'zoom', label: 'Zoom' }, { value: 'wipe', label: 'Balayage' }]))
+// Logos de la bibliotheque : « Insérer un logo » ajoute le marqueur en fin de texte (a deplacer juste apres le mot qui le declenche).
+const logoChoices = computed(() => [{ value: '', label: 'Insérer un logo de la bibliothèque…' }, ...props.logoOptions])
+function insertLogo(scene, name) {
+  if (!name) return
+  scene.say = `${String(scene.say || '').trim()} [logo : ${name}]`.trim().slice(0, 400)
+}
 const displays = computed(() => (props.displayOptions.length ? props.displayOptions : [{ value: 'replace', label: 'Une image à la fois (la suivante remplace la précédente)' }, { value: 'stack', label: 'Les images s’ajoutent côte à côte (logos)' }]))
 // Mode « les images s'ajoutent » : seulement si le modele visuel de la DA sait l'afficher.
 const stackOn = (scene) => scene.display === 'stack' && Boolean(specOf(scene).slideshow?.stack)

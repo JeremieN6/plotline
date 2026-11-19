@@ -2,6 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { isAbsoluteHttpUrl, isBlobStorageEnabled, uploadPublicMediaBuffer } from './blobStorage.js';
+import { LIBRARY_URL_PREFIX, libraryEntryFor, renderLibraryLogoPng } from './facelessLogoLibrary.js';
 import { ensureStorageDir, resolveMediaPath, toMediaUrl } from './mediaStorage.js';
 
 /**
@@ -30,6 +31,9 @@ export async function readFacelessMedia(mediaUrl) {
   const url = String(mediaUrl || '').trim();
   if (!url) throw new Error('Adresse de media vide');
 
+  // Logo de la bibliotheque embarquee dans l outil (jamais une adresse venue du texte).
+  if (url.startsWith(LIBRARY_URL_PREFIX)) return renderLibraryLogoPng(url.slice(LIBRARY_URL_PREFIX.length));
+
   if (isAbsoluteHttpUrl(url)) {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Media introuvable (${response.status})`);
@@ -57,8 +61,8 @@ export function usedPackIds(plan, packEntries) {
 export function usedIllustrationIds(plan, illustrationEntries) {
   const used = new Set();
   for (const scene of plan?.scenes || []) {
-    if (scene?.image && illustrationEntries[scene.image]) used.add(scene.image);
-    for (const entry of scene?.images || []) if (entry?.id && illustrationEntries[entry.id]) used.add(entry.id);
+    if (scene?.image && (illustrationEntries[scene.image] || libraryEntryFor(scene.image))) used.add(scene.image);
+    for (const entry of scene?.images || []) if (entry?.id && (illustrationEntries[entry.id] || libraryEntryFor(entry.id))) used.add(entry.id);
   }
   return [...used];
 }
@@ -73,7 +77,7 @@ export async function loadPackAssets(plan, packEntries, read = readFacelessMedia
     assets.set(`/avatar/${id}.png`, await read(packEntries[id].url));
   }
   for (const id of usedIllustrationIds(plan, illustrationEntries)) {
-    assets.set(`/illustration/${id}.jpg`, await read(illustrationEntries[id].url));
+    assets.set(`/illustration/${id}.jpg`, await read((illustrationEntries[id] || libraryEntryFor(id)).url));
   }
   return assets;
 }
