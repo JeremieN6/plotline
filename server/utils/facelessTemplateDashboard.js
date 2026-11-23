@@ -458,6 +458,12 @@ body{background:${p.background};font-family:"${fontFamily}",${emojiFonts},sans-s
 .wscale{position:absolute;left:0;width:1080px;height:1920px;transform:scale(${SCREEN_SCALE});transform-origin:0 0}
 .win.dk{background:#16213b;box-shadow:0 0 0 2px #2c3b5e,0 30px 70px rgba(0,0,0,.55)}.win.dk .wbar{background:#162036;border-color:#243049}.win.dk .waddr{background:#0f172a;border-color:#243049;color:#94a3b8}.win.dk .wscreen{background:#141f38}
 .shot{display:block;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 8px 22px rgba(15,23,42,.28))}
+.win.ph{border-radius:104px;background:#0a0a0f;padding:22px;box-shadow:0 0 0 3px #2a2a35,0 30px 70px rgba(15,23,42,.38)}
+.win.ph.dk{background:#0a0a0f;box-shadow:0 0 0 3px #3a4a70,0 30px 70px rgba(0,0,0,.6)}
+.win.ph .wbar{display:none}
+.win.ph .wscreen{border-radius:82px;background:#000}
+.win.ph .wscreen::after{content:"";position:absolute;top:24px;left:50%;transform:translateX(-50%);width:190px;height:54px;border-radius:27px;background:#000;z-index:5}
+.win.ph .shot{filter:none;object-fit:contain}
 .shot-cap{display:inline-block;background:#fff;border-radius:999px;padding:20px 44px;font-size:46px;font-weight:600;letter-spacing:-.02em;box-shadow:0 12px 34px rgba(15,23,42,.22)}
 ${logoTileCss({ background: '#fff', radius: 44, shadow: '0 12px 34px rgba(15,23,42,.18)' })}
 #captions{position:absolute;left:70px;width:860px;top:190px;z-index:20;display:none;justify-content:center;white-space:nowrap}

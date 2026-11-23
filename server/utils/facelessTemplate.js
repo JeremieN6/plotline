@@ -443,6 +443,16 @@ export function isLogoShape(width, height, marked) {
   return ratio >= 0.8 && ratio <= 1.25 && width <= 1000 && height <= 1000;
 }
 
+/**
+ * Pur : une image au format portrait (hauteur au moins 1,4 fois la largeur : capture de telephone, video verticale 9:16)
+ * s affiche dans un cadre de TELEPHONE au lieu d une fenetre d ordinateur, qui deviendrait une grande fenetre etroite.
+ * Un logo reste un logo (detection prioritaire cote appelant).
+ */
+export function isPhoneShape(width, height) {
+  if (!(width > 0) || !(height > 0)) return false;
+  return height / width >= 1.4;
+}
+
 // Execute dans la page. Aucune animation CSS : tout depend de t.
 function buildRuntime(fontFamilies, extraLoads = []) {
   return `
@@ -450,6 +460,7 @@ function buildRuntime(fontFamilies, extraLoads = []) {
   ${contentBand.toString()}
   ${centerShift.toString()}
   ${isLogoShape.toString()}
+  ${isPhoneShape.toString()}
   const data = JSON.parse(document.getElementById('timeline').textContent);
   const scenes = [...document.querySelectorAll('.scene')];
   const caps = document.getElementById('captions');
@@ -751,6 +762,36 @@ function buildRuntime(fontFamilies, extraLoads = []) {
       // Un logo (marque « logo », ou image presque carree et petite) ne remplit pas l ecran : fenetre de taille normale,
       // logo petit et centre (un tiers de la largeur environ), la pastille de legende reste dessous.
       const logo = isLogoShape(img.naturalWidth, img.naturalHeight, wrap.dataset.shotLogo === '1');
+      // Image portrait : cadre de telephone (bords arrondis, ilot), l image remplit l ecran sans etre rognee.
+      if (!logo && isPhoneShape(img.naturalWidth, img.naturalHeight)) {
+        const bez = 22, outerH = 1280, screenHp = outerH - 2 * bez;
+        const ratio = Math.min(2.2, img.naturalHeight / img.naturalWidth);
+        const screenW = Math.min(900, Math.round(screenHp / ratio)), outerW = screenW + 2 * bez;
+        const sp = screenW / 1080;
+        wrap.style.width = outerW + 'px';
+        wrap.style.left = Math.round((1080 - outerW) / 2) + 'px';
+        wrap.style.height = outerH + 'px';
+        wrap.style.top = Math.max(330, Math.round(1000 - outerH / 2)) + 'px';
+        const win = wrap.querySelector('.win');
+        win.classList.add('ph');
+        win.style.height = outerH + 'px';
+        const screen = wrap.querySelector('.wscreen');
+        screen.style.height = screenHp + 'px';
+        const scale = wrap.querySelector('.wscale');
+        scale.style.top = '0px';
+        scale.style.transform = 'scale(' + sp.toFixed(4) + ')';
+        const phoneHolder = img.closest('.fx');
+        phoneHolder.style.left = '0px';
+        phoneHolder.style.top = '0px';
+        phoneHolder.style.width = '1080px';
+        phoneHolder.style.height = Math.round(screenHp / sp) + 'px';
+        const phoneCap = wrap.querySelector('.shot-cap');
+        if (phoneCap && phoneCap.closest('.fx')) {
+          phoneCap.style.fontSize = '64px';
+          phoneCap.closest('.fx').style.top = (Math.round(screenHp / sp) - 250) + 'px';
+        }
+        return;
+      }
       const want = logo ? 680 / S : (1080 - 2 * M) * (img.naturalHeight / img.naturalWidth) + 2 * M;
       const boxH = Math.max(300 / S, Math.min(want, maxScreen / S));
       const screenH = Math.round(boxH * S), height = bar + screenH;
