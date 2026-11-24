@@ -84,7 +84,12 @@
                   !cell.inMonth ? 'bg-ui-subtle' : cell.isPast ? 'bg-ui-subtle/60' : 'bg-ui-surface',
                   week.hasItems ? 'min-h-[132px]' : 'min-h-[72px]',
                   cell.inMonth && (cell.items.length || cell.isFuture) ? 'cursor-pointer' : '',
+                  dragId && dragOverKey === cell.key ? (dropCheck(cell).ok ? 'ring-2 ring-inset ring-ui-accent bg-ui-accent-soft' : 'cursor-not-allowed ring-2 ring-inset ring-ui-line-input') : '',
+                  dragId && dragOverKey !== cell.key && cell.inMonth && dropCheck(cell).ok ? 'bg-ui-accent-soft/40' : '',
                 ]"
+                @dragover="onCellDragOver($event, cell)"
+                @dragleave="onCellDragLeave(cell)"
+                @drop.prevent="onCellDrop(cell)"
                 @click="onCellClick(cell)"
                 @focus="cell.inMonth && (focusIndex = cell.index)"
                 @keydown.enter.self.prevent="activateCell(cell)"
@@ -110,8 +115,11 @@
                     :key="entry.id"
                     type="button"
                     class="flex w-full min-w-0 items-center gap-1.5 rounded-ui-tag border bg-ui-surface px-1.5 py-1 text-left text-[11px] leading-4 text-ui-ink-2 transition-colors hover:bg-ui-subtle focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ui-accent/20"
-                    :class="[contentStatusOf(entry.status).outline, entry.id === highlightId ? 'border-ui-accent ring-2 ring-ui-accent/40' : 'border-ui-line-input']"
+                    :class="[contentStatusOf(entry.status).outline, entry.id === highlightId ? 'border-ui-accent ring-2 ring-ui-accent/40' : 'border-ui-line-input', isMovable(entry) ? 'cursor-grab active:cursor-grabbing' : '', dragId === entry.id ? 'opacity-40' : '']"
                     :aria-label="entryLabel(entry)"
+                    :draggable="isMovable(entry) ? 'true' : undefined"
+                    @dragstart="onDragStart($event, entry)"
+                    @dragend="onDragEnd"
                     @click.stop="openEntry(entry)"
                   >
                     <span class="h-2 w-2 shrink-0 rounded-full" :class="contentTypeOf(entry.format).dot" aria-hidden="true" />
@@ -349,7 +357,7 @@ import { formatShortDate } from '../utils/formatDate.js'
 import { MANUAL_PLATFORMS, formatPlatforms, readManualPublication } from '../utils/manualPlatforms.js'
 import { plannedPlatformsOf } from '../utils/contentCards.js'
 import {
-  addDays, buildMonthWeeks, findTrailingGap, monthKey, monthTarget, parseMonthKey, parseTags, pickSchedulable, presetDays, splitCaption,
+  addDays, buildMonthWeeks, dropOnCell, findTrailingGap, isMovable, monthKey, monthTarget, parseMonthKey, parseTags, pickSchedulable, presetDays, splitCaption,
   spreadSlots, startOfDay, statusFromContent, summarizeMonth, timeLabel,
 } from '../utils/calendarGrid.js'
 
@@ -696,6 +704,59 @@ async function reschedule(entry, iso) {
     pushToast({ title: 'Date mise à jour', message: formatShortDate(iso), tone: 'success' })
   } catch (err) {
     actionError.value = err?.statusMessage || 'La date n\'a pas pu être modifiée.'
+  }
+}
+
+// --- Glisser-déposer d'une puce vers un autre jour (la date change, l'heure reste) ---
+const dragId = ref('')
+const dragOverKey = ref('')
+const dragEntry = computed(() => entries.value.find((item) => item.id === dragId.value) || null)
+// Ne rien calculer hors glissement (appelé dans le gabarit pour chaque case).
+const dropCheck = (cell) => (dragEntry.value ? dropOnCell(dragEntry.value, cell) : { ok: false })
+
+function onDragStart(event, entry) {
+  if (!isMovable(entry)) { event.preventDefault(); return }
+  dragId.value = entry.id
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('text/plain', entry.id)
+}
+function onDragEnd() {
+  dragId.value = ''
+  dragOverKey.value = ''
+}
+function onCellDragOver(event, cell) {
+  if (!dragId.value) return
+  dragOverKey.value = cell.key
+  if (dropCheck(cell).ok) {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+  } else {
+    event.dataTransfer.dropEffect = 'none'
+  }
+}
+function onCellDragLeave(cell) {
+  if (dragOverKey.value === cell.key) dragOverKey.value = ''
+}
+
+async function onCellDrop(cell) {
+  const entry = dragEntry.value
+  onDragEnd()
+  if (!entry) return
+  const check = dropOnCell(entry, cell)
+  if (!check.ok) {
+    if (check.reason) pushToast({ title: 'Déplacement impossible', message: check.reason, tone: 'error' })
+    return
+  }
+  // Mise à jour immédiate, retour en arrière si le serveur refuse.
+  const previous = entry.scheduledAt
+  entry.scheduledAt = check.iso
+  try {
+    if (entry.planId) await $fetch(`/api/plans/${entry.planId}/items/${entry.itemId}`, { method: 'PATCH', body: { scheduledAt: check.iso } })
+    else await $fetch(`/api/content/${entry.id}/schedule`, { method: 'PATCH', body: { scheduledAt: check.iso } })
+    pushToast({ title: 'Contenu déplacé', message: formatShortDate(check.iso), tone: 'success' })
+  } catch (err) {
+    entry.scheduledAt = previous
+    pushToast({ title: 'Déplacement impossible', message: err?.statusMessage || 'La date n’a pas pu être modifiée.', tone: 'error' })
   }
 }
 

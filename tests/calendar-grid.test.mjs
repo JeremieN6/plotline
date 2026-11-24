@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  buildMonthWeeks, findTrailingGap, pickSchedulable, spreadSlots, monthKey, monthTarget, parseMonthKey, parseTags, presetDays, splitCaption, statusFromContent, summarizeMonth, timeLabel,
+  dropOnCell, isMovable, buildMonthWeeks, findTrailingGap, pickSchedulable, spreadSlots, monthKey, monthTarget, parseMonthKey, parseTags, presetDays, splitCaption, statusFromContent, summarizeMonth, timeLabel,
 } from '../app/utils/calendarGrid.js';
 
 const entry = (day, hour, format = 'FEED', status = 'approved') => ({ id: `${day}-${hour}`, format, status, scheduledAt: new Date(2026, 9, day, hour, 0).toISOString() });
@@ -106,4 +106,23 @@ test('creneaux : trop tard le soir => lendemain a l heure de depart', () => {
   // passage de fin de mois
   const eom = spreadSlots(new Date(2026, 10, 30), '20:00', 2);
   assert.deepEqual(eom.map((d) => [d.getMonth(), d.getDate()]), [[10, 30], [11, 1]]);
+});
+
+test('glisser-deposer : l heure est gardee, les depots refuses sont expliques', () => {
+  const now = new Date(2026, 9, 26, 12, 0);
+  const cells = buildMonthWeeks(OCT, [], now).flatMap((week) => week.cells);
+  const cell = (day) => cells.find((c) => c.day === day);
+  const item = entry(28, 18);
+  const ok = dropOnCell(item, cell(30), now);
+  assert.equal(ok.ok, true);
+  assert.equal(new Date(ok.iso).getDate(), 30);
+  assert.equal(new Date(ok.iso).getHours(), 18);
+  assert.equal(dropOnCell(item, cell(28), now).ok, false);
+  assert.equal(dropOnCell(item, cell(20), now).ok, false);
+  assert.equal(dropOnCell(item, cells[0], now).ok, false);
+  assert.equal(dropOnCell(entry(28, 9), cell(26), now).ok, false);
+  assert.equal(dropOnCell(entry(28, 15), cell(26), now).ok, true);
+  assert.equal(dropOnCell(entry(20, 9), cell(30), now).ok, true);
+  assert.equal(dropOnCell(entry(28, 9, 'FEED', 'published'), cell(30), now).ok, false);
+  assert.equal(isMovable(entry(1, 1, 'FEED', 'generating')), false);
 });

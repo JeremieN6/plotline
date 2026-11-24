@@ -192,3 +192,24 @@ export function spreadSlots(day, startTime, count, { gapHours = SLOT_GAP_HOURS, 
   }
   return slots
 }
+
+/** Une entree peut etre deplacee tant qu'elle n'est ni publiee ni en generation (brouillon, approuve, prevu meme date passee). */
+export const isMovable = (entry) => entry?.status === 'draft' || entry?.status === 'approved'
+
+/**
+ * Depot d'une entree sur une case : la date change, l'heure reste la meme.
+ * Refuse : case hors du mois, meme jour, jour passe, ou creneau d'aujourd'hui deja passe.
+ * @returns {{ ok: boolean, iso?: string, reason?: string }}
+ */
+export function dropOnCell(entry, cell, now = new Date()) {
+  if (!isMovable(entry)) return { ok: false, reason: 'Ce contenu ne peut plus être déplacé.' }
+  if (!cell?.inMonth || !cell.date) return { ok: false, reason: 'Dépose le contenu sur un jour du mois.' }
+  const from = new Date(entry.scheduledAt)
+  if (Number.isNaN(from.getTime())) return { ok: false, reason: 'Date du contenu invalide.' }
+  if (sameDay(from, cell.date)) return { ok: false, reason: '' }
+  if (startOfDay(cell.date) < startOfDay(now)) return { ok: false, reason: 'On ne peut pas déplacer un contenu sur un jour passé.' }
+  const target = new Date(cell.date)
+  target.setHours(from.getHours(), from.getMinutes(), 0, 0)
+  if (target.getTime() <= now.getTime()) return { ok: false, reason: 'Cette heure est déjà passée aujourd’hui : choisis un autre jour, ou change l’heure avec « Reprogrammer ».' }
+  return { ok: true, iso: target.toISOString() }
+}
