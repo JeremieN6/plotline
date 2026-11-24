@@ -139,7 +139,7 @@ test('voix par defaut des articles : clone du proprietaire, sinon voix de la DA'
 
   // Articles : sans voix designee, l unique voix clonee du compte.
   const owner = await resolveOwnerCloneVoice({ ownerEmail: 'moi@x.fr', singleFallback: true, listClones, isAdmin });
-  assert.deepEqual(owner, { voiceMode: 'clone', voiceId: 'clone1', stability: V3_STABILITY.natural });
+  assert.deepEqual(owner, { voiceMode: 'clone', voiceId: 'clone1', name: 'Moi', stability: V3_STABILITY.natural });
   // Calendrier : jamais de repli, seule une voix designee par la DA compte.
   assert.equal(await resolveOwnerCloneVoice({ ownerEmail: 'moi@x.fr', listClones, isAdmin }), null);
 

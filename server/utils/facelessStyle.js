@@ -14,6 +14,7 @@ import {
   FACELESS_TEMPLATES,
 } from '../data/facelessThemes.js';
 import { DEFAULT_FACELESS_VOICE_ID, findFacelessVoice } from '../data/facelessCatalog.js';
+import { normalizeReelSettings } from './facelessReelSettings.js';
 import { ILLUSTRATION_KINDS, ILLUSTRATION_SOURCES, MAX_ILLUSTRATIONS, MAX_ILLUSTRATION_PROMPT } from '../data/facelessIllustrations.js';
 
 /**
@@ -193,6 +194,8 @@ export function normalizeFacelessStyle(raw, { keepPack = false } = {}) {
     illustrations: keepPack ? normalizeIllustrations(input.illustrations) : [],
     // DA en option (lues en base seulement : on les ecrit une par une via `setAlternate`).
     alternates: keepPack ? normalizeAlternates(input.alternates) : [],
+    // Reglage des Reels du calendrier (DA principale seulement, ecrit par le serveur : jamais pris d une DA en option).
+    reelSettings: normalizeReelSettings(keepPack ? input.reelSettings : null),
   };
 
   // Un pack choisi mais vide (lecture en base, ou le pack est connu) ne dessinerait aucun avatar : on ne dessine rien
@@ -253,6 +256,7 @@ export function mergeClientStyle(existingStyle, clientStyle) {
   next.avatar.pack = pack;
   next.illustrations = existingStyle?.illustrations || [];
   next.alternates = existingStyle?.alternates || [];
+  next.reelSettings = normalizeReelSettings(existingStyle?.reelSettings);
   // Le client ne peut choisir "pack" que s il existe des images en base ; sinon : aucun avatar.
   const packReady = Boolean(pack && Object.values(pack.entries).some((e) => e.url));
   if (next.avatar.kind === 'pack') next.avatar.kind = packReady ? 'pack' : 'none';

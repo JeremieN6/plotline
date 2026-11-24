@@ -1,7 +1,10 @@
 import { describeAllFormatProductions, getReelEngine } from '../../utils/reelEngine.js';
 import { describeStoryCategory } from '../../utils/pinterestKeywordPicker.js';
-import { loadPersonality } from '../../utils/facelessStyleStore.js';
+import { loadPersonaStyle, loadPersonality } from '../../utils/facelessStyleStore.js';
 import { getStoryKeywords } from '../../utils/personalityPlanning.js';
+import { pickStyleSlot } from '../../utils/facelessStyle.js';
+import { describeReelSettings, normalizeReelSettings } from '../../utils/facelessReelSettings.js';
+import { resolveOwnerCloneVoice } from '../../utils/facelessVoiceChoice.js';
 
 let prismaClient;
 
@@ -68,8 +71,25 @@ export default defineEventHandler(async (event) => {
     const { niche: _niche, style: _style, ...publicProfile } = plan.profile || {};
     // Nombre de mots-cles de stories choisis dans la personnalite (s il y en a, ils remplacent la categorie).
     const storyKeywordCount = getStoryKeywords(await loadPersonality(prisma, plan.profile?.id, user.id)).length;
+    // Une ligne qui dit comment les Reels seront produits (reglage du profil), seulement s il y a un Reel a produire.
+    let reelSummary = '';
+    if (reelEngine === 'faceless' && plan.items.some((item) => String(item.format).toUpperCase() === 'REEL')) {
+      try {
+        const loaded = await loadPersonaStyle(prisma, plan.profile.id, user.id, { withPersonality: false });
+        if (loaded) {
+          const reel = normalizeReelSettings(loaded.style.reelSettings);
+          const style = pickStyleSlot(loaded.style, reel.styleSlot);
+          const owner = await prisma.user.findUnique({ where: { id: user.id }, select: { email: true } });
+          const cloneVoice = await resolveOwnerCloneVoice({ ownerEmail: owner?.email, style });
+          reelSummary = describeReelSettings(reel, { style, cloneVoice });
+        }
+      } catch {
+        reelSummary = '';
+      }
+    }
     return {
       plan: { ...plan, profile: publicProfile },
+      reelSummary,
       reelEngine,
       storyCategory,
       storyKeywordCount,

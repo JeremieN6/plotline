@@ -30,7 +30,7 @@ export async function resolveOwnerCloneVoice({ ownerEmail, style = null, singleF
     const wanted = String(style?.cloneVoiceId || '');
     const chosen = wanted ? voices.find((voice) => voice.id === wanted) : (singleFallback && voices.length === 1 ? voices[0] : null);
     if (!chosen) return null;
-    return { voiceMode: 'clone', voiceId: chosen.id, stability: V3_STABILITY.natural };
+    return { voiceMode: 'clone', voiceId: chosen.id, name: chosen.name, stability: V3_STABILITY.natural };
   } catch {
     return null;
   }

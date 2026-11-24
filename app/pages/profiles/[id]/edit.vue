@@ -259,6 +259,24 @@
         </div>
       </UiCard>
 
+      <UiCard v-if="reelStyle">
+        <template #title>Vidéos faceless des plans</template>
+        <p class="text-sm text-ui-ink-2">Comment les Reels sont produits quand tu approuves un plan éditorial. Enregistré automatiquement.</p>
+
+        <div class="mt-4 grid gap-4 sm:grid-cols-3">
+          <UiField label="Durée visée" for-id="reel-duration">
+            <UiSelect id="reel-duration" v-model="reelDuration" :options="REEL_DURATION_OPTIONS" :disabled="reelSaving" />
+          </UiField>
+          <UiField label="Direction artistique" for-id="reel-slot" hint="Les DA se gèrent depuis la page de DA du profil.">
+            <UiSelect id="reel-slot" v-model="reelSlot" :options="reelSlotOptions" :disabled="reelSaving" />
+          </UiField>
+          <UiField v-if="reelHasCloneVoice" label="Expressivité de la voix" for-id="reel-stability" hint="Forte = ton très marqué mais moins stable.">
+            <UiSelect id="reel-stability" v-model="reelStability" :options="REEL_STABILITY_OPTIONS" :disabled="reelSaving" />
+          </UiField>
+        </div>
+        <p v-if="!reelHasCloneVoice" class="mt-3 text-xs text-ui-ink-muted">Voix de la DA choisie : voix de synthèse (aucune voix clonée désignée sur cette DA).</p>
+      </UiCard>
+
       <UiCard>
         <template #title>Plans précédents</template>
         <p class="text-sm text-ui-ink-2">Retrouve les plans déjà préparés pour ce profil.</p>
@@ -508,6 +526,55 @@ async function saveBrandLinks() {
     savingBrands.value = false
   }
 }
+
+// Reglage « Video faceless des plans » : duree, DA et expressivite de la voix clonee, enregistre a chaque changement.
+const REEL_DURATION_OPTIONS = [20, 30, 45, 60].map((value) => ({ value, label: `${value} s` }))
+const REEL_STABILITY_OPTIONS = [
+  { value: 'creative', label: 'Forte (très expressive)' },
+  { value: 'natural', label: 'Naturelle' },
+  { value: 'robust', label: 'Sobre' },
+]
+const { data: reelData } = useFetch(() => `/api/faceless/style/${id.value}`, { key: computed(() => `reel-style-${id.value}`), lazy: true, server: false })
+const reelStyle = computed(() => reelData.value?.style || null)
+const reelSaving = ref(false)
+const reelValues = reactive({ durationSeconds: 30, styleSlot: 0, stability: 'natural' })
+watch(reelStyle, (style) => {
+  const saved = style?.reelSettings || {}
+  reelValues.durationSeconds = Number(saved.durationSeconds) || 30
+  reelValues.styleSlot = Number(saved.styleSlot) || 0
+  reelValues.stability = saved.stability || 'natural'
+}, { immediate: true })
+const reelSlotOptions = computed(() => {
+  const style = reelStyle.value
+  if (!style) return []
+  return [
+    { value: 0, label: `Principale : ${style.name || 'sans nom'}` },
+    ...(style.alternates || []).map((alt, index) => ({ value: index + 1, label: `Option ${index + 2} : ${alt.name || 'sans nom'}` })),
+  ]
+})
+const reelHasCloneVoice = computed(() => {
+  const style = reelStyle.value
+  if (!style) return false
+  const chosen = reelValues.styleSlot === 0 ? style : style.alternates?.[reelValues.styleSlot - 1]
+  return Boolean(chosen?.cloneVoiceId)
+})
+async function saveReelSettings(patch) {
+  const previous = { ...reelValues }
+  Object.assign(reelValues, patch)
+  reelSaving.value = true
+  try {
+    await $fetch(`/api/faceless/reel-settings/${id.value}`, { method: 'PUT', body: { ...reelValues } })
+    pushToast({ title: 'Réglage enregistré', tone: 'success' })
+  } catch (err) {
+    Object.assign(reelValues, previous)
+    pushToast({ title: 'Enregistrement impossible', message: err?.statusMessage || 'Réessaie dans un instant.', tone: 'error' })
+  } finally {
+    reelSaving.value = false
+  }
+}
+const reelDuration = computed({ get: () => reelValues.durationSeconds, set: (value) => saveReelSettings({ durationSeconds: Number(value) }) })
+const reelSlot = computed({ get: () => reelValues.styleSlot, set: (value) => saveReelSettings({ styleSlot: Number(value) }) })
+const reelStability = computed({ get: () => reelValues.stability, set: (value) => saveReelSettings({ stability: String(value) }) })
 
 // Plans editoriaux deja prepares pour ce profil, avec possibilite de les jeter
 // sans passer par l ecran de revue.

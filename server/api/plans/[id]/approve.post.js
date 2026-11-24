@@ -10,10 +10,11 @@ import { getReelEngine } from '../../../utils/reelEngine.js';
 import { runFacelessVideoJobAndWait } from '../../../utils/facelessVideoJob.js';
 import { loadPersonaStyle, loadPersonality } from '../../../utils/facelessStyleStore.js';
 import { getStoryKeywords } from '../../../utils/personalityPlanning.js';
-import { readyIllustrations } from '../../../utils/facelessStyle.js';
+import { pickStyleSlot, readyIllustrations } from '../../../utils/facelessStyle.js';
 import { normalizeFacelessDuration } from '../../../utils/facelessPlanGenerator.js';
-import { resolveElevenLabsApiKey } from '../../../utils/elevenLabsTts.js';
+import { V3_STABILITY, resolveElevenLabsApiKey } from '../../../utils/elevenLabsTts.js';
 import { resolveOwnerCloneVoice } from '../../../utils/facelessVoiceChoice.js';
+import { normalizeReelSettings } from '../../../utils/facelessReelSettings.js';
 
 let prismaClient;
 
@@ -63,7 +64,10 @@ async function generateForItem({ prisma, runtimeConfig, item, profile, withFaceR
       if (reelEngine === 'faceless') {
         const loaded = await loadPersonaStyle(prisma, profile.id, userId);
         if (!loaded) throw new Error('Profil introuvable pour la video faceless');
-        const { persona, style } = loaded;
+        const { persona, style: baseStyle } = loaded;
+        // Reglage « Video faceless des plans » du profil : duree, DA (principale ou option) et expressivite de la voix clonee.
+        const reel = normalizeReelSettings(baseStyle.reelSettings);
+        const style = pickStyleSlot(baseStyle, reel.styleSlot);
         // Voix clonee seulement si la DA du profil la designe (jamais « la premiere » du compte).
         const owner = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
         const cloneVoice = await resolveOwnerCloneVoice({ ownerEmail: owner?.email, style });
@@ -72,11 +76,11 @@ async function generateForItem({ prisma, runtimeConfig, item, profile, withFaceR
           contentId: item.contentId,
           idea: item.prompt,
           persona,
-          targetSeconds: normalizeFacelessDuration(undefined),
+          targetSeconds: normalizeFacelessDuration(reel.durationSeconds),
           captions: style.captions.enabled,
           voiceId: cloneVoice?.voiceId || style.voiceId,
           voiceMode: cloneVoice?.voiceMode || 'synth',
-          stability: cloneVoice?.stability,
+          stability: cloneVoice ? V3_STABILITY[reel.stability] : undefined,
           style,
           userId,
           illustrations: readyIllustrations(style),

@@ -32,6 +32,10 @@
               <template v-if="alreadyGeneratedCount">{{ alreadyGeneratedCount }} déjà générée{{ alreadyGeneratedCount > 1 ? 's' : '' }}, elle{{ alreadyGeneratedCount > 1 ? 's' : '' }} ne {{ alreadyGeneratedCount > 1 ? 'seront' : 'sera' }} pas refaite{{ alreadyGeneratedCount > 1 ? 's' : '' }}</template>
               <template v-if="!discardedCount && !alreadyGeneratedCount">Rien n'est produit tant que tu n'as pas généré.</template>
             </p>
+            <p v-if="reelSummary" class="mt-0.5 text-xs text-ui-ink-muted">
+              Reels : {{ reelSummary }} ·
+              <NuxtLink :to="`/profiles/${plan.profile?.id}/edit`" class="font-semibold text-ui-accent underline underline-offset-2">Modifier</NuxtLink>
+            </p>
           </div>
 
           <div class="flex flex-col items-end gap-1">
@@ -216,6 +220,8 @@ const plan = computed(() => data.value?.plan ?? null)
 
 // Comment chaque format sera produit (libelles fournis par le serveur, qui connait le moteur actif).
 const productionLabels = computed(() => data.value?.productionLabels || {})
+// Réglage des Reels (durée, DA, voix) lu côté serveur : dit exactement comment ils seront produits.
+const reelSummary = computed(() => String(data.value?.reelSummary || '').replace(/^Vidéo faceless · /, ''))
 
 // Categorie du clip des STORY (devinee depuis la niche du profil par le serveur).
 const STORY_CATEGORY_LABELS = { lifestyle: 'lifestyle', beach: 'plage', outfit: 'tenues', other: 'divers' }
