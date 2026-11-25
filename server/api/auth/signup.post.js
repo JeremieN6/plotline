@@ -5,9 +5,15 @@ import {
   normalizeEmail,
   validatePasswordShape,
 } from '../../utils/auth.js';
+import { SIGNUPS_CLOSED_MESSAGE, createPasswordAccount, signupsEnabled } from '../../utils/accountAccess.js';
 import { prisma } from '../../utils/prisma.js';
 
 export default defineEventHandler(async (event) => {
+  // Avant toute lecture en base : ferme, la route ne dit pas quels comptes existent.
+  if (!signupsEnabled()) {
+    throw createError({ statusCode: 403, statusMessage: SIGNUPS_CLOSED_MESSAGE });
+  }
+
   const body = await readBody(event);
   const email = normalizeEmail(body?.email);
   const password = String(body?.password || '');
@@ -21,39 +27,15 @@ export default defineEventHandler(async (event) => {
   }
 
   const passwordHash = await hashPassword(password);
-  const existing = await prisma.user.findUnique({ where: { email } });
 
   let user;
-  if (existing?.id) {
-    if (existing.passwordHash) {
-      throw createError({ statusCode: 409, statusMessage: 'Un compte existe deja avec cet email' });
+  try {
+    user = await createPasswordAccount(prisma, { email, passwordHash });
+  } catch (error) {
+    if (error?.statusCode) {
+      throw createError({ statusCode: error.statusCode, statusMessage: error.statusMessage });
     }
-
-    user = await prisma.user.update({
-      where: { id: existing.id },
-      data: { passwordHash },
-      select: {
-        id: true,
-        email: true,
-        plan: true,
-        accountType: true,
-        createdAt: true,
-      },
-    });
-  } else {
-    user = await prisma.user.create({
-      data: {
-        email,
-        passwordHash,
-      },
-      select: {
-        id: true,
-        email: true,
-        plan: true,
-        accountType: true,
-        createdAt: true,
-      },
-    });
+    throw error;
   }
 
   await createAuthSession(event, user.id);

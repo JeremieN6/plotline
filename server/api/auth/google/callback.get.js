@@ -1,3 +1,4 @@
+import { findOrCreateGoogleUser } from '../../../utils/accountAccess.js';
 import { createAuthSession } from '../../../utils/auth.js';
 import {
   GOOGLE_STATE_COOKIE,
@@ -31,58 +32,6 @@ async function getPrisma() {
  */
 function redirectWithError(event, reason) {
   return sendRedirect(event, `/auth/login?error=${encodeURIComponent(reason)}`);
-}
-
-/**
- * Retrouve ou cree le compte correspondant au profil Google.
- *
- * L identifiant Google (`sub`) prime sur l email. Le rattachement d un compte
- * existant ne se fait que sur un email verifie par Google — c est la condition
- * qui empeche quelqu un de prendre le controle d un compte en creant une
- * adresse Google homonyme.
- */
-async function findOrCreateUser(prisma, profile) {
-  const byGoogleId = await prisma.user.findUnique({
-    where: { googleId: profile.googleId },
-    select: { id: true, email: true },
-  });
-
-  if (byGoogleId) {
-    return { user: byGoogleId, outcome: 'signin' };
-  }
-
-  const byEmail = await prisma.user.findUnique({
-    where: { email: profile.email },
-    select: { id: true, email: true, googleId: true },
-  });
-
-  if (byEmail) {
-    // Compte cree au mot de passe: on l associe, sans toucher au mot de passe
-    // existant. L utilisateur pourra continuer d utiliser les deux moyens.
-    if (!byEmail.googleId) {
-      const linked = await prisma.user.update({
-        where: { id: byEmail.id },
-        data: { googleId: profile.googleId },
-        select: { id: true, email: true },
-      });
-
-      return { user: linked, outcome: 'linked' };
-    }
-
-    // Le compte porte deja un autre identifiant Google: cas anormal, on refuse
-    // plutot que d ecraser un rattachement existant.
-    throw new Error('Ce compte est deja associe a un autre compte Google');
-  }
-
-  const created = await prisma.user.create({
-    data: {
-      email: profile.email,
-      googleId: profile.googleId,
-    },
-    select: { id: true, email: true },
-  });
-
-  return { user: created, outcome: 'signup' };
 }
 
 export default defineEventHandler(async (event) => {
@@ -129,7 +78,7 @@ export default defineEventHandler(async (event) => {
     const profile = assertUsableProfile(await fetchGoogleProfile(accessToken));
 
     const prisma = await getPrisma();
-    const { user } = await findOrCreateUser(prisma, profile);
+    const { user } = await findOrCreateGoogleUser(prisma, profile);
 
     // Le parcours se termine sur la session maison: le reste de l application
     // ne fait aucune difference entre une connexion Google et un mot de passe.

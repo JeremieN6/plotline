@@ -322,6 +322,11 @@ function redirectWithError(event, reason) {
   return sendRedirect(event, `/auth/login?error=${encodeURIComponent(reason)}`);
 }
 
+// ATTENTION : si l inscription par mot de passe ne verifie pas l adresse, le mot
+// de passe d un compte existant n est PAS prouve. Au rattachement, le retirer et
+// supprimer sessions et liens en attente (voir Plotline,
+// server/utils/accountAccess.js). L inscription ne doit pas non plus ajouter un
+// mot de passe a un compte existant.
 async function findOrCreateUser(profile) {
   const byGoogleId = await prisma.user.findUnique({
     where: { googleId: profile.googleId },
@@ -336,13 +341,19 @@ async function findOrCreateUser(profile) {
 
   if (byEmail) {
     if (!byEmail.googleId) {
-      // Rattachement d'un compte cree au mot de passe. Sur, car l'email est
-      // verifie par Google (voir assertUsableProfile).
-      return await prisma.user.update({
-        where: { id: byEmail.id },
-        data: { googleId: profile.googleId },
-        select: { id: true },
-      });
+      // L email est verifie par Google, pas le mot de passe deja pose.
+      const where = { userId: byEmail.id };
+      const [linked] = await prisma.$transaction([
+        prisma.user.update({
+          where: { id: byEmail.id },
+          data: { googleId: profile.googleId, passwordHash: null },
+          select: { id: true },
+        }),
+        prisma.authSession.deleteMany({ where }),
+        prisma.passwordResetToken.deleteMany({ where }),
+        prisma.emailChangeToken.deleteMany({ where }),
+      ]);
+      return linked;
     }
     throw new Error('Ce compte est deja associe a un autre compte Google');
   }
@@ -476,7 +487,7 @@ Le test 3 est celui qui decide si l'implementation est correcte.
 | Deux sessions en parallele | Un module d'auth tiers a installe la sienne |
 | Doublon de compte apres changement d'email Google | Identification sur l'email au lieu de `sub` |
 | Connexion Google qui echoue en production seulement | Variables d'environnement ou seconde URI absentes du serveur |
-| Prise de controle de compte | Rattachement sans verifier `email_verified` |
+| Prise de controle de compte | Rattachement sans verifier `email_verified`, mot de passe non prouve conserve au rattachement, ou inscription qui modifie un compte existant |
 | « Requete Google invalide » avec deux projets en local | Cookie de `state` partage entre ports : lui donner un nom par projet |
 | Nom d'une autre app sur l'ecran de consentement | Client OAuth partage entre projets |
 | Erreur d'onboarding jamais vue avant | Le parcours compte neuf est enfin emprunte (voir section 7) |
