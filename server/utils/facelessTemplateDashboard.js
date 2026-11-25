@@ -143,7 +143,9 @@ const label = (text) => (text ? `<div class="lab">${esc(noMarks(text))}</div>` :
 /** Une carte blanche animee ; `follow` la pose sous une autre carte. */
 function cardFx(ctx, { inner, at = 0, id, follow, y = TOP, gap = GAP, cls = '', attrs = '', enter = 'card', w = W, x = X }) {
   const html = `<div class="gcard ${cls}"${attrs}>${inner}</div>`;
-  return ctx.fx(html, { x, y, w, enter, fixedEnter: true, at, rot: 0, boil: 0, z: 3, id, follow, gap });
+  // Cadre d ecran : la carte presente au debut de la scene est visible des la premiere image (elle ne fond pas depuis le vide).
+  const entry = ctx.style?.screenFrame && enter === 'card' && !at ? 'screen-swap' : enter;
+  return ctx.fx(html, { x, y, w, enter: entry, fixedEnter: true, at, rot: 0, boil: 0, z: 3, id, follow, gap });
 }
 
 /** Avatar de la scene en cours quand le cadre d ecran est actif : il se pose DEVANT la fenetre, pas dedans. */
@@ -327,7 +329,7 @@ function screenWindow(ctx, inner, kind, dark, address = 'tableau-de-bord', shot 
     + `<div class="wbar"><span class="wdot r"></span><span class="wdot y"></span><span class="wdot g"></span><span class="waddr">${esc(address)}</span></div>`
     + `<div class="wscreen" style="height:${g.screenH}px"><div class="wscale" style="top:${-Math.round(g.boxTop * SCREEN_SCALE)}px">${inner}</div></div></div>`;
   return `<div class="wback${dark ? ' dk' : ''}"></div>`
-    + ctx.fx(html, { x: SCREEN_FRAME.x, y: g.y, w: SCREEN_FRAME.w, h: g.height, enter: 'window', fixedEnter: true, z: 2, boil: 0, data: shot ? { exit: 'shrink', 'fit-shot': g.screenH, 'shot-m': SHOT_MARGIN, ...(logo ? { 'shot-logo': 1 } : {}) } : { exit: 'shrink' } });
+    + ctx.fx(html, { x: SCREEN_FRAME.x, y: g.y, w: SCREEN_FRAME.w, h: g.height, enter: 'screen-swap', fixedEnter: true, z: 2, boil: 0, data: shot ? { 'fit-shot': g.screenH, 'shot-m': SHOT_MARGIN, ...(logo ? { 'shot-logo': 1 } : {}) } : null });
 }
 
 // Marge autour de l image dans l ecran (unites de la scene) : une capture n est jamais rognee ni collee aux bords.

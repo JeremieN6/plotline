@@ -480,6 +480,8 @@ function buildRuntime(fontFamilies, extraLoads = []) {
   const spring = (s) => { const z = 0.55, w = 14, wd = w * Math.sqrt(1 - z * z); return 1 - Math.exp(-z * w * s) * (Math.cos(wd * s) + (z / Math.sqrt(1 - z * z)) * Math.sin(wd * s)); };
   // Entrees des modeles autres que "classic" : duree propre, opacite et flou possibles.
   const EXTRA = {
+    // Cadre d ecran du Dashboard : la fenetre suivante est deja la a la premiere image (jamais d ecran vide entre deux scenes).
+    'screen-swap': { dur: 0.25, f: (p) => { const e = cubic(p); return { y: 28 * (1 - e), s: 0.98 + 0.02 * e }; } },
     window: { dur: 0.45, f: (p) => { const e = backC(p, 1.2); return { y: 120 * (1 - e), s: 0.94 + 0.06 * e, o: clamp(p * 2.2) }; } },
     'blur-up': { dur: 0.28, f: (p) => { const e = cubic(p); return { y: 24 * (1 - e), o: clamp(p / 0.9), b: 14 * (1 - e) }; } },
     'blur-soft': { dur: 0.45, f: (p, since) => { const e = cubic(p); return { y: 14 * (1 - e), o: clamp(since / 0.25), b: 18 * (1 - e) }; } },

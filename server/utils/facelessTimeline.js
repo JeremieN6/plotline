@@ -62,6 +62,12 @@ export function withWordEnds(words = [], clipDuration) {
   }));
 }
 
+/** Pur : le texte sans les asterisques de mise en avant (**mot**) : ils ne se disent pas et ne s affichent jamais en sous-titre. */
+export function stripEmphasis(text) {
+  const value = String(text ?? '');
+  return value.includes('*') ? value.replace(/\*+/g, '').replace(/\s{2,}/g, ' ').trim() : value;
+}
+
 /**
  * Pur : decoupe les mots en sous-titres courts (au plus `maxWords` ET `maxChars` caracteres : un
  * sous-titre tient sur UNE ligne, il ne descend jamais sur le contenu de la scene), avec une
@@ -78,7 +84,9 @@ export function buildCaptionChunks(words, { maxWords = FACELESS_DEFAULTS.maxCapt
   };
 
   const length = (list) => list.reduce((sum, w) => sum + String(w.text).length, 0) + Math.max(0, list.length - 1);
-  for (const word of words) {
+  // Une voix deja enregistree peut porter des asterisques dans ses mots : jamais affiches.
+  const shown = words.map((w) => (String(w.text).includes('*') ? { ...w, text: stripEmphasis(w.text) } : w)).filter((w) => String(w.text));
+  for (const word of shown) {
     // Ajouter ce mot ferait deborder la ligne : on ferme le sous-titre en cours avant.
     if (current.length && length([...current, word]) > maxChars) flush();
     current.push(word);

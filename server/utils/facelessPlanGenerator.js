@@ -13,7 +13,7 @@ import { describeStyleForPrompt, normalizeFacelessStyle } from './facelessStyle.
 import { buildPersonalityBrief } from './personalityBrief.js';
 import { findCatalogEntry } from '../data/facelessAvatarCatalog.js';
 import { ILLUSTRATION_KINDS, MAX_ILLUSTRATION_PROMPT, MAX_NEW_PER_VIDEO } from '../data/facelessIllustrations.js';
-import { countSpokenTokens } from './facelessTimeline.js';
+import { countSpokenTokens, stripEmphasis } from './facelessTimeline.js';
 import { AUDIO_TAGS, normalizeAudioTags, stripAudioTags } from './audioTags.js';
 import { hasImageMarkers, resolveImageMarkers } from './facelessMarkers.js';
 import { isLibraryLogoId } from './facelessLogoLibrary.js';
@@ -289,7 +289,9 @@ export function sanitizeFacelessScene(raw, { captions = true, packIds = [], illu
   if (illustrations && !illustrationIds.length) illustrationIds = Object.keys(illustrations);
 
   // Les balises de ton ne servent qu a la voix clonee : ailleurs elles seraient LUES a voix haute, on les retire.
-  const spoken = allowTags ? normalizeAudioTags(stripDashPunctuation(raw?.say)) : stripAudioTags(stripDashPunctuation(raw?.say));
+  // Les **asterisques** servent au texte a l ecran : dans le texte dit ils finiraient dans les sous-titres.
+  const written = stripDashPunctuation(stripEmphasis(raw?.say));
+  const spoken = allowTags ? normalizeAudioTags(written) : stripAudioTags(written);
   const say = allowTags ? normalizeAudioTags(clip(spoken, 400)) : clip(spoken, 320);
   if (!say) return null;
 
@@ -553,7 +555,10 @@ export function restoreSpokenText(nextPlan, originalPlan) {
 }
 
 export function spokenTextChanged(previousPlan, nextPlan) {
-  const spoken = (plan) => (plan?.scenes || []).map((scene) => String(scene.say || '')).join(' ').replace(/\s+/g, ' ').trim();
+  // Les asterisques ne se disent pas : les retirer d une video deja faite ne regenere pas la voix. Comparaison mot a mot
+  // (un mot compose uniquement d asterisques changerait le decompte des mots : la, la voix est bien regeneree).
+  const spoken = (plan) => (plan?.scenes || []).flatMap((scene) => String(scene.say || '').split(/\s+/).filter(Boolean))
+    .map((token) => token.replace(/\*+/g, '')).join(' ');
   return spoken(previousPlan) !== spoken(nextPlan);
 }
 
