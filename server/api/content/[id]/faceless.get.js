@@ -1,5 +1,9 @@
 import { isFacelessRenderSpec } from '../../../utils/facelessVideoJob.js';
 import { findActiveFacelessSpec } from '../../../utils/facelessContent.js';
+import { listRestyleChoices } from '../../../utils/facelessRestyle.js';
+import { resolveScreen } from '../../../utils/facelessDevice.js';
+import { FACELESS_SCREENS } from '../../../data/facelessThemes.js';
+import { loadPersonaStyle } from '../../../utils/facelessStyleStore.js';
 
 let prismaClient;
 
@@ -33,6 +37,7 @@ export default defineEventHandler(async (event) => {
 
   const spec = await findActiveFacelessSpec(prisma, content);
   const retouchable = isFacelessRenderSpec(spec);
+  const loaded = retouchable && spec.personaId ? await loadPersonaStyle(prisma, spec.personaId, user.id, { withPersonality: false }) : null;
 
   return {
     id: content.id,
@@ -48,6 +53,11 @@ export default defineEventHandler(async (event) => {
     // Plan exact de la version active, pour le modifier directement dans l editeur (sans passer par Claude).
     plan: retouchable ? spec.plan : null,
     template: retouchable ? String(spec.style?.template || 'classic') : 'classic',
+    // « Changer de DA » : nom de la DA de cette version, et les DA proposees (profil puis modeles).
+    daName: retouchable ? String(spec.style?.name || '') : '',
+    daChoices: retouchable ? listRestyleChoices(loaded?.style || null) : [],
+    screen: retouchable ? resolveScreen(spec.style) : 'none',
+    screenChoices: Object.entries(FACELESS_SCREENS).map(([value, label]) => ({ value, label })),
     // Ma propre voix : le texte dit est l enregistrement, il ne peut pas changer.
     ownVoice: retouchable && spec.voiceSource === 'own',
     cloneVoice: retouchable && spec.voice?.source === 'clone',

@@ -436,7 +436,10 @@ test('dashboard : cadre d ecran optionnel, sans effet quand il est desactive', a
   assert.ok(on.includes('class="win dk"'), 'scene sombre : fenetre sombre');
   // le reglage ne passe que par une valeur vraie explicite
   assert.equal(normalizeFacelessStyle({ screenFrame: 'oui' }).screenFrame, false);
-  assert.equal(normalizeFacelessStyle({ screenFrame: true }).screenFrame, true);
+  assert.equal(normalizeFacelessStyle({ preset: 'dashboard-indigo', screenFrame: true }).screenFrame, true);
+  assert.equal(normalizeFacelessStyle({ preset: 'dashboard-indigo', screenFrame: true }).screen, 'computer');
+  // hors Dashboard, l ancien reglage n avait aucun effet : il ne fait pas apparaitre un ecran
+  assert.equal(normalizeFacelessStyle({ screenFrame: true }).screen, 'none');
   // la fenetre ne sort jamais de la zone libre
   for (const kind of ['hook', 'title', 'list', 'word', 'stat', 'avatar', 'photo', 'logo']) {
     const g = screenFrameGeometry(kind);

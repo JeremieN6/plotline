@@ -91,7 +91,7 @@ function frame(ctx, { dark = false } = {}) {
   const color = dark ? ctx.style.palette.accent : INK;
   const svg = '<svg viewBox="0 0 1080 1920" width="1080" height="1920"><rect x="42" y="42" width="996" height="1836" fill="none" '
     + `stroke="${color}" stroke-width="12" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1" data-dash-at="0" data-dash-dur="0.3"/></svg>`;
-  return ctx.fx(svg, { x: 0, y: 0, w: 1080, h: 1920, enter: 'instant', fixedEnter: true, rot: 0, boil: 0, z: 9 });
+  return ctx.fx(svg, { x: 0, y: 0, w: 1080, h: 1920, enter: 'instant', fixedEnter: true, rot: 0, boil: 0, z: 9, cls: 'full-deco' });
 }
 
 /** Pile de lignes d affiche ; la ligne cle est un bloc fluo qui se deplie 0,06 s avant son mot. */

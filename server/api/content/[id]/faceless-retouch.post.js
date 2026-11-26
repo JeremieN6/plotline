@@ -2,6 +2,7 @@ import { isFacelessRenderSpec, runFacelessRetouchJob } from '../../../utils/face
 import { findActiveFacelessSpec } from '../../../utils/facelessContent.js';
 import { MAX_REMEMBERED_RULE, appendStyleRule, readyIllustrations, readyPackEntries } from '../../../utils/facelessStyle.js';
 import { loadPersonaStyle, updateProfileStyle } from '../../../utils/facelessStyleStore.js';
+import { resolveRestyle } from '../../../utils/facelessRestyle.js';
 
 const MAX_INSTRUCTION_LENGTH = 1000;
 const MAX_EDITED_PLAN_JSON = 120000;
@@ -38,7 +39,9 @@ export default defineEventHandler(async (event) => {
     return sendError(event, createError({ statusCode: 400, statusMessage: 'plan trop volumineux' }));
   }
   const instruction = String(body?.instruction || '').trim().slice(0, MAX_INSTRUCTION_LENGTH);
-  if (!instruction && !editedPlan) {
+  // Troisieme possibilite : changer seulement de DA (meme plan, meme voix, aucun appel Claude ni ElevenLabs).
+  const daChoice = !instruction && !editedPlan ? String(body?.da || '').trim().slice(0, 80) : '';
+  if (!instruction && !editedPlan && !daChoice) {
     return sendError(event, createError({ statusCode: 400, statusMessage: 'consigne requise' }));
   }
 
@@ -53,7 +56,7 @@ export default defineEventHandler(async (event) => {
 
   const content = await prisma.generatedContent.findFirst({
     where: { id, influencer: { userId: user.id } },
-    select: { id: true, status: true, imageUrl: true },
+    select: { id: true, status: true, imageUrl: true, caption: true },
   });
   if (!content) {
     return sendError(event, createError({ statusCode: 404, statusMessage: 'Contenu introuvable' }));
@@ -69,7 +72,14 @@ export default defineEventHandler(async (event) => {
 
   const loaded = spec.personaId ? await loadPersonaStyle(prisma, spec.personaId, user.id) : null;
   // Un plan modifie a la main n est jamais une regle a retenir pour les prochaines videos.
-  const rememberRule = !editedPlan && body?.rememberRule === true;
+  const rememberRule = !editedPlan && !daChoice && body?.rememberRule === true;
+
+  const restyle = daChoice
+    ? resolveRestyle(daChoice, { profileStyle: loaded?.style || null, spec, gender: loaded?.persona?.gender, screen: String(body?.screen || '') })
+    : null;
+  if (daChoice && !restyle) {
+    return sendError(event, createError({ statusCode: 400, statusMessage: 'Direction artistique inconnue' }));
+  }
 
   // La regle retenue rejoint la DA de la persona (sans toucher a son pack d avatars).
   if (rememberRule && loaded) {
@@ -92,6 +102,8 @@ export default defineEventHandler(async (event) => {
     spec,
     instruction,
     plan: editedPlan,
+    restyle,
+    caption: restyle ? content.caption : undefined,
     persona: loaded?.persona || null,
     rememberRule,
     folderIllustrations: loaded ? readyIllustrations(loaded.style) : {},

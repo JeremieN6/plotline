@@ -13,6 +13,7 @@ import {
   FACELESS_PRESETS,
   FACELESS_TEMPLATES,
 } from '../data/facelessThemes.js';
+import { resolveScreen } from './facelessDevice.js';
 import { DEFAULT_FACELESS_VOICE_ID, findFacelessVoice } from '../data/facelessCatalog.js';
 import { normalizeReelSettings } from './facelessReelSettings.js';
 import { ILLUSTRATION_KINDS, ILLUSTRATION_SOURCES, MAX_ILLUSTRATIONS, MAX_ILLUSTRATION_PROMPT } from '../data/facelessIllustrations.js';
@@ -135,6 +136,13 @@ function normalizeIllustrations(raw) {
  * Pur : DA complete et sure. `keepPack` n est vrai que pour une lecture en base
  * (ecrite par le serveur), jamais pour une entree venant du client.
  */
+function normalizeScreen(input, template) {
+  // Une seule regle pour les anciennes DA (qui n ont que `screenFrame`) : celle du rendu (resolveScreen).
+  const screen = resolveScreen({ screen: input.screen, screenFrame: input.screenFrame === true, template });
+  // `screenFrame` : le cadre d ordinateur propre au Dashboard (anciennes DA et anciennes videos).
+  return { screen, screenFrame: screen === 'computer' && template === 'dashboard' };
+}
+
 export function normalizeFacelessStyle(raw, { keepPack = false } = {}) {
   const input = raw && typeof raw === 'object' ? raw : {};
   const preset = pick(input.preset, FACELESS_PRESETS, DEFAULT_PRESET);
@@ -156,8 +164,8 @@ export function normalizeFacelessStyle(raw, { keepPack = false } = {}) {
     preset,
     // Modele visuel : celui demande, sinon celui du preset (les DA enregistrees avant les modeles sont "classic").
     template: pick(input.template, FACELESS_TEMPLATES, base.template || 'classic'),
-    // Cadre d ecran d ordinateur autour du contenu (modele Dashboard seulement) : jamais actif sans choix explicite.
-    screenFrame: input.screenFrame === true,
+    // Ecran autour du contenu (aucun, ordinateur, telephone), dans toutes les DA : jamais actif sans choix explicite.
+    ...normalizeScreen(input, pick(input.template, FACELESS_TEMPLATES, base.template || 'classic')),
     palette,
     font: pick(input.font, FACELESS_FONTS, base.font),
     card: pick(input.card, FACELESS_CARD_STYLES, base.card),

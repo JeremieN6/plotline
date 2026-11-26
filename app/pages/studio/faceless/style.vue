@@ -100,11 +100,12 @@
         <section class="rounded-ui-card border border-ui-line bg-ui-surface p-5">
           <h2 class="text-lg font-semibold text-ui-ink">2. Les réglages</h2>
           <UiAlert v-if="templateNote" tone="info" :title="templateNote.title" class="mt-3">{{ templateNote.text }}</UiAlert>
-          <div v-if="da.template === 'dashboard'" class="mt-3">
-            <UiSwitch v-model="da.screenFrame" label="Cadre d’écran d’ordinateur" />
+          <div class="mt-3">
+            <p class="mb-1.5 text-[13px] font-semibold text-ui-ink">Écran</p>
+            <UiSegmented v-model="screenModel" :options="SCREEN_OPTIONS" aria-label="Écran autour des scènes" />
             <p class="mt-1 text-xs text-ui-ink-muted">
-              Chaque scène est présentée dans une fenêtre de navigateur. Un avatar se place devant. Sur une scène « Photo », l’image remplit tout l’écran.
-              Choisis « Fond sombre » pour une scène : la fenêtre passe en version sombre.
+              Chaque scène est présentée dans l’écran choisi, sur un fond doux. La DA garde ses polices et ses couleurs. Les sous-titres restent hors de l’écran.
+              <template v-if="da.template === 'dashboard'"> En Dashboard, l’avatar passe devant la fenêtre et une image remplit tout l’écran.</template>
             </p>
           </div>
           <div class="mt-4 grid gap-4 sm:grid-cols-2">
@@ -288,6 +289,18 @@ const previewing = ref(false)
 const previewError = ref('')
 
 const da = computed(() => drafts.value[slot.value])
+// Ecran autour des scenes, disponible dans toutes les DA (les DA d avant n ont que le cadre du Dashboard).
+const SCREEN_OPTIONS = [{ value: 'none', label: 'Aucun' }, { value: 'computer', label: 'Ordinateur' }, { value: 'phone', label: 'Téléphone' }]
+const screenModel = computed({
+  get: () => {
+    if (da.value?.screen && da.value.screen !== 'none') return da.value.screen
+    return da.value?.screenFrame && da.value.template === 'dashboard' ? 'computer' : 'none'
+  },
+  set: (value) => {
+    da.value.screen = value
+    da.value.screenFrame = value === 'computer' && da.value.template === 'dashboard'
+  },
+})
 const dirty = computed(() => Boolean(da.value) && JSON.stringify(da.value) !== snapshots.value[slot.value])
 const readyCount = computed(() => pack.value.entries.filter((entry) => entry.url).length)
 
@@ -378,7 +391,7 @@ function createSlot() {
 }
 
 function applyPreset(preset) {
-  const keep = { avatar: da.value.avatar, voiceId: da.value.voiceId, cloneVoiceId: da.value.cloneVoiceId || '', avatarPrompt: da.value.avatarPrompt, avatarRender: da.value.avatarRender, screenFrame: Boolean(da.value.screenFrame) }
+  const keep = { avatar: da.value.avatar, voiceId: da.value.voiceId, cloneVoiceId: da.value.cloneVoiceId || '', avatarPrompt: da.value.avatarPrompt, avatarRender: da.value.avatarRender, screen: screenModel.value, screenFrame: screenModel.value === 'computer' && da.value.template === 'dashboard' }
   drafts.value[slot.value] = { ...JSON.parse(JSON.stringify(preset.style)), ...keep }
 }
 

@@ -310,6 +310,24 @@
             </div>
 
             <UiField
+              v-if="info.daChoices?.length"
+              label="Changer de DA"
+              for-id="faceless-restyle"
+              :hint="`DA actuelle : ${info.daName || 'inconnue'}. Même script et même voix : aucun crédit ElevenLabs ni Claude. Chaque DA dessine les scènes à sa façon : relis la nouvelle version avant de publier.`"
+            >
+              <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div class="min-w-0 flex-1">
+                  <UiSelect id="faceless-restyle" v-model="restyleChoice" :options="restyleOptions" />
+                </div>
+                <UiButton variant="secondary" :disabled="!restyleChoice || !info.canRetouchNow" @click="applyRestyle">Remonter avec cette DA</UiButton>
+              </div>
+              <div class="mt-3">
+                <p class="mb-1.5 text-xs text-ui-ink-muted">Écran : il suit ta vidéo, quelle que soit la DA.</p>
+                <UiSegmented v-model="restyleScreen" :options="info.screenChoices || []" aria-label="Écran de la vidéo" />
+              </div>
+            </UiField>
+
+            <UiField
               label="Retoucher"
               for-id="faceless-retouch"
               hint="Dis ce qui ne va pas, comme à un monteur. Si le texte dit ne change pas, la même voix est réutilisée."
@@ -541,9 +559,8 @@ const canGenerate = computed(() => !polling.value && (voiceMode.value === 'own'
   ? Boolean(audioFile.value)
   : (Boolean(plan.value) || idea.value.trim().length > 0 || sourceText.value.trim().length > 0)
     && Boolean(voiceMode.value === 'clone' ? cloneVoiceId.value : voiceId.value)))
-const pollingLabel = computed(() => (pollingKind.value === 'retouch'
-  ? 'Retouche du plan, puis nouveau montage…'
-  : 'Script, voix puis montage image par image…'))
+const POLLING_LABELS = { retouch: 'Retouche du plan, puis nouveau montage…', restyle: 'Nouveau montage avec cette DA…' }
+const pollingLabel = computed(() => POLLING_LABELS[pollingKind.value] || 'Script, voix puis montage image par image…')
 const elapsedLabel = computed(() => {
   const seconds = Math.max(0, Math.round((now.value - startedAt.value) / 1000))
   return `${Math.floor(seconds / 60)} min ${String(seconds % 60).padStart(2, '0')} s`
@@ -553,7 +570,6 @@ async function loadInfo(id, fetcher = $fetch) {
   try {
     info.value = await fetcher(`/api/content/${id}/faceless`)
     if (info.value?.imageUrl) videoUrl.value = info.value.imageUrl
-    if (info.value?.idea && !idea.value) idea.value = info.value.idea
   } catch {
     info.value = null
   }
@@ -825,6 +841,29 @@ async function applyPlanEdit() {
     lastFailure.value = error?.data?.statusMessage || error?.statusMessage || 'Impossible de lancer la modification.'
   } finally {
     savingPlanEdit.value = false
+  }
+}
+
+// Changer de DA : meme plan et meme voix, seul le montage est refait.
+const restyleChoice = ref('')
+const restyleOptions = computed(() => [{ value: '', label: 'Choisir une DA…' }, ...(info.value?.daChoices || [])])
+// L ecran propose par defaut est celui de la version affichee.
+const restyleScreen = ref('none')
+watch(() => info.value?.screen, (value) => { restyleScreen.value = value || 'none' }, { immediate: true })
+
+async function applyRestyle() {
+  if (!restyleChoice.value) return
+  lastFailure.value = ''
+  try {
+    await $fetch(`/api/content/${contentId.value}/faceless-retouch`, {
+      method: 'POST',
+      body: { da: restyleChoice.value, screen: restyleScreen.value },
+    })
+    editPlan.value = null
+    restyleChoice.value = ''
+    startPolling(contentId.value, 'restyle')
+  } catch (error) {
+    lastFailure.value = error?.data?.statusMessage || error?.statusMessage || 'Impossible de changer de DA.'
   }
 }
 

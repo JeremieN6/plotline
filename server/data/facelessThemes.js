@@ -31,6 +31,9 @@ export const FACELESS_FONTS = {
  * les autres modeles ont leur propre structure (cadre, animations) et n utilisent de la DA
  * que la palette, la police, le mouvement et les sous-titres.
  */
+// Ecran dans lequel la scene est presentee : un choix independant de la DA.
+export const FACELESS_SCREENS = { none: 'Aucun', computer: 'Ordinateur', phone: 'Téléphone' };
+
 export const FACELESS_TEMPLATES = {
   classic: 'Classique (cartes et autocollants)',
   fenetre: 'Fenêtre d’ordinateur',

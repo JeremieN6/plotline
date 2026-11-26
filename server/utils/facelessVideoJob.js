@@ -238,12 +238,21 @@ export async function produceFacelessVideo({ idea, sourceText = '', direction = 
  * la voix est reutilisee si le texte dit n a pas bouge, sinon regeneree.
  * `rememberRule` : la consigne est aussi ajoutee aux regles de la DA.
  */
-export async function retouchFacelessVideo({ spec, instruction, plan: editedPlan = null, persona, rememberRule = false, folderIllustrations = {}, folderPackEntries = {}, onStep = () => {} } = {}) {
+export async function retouchFacelessVideo({ spec, instruction, plan: editedPlan = null, newStyle = null, persona, rememberRule = false, folderIllustrations = {}, folderPackEntries = {}, onStep = () => {} } = {}) {
   let { style, packEntries } = styleFromSpec(spec);
   // Poses du pack generees APRES la video : elles deviennent utilisables. Celles deja dans la video gardent leur image (rien ne change d un cadre a l autre).
   packEntries = mergePackEntries(packEntries, folderPackEntries);
   // Images connues : celles du dossier aujourd hui + celles de la version retouchee (meme supprimees du dossier).
   const known = { ...folderIllustrations, ...(spec?.illustrationEntries && typeof spec.illustrationEntries === 'object' ? spec.illustrationEntries : {}) };
+  // Changement de DA : le plan et la voix ne bougent pas, seul le montage est refait (ni Claude ni ElevenLabs).
+  if (newStyle) {
+    const entries = mergePackEntries(packEntries, readyPackEntries(newStyle));
+    const sameVoice = { audio: await readVoice(spec.voiceUrl), words: spec.words };
+    onStep('voice-reused');
+    onStep('render');
+    const montage = await renderFacelessFromPlan(spec.plan, sameVoice, { style: newStyle, packEntries: entries, illustrations: known });
+    return { video: montage.video, plan: spec.plan, voice: sameVoice, newVoice: false, duration: montage.duration, style: newStyle, packEntries: entries, illustrationEntries: pickIllustrations(spec.plan, known) };
+  }
   if (rememberRule) style = appendStyleRule(style, instruction);
   const ownVoice = spec?.voiceSource === 'own';
 
@@ -381,15 +390,17 @@ export async function runFacelessVideoJobAndWait(args) {
 }
 
 /** Lance une retouche en tache de fond a partir du renderSpec de la version active. */
-export function runFacelessRetouchJob({ prisma, contentId, spec, instruction, plan = null, persona, rememberRule = false, folderIllustrations = {}, folderPackEntries = {}, previousStatus }) {
+export function runFacelessRetouchJob({ prisma, contentId, spec, instruction, plan = null, restyle = null, caption, persona, rememberRule = false, folderIllustrations = {}, folderPackEntries = {}, previousStatus }) {
   return inBackground(prisma, contentId, previousStatus, async () => {
-    const result = await retouchFacelessVideo({ spec, instruction, plan, persona, rememberRule, folderIllustrations, folderPackEntries, onStep: logStep(contentId) });
+    const result = await retouchFacelessVideo({ spec, instruction, plan, newStyle: restyle?.style || null, persona, rememberRule, folderIllustrations, folderPackEntries, onStep: logStep(contentId) });
     const voiceUrl = result.newVoice
       ? await saveFacelessMedia(result.voice.audio, { folder: 'generated', extension: 'mp3', contentType: 'audio/mpeg' })
       : spec.voiceUrl;
     await finalizeFaceless(prisma, contentId, {
       ...result,
       voiceUrl,
+      // Changement de DA : la legende en place (peut-etre modifiee a la main) est gardee.
+      caption,
       base: {
         idea: spec.idea,
         voiceId: spec.voiceId,
@@ -399,7 +410,7 @@ export function runFacelessRetouchJob({ prisma, contentId, spec, instruction, pl
         personaId: spec.personaId || null,
         ...(spec.sourceArticle ? { sourceArticle: spec.sourceArticle } : {}),
         // Historique des consignes : utile pour comprendre une version (et a Claude plus tard).
-        retouches: [...(Array.isArray(spec.retouches) ? spec.retouches : []), plan ? 'Modification directe du plan' : String(instruction).slice(0, 1000)].slice(-10),
+        retouches: [...(Array.isArray(spec.retouches) ? spec.retouches : []), restyle ? `Changement de DA : ${restyle.label}` : plan ? 'Modification directe du plan' : String(instruction).slice(0, 1000)].slice(-10),
       },
     });
   });

@@ -6,6 +6,8 @@ import { CAHIER_CAPTION_TOP, cahierCss, cahierScene } from './facelessTemplateCa
 import { EDITEUR_CAPTION_TOP, editeurCss, editeurScene } from './facelessTemplateEditeur.js';
 import { BRUTAL_CAPTION_TOP, brutalBg, brutalCss, brutalScene } from './facelessTemplateBrutal.js';
 import { logoGridHtml } from './facelessLogoGrid.js';
+import { computerGeometry, deviceCss, phoneGeometry, resolveScreen, wrapInDevice } from './facelessDevice.js';
+import { labelCardCss, labelCardHtml } from './facelessLabelCard.js';
 import { DASHBOARD_CAPTION_TOP, dashboardBg, dashboardCss, dashboardScene } from './facelessTemplateDashboard.js';
 import { HERBIER_CAPTION_TOP, herbierCss, herbierScene } from './facelessTemplateHerbier.js';
 import { HANKO_CAPTION_TOP, hankoCss, hankoScene } from './facelessTemplateHanko.js';
@@ -461,6 +463,8 @@ function buildRuntime(fontFamilies, extraLoads = []) {
   ${centerShift.toString()}
   ${isLogoShape.toString()}
   ${isPhoneShape.toString()}
+  ${computerGeometry.toString()}
+  ${phoneGeometry.toString()}
   const data = JSON.parse(document.getElementById('timeline').textContent);
   const scenes = [...document.querySelectorAll('.scene')];
   const caps = document.getElementById('captions');
@@ -825,14 +829,37 @@ function buildRuntime(fontFamilies, extraLoads = []) {
     // pour tout le contenu : les ecarts entre elements restent les memes ; cadres et fonds plein ecran ne bougent pas).
     scenes.forEach((s, index) => {
       const sc = data.scenes[index];
-      if (!sc || s.querySelector('.avatar')) return;
+      const canvas = s.querySelector('.dv-canvas');
+      const computer = Boolean(canvas && s.querySelector('.dv-computer'));
+      if (!sc || (s.querySelector('.avatar') && !computer)) return;
       // Les formes decoratives du fond (etoiles, nuages...) restent a leur place : elles ne font pas partie du contenu.
-      const nodes = [...s.children].filter((el) => el.classList.contains('fx') && el.offsetHeight < 1500 && !el.querySelector('.paper-shape'));
+      const nodes = [...(canvas || s).children].filter((el) => el.classList.contains('fx') && el.offsetHeight < 1500 && !el.querySelector('.paper-shape'));
       if (!nodes.length) return;
       const box = { top: Infinity, bottom: -Infinity };
       nodes.forEach((el) => { box.top = Math.min(box.top, el.offsetTop); box.bottom = Math.max(box.bottom, el.offsetTop + el.offsetHeight); });
-      const dy = centerShift(box, contentBand({ capOn: data.capOn, capPos: data.capPos, captionTop: sc.captionTop }));
+      if (computer) { s.dataset.boxTop = box.top; s.dataset.boxBottom = box.bottom; return; }
+      // Dans un telephone, les sous-titres sont hors de l ecran : le contenu se centre dans toute la toile.
+      const band = canvas ? { top: 260, bottom: 1660 } : contentBand({ capOn: data.capOn, capPos: data.capPos, captionTop: sc.captionTop });
+      const dy = centerShift(box, band);
       if (dy) nodes.forEach((el) => { el.style.top = (el.offsetTop + dy) + 'px'; });
+    });
+    // Appareils : dimensions de la fenetre (selon le contenu) ou du telephone, puis mise a l echelle de la toile.
+    scenes.forEach((s) => {
+      const device = s.querySelector('.dv-box');
+      if (!device) return;
+      const capBottom = data.capOn && data.capPos === 'bottom';
+      const phone = device.classList.contains('dv-phone');
+      const content = s.dataset.boxTop ? { top: +s.dataset.boxTop, bottom: +s.dataset.boxBottom } : { top: 420, bottom: 1500 };
+      const g = phone ? phoneGeometry(capBottom) : computerGeometry(content, capBottom);
+      device.style.left = g.left + 'px';
+      device.style.top = g.y + 'px';
+      device.style.width = g.width + 'px';
+      device.style.height = g.height + 'px';
+      device.querySelector('.dv-screen').style.height = g.screenH + 'px';
+      const canvas = device.querySelector('.dv-canvas');
+      canvas.style.left = (phone ? 0 : g.canvasLeft) + 'px';
+      canvas.style.top = (phone ? 0 : g.canvasTop) + 'px';
+      canvas.style.transform = 'scale(' + g.scale.toFixed(4) + ')';
     });
     scenes.forEach((s) => { s.style.display = 'none'; });
     return true;
@@ -900,11 +927,15 @@ export function buildFacelessHtml(timeline, options = {}) {
 
   const bgOf = (scene) => (['alt', 'dark'].includes(scene.bg) ? scene.bg : 'main');
   const engine = ENGINES[style.template] || null;
+  // Ecran choisi : le Dashboard dessine lui-meme son cadre d ordinateur ; tout le reste passe par l appareil commun.
+  const screen = resolveScreen(style);
+  const ownFrame = screen === 'computer' && style.template === 'dashboard';
+  const device = screen === 'none' || ownFrame ? '' : screen;
   const ctx = {
     fx,
     avatarVisual,
     noAvatar: T.noAvatar,
-    style,
+    style: { ...style, screenFrame: ownFrame },
     illustrations: T.illustrations,
     illustrationUrl: (id) => `${FACELESS_ASSET_ORIGIN}/illustration/${encodeURIComponent(id)}.jpg`,
     // Grille de logos qui s ajoutent au fil de la voix : la zone et l habillage (.logo-tile) sont ceux du modele.
@@ -913,12 +944,29 @@ export function buildFacelessHtml(timeline, options = {}) {
     seed: nextSeed,
   };
   const bgFor = (scene) => (engine?.bg ? engine.bg(scene) : bgOf(scene));
-  const scenesHtml = timeline.scenes.map((original) => {
+  const isDarkScene = (name) => {
+    const color = name === 'dark' ? style.palette.dark : (name === 'alt' ? style.palette.backgroundAlt : style.palette.background);
+    return readableTextOn(color) === '#ffffff';
+  };
+  const section = (original, name, body, shown = device) => {
+    if (!shown) return `<section class="scene bg-${name}"><div class="bg"></div>${body}</section>`;
+    const address = original.layout === 'photo' ? String(original.tab || '').trim() : '';
+    return `<section class="scene bg-${name}">${wrapInDevice(`<div class="bg"></div>${body}`, { device: shown, dark: isDarkScene(name), address })}</section>`;
+  };
+  let hasLabelCard = false;
+  const scenesHtml = timeline.scenes.map((source) => {
+    // L etiquette de produit n a son dessin que dans l Herbier : ailleurs, une carte commune garde tous les ingredients.
+    if (source.layout === 'label' && style.template !== 'herbier') {
+      hasLabelCard = true;
+      // La carte est dessinee hors du modele : en Dashboard « ordinateur », elle prend la fenetre commune.
+      return section(source, bgFor(source), labelCardHtml(source, { fx }), ownFrame ? 'computer' : device);
+    }
+    const original = source;
     const asStack = original.layout === 'slideshow' && original.display === 'stack' && engine?.logoStack;
     const scene = asStack ? slideshowAsStack(original) : slideshowAsPhoto(original);
-    if (engine) return `<section class="scene bg-${bgFor(scene)}"><div class="bg"></div>${injectSlideshow(engine.scene(scene, ctx), scene)}</section>`;
+    if (engine) return section(source, bgFor(scene), injectSlideshow(engine.scene(scene, ctx), scene));
     const layout = LAYOUTS[scene.layout] || LAYOUTS.avatar;
-    return `<section class="scene bg-${bgOf(scene)}"><div class="bg"></div>${decorLayer()}${injectSlideshow(layout(scene), scene)}</section>`;
+    return section(source, bgOf(scene), `${decorLayer()}${injectSlideshow(layout(scene), scene)}`);
   }).join('\n');
 
   const top = style.captions.position === 'top';
@@ -934,7 +982,8 @@ export function buildFacelessHtml(timeline, options = {}) {
       captionChunks: s.captionChunks || [],
       // Haut : sous la zone de l interface TikTok ; bas : sous le mot geant ou sur le buste. Les modeles
       // animes respectent aussi le choix de la DA (haut = leur place d origine).
-      captionTop: engine ? (top ? engine.captionTop : ENGINE_CAPTION_BOTTOM) : (top ? 150 : (s.layout === 'word' ? 840 : 1400)),
+      // Avec un appareil, les sous-titres sortent de l ecran : au-dessus de lui, ou en dessous.
+      captionTop: device ? (top ? 180 : ENGINE_CAPTION_BOTTOM) : (engine ? (top ? engine.captionTop : ENGINE_CAPTION_BOTTOM) : (top ? 150 : (s.layout === 'word' ? 840 : 1400))),
     })),
   };
 
@@ -944,7 +993,7 @@ export function buildFacelessHtml(timeline, options = {}) {
   const css = engine
     ? fontFace(font) + fontFace(mono) + extraFaces.map(extraFontFace).join('') + engine.css(style, { fontFamily: font.family, monoFamily: mono.family, emojiFonts: EMOJI_FONTS })
     : buildCss(style);
-  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>${css}</style></head><body>`
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><style>${css}${device || (ownFrame && hasLabelCard) ? deviceCss(style.palette.accent) : ''}${hasLabelCard ? labelCardCss(style.palette.accent) : ''}</style></head><body>`
     + `${scenesHtml}<div id="captions"></div>`
     + `<script type="application/json" id="timeline">${JSON.stringify(runtimeData).replace(/</g, '\\u003c')}</script>`
     + `<script>${buildRuntime(mono ? [font.family, mono.family] : [font.family], extraFaces.map(fontLoadSpec))}</script></body></html>`;
