@@ -69,12 +69,26 @@ test('géométrie : l’appareil reste entre les sous-titres et la zone des rés
   }
 });
 
-test('changer de DA : l’écran suit la vidéo, sauf si un autre est demandé', () => {
+test('changer de DA : la DA choisie décide de l’écran, sauf si un autre est demandé', () => {
   const spec = { style: { ...defaultFacelessStyle('dashboard-bleu', 'MALE'), screen: 'computer', screenFrame: true } };
-  const followed = resolveRestyle('preset:cahier-bleu', { spec });
-  assert.equal(followed.style.screen, 'computer');
-  assert.equal(followed.style.screenFrame, false);
+  // La vidéo avait un écran : une DA qui n’en a pas ne le reprend pas.
+  const plain = resolveRestyle('preset:cahier-bleu', { spec });
+  assert.equal(plain.style.screen, 'none');
+  assert.match(plain.label, /écran : aucun/);
+  // Une DA enregistrée garde son propre écran, y compris l’ancien cadre du Dashboard.
+  const profileStyle = {
+    ...defaultFacelessStyle('cahier-bleu', 'MALE'),
+    alternates: [
+      normalizeFacelessStyle({ ...defaultFacelessStyle('dashboard-bleu', 'MALE'), screen: undefined, screenFrame: true }),
+      normalizeFacelessStyle({ ...defaultFacelessStyle('journal-violet', 'MALE'), screen: 'phone' }),
+    ],
+  };
+  const dashboard = resolveRestyle('slot:1', { profileStyle, spec: { style: defaultFacelessStyle('cahier-bleu', 'MALE') } });
+  assert.equal(dashboard.style.screen, 'computer');
+  assert.equal(dashboard.style.screenFrame, true);
+  assert.equal(resolveRestyle('slot:2', { profileStyle, spec }).style.screen, 'phone');
+  assert.equal(resolveRestyle('slot:1', { profileStyle, screen: 'none' }).style.screenFrame, false);
+  // Écran demandé pour cette vidéo : il remplace celui de la DA.
   assert.equal(resolveRestyle('preset:cahier-bleu', { spec, screen: 'phone' }).style.screen, 'phone');
-  assert.equal(resolveRestyle('preset:cahier-bleu', { spec, screen: 'none' }).style.screen, 'none');
   assert.equal(resolveRestyle('preset:dashboard-bleu', { spec, screen: 'computer' }).style.screenFrame, true);
 });

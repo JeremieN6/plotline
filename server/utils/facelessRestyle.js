@@ -18,19 +18,20 @@ export function listRestyleChoices(profileStyle) {
   return [...profile, ...presets];
 }
 
-/** Pur : la DA et l ecran demandes (l ecran de la video est garde si rien n est demande). */
-function withScreen(style, screen) {
+/** Pur : la DA avec son propre ecran, ou celui demande a sa place. */
+function withScreen(style, requested) {
+  const screen = Object.hasOwn(FACELESS_SCREENS, requested) ? requested : resolveScreen(style);
   return { ...style, screen, screenFrame: screen === 'computer' && style.template === 'dashboard' };
 }
 
+const describe = (name, style) => `${name}, écran : ${FACELESS_SCREENS[style.screen].toLowerCase()}`;
+
 /**
- * Pur : la DA choisie, prete pour le rendu, ou `null` si le choix n existe pas. L ecran appartient a la VIDEO : il la
- * suit d une DA a l autre, sauf si un autre est demande. Un modele essaye garde l avatar de la DA principale du profil
- * (a defaut, celui de la video).
+ * Pur : la DA choisie, prete pour le rendu, ou `null` si le choix n existe pas. C est la DA choisie qui decide de
+ * l ecran, comme dans son apercu, sauf si un autre est demande pour cette video. Un modele essaye garde l avatar de la
+ * DA principale du profil (a defaut, celui de la video).
  */
 export function resolveRestyle(choice, { profileStyle = null, spec = null, gender = 'FEMALE', screen = '' } = {}) {
-  const videoStyle = normalizeFacelessStyle(spec?.style || {});
-  const wanted = Object.hasOwn(FACELESS_SCREENS, screen) ? screen : resolveScreen(videoStyle);
   const match = /^(slot|preset):([\w-]{1,60})$/.exec(String(choice || ''));
   if (!match) return null;
   const [, kind, key] = match;
@@ -39,13 +40,12 @@ export function resolveRestyle(choice, { profileStyle = null, spec = null, gende
     const slot = Number(key);
     if (!profileStyle || !Number.isInteger(slot) || slot < 0 || slot > (profileStyle.alternates || []).length) return null;
     const picked = pickStyleSlot(profileStyle, slot);
-    return { style: withScreen(picked, wanted), label: `DA ${SLOT_NAMES[slot]} du profil (${picked.name}), écran : ${FACELESS_SCREENS[wanted].toLowerCase()}` };
+    const style = withScreen(picked, screen);
+    return { style, label: describe(`DA ${SLOT_NAMES[slot]} du profil (${picked.name})`, style) };
   }
 
   if (!Object.hasOwn(FACELESS_PRESETS, key)) return null;
-  const avatar = profileStyle?.avatar || videoStyle.avatar;
-  return {
-    style: withScreen({ ...defaultFacelessStyle(key, gender), avatar }, wanted),
-    label: `modèle ${FACELESS_PRESETS[key].label}, écran : ${FACELESS_SCREENS[wanted].toLowerCase()}`,
-  };
+  const avatar = profileStyle?.avatar || normalizeFacelessStyle(spec?.style || {}).avatar;
+  const style = withScreen({ ...defaultFacelessStyle(key, gender), avatar }, screen);
+  return { style, label: describe(`modèle ${FACELESS_PRESETS[key].label}`, style) };
 }

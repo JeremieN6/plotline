@@ -29,13 +29,13 @@ test('resolveRestyle (DA du profil) : la bonne DA, avec le pack d’avatars de l
   assert.equal(resolveRestyle('slot:0', { profileStyle: profileStyle() }).style.template, 'editeur');
 });
 
-test('resolveRestyle (modèle) : avatar du profil et écran de la vidéo gardés', () => {
+test('resolveRestyle (modèle) : avatar du profil gardé, pas d’écran hérité de la vidéo', () => {
   const spec = { style: { ...defaultFacelessStyle('dashboard-bleu', 'MALE'), screenFrame: true } };
   const trial = resolveRestyle('preset:cahier-bleu', { profileStyle: profileStyle(), spec, gender: 'MALE' });
   assert.equal(trial.style.template, 'cahier');
   assert.equal(trial.style.avatar.kind, 'pack');
-  // L’écran de la vidéo suit ; hors Dashboard, il prend la fenêtre commune (pas le cadre propre au Dashboard).
-  assert.equal(trial.style.screen, 'computer');
+  // Le modèle n’a pas d’écran : celui de la vidéo ne le suit pas.
+  assert.equal(trial.style.screen, 'none');
   assert.equal(trial.style.screenFrame, false);
   // Sans profil : l'avatar est celui de la vidéo.
   const alone = resolveRestyle('preset:brutal-fluo', { spec: { style: defaultFacelessStyle('terminal', 'MALE') } });

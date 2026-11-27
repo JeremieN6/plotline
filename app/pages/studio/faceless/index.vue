@@ -322,8 +322,8 @@
                 <UiButton variant="secondary" :disabled="!restyleChoice || !info.canRetouchNow" @click="applyRestyle">Remonter avec cette DA</UiButton>
               </div>
               <div class="mt-3">
-                <p class="mb-1.5 text-xs text-ui-ink-muted">Écran : il suit ta vidéo, quelle que soit la DA.</p>
-                <UiSegmented v-model="restyleScreen" :options="info.screenChoices || []" aria-label="Écran de la vidéo" />
+                <UiSelect id="faceless-restyle-screen" v-model="restyleScreen" :options="restyleScreenOptions" aria-label="Écran de la vidéo" />
+                <p class="mt-1.5 text-xs text-ui-ink-muted">« Comme la DA » reprend l’écran de la DA choisie. Un écran ajouté ici entoure toutes les scènes.</p>
               </div>
             </UiField>
 
@@ -847,9 +847,12 @@ async function applyPlanEdit() {
 // Changer de DA : meme plan et meme voix, seul le montage est refait.
 const restyleChoice = ref('')
 const restyleOptions = computed(() => [{ value: '', label: 'Choisir une DA…' }, ...(info.value?.daChoices || [])])
-// L ecran propose par defaut est celui de la version affichee.
-const restyleScreen = ref('none')
-watch(() => info.value?.screen, (value) => { restyleScreen.value = value || 'none' }, { immediate: true })
+// Vide = c est la DA choisie qui decide de l ecran, comme dans son apercu.
+const restyleScreen = ref('')
+const restyleScreenOptions = computed(() => [
+  { value: '', label: 'Écran : comme la DA' },
+  ...(info.value?.screenChoices || []).map((c) => ({ value: c.value, label: `Écran : ${c.label.toLowerCase()}` })),
+])
 
 async function applyRestyle() {
   if (!restyleChoice.value) return
