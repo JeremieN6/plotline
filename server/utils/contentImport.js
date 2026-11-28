@@ -2,6 +2,7 @@
 // Fonctions pures : le televersement part directement du navigateur vers Vercel Blob (nginx limite les requetes a 25 Mo),
 // le serveur ne fait que delivrer le jeton, verifier les adresses recues et creer les contenus.
 import { MANUAL_PLATFORM_IDS } from './manualPublication.js';
+import { diskPathForUrl, getDiskPublicBase } from './diskStorage.js';
 
 export const IMPORT_PREFIX = 'imports';
 export const IMPORT_MAX_VIDEO_BYTES = 150 * 1024 * 1024;
@@ -46,9 +47,14 @@ export function importPathPrefix(userId) {
   return `${IMPORT_PREFIX}/${String(userId || '').trim()}/`;
 }
 
-/** Vrai seulement pour une adresse de fichier public Vercel Blob rangee dans le dossier d import DE CE COMPTE. */
+/** Vrai seulement pour un fichier de NOTRE stockage (disque ou Vercel Blob) range dans le dossier d import DE CE COMPTE. */
 export function isOwnImportUrl(url, userId) {
   if (!String(userId || '').trim()) return false;
+  const raw = String(url || '').trim();
+  if (diskPathForUrl(raw)) {
+    const folder = `${getDiskPublicBase()}/${importPathPrefix(userId)}`;
+    return !/[?#%]/.test(raw) && raw.startsWith(folder) && /^[a-zA-Z0-9_-][a-zA-Z0-9._-]*$/.test(raw.slice(folder.length));
+  }
   let parsed;
   try {
     parsed = new URL(String(url || ''));

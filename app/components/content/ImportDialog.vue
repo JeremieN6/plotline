@@ -194,11 +194,33 @@ function safeName(name) {
   return base.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(-80) || 'fichier'
 }
 
+// Stockage sur le disque du serveur : le fichier est le corps de la requete. XMLHttpRequest car fetch ne donne pas
+// l avancement d un envoi.
+function uploadToServer(row) {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest()
+    request.open('POST', `/api/content/import-file?name=${encodeURIComponent(safeName(row.file.name))}`)
+    request.setRequestHeader('Content-Type', row.file.type)
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) row.progress = Math.round((event.loaded / event.total) * 100)
+    }
+    request.onload = () => {
+      let body = null
+      try { body = JSON.parse(request.responseText) } catch { body = null }
+      if (request.status >= 200 && request.status < 300 && body?.url) resolve(body)
+      else if (request.status === 413) reject(new Error('Fichier refusé par le serveur : trop lourd.'))
+      else reject(new Error(body?.statusMessage || 'Envoi impossible.'))
+    }
+    request.onerror = () => reject(new Error('Envoi impossible : connexion interrompue.'))
+    request.send(row.file)
+  })
+}
+
 async function uploadRow(row) {
   row.state = 'uploading'
   row.progress = 0
   try {
-    const blob = await upload(`${usage.value.prefix}${safeName(row.file.name)}`, row.file, {
+    const blob = usage.value.mode === 'disk' ? await uploadToServer(row) : await upload(`${usage.value.prefix}${safeName(row.file.name)}`, row.file, {
       access: 'public',
       handleUploadUrl: '/api/content/import-upload',
       clientPayload: JSON.stringify({ contentType: row.file.type, size: row.file.size }),

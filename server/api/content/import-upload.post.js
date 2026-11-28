@@ -7,6 +7,8 @@ import {
   validateImportFile,
 } from '../../utils/contentImport.js';
 import { getBlobUsage } from '../../utils/blobUsage.js';
+import { isDiskStorageEnabled } from '../../utils/diskStorage.js';
+import { isDevWriteBlocked, DEV_WRITE_BLOCKED_MESSAGE } from '../../utils/blobStorage.js';
 
 // Jeton de televersement DIRECT navigateur -> Vercel Blob (le fichier ne passe pas par le serveur : nginx limite a 25 Mo).
 // Le jeton n autorise qu un chemin sous imports/<compte>/, un type et une taille bornes, et seulement s il reste de la place.
@@ -16,6 +18,13 @@ export default defineEventHandler(async (event) => {
 
   if (!String(process.env.BLOB_READ_WRITE_TOKEN || '').trim()) {
     return sendError(event, createError({ statusCode: 503, statusMessage: 'Stockage de fichiers non configuré' }));
+  }
+
+  if (isDiskStorageEnabled()) {
+    return sendError(event, createError({ statusCode: 409, statusMessage: 'Les fichiers sont désormais stockés sur le serveur : recharge la page' }));
+  }
+  if (isDevWriteBlocked()) {
+    return sendError(event, createError({ statusCode: 503, statusMessage: DEV_WRITE_BLOCKED_MESSAGE }));
   }
 
   const body = await readBody(event);

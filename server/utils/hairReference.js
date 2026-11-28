@@ -1,6 +1,7 @@
 import path from 'node:path';
 
 import { GoogleGenAI } from '@google/genai';
+import { diskPathForUrl } from './diskStorage.js';
 
 function normalizeContentTypeFromHeader(value) {
   return String(value || '').split(';')[0].trim().toLowerCase();
@@ -34,6 +35,12 @@ async function readImageSourceBuffer(imageSource, resolveLocalPath) {
   const source = String(imageSource || '').trim();
   if (!source) {
     throw new Error('Image source is missing');
+  }
+
+  const diskFile = diskPathForUrl(source);
+  if (diskFile) {
+    const { readFile } = await import('node:fs/promises');
+    return { buffer: await readFile(diskFile), mimeType: mimeFromExt(diskFile) };
   }
 
   if (/^https?:\/\//i.test(source)) {

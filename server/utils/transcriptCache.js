@@ -4,7 +4,8 @@ import { join } from 'node:path';
 
 import { list, put } from '@vercel/blob';
 
-import { isBlobStorageEnabled } from './blobStorage.js';
+import { isBlobStorageEnabled, isDevWriteBlocked } from './blobStorage.js';
+import { diskTarget, isDiskStorageEnabled, writeDiskMedia } from './diskStorage.js';
 import { ensureStorageDir } from './mediaStorage.js';
 
 /**
@@ -43,6 +44,13 @@ export function isUsableTranscript(data) {
 }
 
 async function readStored(pathname) {
+  if (isDiskStorageEnabled()) {
+    try {
+      return JSON.parse(await readFile(diskTarget(pathname).file, 'utf8'));
+    } catch {
+      return null;
+    }
+  }
   if (isBlobStorageEnabled()) {
     const found = await list({ prefix: pathname, limit: 5 });
     const blob = (found?.blobs || []).find((item) => item.pathname === pathname);
@@ -60,6 +68,11 @@ async function readStored(pathname) {
 
 async function writeStored(pathname, data) {
   const body = JSON.stringify(data);
+  if (isDevWriteBlocked()) return; // le cache est facultatif : rien n est ecrit en developpement
+  if (isDiskStorageEnabled()) {
+    await writeDiskMedia(pathname, body);
+    return;
+  }
   if (isBlobStorageEnabled()) {
     await put(pathname, body, { access: 'public', addRandomSuffix: false, allowOverwrite: true, contentType: 'application/json' });
     return;

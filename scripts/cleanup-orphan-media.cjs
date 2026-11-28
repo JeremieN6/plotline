@@ -175,6 +175,13 @@ async function main() {
 
   const shouldDelete = process.argv.includes('--delete');
 
+  // Ce script ne connait pas encore le stockage disque : apres la copie des anciens fichiers, tous les originaux
+  // Vercel paraitraient orphelins. L inventaire reste possible, jamais la suppression.
+  if (shouldDelete && String(process.env.MEDIA_STORAGE || '').trim().toLowerCase() === 'disk') {
+    console.error('Suppression bloquee : le script n est pas encore adapte au stockage disque (MEDIA_STORAGE=disk).');
+    process.exit(2);
+  }
+
   if (!process.env.DATABASE_URL) {
     console.error('DATABASE_URL absente. Verifiez .env.local');
     process.exit(2);

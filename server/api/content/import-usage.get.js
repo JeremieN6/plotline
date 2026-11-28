@@ -1,10 +1,28 @@
 import { BLOB_STORAGE_BUDGET_BYTES, importPathPrefix } from '../../utils/contentImport.js';
 import { getBlobUsage } from '../../utils/blobUsage.js';
+import { getDiskUsage, isDiskStorageEnabled } from '../../utils/diskStorage.js';
 
 // Place restante sur le stockage, pour griser l import avant d envoyer des fichiers qui feraient deborder le forfait gratuit.
 export default defineEventHandler(async (event) => {
   const authModule = await import('../../utils/auth.js');
   const user = await authModule.requireAuthUser(event);
+
+  if (isDiskStorageEnabled()) {
+    try {
+      const disk = await getDiskUsage();
+      return {
+        mode: 'disk',
+        prefix: importPathPrefix(user.id),
+        usedBytes: disk.bytes,
+        budgetBytes: disk.bytes + disk.availableBytes,
+        remainingBytes: disk.availableBytes,
+        complete: true,
+      };
+    } catch (err) {
+      console.error('[import-usage] disque illisible', { code: err?.code, message: err?.message });
+      return sendError(event, createError({ statusCode: 502, statusMessage: 'Lecture du stockage impossible' }));
+    }
+  }
 
   if (!String(process.env.BLOB_READ_WRITE_TOKEN || '').trim()) {
     return sendError(event, createError({ statusCode: 503, statusMessage: 'Stockage de fichiers non configuré' }));
@@ -13,6 +31,7 @@ export default defineEventHandler(async (event) => {
   try {
     const usage = await getBlobUsage();
     return {
+      mode: 'blob',
       prefix: importPathPrefix(user.id),
       usedBytes: usage.bytes,
       budgetBytes: BLOB_STORAGE_BUDGET_BYTES,

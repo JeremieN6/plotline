@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { isAbsoluteHttpUrl } from './blobStorage.js';
+import { diskPathForUrl } from './diskStorage.js';
 
 function mimeFromExt(filePath) {
   const ext = path.extname(filePath).toLowerCase();
@@ -59,6 +60,11 @@ export async function readImageSourceBuffer(imageSource) {
   const source = String(imageSource || '').trim();
   if (!source) {
     throw new Error('Image source is missing');
+  }
+
+  const diskFile = diskPathForUrl(source);
+  if (diskFile) {
+    return { buffer: await fs.readFile(diskFile), mimeType: mimeFromExt(diskFile), origin: source };
   }
 
   if (isAbsoluteHttpUrl(source)) {

@@ -1,7 +1,8 @@
 import fs from 'node:fs/promises';
 
-import { isAbsoluteHttpUrl, isBlobStorageEnabled } from './blobStorage.js';
+import { isAbsoluteHttpUrl, isBlobStorageEnabled, isDevWriteBlocked } from './blobStorage.js';
 import { resolveMediaPath } from './mediaStorage.js';
+import { diskPathForUrl } from './diskStorage.js';
 
 const MEDIA_URL_PREFIX = '/api/media/';
 
@@ -44,8 +45,15 @@ export async function deleteMediaByUrl(mediaUrl) {
   }
 
   try {
+    const diskFile = diskPathForUrl(raw);
+    if (diskFile) {
+      await fs.unlink(diskFile);
+      return true;
+    }
+
     if (isAbsoluteHttpUrl(raw)) {
-      if (!isBlobStorageEnabled()) {
+      // Seules les adresses Blob se suppriment chez Vercel, et jamais depuis un serveur de developpement bloque.
+      if (!isBlobStorageEnabled() || isDevWriteBlocked() || !raw.includes('.blob.vercel-storage.com/')) {
         return false;
       }
 

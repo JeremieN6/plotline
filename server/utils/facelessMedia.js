@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { isAbsoluteHttpUrl, isBlobStorageEnabled, uploadPublicMediaBuffer } from './blobStorage.js';
 import { LIBRARY_URL_PREFIX, libraryEntryFor, renderLibraryLogoPng } from './facelessLogoLibrary.js';
+import { diskPathForUrl } from './diskStorage.js';
 import { ensureStorageDir, resolveMediaPath, toMediaUrl } from './mediaStorage.js';
 
 /**
@@ -33,6 +34,9 @@ export async function readFacelessMedia(mediaUrl) {
 
   // Logo de la bibliotheque embarquee dans l outil (jamais une adresse venue du texte).
   if (url.startsWith(LIBRARY_URL_PREFIX)) return renderLibraryLogoPng(url.slice(LIBRARY_URL_PREFIX.length));
+
+  const diskFile = diskPathForUrl(url);
+  if (diskFile) return readFile(diskFile);
 
   if (isAbsoluteHttpUrl(url)) {
     const response = await fetch(url);
